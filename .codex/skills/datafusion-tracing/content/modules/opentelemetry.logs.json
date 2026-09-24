@@ -1,0 +1,73 @@
+[
+  {
+    "id": "65fa9de49f164822d54da084",
+    "path": "opentelemetry::logs",
+    "name": "logs",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod logs",
+    "docs": "# OpenTelemetry Logs Bridge API",
+    "span": {
+      "filename": "src/logs/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        11,
+        49
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"logs\")]"
+      },
+      {
+        "other": "#[<cfg_attr>(docsrs, doc(cfg(feature = \"logs\")))]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"logs\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          2174,
+          2175,
+          2176,
+          2177,
+          2178,
+          2179
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2180",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.logs.md",
+    "record_file": "modules/opentelemetry.logs.json",
+    "anchor": "op-65fa9de49f164822d54da084",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

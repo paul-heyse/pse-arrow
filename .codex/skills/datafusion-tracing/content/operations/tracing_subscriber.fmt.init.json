@@ -1,0 +1,78 @@
+[
+  {
+    "id": "a407aed5352eebedf333f2a1",
+    "path": "tracing_subscriber::fmt::init",
+    "name": "init",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn init()",
+    "docs": "Install a global tracing subscriber that listens for events and\nfilters based on the value of the [`RUST_LOG` environment variable].\n\nThe configuration of the subscriber initialized by this function\ndepends on what [feature flags](crate#feature-flags) are enabled.\n\nIf the `tracing-log` feature is enabled, this will also install\nthe LogTracer to convert `Log` records into `tracing` `Event`s.\n\nIf the `env-filter` feature is enabled, this is shorthand for\n\n```rust\n# use tracing_subscriber::EnvFilter;\ntracing_subscriber::fmt()\n    .with_env_filter(EnvFilter::from_default_env())\n    .init();\n```\n\n# Panics\nPanics if the initialization was unsuccessful, likely because a\nglobal subscriber was already installed by another call to `try_init`.\n\n[`RUST_LOG` environment variable]: crate::filter::EnvFilter::DEFAULT_ENV",
+    "span": {
+      "filename": "src/fmt/mod.rs",
+      "begin": [
+        1262,
+        1
+      ],
+      "end": [
+        1264,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::filter::EnvFilter::DEFAULT_ENV": 387,
+      "crate#feature-flags": 1522
+    },
+    "link_paths": {
+      "crate::filter::EnvFilter::DEFAULT_ENV": null,
+      "crate#feature-flags": "tracing_subscriber"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "3042",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.init.md",
+    "record_file": "operations/tracing_subscriber.fmt.init.json",
+    "anchor": "op-a407aed5352eebedf333f2a1",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::filter::EnvFilter::DEFAULT_ENV": "../operations/tracing_subscriber.filter.env.EnvFilter.md#op-f1696e92d214bc019af86519",
+      "crate#feature-flags": "../modules/tracing_subscriber.md#op-142f5fbb810835359ad5d716"
+    }
+  }
+]

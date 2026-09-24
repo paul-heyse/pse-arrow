@@ -1,0 +1,17 @@
+[
+  {
+    "kind": "open",
+    "id": 1,
+    "parent": null,
+    "name": "batch-control",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "close",
+    "id": 1,
+    "name": "batch-control",
+    "target": "contracts",
+    "fields": {}
+  }
+]

@@ -1,0 +1,60 @@
+[
+  {
+    "id": "c45070aa88b3630e47ea433f",
+    "path": "tracing::event",
+    "name": "event",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "macro",
+    "signature": "macro_rules! event",
+    "docs": "Constructs a new `Event`.\n\nThe event macro is invoked with a `Level` and up to 32 key-value fields.\nOptionally, a format string and arguments may follow the fields; this will\nbe used to construct an implicit field named \"message\".\n\nSee [the top-level documentation][lib] for details on the syntax accepted by\nthis macro.\n\n[lib]: crate#using-the-macros\n\n# Examples\n\n```rust\nuse tracing::{event, Level};\n\n# fn main() {\nlet data = (42, \"forty-two\");\nlet private_data = \"private\";\nlet error = \"a bad error\";\n\nevent!(Level::ERROR, %error, \"Received error\");\nevent!(\n    target: \"app_events\",\n    Level::WARN,\n    private_data,\n    ?data,\n    \"App warning: {}\",\n    error\n);\nevent!(name: \"answer\", Level::INFO, the_answer = data.0);\nevent!(Level::INFO, the_answer = data.0);\n# }\n```\n",
+    "span": {
+      "filename": "src/macros.rs",
+      "begin": [
+        615,
+        1
+      ],
+      "end": [
+        1053,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! event {\n    (name: $name:expr, target: $target:expr, parent: $parent:expr, $lvl:expr, { $($fields:tt)* } ) => { ... };\n    (name: $name:expr, target: $target:expr, parent: $parent:expr, $lvl:expr, { $($fields:tt)* }, $($arg:tt)+ ) => { ... };\n    (name: $name:expr, target: $target:expr, parent: $parent:expr, $lvl:expr, $($k:ident).+ = $($fields:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, parent: $parent:expr, $lvl:expr, $($arg:tt)+) => { ... };\n    (name: $name:expr, target: $target:expr, $lvl:expr, { $($fields:tt)* } ) => { ... };\n    (name: $name:expr, target: $target:expr, $lvl:expr, { $($fields:tt)* }, $($arg:tt)+ ) => { ... };\n    (name: $name:expr, target: $target:expr, $lvl:expr, $($k:ident).+ = $($fields:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, $lvl:expr, $($arg:tt)+) => { ... };\n    (target: $target:expr, parent: $parent:expr, $lvl:expr, { $($fields:tt)* } ) => { ... };\n    (target: $target:expr, parent: $parent:expr, $lvl:expr, { $($fields:tt)* }, $($arg:tt)+ ) => { ... };\n    (target: $target:expr, parent: $parent:expr, $lvl:expr, $($k:ident).+ = $($fields:tt)* ) => { ... };\n    (target: $target:expr, parent: $parent:expr, $lvl:expr, $($arg:tt)+) => { ... };\n    (name: $name:expr, parent: $parent:expr, $lvl:expr, { $($fields:tt)* } ) => { ... };\n    (name: $name:expr, parent: $parent:expr, $lvl:expr, { $($fields:tt)* }, $($arg:tt)+ ) => { ... };\n    (name: $name:expr, parent: $parent:expr, $lvl:expr, $($k:ident).+ = $($fields:tt)* ) => { ... };\n    (name: $name:expr, parent: $parent:expr, $lvl:expr, $($arg:tt)+) => { ... };\n    (name: $name:expr, $lvl:expr, { $($fields:tt)* } ) => { ... };\n    (name: $name:expr, $lvl:expr, { $($fields:tt)* }, $($arg:tt)+ ) => { ... };\n    (name: $name:expr, $lvl:expr, $($k:ident).+ = $($fields:tt)* ) => { ... };\n    (name: $name:expr, $lvl:expr, $($arg:tt)+ ) => { ... };\n    (target: $target:expr, $lvl:expr, { $($fields:tt)* } ) => { ... };\n    (target: $target:expr, $lvl:expr, { $($fields:tt)* }, $($arg:tt)+ ) => { ... };\n    (target: $target:expr, $lvl:expr, $($k:ident).+ = $($fields:tt)* ) => { ... };\n    (target: $target:expr, $lvl:expr, $($arg:tt)+ ) => { ... };\n    (parent: $parent:expr, $lvl:expr, { $($fields:tt)* }, $($arg:tt)+ ) => { ... };\n    (parent: $parent:expr, $lvl:expr, $($k:ident).+ = $($field:tt)*) => { ... };\n    (parent: $parent:expr, $lvl:expr, ?$($k:ident).+ = $($field:tt)*) => { ... };\n    (parent: $parent:expr, $lvl:expr, %$($k:ident).+ = $($field:tt)*) => { ... };\n    (parent: $parent:expr, $lvl:expr, $($k:ident).+, $($field:tt)*) => { ... };\n    (parent: $parent:expr, $lvl:expr, %$($k:ident).+, $($field:tt)*) => { ... };\n    (parent: $parent:expr, $lvl:expr, ?$($k:ident).+, $($field:tt)*) => { ... };\n    (parent: $parent:expr, $lvl:expr, $($arg:tt)+ ) => { ... };\n    ( $lvl:expr, { $($fields:tt)* }, $($arg:tt)+ ) => { ... };\n    ( $lvl:expr, { $($fields:tt)* }, $($arg:tt)+ ) => { ... };\n    ($lvl:expr, $($k:ident).+ = $($field:tt)*) => { ... };\n    ($lvl:expr, $($k:ident).+, $($field:tt)*) => { ... };\n    ($lvl:expr, ?$($k:ident).+, $($field:tt)*) => { ... };\n    ($lvl:expr, %$($k:ident).+, $($field:tt)*) => { ... };\n    ($lvl:expr, ?$($k:ident).+) => { ... };\n    ($lvl:expr, %$($k:ident).+) => { ... };\n    ($lvl:expr, $($k:ident).+) => { ... };\n    ( $lvl:expr, $($arg:tt)+ ) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate#using-the-macros": 385
+    },
+    "link_paths": {
+      "crate#using-the-macros": "tracing"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "386",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.event.md",
+    "record_file": "operations/tracing.event.json",
+    "anchor": "op-c45070aa88b3630e47ea433f",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate#using-the-macros": "../modules/tracing.md#op-9c1f7d23f358e3a0a8455190"
+    }
+  }
+]

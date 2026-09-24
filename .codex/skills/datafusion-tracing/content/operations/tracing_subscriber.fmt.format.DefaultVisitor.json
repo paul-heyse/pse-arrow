@@ -1,0 +1,1184 @@
+[
+  {
+    "id": "86dc315fc25bdd551b27ca6a",
+    "path": "tracing_subscriber::fmt::format::DefaultVisitor",
+    "name": "DefaultVisitor",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct DefaultVisitor<'a>",
+    "docs": "The [visitor] produced by [`DefaultFields`]'s [`MakeVisitor`] implementation.\n\n[visitor]: super::super::field::Visit\n[`MakeVisitor`]: super::super::field::MakeVisitor",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        1209,
+        1
+      ],
+      "end": [
+        1213,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          2225,
+          2226,
+          2227,
+          2228,
+          2229,
+          2230,
+          2231,
+          2232,
+          2233,
+          2234,
+          2235,
+          2236,
+          2237,
+          2238,
+          2239,
+          2240,
+          2241,
+          2243,
+          2247,
+          240,
+          267
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "super::super::field::MakeVisitor": 20,
+      "super::super::field::Visit": 82,
+      "`DefaultFields`": 225
+    },
+    "link_paths": {
+      "super::super::field::MakeVisitor": "tracing_subscriber::field::MakeVisitor",
+      "super::super::field::Visit": "tracing_core::field::Visit",
+      "`DefaultFields`": "tracing_subscriber::fmt::format::DefaultFields"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "222",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.DefaultVisitor.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.DefaultVisitor.json",
+    "anchor": "op-86dc315fc25bdd551b27ca6a",
+    "aliases": [],
+    "resolved_doc_links": {
+      "super::super::field::MakeVisitor": "../operations/tracing_subscriber.field.MakeVisitor.md#op-ee298e39fc8a5785910ade4f",
+      "super::super::field::Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b",
+      "`DefaultFields`": "../operations/tracing_subscriber.fmt.format.DefaultFields.md#op-2ac3921259826db0e8bdb02e"
+    }
+  },
+  {
+    "id": "d9a86b0f9e4a016497ef7d72",
+    "path": "tracing_subscriber::fmt::format::DefaultVisitor::finish",
+    "name": "finish",
+    "owner": "tracing_subscriber::fmt::format::DefaultVisitor",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn finish(self) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        1344,
+        5
+      ],
+      "end": [
+        1346,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DefaultVisitor",
+          "id": "tracing_subscriber::fmt::format::DefaultVisitor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "VisitOutput",
+        "id": "tracing_subscriber::field::VisitOutput",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "Result",
+                    "id": "core::result::Result",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "type": {
+                              "tuple": []
+                            }
+                          },
+                          {
+                            "type": {
+                              "resolved_path": {
+                                "path": "Error",
+                                "id": "core::fmt::Error",
+                                "args": null
+                              }
+                            }
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::field::VisitOutput",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          1343,
+          1
+        ],
+        "end": [
+          1347,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "239",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.DefaultVisitor.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.DefaultVisitor.json",
+    "anchor": "op-d9a86b0f9e4a016497ef7d72",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8b264d2b3f124d1ba011ce10",
+    "path": "tracing_subscriber::fmt::format::DefaultVisitor::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::format::DefaultVisitor",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        1208,
+        10
+      ],
+      "end": [
+        1208,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DefaultVisitor",
+          "id": "tracing_subscriber::fmt::format::DefaultVisitor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          1208,
+          10
+        ],
+        "end": [
+          1208,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2242",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.DefaultVisitor.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.DefaultVisitor.json",
+    "anchor": "op-8b264d2b3f124d1ba011ce10",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ed386d4c1fec3398bbab533f",
+    "path": "tracing_subscriber::fmt::format::DefaultVisitor::new",
+    "name": "new",
+    "owner": "tracing_subscriber::fmt::format::DefaultVisitor",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn new(writer: Writer<'a>, is_empty: bool) -> Self",
+    "docs": "Returns a new default visitor that formats to the provided `writer`.\n\n# Arguments\n- `writer`: the writer to format to.\n- `is_empty`: whether or not any fields have been previously written to\n  that writer.",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        1246,
+        5
+      ],
+      "end": [
+        1252,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "writer",
+              {
+                "resolved_path": {
+                  "path": "Writer",
+                  "id": 218,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'a"
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "is_empty",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "218": "tracing_subscriber::fmt::format::Writer"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DefaultVisitor",
+          "id": "tracing_subscriber::fmt::format::DefaultVisitor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          1239,
+          1
+        ],
+        "end": [
+          1261,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2224",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.DefaultVisitor.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.DefaultVisitor.json",
+    "anchor": "op-ed386d4c1fec3398bbab533f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b6ba790ea879bf2de5e87b6c",
+    "path": "tracing_subscriber::fmt::format::DefaultVisitor::record_debug",
+    "name": "record_debug",
+    "owner": "tracing_subscriber::fmt::format::DefaultVisitor",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug)",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        1299,
+        5
+      ],
+      "end": [
+        1340,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "value",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "fmt::Debug",
+                            "id": 68,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "tracing_core::field::Field",
+      "68": "core::fmt::Debug"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DefaultVisitor",
+          "id": "tracing_subscriber::fmt::format::DefaultVisitor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Visit",
+        "id": "tracing_core::field::Visit",
+        "args": null
+      },
+      "trait_path": "tracing_core::field::Visit",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          1263,
+          1
+        ],
+        "end": [
+          1341,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2246",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.DefaultVisitor.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.DefaultVisitor.json",
+    "anchor": "op-b6ba790ea879bf2de5e87b6c",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4dd4ea1b6c34311e45b25793",
+    "path": "tracing_subscriber::fmt::format::DefaultVisitor::record_error",
+    "name": "record_error",
+    "owner": "tracing_subscriber::fmt::format::DefaultVisitor",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn record_error(&mut self, field: &Field, value: &dyn std::error::Error + 'static)",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        1276,
+        5
+      ],
+      "end": [
+        1297,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "value",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "std::error::Error",
+                            "id": 502,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": "'static"
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "tracing_core::field::Field",
+      "502": "core::error::Error"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DefaultVisitor",
+          "id": "tracing_subscriber::fmt::format::DefaultVisitor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Visit",
+        "id": "tracing_core::field::Visit",
+        "args": null
+      },
+      "trait_path": "tracing_core::field::Visit",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          1263,
+          1
+        ],
+        "end": [
+          1341,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2245",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.DefaultVisitor.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.DefaultVisitor.json",
+    "anchor": "op-4dd4ea1b6c34311e45b25793",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "75ecc9084b923945336e7853",
+    "path": "tracing_subscriber::fmt::format::DefaultVisitor::record_str",
+    "name": "record_str",
+    "owner": "tracing_subscriber::fmt::format::DefaultVisitor",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn record_str(&mut self, field: &Field, value: &str)",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        1264,
+        5
+      ],
+      "end": [
+        1274,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "value",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "tracing_core::field::Field"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DefaultVisitor",
+          "id": "tracing_subscriber::fmt::format::DefaultVisitor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Visit",
+        "id": "tracing_core::field::Visit",
+        "args": null
+      },
+      "trait_path": "tracing_core::field::Visit",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          1263,
+          1
+        ],
+        "end": [
+          1341,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2244",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.DefaultVisitor.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.DefaultVisitor.json",
+    "anchor": "op-75ecc9084b923945336e7853",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "99e94c7b079e2a2c45e4a252",
+    "path": "tracing_subscriber::fmt::format::DefaultVisitor::writer",
+    "name": "writer",
+    "owner": "tracing_subscriber::fmt::format::DefaultVisitor",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn writer(&mut self) -> &mut dyn fmt::Write",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        1350,
+        5
+      ],
+      "end": [
+        1352,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "dyn_trait": {
+                  "traits": [
+                    {
+                      "trait": {
+                        "path": "fmt::Write",
+                        "id": 91,
+                        "args": null
+                      },
+                      "generic_params": []
+                    }
+                  ],
+                  "lifetime": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "91": "core::fmt::Write"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DefaultVisitor",
+          "id": "tracing_subscriber::fmt::format::DefaultVisitor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "VisitFmt",
+        "id": "tracing_subscriber::field::VisitFmt",
+        "args": null
+      },
+      "trait_path": "tracing_subscriber::field::VisitFmt",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          1349,
+          1
+        ],
+        "end": [
+          1353,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "266",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.DefaultVisitor.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.DefaultVisitor.json",
+    "anchor": "op-99e94c7b079e2a2c45e4a252",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

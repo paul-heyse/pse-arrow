@@ -1,0 +1,367 @@
+[
+  {
+    "id": "e261fe03f8ec2adecc6ef339",
+    "path": "opentelemetry_sdk::trace::sampler::ShouldSample",
+    "name": "ShouldSample",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait ShouldSample: CloneShouldSample + Send + Sync + std::fmt::Debug",
+    "docs": "The [`ShouldSample`] interface allows implementations to provide samplers\nwhich will return a sampling [`SamplingResult`] based on information that\nis typically available just before the [`Span`] was created.\n\n# Sampling\n\nSampling is a mechanism to control the noise and overhead introduced by\nOpenTelemetry by reducing the number of samples of traces collected and\nsent to the backend.\n\nSampling may be implemented on different stages of a trace collection.\n[OpenTelemetry SDK] defines a [`ShouldSample`] interface that can be used at\ninstrumentation points by libraries to check the sampling [`SamplingDecision`]\nearly and optimize the amount of telemetry that needs to be collected.\n\nAll other sampling algorithms may be implemented on SDK layer in exporters,\nor even out of process in Agent or Collector.\n\nThe OpenTelemetry API has two properties responsible for the data collection:\n\n* [`Span::is_recording()`]. If `true` the current [`Span`] records\n  tracing events (attributes, events, status, etc.), otherwise all tracing\n  events are dropped. Users can use this property to determine if expensive\n  trace events can be avoided. [`SpanProcessor`]s will receive\n  all spans with this flag set. However, [`SpanExporter`]s will\n  not receive them unless the `Sampled` flag was set.\n* `Sampled` flag in [`SpanContext::trace_flags()`]. This flag is propagated\n  via the [`SpanContext`] to child Spans. For more details see the [W3C\n  specification](https://w3c.github.io/trace-context/). This flag indicates\n  that the [`Span`] has been `sampled` and will be exported. [`SpanProcessor`]s\n  and [`SpanExporter`]s will receive spans with the `Sampled` flag set for\n  processing.\n\nThe flag combination `Sampled == false` and `is_recording == true` means\nthat the current `Span` does record information, but most likely the child\n`Span` will not.\n\nThe flag combination `Sampled == true` and `is_recording == false` could\ncause gaps in the distributed trace, and because of this OpenTelemetry API\nMUST NOT allow this combination.\n\n[OpenTelemetry SDK]: https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/sdk.md#sampling\n[`SpanContext`]: opentelemetry::trace::SpanContext\n[`SpanContext::trace_flags()`]: opentelemetry::trace::SpanContext#method.trace_flags\n[`SpanExporter`]: crate::trace::SpanExporter\n[`SpanProcessor`]: crate::trace::SpanProcessor\n[`Span`]: opentelemetry::trace::Span\n[`Span::is_recording()`]: opentelemetry::trace::Span#tymethod.is_recording",
+    "span": {
+      "filename": "src/trace/sampler.rs",
+      "begin": [
+        64,
+        1
+      ],
+      "end": [
+        83,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          2738
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "CloneShouldSample",
+                "id": 2739,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Send",
+                "id": 16,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Sync",
+                "id": 18,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "std::fmt::Debug",
+                "id": 72,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          2729,
+          2741
+        ]
+      }
+    },
+    "type_references": {
+      "2739": "opentelemetry_sdk::trace::sampler::CloneShouldSample",
+      "16": "core::marker::Send",
+      "18": "core::marker::Sync",
+      "72": "core::fmt::Debug"
+    },
+    "impl_context": null,
+    "links": {
+      "opentelemetry::trace::Span": 2597,
+      "`ShouldSample`": 2311,
+      "opentelemetry::trace::Span#tymethod.is_recording": 2597,
+      "crate::trace::SpanProcessor": 2623,
+      "opentelemetry::trace::SpanContext#method.trace_flags": 458,
+      "crate::trace::SpanExporter": 2290,
+      "`SamplingResult`": 2728,
+      "opentelemetry::trace::SpanContext": 458,
+      "`SamplingDecision`": 2737
+    },
+    "link_paths": {
+      "opentelemetry::trace::Span": "opentelemetry::trace::span::Span",
+      "`ShouldSample`": "opentelemetry_sdk::trace::sampler::ShouldSample",
+      "opentelemetry::trace::Span#tymethod.is_recording": "opentelemetry::trace::span::Span",
+      "crate::trace::SpanProcessor": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+      "opentelemetry::trace::SpanContext#method.trace_flags": "opentelemetry::trace::span_context::SpanContext",
+      "crate::trace::SpanExporter": "opentelemetry_sdk::trace::export::SpanExporter",
+      "`SamplingResult`": "opentelemetry::trace::tracer::SamplingResult",
+      "opentelemetry::trace::SpanContext": "opentelemetry::trace::span_context::SpanContext",
+      "`SamplingDecision`": "opentelemetry::trace::tracer::SamplingDecision"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2311",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.ShouldSample.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.ShouldSample.json",
+    "anchor": "op-e261fe03f8ec2adecc6ef339",
+    "aliases": [
+      "opentelemetry_sdk::trace::ShouldSample"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::trace::Span": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8",
+      "`ShouldSample`": "../operations/opentelemetry_sdk.trace.sampler.ShouldSample.md#op-e261fe03f8ec2adecc6ef339",
+      "opentelemetry::trace::Span#tymethod.is_recording": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8",
+      "crate::trace::SpanProcessor": "../operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.md#op-d354c01a6b0b4f29c191ace7",
+      "opentelemetry::trace::SpanContext#method.trace_flags": "../operations/opentelemetry.trace.span_context.SpanContext.md#op-f21a0f1d9f45c44092215518",
+      "crate::trace::SpanExporter": "../operations/opentelemetry_sdk.trace.export.SpanExporter.md#op-a27301be3bc2ee4d49a48c4a",
+      "`SamplingResult`": "../operations/opentelemetry.trace.tracer.SamplingResult.md#op-e423c1725dcb165dcc01f8f4",
+      "opentelemetry::trace::SpanContext": "../operations/opentelemetry.trace.span_context.SpanContext.md#op-f21a0f1d9f45c44092215518",
+      "`SamplingDecision`": "../operations/opentelemetry.trace.tracer.SamplingDecision.md#op-29fe2075c223853678046a1f"
+    }
+  },
+  {
+    "id": "0483327ff4b358d3b3605811",
+    "path": "opentelemetry_sdk::trace::sampler::ShouldSample::should_sample",
+    "name": "should_sample",
+    "owner": "opentelemetry_sdk::trace::sampler::ShouldSample",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn should_sample(&self, parent_context: Option<&Context>, trace_id: TraceId, name: &str, span_kind: &SpanKind, attributes: &[KeyValue], links: &[Link]) -> SamplingResult",
+    "docs": "Returns the [`SamplingDecision`] for a [`Span`] to be created.\n\nThe [`should_sample`] function can use any of the information provided to it in order to\nmake a decision about whether or not a [`Span`] should or should not be sampled. However,\nthere are performance implications on the creation of a span\n\n[`Span`]: opentelemetry::trace::Span\n[`should_sample`]: ShouldSample::should_sample",
+    "span": {
+      "filename": "src/trace/sampler.rs",
+      "begin": [
+        74,
+        5
+      ],
+      "end": [
+        82,
+        25
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[allow(clippy::too_many_arguments)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "parent_context",
+              {
+                "resolved_path": {
+                  "path": "Option",
+                  "id": 208,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": false,
+                              "type": {
+                                "resolved_path": {
+                                  "path": "Context",
+                                  "id": 1911,
+                                  "args": null
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "trace_id",
+              {
+                "resolved_path": {
+                  "path": "TraceId",
+                  "id": 422,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ],
+            [
+              "span_kind",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "SpanKind",
+                      "id": 2452,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "attributes",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "slice": {
+                      "resolved_path": {
+                        "path": "KeyValue",
+                        "id": 930,
+                        "args": null
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "links",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "slice": {
+                      "resolved_path": {
+                        "path": "Link",
+                        "id": 2529,
+                        "args": null
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "SamplingResult",
+              "id": 2728,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "208": "core::option::Option",
+      "1911": "opentelemetry::context::Context",
+      "422": "opentelemetry::trace_context::TraceId",
+      "2452": "opentelemetry::trace::span::SpanKind",
+      "930": "opentelemetry::common::KeyValue",
+      "2529": "opentelemetry::trace::Link",
+      "2728": "opentelemetry::trace::tracer::SamplingResult"
+    },
+    "impl_context": null,
+    "links": {
+      "opentelemetry::trace::Span": 2597,
+      "ShouldSample::should_sample": 2738,
+      "`SamplingDecision`": 2737
+    },
+    "link_paths": {
+      "opentelemetry::trace::Span": "opentelemetry::trace::span::Span",
+      "ShouldSample::should_sample": null,
+      "`SamplingDecision`": "opentelemetry::trace::tracer::SamplingDecision"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2738",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.ShouldSample.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.ShouldSample.json",
+    "anchor": "op-0483327ff4b358d3b3605811",
+    "aliases": [
+      "opentelemetry_sdk::trace::ShouldSample::should_sample"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::trace::Span": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8",
+      "ShouldSample::should_sample": "../operations/opentelemetry_sdk.trace.sampler.ShouldSample.md#op-0483327ff4b358d3b3605811",
+      "`SamplingDecision`": "../operations/opentelemetry.trace.tracer.SamplingDecision.md#op-29fe2075c223853678046a1f"
+    }
+  }
+]

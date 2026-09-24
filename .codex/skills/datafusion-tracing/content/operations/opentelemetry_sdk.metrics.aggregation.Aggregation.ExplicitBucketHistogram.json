@@ -1,0 +1,123 @@
+[
+  {
+    "id": "c6a3e9bcbcabd5fa3b0bb714",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::ExplicitBucketHistogram::boundaries",
+    "name": "boundaries",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation::ExplicitBucketHistogram",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "boundaries: Vec<f64>",
+    "docs": "The increasing bucket boundary values.\n\nBoundary values define bucket upper bounds. Buckets are exclusive of their\nlower boundary and inclusive of their upper bound (except at positive\ninfinity). A measurement is defined to fall into the greatest-numbered\nbucket with a boundary that is greater than or equal to the measurement. As\nan example, boundaries defined as:\n\nvec![0.0, 5.0, 10.0, 25.0, 50.0, 75.0, 100.0, 250.0, 500.0, 750.0,\n1000.0, 2500.0, 5000.0, 7500.0, 10000.0];\n\nWill define these buckets:\n\n(-∞, 0], (0, 5.0], (5.0, 10.0], (10.0, 25.0], (25.0, 50.0], (50.0,\n 75.0], (75.0, 100.0], (100.0, 250.0], (250.0, 500.0], (500.0,\n 750.0], (750.0, 1000.0], (1000.0, 2500.0], (2500.0, 5000.0],\n (5000.0, 7500.0], (7500.0, 10000.0], (10000.0, +∞)",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        53,
+        9
+      ],
+      "end": [
+        53,
+        29
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Vec",
+          "id": 493,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "primitive": "f64"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "493": "alloc::vec::Vec"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "715",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.ExplicitBucketHistogram.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.ExplicitBucketHistogram.json",
+    "anchor": "op-c6a3e9bcbcabd5fa3b0bb714",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dd3551c701062105fb6dc3c8",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::ExplicitBucketHistogram::record_min_max",
+    "name": "record_min_max",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation::ExplicitBucketHistogram",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "record_min_max: bool",
+    "docs": "Indicates whether to not record the min and max of the distribution.\n\nBy default, these values are recorded.\n\nRecording these values for cumulative data is expected to have little\nvalue, they will represent the entire life of the instrument instead of\njust the current collection cycle. It is recommended to set this to\n`false` for that type of data to avoid computing the low-value\ninstances.",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        64,
+        9
+      ],
+      "end": [
+        64,
+        29
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "bool"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "716",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.ExplicitBucketHistogram.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.ExplicitBucketHistogram.json",
+    "anchor": "op-dd3551c701062105fb6dc3c8",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

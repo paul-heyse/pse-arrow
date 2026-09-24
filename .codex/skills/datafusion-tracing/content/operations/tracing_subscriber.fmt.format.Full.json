@@ -1,0 +1,604 @@
+[
+  {
+    "id": "b6feb895c3a5317d8f8397fd",
+    "path": "tracing_subscriber::fmt::format::Full",
+    "name": "Full",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct Full",
+    "docs": "Marker for [`Format`] that indicates that the default log format should be used.\n\nThis formatter shows the span context before printing event data. Spans are\ndisplayed including their names and fields.\n\n# Example Output\n\n<pre><font color=\"#4E9A06\"><b>:;</b></font> <font color=\"#4E9A06\">cargo</font> run --example fmt\n<font color=\"#4E9A06\"><b>    Finished</b></font> dev [unoptimized + debuginfo] target(s) in 0.08s\n<font color=\"#4E9A06\"><b>     Running</b></font> `target/debug/examples/fmt`\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.289898Z </font><font color=\"#4E9A06\"> INFO</font> fmt: preparing to shave yaks <i>number_of_yaks</i><font color=\"#AAAAAA\">=3</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.289974Z </font><font color=\"#4E9A06\"> INFO</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: shaving yaks</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290011Z </font><font color=\"#75507B\">TRACE</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">:</font><b>shave{</b><i>yak</i><font color=\"#AAAAAA\">=1</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: hello! I&apos;m gonna shave a yak </font><i>excitement</i><font color=\"#AAAAAA\">=&quot;yay!&quot;</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290038Z </font><font color=\"#75507B\">TRACE</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">:</font><b>shave{</b><i>yak</i><font color=\"#AAAAAA\">=1</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: yak shaved successfully</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290070Z </font><font color=\"#3465A4\">DEBUG</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: yak_events: </font><i>yak</i><font color=\"#AAAAAA\">=1 </font><i>shaved</i><font color=\"#AAAAAA\">=true</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290089Z </font><font color=\"#75507B\">TRACE</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: </font><i>yaks_shaved</i><font color=\"#AAAAAA\">=1</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290114Z </font><font color=\"#75507B\">TRACE</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">:</font><b>shave{</b><i>yak</i><font color=\"#AAAAAA\">=2</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: hello! I&apos;m gonna shave a yak </font><i>excitement</i><font color=\"#AAAAAA\">=&quot;yay!&quot;</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290134Z </font><font color=\"#75507B\">TRACE</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">:</font><b>shave{</b><i>yak</i><font color=\"#AAAAAA\">=2</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: yak shaved successfully</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290157Z </font><font color=\"#3465A4\">DEBUG</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: yak_events: </font><i>yak</i><font color=\"#AAAAAA\">=2 </font><i>shaved</i><font color=\"#AAAAAA\">=true</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290174Z </font><font color=\"#75507B\">TRACE</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: </font><i>yaks_shaved</i><font color=\"#AAAAAA\">=2</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290198Z </font><font color=\"#75507B\">TRACE</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">:</font><b>shave{</b><i>yak</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: hello! I&apos;m gonna shave a yak </font><i>excitement</i><font color=\"#AAAAAA\">=&quot;yay!&quot;</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290222Z </font><font color=\"#C4A000\"> WARN</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">:</font><b>shave{</b><i>yak</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: could not locate yak</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290247Z </font><font color=\"#3465A4\">DEBUG</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: yak_events: </font><i>yak</i><font color=\"#AAAAAA\">=3 </font><i>shaved</i><font color=\"#AAAAAA\">=false</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290268Z </font><font color=\"#CC0000\">ERROR</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: failed to shave yak </font><i>yak</i><font color=\"#AAAAAA\">=3 </font><i>error</i><font color=\"#AAAAAA\">=missing yak </font><i>error.sources</i><font color=\"#AAAAAA\">=[out of space, out of cash]</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290287Z </font><font color=\"#75507B\">TRACE</font> <b>shaving_yaks{</b><i>yaks</i><font color=\"#AAAAAA\">=3</font><b>}</b><font color=\"#AAAAAA\">: fmt::yak_shave: </font><i>yaks_shaved</i><font color=\"#AAAAAA\">=2</font>\n<font color=\"#AAAAAA\">2022-02-15T18:40:14.290309Z </font><font color=\"#4E9A06\"> INFO</font> fmt: yak shaving completed. <i>all_yaks_shaved</i><font color=\"#AAAAAA\">=false</font>\n</pre>",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        392,
+        1
+      ],
+      "end": [
+        392,
+        17
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": "unit",
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2115,
+          2116,
+          2117,
+          2118,
+          2119,
+          2120,
+          2121,
+          2122,
+          2123,
+          2124,
+          2125,
+          2126,
+          2127,
+          2128,
+          2129,
+          2130,
+          2131,
+          2132,
+          2134,
+          2136,
+          2137,
+          2139,
+          2140,
+          2141,
+          2143
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Format`": 1648
+    },
+    "link_paths": {
+      "`Format`": "tracing_subscriber::fmt::format::Format"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1649",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.Full.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.Full.json",
+    "anchor": "op-b6feb895c3a5317d8f8397fd",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`Format`": "../operations/tracing_subscriber.fmt.format.Format.md#op-758341dc152c0b1f07c0c605"
+    }
+  },
+  {
+    "id": "b172f4ed551437bd06f4194f",
+    "path": "tracing_subscriber::fmt::format::Full::clone",
+    "name": "clone",
+    "owner": "tracing_subscriber::fmt::format::Full",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Full",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        391,
+        32
+      ],
+      "end": [
+        391,
+        37
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Full",
+              "id": 1649,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1649": "tracing_subscriber::fmt::format::Full"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Full",
+          "id": "tracing_subscriber::fmt::format::Full",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          391,
+          32
+        ],
+        "end": [
+          391,
+          37
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2138",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.Full.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.Full.json",
+    "anchor": "op-b172f4ed551437bd06f4194f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f61b3c01e513a2fc5b62abb5",
+    "path": "tracing_subscriber::fmt::format::Full::default",
+    "name": "default",
+    "owner": "tracing_subscriber::fmt::format::Full",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn default() -> Full",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        391,
+        10
+      ],
+      "end": [
+        391,
+        17
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "Full",
+              "id": 1649,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1649": "tracing_subscriber::fmt::format::Full"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Full",
+          "id": "tracing_subscriber::fmt::format::Full",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          391,
+          10
+        ],
+        "end": [
+          391,
+          17
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2133",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.Full.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.Full.json",
+    "anchor": "op-f61b3c01e513a2fc5b62abb5",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "68c22d4fa7e27ab75d16b843",
+    "path": "tracing_subscriber::fmt::format::Full::eq",
+    "name": "eq",
+    "owner": "tracing_subscriber::fmt::format::Full",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &Full) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        391,
+        43
+      ],
+      "end": [
+        391,
+        52
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Full",
+                      "id": 1649,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1649": "tracing_subscriber::fmt::format::Full"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Full",
+          "id": "tracing_subscriber::fmt::format::Full",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          391,
+          43
+        ],
+        "end": [
+          391,
+          52
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2142",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.Full.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.Full.json",
+    "anchor": "op-68c22d4fa7e27ab75d16b843",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "026e96d65e626ffc9270588b",
+    "path": "tracing_subscriber::fmt::format::Full::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::format::Full",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        391,
+        19
+      ],
+      "end": [
+        391,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Full",
+          "id": "tracing_subscriber::fmt::format::Full",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/mod.rs",
+        "begin": [
+          391,
+          19
+        ],
+        "end": [
+          391,
+          24
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2135",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.Full.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.Full.json",
+    "anchor": "op-026e96d65e626ffc9270588b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

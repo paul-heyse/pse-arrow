@@ -1,0 +1,2078 @@
+[
+  {
+    "id": "d995d7e2ac529a7122bfd456",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited",
+    "name": "VisitDelimited",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct VisitDelimited<D, V>",
+    "docs": "A visitor wrapper that inserts a delimiter after the wrapped visitor formats\na field value.",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        18,
+        1
+      ],
+      "end": [
+        23,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "D",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "V",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          133,
+          134,
+          135,
+          136,
+          137,
+          138,
+          139,
+          140,
+          141,
+          142,
+          143,
+          144,
+          145,
+          146,
+          147,
+          148,
+          149,
+          151,
+          157,
+          159,
+          162
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "124",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-d995d7e2ac529a7122bfd456",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c992af06a3b2ec28b6a00028",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited::finish",
+    "name": "finish",
+    "owner": "tracing_subscriber::field::delimited::VisitDelimited",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn finish(self) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        119,
+        5
+      ],
+      "end": [
+        122,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "VisitDelimited",
+          "id": "tracing_subscriber::field::delimited::VisitDelimited",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "D"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "V"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "VisitOutput",
+        "id": "tracing_subscriber::field::VisitOutput",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "Result",
+                    "id": "core::result::Result",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "type": {
+                              "tuple": []
+                            }
+                          },
+                          {
+                            "type": {
+                              "resolved_path": {
+                                "path": "Error",
+                                "id": "core::fmt::Error",
+                                "args": null
+                              }
+                            }
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::field::VisitOutput",
+      "generics": {
+        "params": [
+          {
+            "name": "D",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "V"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "VisitFmt",
+                      "id": "tracing_subscriber::field::VisitFmt",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "D"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "AsRef",
+                      "id": "core::convert::AsRef",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field/delimited.rs",
+        "begin": [
+          114,
+          1
+        ],
+        "end": [
+          123,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "158",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-c992af06a3b2ec28b6a00028",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ca60b89577ec03ac368b0fb7",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::field::delimited::VisitDelimited",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        17,
+        10
+      ],
+      "end": [
+        17,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "VisitDelimited",
+          "id": "tracing_subscriber::field::delimited::VisitDelimited",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "D"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "V"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "D",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field/delimited.rs",
+        "begin": [
+          17,
+          10
+        ],
+        "end": [
+          17,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "150",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-ca60b89577ec03ac368b0fb7",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "27f63fb9e46144f67b19d2ba",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited::new",
+    "name": "new",
+    "owner": "tracing_subscriber::field::delimited::VisitDelimited",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn new(delimiter: D, inner: V) -> Self",
+    "docs": "Returns a new [`Visit`] implementation that wraps `inner` so that\neach formatted field is separated by the provided `delimiter`.\n\n[`Visit`]: tracing_core::field::Visit",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        57,
+        5
+      ],
+      "end": [
+        64,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "delimiter",
+              {
+                "generic": "D"
+              }
+            ],
+            [
+              "inner",
+              {
+                "generic": "V"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "VisitDelimited",
+          "id": "tracing_subscriber::field::delimited::VisitDelimited",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "D"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "V"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "D",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field/delimited.rs",
+        "begin": [
+          52,
+          1
+        ],
+        "end": [
+          81,
+          2
+        ]
+      }
+    },
+    "links": {
+      "tracing_core::field::Visit": 82
+    },
+    "link_paths": {
+      "tracing_core::field::Visit": "tracing_core::field::Visit"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "132",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-27f63fb9e46144f67b19d2ba",
+    "aliases": [],
+    "resolved_doc_links": {
+      "tracing_core::field::Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b"
+    }
+  },
+  {
+    "id": "8ca2e1c306a91b941a64c441",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited::record_bool",
+    "name": "record_bool",
+    "owner": "tracing_subscriber::field::delimited::VisitDelimited",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn record_bool(&mut self, field: &Field, value: bool)",
+    "docs": "",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        98,
+        5
+      ],
+      "end": [
+        101,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "value",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "tracing_core::field::Field"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "VisitDelimited",
+          "id": "tracing_subscriber::field::delimited::VisitDelimited",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "D"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "V"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Visit",
+        "id": "tracing_core::field::Visit",
+        "args": null
+      },
+      "trait_path": "tracing_core::field::Visit",
+      "generics": {
+        "params": [
+          {
+            "name": "D",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "V"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "VisitFmt",
+                      "id": "tracing_subscriber::field::VisitFmt",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "D"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "AsRef",
+                      "id": "core::convert::AsRef",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field/delimited.rs",
+        "begin": [
+          83,
+          1
+        ],
+        "end": [
+          112,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "154",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-8ca2e1c306a91b941a64c441",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "42e74590a0e3866e74bae1e1",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited::record_debug",
+    "name": "record_debug",
+    "owner": "tracing_subscriber::field::delimited::VisitDelimited",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug)",
+    "docs": "",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        108,
+        5
+      ],
+      "end": [
+        111,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "value",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "fmt::Debug",
+                            "id": 68,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "tracing_core::field::Field",
+      "68": "core::fmt::Debug"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "VisitDelimited",
+          "id": "tracing_subscriber::field::delimited::VisitDelimited",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "D"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "V"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Visit",
+        "id": "tracing_core::field::Visit",
+        "args": null
+      },
+      "trait_path": "tracing_core::field::Visit",
+      "generics": {
+        "params": [
+          {
+            "name": "D",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "V"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "VisitFmt",
+                      "id": "tracing_subscriber::field::VisitFmt",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "D"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "AsRef",
+                      "id": "core::convert::AsRef",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field/delimited.rs",
+        "begin": [
+          83,
+          1
+        ],
+        "end": [
+          112,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "156",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-42e74590a0e3866e74bae1e1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "094847cdd8a193050e992cee",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited::record_i64",
+    "name": "record_i64",
+    "owner": "tracing_subscriber::field::delimited::VisitDelimited",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn record_i64(&mut self, field: &Field, value: i64)",
+    "docs": "",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        88,
+        5
+      ],
+      "end": [
+        91,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "value",
+              {
+                "primitive": "i64"
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "tracing_core::field::Field"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "VisitDelimited",
+          "id": "tracing_subscriber::field::delimited::VisitDelimited",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "D"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "V"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Visit",
+        "id": "tracing_core::field::Visit",
+        "args": null
+      },
+      "trait_path": "tracing_core::field::Visit",
+      "generics": {
+        "params": [
+          {
+            "name": "D",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "V"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "VisitFmt",
+                      "id": "tracing_subscriber::field::VisitFmt",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "D"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "AsRef",
+                      "id": "core::convert::AsRef",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field/delimited.rs",
+        "begin": [
+          83,
+          1
+        ],
+        "end": [
+          112,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "152",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-094847cdd8a193050e992cee",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0908fd998ade20ffa9c58044",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited::record_str",
+    "name": "record_str",
+    "owner": "tracing_subscriber::field::delimited::VisitDelimited",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn record_str(&mut self, field: &Field, value: &str)",
+    "docs": "",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        103,
+        5
+      ],
+      "end": [
+        106,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "value",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "tracing_core::field::Field"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "VisitDelimited",
+          "id": "tracing_subscriber::field::delimited::VisitDelimited",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "D"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "V"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Visit",
+        "id": "tracing_core::field::Visit",
+        "args": null
+      },
+      "trait_path": "tracing_core::field::Visit",
+      "generics": {
+        "params": [
+          {
+            "name": "D",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "V"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "VisitFmt",
+                      "id": "tracing_subscriber::field::VisitFmt",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "D"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "AsRef",
+                      "id": "core::convert::AsRef",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field/delimited.rs",
+        "begin": [
+          83,
+          1
+        ],
+        "end": [
+          112,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "155",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-0908fd998ade20ffa9c58044",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3d4d09d0ff148ce0e76fdb36",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited::record_u64",
+    "name": "record_u64",
+    "owner": "tracing_subscriber::field::delimited::VisitDelimited",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn record_u64(&mut self, field: &Field, value: u64)",
+    "docs": "",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        93,
+        5
+      ],
+      "end": [
+        96,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "value",
+              {
+                "primitive": "u64"
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "tracing_core::field::Field"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "VisitDelimited",
+          "id": "tracing_subscriber::field::delimited::VisitDelimited",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "D"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "V"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Visit",
+        "id": "tracing_core::field::Visit",
+        "args": null
+      },
+      "trait_path": "tracing_core::field::Visit",
+      "generics": {
+        "params": [
+          {
+            "name": "D",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "V"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "VisitFmt",
+                      "id": "tracing_subscriber::field::VisitFmt",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "D"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "AsRef",
+                      "id": "core::convert::AsRef",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field/delimited.rs",
+        "begin": [
+          83,
+          1
+        ],
+        "end": [
+          112,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "153",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-3d4d09d0ff148ce0e76fdb36",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "878ffa21674ae4d9e06f02f8",
+    "path": "tracing_subscriber::field::delimited::VisitDelimited::writer",
+    "name": "writer",
+    "owner": "tracing_subscriber::field::delimited::VisitDelimited",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn writer(&mut self) -> &mut dyn fmt::Write",
+    "docs": "",
+    "span": {
+      "filename": "src/field/delimited.rs",
+      "begin": [
+        130,
+        5
+      ],
+      "end": [
+        132,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "dyn_trait": {
+                  "traits": [
+                    {
+                      "trait": {
+                        "path": "fmt::Write",
+                        "id": 91,
+                        "args": null
+                      },
+                      "generic_params": []
+                    }
+                  ],
+                  "lifetime": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "91": "core::fmt::Write"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "VisitDelimited",
+          "id": "tracing_subscriber::field::delimited::VisitDelimited",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "D"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "V"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "VisitFmt",
+        "id": "tracing_subscriber::field::VisitFmt",
+        "args": null
+      },
+      "trait_path": "tracing_subscriber::field::VisitFmt",
+      "generics": {
+        "params": [
+          {
+            "name": "D",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "V"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "VisitFmt",
+                      "id": "tracing_subscriber::field::VisitFmt",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "D"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "AsRef",
+                      "id": "core::convert::AsRef",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field/delimited.rs",
+        "begin": [
+          125,
+          1
+        ],
+        "end": [
+          133,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "161",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.delimited.VisitDelimited.md",
+    "record_file": "operations/tracing_subscriber.field.delimited.VisitDelimited.json",
+    "anchor": "op-878ffa21674ae4d9e06f02f8",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

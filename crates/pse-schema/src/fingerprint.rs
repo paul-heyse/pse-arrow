@@ -1,129 +1,109 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! The registry fingerprint and the per-relation fingerprint (blueprint §4.3, §5.3).
-//!
-//! Two digests with two jobs. The *registry* fingerprint enters every snapshot frame, every
-//! stage key and every canonical preimage: it identifies the declared schema content. The
-//! *relation* fingerprint is the `pse.contract.fingerprint` metadata value that identifies
-//! one declaration. Neither digest admits a batch or proves a cached artifact is valid:
-//! readers still validate its exact schema, metadata, arrays and semantic constraints.
-//!
-//! Both are keyed with [`pse_ids::derive::context::REGISTRY`] and framed with
-//! [`pse_ids::FramedHasher`], so the framing rules of ADR-0050 hold here with no second
-//! implementation. [`FRAME_VERSION`] versions that framing, independently of changes to
-//! the declared rows it contains. Every stored `logical_hash` and `snapshot_id` is a
-//! function of the complete registry content.
-
+//! Versioned native declaration fingerprints. They identify content, never admission.
+use crate::{
+    Registry, SchemaError,
+    model::{RelationKey, RelationSpec},
+};
 use pse_ids::{ContentHash, FramedHasher, derive::context};
 
-use crate::builder::Registry;
-use crate::model::{Cell, RelationKey, RelationSpec};
+/// Native field/value framing. There is no predecessor decoder.
+pub const FRAME_VERSION: &str = "pse.schema.fingerprint.v2";
 
-/// The version string of this framing (ADR-0050).
-pub const FRAME_VERSION: &str = "pse.schema.fingerprint.v1";
-
-/// The digest of the registry's own rows (blueprint §4.3 `pse.contract.fingerprint`).
-///
-/// `rows` is [`Registry::schema_rows`]: the relations in their fixed order, each
-/// primary-key sorted with its cells in column order.
-pub fn registry(rows: &[(RelationKey, Vec<Vec<Cell>>)]) -> ContentHash {
-    let mut hasher = FramedHasher::new(context::REGISTRY);
-    hasher.part(FRAME_VERSION.as_bytes());
-    for (key, table) in rows {
-        frame_table(&mut hasher, key, table);
-    }
-    hasher.finish_hash()
-}
-
-/// The digest of one relation's declaration (blueprint §4.3).
-///
-/// Frames the relation's `reference.schema_relations` row, its `reference.schema_columns`
-/// rows, and the `reference.schema_logical_types` and `reference.schema_enums` rows those
-/// columns reference. The referenced rows are included because a column's meaning is not
-/// in its own row: a `pse.enum` column that kept its name while its enumeration lost a
-/// member would otherwise keep its fingerprint. Exact schema and enum-domain validation
-/// remains required even when the fingerprint matches.
-///
+/// Digest the complete sorted native self-description.
 /// # Errors
-/// Native field serialization fails. No incomplete fingerprint is emitted.
-pub fn relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentHash, crate::SchemaError> {
-    let mut hasher = FramedHasher::new(context::REGISTRY);
-    hasher.part(FRAME_VERSION.as_bytes());
-    hasher.str("relation");
-    hasher.str(&spec.key.to_string());
-
-    frame_row(&mut hasher, &Registry::schema_relations_row(spec));
-
-    let column_rows = reg.schema_columns_rows_of(spec)?;
-    hasher.u64(len(column_rows.len()));
-    for row in &column_rows {
-        frame_row(&mut hasher, row);
-    }
-
-    let mut type_names: Vec<String> = Vec::new();
-    let mut enum_names: Vec<String> = Vec::new();
-    for column in &spec.columns {
-        enum_names.extend(column.enum_domains());
-        let mut reachable = Vec::new();
-        column.value_type().walk(&mut reachable);
-        for ty in reachable {
-            let name = ty.type_name()?;
-            if !type_names.contains(&name) {
-                type_names.push(name);
+/// Native field serialization or value encoding fails.
+pub fn registry(
+    tables: &[(RelationKey, arrow_array::RecordBatch)],
+) -> Result<ContentHash, SchemaError> {
+    let mut h = FramedHasher::new(context::REGISTRY);
+    h.str(FRAME_VERSION);
+    h.u64(count(tables.len())?);
+    for (key, table) in tables {
+        h.str(&key.to_string());
+        h.u64(count(table.num_rows())?);
+        h.u64(count(table.num_columns())?);
+        for (field, array) in table.schema().fields().iter().zip(table.columns()) {
+            h.str(&pse_columnar::native_field::canonical_json(field.as_ref()).map_err(invalid)?);
+            for row in 0..table.num_rows() {
+                h.part(
+                    pse_columnar::native_value::semantic_payload(array.as_ref(), field, row)
+                        .map_err(invalid)?
+                        .as_bytes(),
+                );
             }
         }
     }
-    type_names.sort_unstable();
-    enum_names.sort_unstable();
-    enum_names.dedup();
+    Ok(h.finish_hash())
+}
 
-    hasher.u64(len(type_names.len()));
-    for name in &type_names {
-        match reg.logical_type(name) {
-            Some(row) => frame_row(&mut hasher, &Registry::schema_logical_types_row(row)),
-            None => frame_row(&mut hasher, &[Cell::Null]),
+/// Digest the native declaration and the referenced logical types and enum domains.
+/// # Errors
+/// A declaration cannot be represented canonically.
+pub fn relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentHash, SchemaError> {
+    let mut h = FramedHasher::new(context::REGISTRY);
+    h.str(FRAME_VERSION);
+    h.str("relation");
+    h.str(&spec.key.to_string());
+    h.str(&pse_columnar::native_field::canonical_json(&serde_json::json!({
+        "authority": spec.authority.as_str(), "snapshot_class": spec.snapshot_class.as_str(),
+        "primary_key": spec.primary_key, "granularity": spec.derivation_granularity.map(crate::model::DerivationGranularity::as_str),
+        "stability": spec.stability.as_str(), "doc": spec.doc, "checks": spec.checks,
+        "delta_properties": spec.delta_properties,
+    })).map_err(invalid)?);
+    h.u64(count(spec.columns.len())?);
+    let mut types = std::collections::BTreeSet::new();
+    let mut enums = std::collections::BTreeSet::new();
+    for field in &spec.columns {
+        h.str(&field.canonical_json()?);
+        enums.extend(field.enum_domains());
+        let mut reachable = Vec::new();
+        field.value_type().walk(&mut reachable);
+        for ty in reachable {
+            types.insert(ty.type_name()?);
         }
     }
-
-    hasher.u64(len(enum_names.len()));
-    for name in &enum_names {
-        let rows = reg
-            .enum_spec(name)
-            .map(Registry::schema_enums_rows_of)
-            .transpose()?
-            .unwrap_or_default();
-        hasher.u64(len(rows.len()));
-        for row in &rows {
-            frame_row(&mut hasher, row);
+    h.u64(count(types.len())?);
+    for name in types {
+        let row = reg
+            .logical_type(&name)
+            .ok_or_else(|| invalid(format!("missing logical type {name}")))?;
+        h.str(
+            &pse_columnar::native_field::canonical_json(&(
+                &row.name,
+                &row.arrow_storage,
+                &row.extension_name,
+                &row.metadata_schema,
+            ))
+            .map_err(invalid)?,
+        );
+    }
+    h.u64(count(enums.len())?);
+    for name in enums {
+        let domain = reg
+            .enum_spec(&name)
+            .ok_or_else(|| invalid(format!("missing enum {name}")))?;
+        h.str(domain.name);
+        h.str(&pse_columnar::native_field::canonical_json(&domain.idaes_source).map_err(invalid)?);
+        h.u64(count(domain.members.len())?);
+        for member in &domain.members {
+            h.str(
+                &pse_columnar::native_field::canonical_json(&(
+                    member.name,
+                    member.idaes_name,
+                    member.deprecated,
+                    member.doc,
+                ))
+                .map_err(invalid)?,
+            );
         }
     }
-
-    Ok(hasher.finish_hash())
+    Ok(h.finish_hash())
 }
-
-/// Frames one relation's table: its key, its row count and its rows.
-fn frame_table(hasher: &mut FramedHasher, key: &RelationKey, table: &[Vec<Cell>]) {
-    hasher.part(key.to_string().as_bytes());
-    hasher.u64(len(table.len()));
-    for row in table {
-        frame_row(hasher, row);
-    }
+fn count(value: usize) -> Result<u64, SchemaError> {
+    u64::try_from(value).map_err(invalid)
 }
-
-/// Frames one row: its cell count and its cells, in column order.
-fn frame_row(hasher: &mut FramedHasher, row: &[Cell]) {
-    hasher.u64(len(row.len()));
-    for cell in row {
-        cell.frame(hasher);
-    }
-}
-
-/// A length as the `u64` the framing takes.
-///
-/// The saturating conversion is unreachable on every supported target; it exists because
-/// the crate's panic policy has no room for an `expect` only a 128-bit address space could
-/// reach.
-fn len(value: usize) -> u64 {
-    u64::try_from(value).unwrap_or(u64::MAX)
+fn invalid(error: impl std::fmt::Display) -> SchemaError {
+    crate::checks::invalid("native fingerprint", error.to_string())
 }

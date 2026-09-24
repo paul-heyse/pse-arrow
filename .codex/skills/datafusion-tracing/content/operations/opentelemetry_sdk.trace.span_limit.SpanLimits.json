@@ -1,0 +1,743 @@
+[
+  {
+    "id": "841edc32e30f45c0cad34f8e",
+    "path": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+    "name": "SpanLimits",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct SpanLimits",
+    "docs": "Span limit configuration to keep attributes, events and links to a span in a reasonable number.",
+    "span": {
+      "filename": "src/trace/span_limit.rs",
+      "begin": [
+        23,
+        1
+      ],
+      "end": [
+        34,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              2830,
+              2831,
+              2832,
+              2833,
+              2834
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2835,
+          2836,
+          2837,
+          2838,
+          2839,
+          2840,
+          2841,
+          2842,
+          2843,
+          2844,
+          2845,
+          2846,
+          2847,
+          2848,
+          2849,
+          2850,
+          2851,
+          2852,
+          2853,
+          2854,
+          2855,
+          2856,
+          2858,
+          2860,
+          2862
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2315",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.json",
+    "anchor": "op-841edc32e30f45c0cad34f8e",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanLimits"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "feeadcf6d3da30c24fcd3d15",
+    "path": "opentelemetry_sdk::trace::span_limit::SpanLimits::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> SpanLimits",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/span_limit.rs",
+      "begin": [
+        22,
+        16
+      ],
+      "end": [
+        22,
+        21
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "SpanLimits",
+              "id": 2315,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2315": "opentelemetry_sdk::trace::span_limit::SpanLimits"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SpanLimits",
+          "id": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_limit.rs",
+        "begin": [
+          22,
+          16
+        ],
+        "end": [
+          22,
+          21
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2857",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.json",
+    "anchor": "op-feeadcf6d3da30c24fcd3d15",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanLimits::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b4d9aa60b99c2692af6476ac",
+    "path": "opentelemetry_sdk::trace::span_limit::SpanLimits::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/span_limit.rs",
+      "begin": [
+        37,
+        5
+      ],
+      "end": [
+        45,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SpanLimits",
+          "id": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_limit.rs",
+        "begin": [
+          36,
+          1
+        ],
+        "end": [
+          46,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2861",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.json",
+    "anchor": "op-b4d9aa60b99c2692af6476ac",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanLimits::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6807aad803768a5200f82357",
+    "path": "opentelemetry_sdk::trace::span_limit::SpanLimits::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/span_limit.rs",
+      "begin": [
+        22,
+        23
+      ],
+      "end": [
+        22,
+        28
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SpanLimits",
+          "id": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_limit.rs",
+        "begin": [
+          22,
+          23
+        ],
+        "end": [
+          22,
+          28
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2859",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.json",
+    "anchor": "op-6807aad803768a5200f82357",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanLimits::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5611bba0aef32a6e473a36e4",
+    "path": "opentelemetry_sdk::trace::span_limit::SpanLimits::max_attributes_per_event",
+    "name": "max_attributes_per_event",
+    "owner": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "max_attributes_per_event: u32",
+    "docs": "The max attributes that can be added into an `Event`",
+    "span": {
+      "filename": "src/trace/span_limit.rs",
+      "begin": [
+        31,
+        5
+      ],
+      "end": [
+        31,
+        38
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "u32"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2833",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.json",
+    "anchor": "op-5611bba0aef32a6e473a36e4",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanLimits::max_attributes_per_event"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bde8e5bfad7787a754484b2e",
+    "path": "opentelemetry_sdk::trace::span_limit::SpanLimits::max_attributes_per_link",
+    "name": "max_attributes_per_link",
+    "owner": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "max_attributes_per_link: u32",
+    "docs": "The max attributes that can be added into a `Link`",
+    "span": {
+      "filename": "src/trace/span_limit.rs",
+      "begin": [
+        33,
+        5
+      ],
+      "end": [
+        33,
+        37
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "u32"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2834",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.json",
+    "anchor": "op-bde8e5bfad7787a754484b2e",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanLimits::max_attributes_per_link"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "68f7d98790c0423b32b5cfd6",
+    "path": "opentelemetry_sdk::trace::span_limit::SpanLimits::max_attributes_per_span",
+    "name": "max_attributes_per_span",
+    "owner": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "max_attributes_per_span: u32",
+    "docs": "The max attributes that can be added to a `Span`.",
+    "span": {
+      "filename": "src/trace/span_limit.rs",
+      "begin": [
+        27,
+        5
+      ],
+      "end": [
+        27,
+        37
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "u32"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2831",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.json",
+    "anchor": "op-68f7d98790c0423b32b5cfd6",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanLimits::max_attributes_per_span"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5635ec2182af9678d9311a9a",
+    "path": "opentelemetry_sdk::trace::span_limit::SpanLimits::max_events_per_span",
+    "name": "max_events_per_span",
+    "owner": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "max_events_per_span: u32",
+    "docs": "The max events that can be added to a `Span`.",
+    "span": {
+      "filename": "src/trace/span_limit.rs",
+      "begin": [
+        25,
+        5
+      ],
+      "end": [
+        25,
+        33
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "u32"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2830",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.json",
+    "anchor": "op-5635ec2182af9678d9311a9a",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanLimits::max_events_per_span"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cf9e46d351e0df0aaadd5e08",
+    "path": "opentelemetry_sdk::trace::span_limit::SpanLimits::max_links_per_span",
+    "name": "max_links_per_span",
+    "owner": "opentelemetry_sdk::trace::span_limit::SpanLimits",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "max_links_per_span: u32",
+    "docs": "The max links that can be added to a `Span`.",
+    "span": {
+      "filename": "src/trace/span_limit.rs",
+      "begin": [
+        29,
+        5
+      ],
+      "end": [
+        29,
+        32
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "u32"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2832",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_limit.SpanLimits.json",
+    "anchor": "op-cf9e46d351e0df0aaadd5e08",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanLimits::max_links_per_span"
+    ],
+    "resolved_doc_links": {}
+  }
+]

@@ -10,8 +10,6 @@
     dead_code,
     reason = "shared fixture constructors differ between test binaries"
 )]
-#[path = "session_factory.rs"]
-mod session_factory;
 
 use datafusion::{
     arrow::array::{Int64Array, RecordBatch},
@@ -20,9 +18,8 @@ use datafusion::{
 use pse_catalog::{
     artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
     delta::publication::{Publication, PublicationRoot},
-    session::SessionFactory,
 };
-use pse_ids::{CancellationToken, MemoryReserver};
+use pse_columnar::CancellationToken;
 use pse_relations::generated::{enums::PublicationKind, runtime::publications};
 use pse_schema::{Registry, model::RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
@@ -36,9 +33,16 @@ pub(crate) fn name(schema: &str, table: &str) -> ResolvedTableReference {
 pub(crate) async fn publish(
     registry: Arc<Registry>,
     batches: BTreeMap<RelationKey, RecordBatch>,
-    reserver: Arc<dyn MemoryReserver>,
-) -> (Publication, tempfile::TempDir, Arc<SessionFactory>) {
-    let factory = session_factory::factory(reserver);
+) -> (
+    Publication,
+    tempfile::TempDir,
+    Arc<dyn pse_columnar::MemoryPool>,
+) {
+    let fixture = pse_testkit::NativeFixture::new((128 << 20).try_into().unwrap()).unwrap();
+    let pool = fixture.resources.pool.clone();
+    let factory = Arc::new(fixture.into_factory().with_query_planner(Arc::new(
+        pse_engine::session::planner::UnifiedPlanner::new(pse_catalog::assembly::planners()),
+    )));
     let cancel = CancellationToken::new();
     let session = factory
         .candidate(batches, Arc::clone(&registry), &cancel)
@@ -108,7 +112,8 @@ pub(crate) async fn publish(
         .value(0);
     drop(result);
     drop(artifact);
-    let publication = Publication::open(
+    // Keep the shared fixture's stack bounded as member opens gain concurrency.
+    let publication = Box::pin(Publication::open(
         PublicationRoot {
             location: control,
             version,
@@ -116,8 +121,8 @@ pub(crate) async fn publish(
         registry,
         &factory,
         &cancel,
-    )
+    ))
     .await
     .unwrap();
-    (publication, directory, factory)
+    (publication, directory, pool)
 }

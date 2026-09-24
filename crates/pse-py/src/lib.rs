@@ -19,7 +19,9 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
 
+mod identities;
 mod inspection;
+mod workflow;
 
 /// Build provenance of the compiled extension.
 ///
@@ -45,15 +47,33 @@ fn build_info(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     Ok(dict)
 }
 
+/// Compiled registry identity; does not assemble or inspect the runtime registry.
+#[pyfunction]
+fn registry_fingerprint() -> String {
+    pse_catalog::inspection::REGISTRY_FINGERPRINT.to_prefixed()
+}
+
 /// Immutable admitted data inspection and build provenance.
 #[pymodule]
 mod _native {
     #[pymodule_export]
     use super::{
         build_info,
+        identities::{
+            content_hash_from_prefixed, content_hash_to_prefixed, semantic_id_from_hex,
+            semantic_id_to_hex,
+        },
         inspection::{
-            CacheReport, CacheSettings, EngineSettings, InspectionError, Publication, TableStream,
+            CacheReport, CacheSettings, DiagnosticAnnotation, DiagnosticCause, DiagnosticContext,
+            DiagnosticNote, DiagnosticReport, DiagnosticSpan, EngineSettings, InspectionError,
+            Publication, ResourceConsumer, ResourceReport, TableName, TableStream,
             open_publication,
+        },
+        registry_fingerprint,
+        workflow::{
+            NativeModelRevision, NativePhysicalContext, NativePreparedCase,
+            NativePreparedOperation, NativePublicationAttempt, NativeRunHandle, NativeRunResult,
+            NativeRuntime, ProgressEvent, SimulationSettings, SolveSettings, SolverCapability,
         },
     };
 

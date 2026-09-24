@@ -4,12 +4,12 @@
     "inferred.method_resolutions": [
       {
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "outcome": "[\"struct\",[[\"text\",\"ambiguous\"],[\"null\",null]]]",
+        "outcome": "[\"struct\",[[\"enum\",\"ambiguous\"],[\"null\",null]]]",
         "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]"
       },
       {
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "outcome": "[\"struct\",[[\"text\",\"ambiguous\"],[\"null\",null]]]",
+        "outcome": "[\"struct\",[[\"enum\",\"ambiguous\"],[\"null\",null]]]",
         "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ]

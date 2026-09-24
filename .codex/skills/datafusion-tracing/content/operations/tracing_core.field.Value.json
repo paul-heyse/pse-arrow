@@ -1,0 +1,261 @@
+[
+  {
+    "id": "3bdffa798a494864d07fca1b",
+    "path": "tracing_core::field::Value",
+    "name": "Value",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "trait",
+    "signature": "trait Value: sealed::Sealed",
+    "docs": "A field value of an erased type.\n\nImplementors of `Value` may call the appropriate typed recording methods on\nthe [visitor] passed to their `record` method in order to indicate how\ntheir data should be recorded.\n\n[visitor]: Visit",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        350,
+        1
+      ],
+      "end": [
+        353,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          464
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "crate::sealed::Sealed",
+                "id": 474,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          476,
+          478,
+          481,
+          483,
+          486,
+          488,
+          491,
+          493,
+          496,
+          498,
+          501,
+          503,
+          506,
+          508,
+          511,
+          513,
+          516,
+          518,
+          521,
+          523,
+          526,
+          528,
+          531,
+          533,
+          536,
+          538,
+          540,
+          542,
+          545,
+          547,
+          549,
+          551,
+          553,
+          555,
+          557,
+          559,
+          561,
+          564,
+          567,
+          569,
+          572,
+          575,
+          577,
+          363,
+          580
+        ]
+      }
+    },
+    "type_references": {
+      "474": "tracing_core::sealed::Sealed"
+    },
+    "impl_context": null,
+    "links": {
+      "Visit": 272
+    },
+    "link_paths": {
+      "Visit": "tracing_core::field::Visit"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "300",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.Value.md",
+    "record_file": "operations/tracing_core.field.Value.json",
+    "anchor": "op-3bdffa798a494864d07fca1b",
+    "aliases": [
+      "tracing::Value",
+      "tracing::field::Value"
+    ],
+    "resolved_doc_links": {
+      "Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b"
+    }
+  },
+  {
+    "id": "95b4d7e923013aac166173fc",
+    "path": "tracing_core::field::Value::record",
+    "name": "record",
+    "owner": "tracing_core::field::Value",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn record(&self, key: &Field, visitor: &mut dyn Visit)",
+    "docs": "Visits this value with the given `Visitor`.",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        352,
+        5
+      ],
+      "end": [
+        352,
+        60
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "key",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 299,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "visitor",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Visit",
+                            "id": 272,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "299": "tracing_core::field::Field",
+      "272": "tracing_core::field::Visit"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "464",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.Value.md",
+    "record_file": "operations/tracing_core.field.Value.json",
+    "anchor": "op-95b4d7e923013aac166173fc",
+    "aliases": [
+      "tracing::Value::record",
+      "tracing::field::Value::record"
+    ],
+    "resolved_doc_links": {}
+  }
+]

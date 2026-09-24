@@ -1,0 +1,65 @@
+[
+  {
+    "id": "aa6675242e08ab66d783ac5e",
+    "path": "opentelemetry::propagation::text_map_propagator",
+    "name": "text_map_propagator",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod text_map_propagator",
+    "docs": "# TextMapPropagator\n\n[`TextMapPropagator`] performs the injection and extraction of a cross-cutting concern value as\nstring key/values pairs into carriers that travel in-band across process boundaries.\n\nThe carrier of propagated data on both the client (injector) and server (extractor) side is\nusually an HTTP request.\n\nIn order to increase compatibility, the key/value pairs MUST only consist of US-ASCII characters\nthat make up valid HTTP header fields as per RFC 7230.",
+    "span": {
+      "filename": "src/propagation/text_map_propagator.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        77,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          13,
+          1386
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`TextMapPropagator`": 13
+    },
+    "link_paths": {
+      "`TextMapPropagator`": "opentelemetry::propagation::text_map_propagator::TextMapPropagator"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1424",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.propagation.text_map_propagator.md",
+    "record_file": "modules/opentelemetry.propagation.text_map_propagator.json",
+    "anchor": "op-aa6675242e08ab66d783ac5e",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`TextMapPropagator`": "../operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md#op-1877064155d794d3de73d8d3"
+    }
+  }
+]

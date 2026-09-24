@@ -6,26 +6,11 @@
 from enum import StrEnum
 
 
-class AliasKind(StrEnum):
-    """The declared AliasKind enumeration."""
+class ArtifactReconstruction(StrEnum):
+    """The declared ArtifactReconstruction enumeration."""
 
-    REFERENCE = "reference"
-    DISPLAY_ALIAS = "display_alias"
-
-
-class ArgumentEvaluation(StrEnum):
-    """The declared ArgumentEvaluation enumeration."""
-
-    EAGER = "eager"
-    GUARDED_EXPRESSION = "guarded_expression"
-
-
-class Arity(StrEnum):
-    """The declared Arity enumeration."""
-
-    FIXED = "fixed"
-    VARIADIC = "variadic"
-    PAYLOAD = "payload"
+    NONE = "none"
+    EXACT_RELEASE = "exact_release"
 
 
 class AssertionStatus(StrEnum):
@@ -44,32 +29,17 @@ class Authority(StrEnum):
     DERIVED = "derived"
 
 
-class Backend(StrEnum):
-    """The declared Backend enumeration."""
+class BalanceRole(StrEnum):
+    """The declared BalanceRole enumeration."""
 
-    NATIVE_IPOPT = "native_ipopt"
-    NL_IPOPT = "nl_ipopt"
-    NL_BONMIN = "nl_bonmin"
-    NL_COUENNE = "nl_couenne"
-    NL_CBC = "nl_cbc"
-    NL_SCIP = "nl_scip"
-    NL_PETSC_SNES = "nl_petsc_snes"
-    NL_PETSC_TS = "nl_petsc_ts"
-    PYOMO = "pyomo"
-
-
-class BackendBinding(StrEnum):
-    """The declared BackendBinding enumeration."""
-
-    NATIVE = "native"
-    NL = "nl"
-    PYOMO = "pyomo"
-    DATAFUSION = "datafusion"
-    DISCRETIZATION = "discretization"
-    NATIVE_KERNEL = "native_kernel"
-    NL_EXTERNAL_FUNCTION = "nl_external_function"
-    PYOMO_EXTERNAL_FUNCTION = "pyomo_external_function"
-    DATAFUSION_UDF = "datafusion_udf"
+    INLET = "inlet"
+    OUTLET = "outlet"
+    GENERATION = "generation"
+    CONSUMPTION = "consumption"
+    WORK_IN = "work_in"
+    WORK_OUT = "work_out"
+    INTERNAL_IN = "internal_in"
+    INTERNAL_OUT = "internal_out"
 
 
 class BasisKind(StrEnum):
@@ -91,21 +61,6 @@ class BasisRule(StrEnum):
     REGISTERED_CONVERSION = "registered_conversion"
     CANCEL = "cancel"
     DECLARED_RESULT = "declared_result"
-
-
-class BindingStatus(StrEnum):
-    """The declared BindingStatus enumeration."""
-
-    SUPPORTED = "supported"
-    UNSUPPORTED = "unsupported"
-
-
-class BlockKind(StrEnum):
-    """The declared BlockKind enumeration."""
-
-    SCC = "scc"
-    CONNECTED_COMPONENT = "connected_component"
-    BORDERED_DIAGONAL = "bordered_diagonal"
 
 
 class BlowerMaterial(StrEnum):
@@ -139,24 +94,6 @@ class BoundStatus(StrEnum):
     AT_LOWER = "at_lower"
     AT_UPPER = "at_upper"
     VIOLATED = "violated"
-
-
-class BuiltinQuantityRule(StrEnum):
-    """The declared BuiltinQuantityRule enumeration."""
-
-    LITERAL = "literal"
-    ADDITION = "addition"
-    UNARY = "unary"
-    NEUTRAL_SCALING = "neutral_scaling"
-    AFFINE = "affine"
-    SMOOTH = "smooth"
-    GATHER = "gather"
-    WEIGHTED_MEAN = "weighted_mean"
-    REDUCTION = "reduction"
-    BROADCAST = "broadcast"
-    CONDITIONAL = "conditional"
-    UNIT_CONVERT = "unit_convert"
-    BINDING = "binding"
 
 
 class CapabilityRequirement(StrEnum):
@@ -199,14 +136,6 @@ class ColumnRole(StrEnum):
     LABEL = "label"
     PAYLOAD = "payload"
     PROVENANCE = "provenance"
-
-
-class ComplementarityForm(StrEnum):
-    """The declared ComplementarityForm enumeration."""
-
-    SMOOTH_EPS = "smooth_eps"
-    BINARY = "binary"
-    SOS1 = "sos1"
 
 
 class ComponentType(StrEnum):
@@ -289,13 +218,6 @@ class ConfigValueKind(StrEnum):
     QUANTITY = "quantity"
 
 
-class ConflictPolicy(StrEnum):
-    """The declared ConflictPolicy enumeration."""
-
-    REJECT = "reject"
-    UNDECIDED = "undecided"
-
-
 class ConnectionExpansion(StrEnum):
     """The declared ConnectionExpansion enumeration."""
 
@@ -323,11 +245,11 @@ class ContributionSubjectKind(StrEnum):
     """The declared ContributionSubjectKind enumeration."""
 
     TOTAL = "total"
-    SPECIES = "species"
-    PHASE_SPECIES = "phase_species"
-    ELEMENT = "element"
     ENERGY = "energy"
     MOMENTUM = "momentum"
+    SPECIES = "species"
+    ELEMENT = "element"
+    PHASE_SPECIES = "phase_species"
 
 
 class ControllerAntiwindupType(StrEnum):
@@ -363,45 +285,11 @@ class ConversionKind(StrEnum):
     KERNEL = "kernel"
 
 
-class Convexity(StrEnum):
-    """The declared Convexity enumeration."""
-
-    AFFINE = "affine"
-    CONVEX = "convex"
-    CONCAVE = "concave"
-    NONCONVEX = "nonconvex"
-    UNKNOWN = "unknown"
-
-
-class Crossing(StrEnum):
-    """The declared Crossing enumeration."""
-
-    INTERNAL = "internal"
-    EXTERNAL = "external"
-    INBOUND = "inbound"
-    OUTBOUND = "outbound"
-
-
 class CubicType(StrEnum):
     """The declared CubicType enumeration."""
 
     PR = "PR"
     SRK = "SRK"
-
-
-class DMBlock(StrEnum):
-    """The declared DMBlock enumeration."""
-
-    UNDERCONSTRAINED = "underconstrained"
-    SQUARE = "square"
-    OVERCONSTRAINED = "overconstrained"
-
-
-class DMKind(StrEnum):
-    """The declared DMKind enumeration."""
-
-    EQUATION = "equation"
-    VARIABLE = "variable"
 
 
 class DaeVarTypes(StrEnum):
@@ -428,35 +316,11 @@ class DemandSource(StrEnum):
     OPAQUE_OPERATION = "opaque_operation"
 
 
-class DependencyMode(StrEnum):
-    """The declared DependencyMode enumeration."""
-
-    READ = "read"
-    NEGATE = "negate"
-    WRITE = "write"
-
-
 class DerivationGranularity(StrEnum):
     """The declared DerivationGranularity enumeration."""
 
     ROW = "row"
     RULE = "rule"
-
-
-class DerivativeKind(StrEnum):
-    """The declared DerivativeKind enumeration."""
-
-    JACOBIAN = "jacobian"
-    HESSIAN = "hessian"
-    JVP = "jvp"
-    VJP = "vjp"
-
-
-class DerivativeMode(StrEnum):
-    """The declared DerivativeMode enumeration."""
-
-    EXACT_HESSIAN = "exact_hessian"
-    LIMITED_MEMORY = "limited_memory"
 
 
 class Determinism(StrEnum):
@@ -467,15 +331,77 @@ class Determinism(StrEnum):
     DETERMINISTIC_PER_BACKEND = "deterministic_per_backend"
 
 
-class Differentiability(StrEnum):
-    """The declared Differentiability enumeration."""
+class DiagnosticCode(StrEnum):
+    """The declared DiagnosticCode enumeration."""
 
-    C_INFINITY = "c_infinity"
-    C0 = "c0"
-    BRANCHWISE_C1 = "branchwise_c1"
-    AS_CHILDREN = "as_children"
-    DISCONTINUOUS = "discontinuous"
-    DECLARED = "declared"
+    AUTHORING_PARSE = "authoring.parse"
+    AUTHORING_PARSE_AMBIGUOUS_UNARY_POWER = "authoring.parse.ambiguous_unary_power"
+    AUTHORING_PARSE_BUDGET = "authoring.parse.budget"
+    AUTHORING_PARSE_DOCUMENT_IO = "authoring.parse.document_io"
+    AUTHORING_PARSE_MISSING_ID = "authoring.parse.missing_id"
+    AUTHORING_PARSE_NONFINITE_NUMBER = "authoring.parse.nonfinite_number"
+    AUTHORING_PARSE_SYNTAX = "authoring.parse.syntax"
+    AUTHORING_PARSE_UNKNOWN_KEY = "authoring.parse.unknown_key"
+    AUTHORING_PARSE_UNRESOLVED_TARGET = "authoring.parse.unresolved_target"
+    AUTHORING_PKG_UNRESOLVED = "authoring.pkg.unresolved"
+    AUTHORING_PKG_VERSION_CONFLICT = "authoring.pkg.version_conflict"
+    AUTHORING_REFERENCE = "authoring.reference"
+    AUTHORING_REFERENCE_CONTRACT = "authoring.reference.contract"
+    AUTHORING_REFERENCE_DERIVED_WRITE = "authoring.reference.derived_write"
+    AUTHORING_REFERENCE_RENAME_NAMED = "authoring.reference.rename_named"
+    AUTHORING_REFERENCE_UNKNOWN_ROW_KEY = "authoring.reference.unknown_row_key"
+    CAPABILITY_BACKEND = "capability.backend"
+    COMPILE_DISCRETIZATION = "compile.discretization"
+    COMPILE_FEATURE = "compile.feature"
+    COMPILE_LAW = "compile.law"
+    COMPILE_MATH = "compile.math"
+    COMPILE_MATH_CYCLIC_EXPRESSION = "compile.math.cyclic_expression"
+    COMPILE_MATH_DOMAIN_VIOLATION_STATIC = "compile.math.domain_violation_static"
+    COMPILE_MATH_QUANTITY_OPERATION_UNSUPPORTED = "compile.math.quantity_operation_unsupported"
+    COMPILE_MATH_UNIT_INCONSISTENT = "compile.math.unit_inconsistent"
+    COMPILE_PROPERTY = "compile.property"
+    CONFIG_INVALID = "config.invalid"
+    INTERNAL_INVARIANT = "internal.invariant"
+    KERNEL_UNBOUND_PARAMETER = "kernel.unbound_parameter"
+    PLAN_INITIALIZATION = "plan.initialization"
+    RULE_FLOAT_KEY = "rule.float_key"
+    RULE_HEAD_SCHEMA_MISMATCH = "rule.head_schema_mismatch"
+    RUNTIME_CANCELLED = "runtime.cancelled"
+    RUNTIME_INFRASTRUCTURE = "runtime.infrastructure"
+    RUNTIME_RESOURCE_LIMIT = "runtime.resource_limit"
+    RUNTIME_TIMEOUT = "runtime.timeout"
+    SCHEMA_ADMISSION = "schema.admission"
+    SCHEMA_ARROW = "schema.arrow"
+    SCHEMA_CODEGEN = "schema.codegen"
+    SCHEMA_CONTRACT_MISMATCH = "schema.contract_mismatch"
+    SCHEMA_DUPLICATE_DECLARATION = "schema.duplicate_declaration"
+    SCHEMA_ENUM_MEMBER = "schema.enum_member"
+    SCHEMA_EXTENSION_METADATA = "schema.extension_metadata"
+    SCHEMA_EXTENSION_TYPE = "schema.extension_type"
+    SCHEMA_FINGERPRINT_MISMATCH = "schema.fingerprint_mismatch"
+    SCHEMA_INVALID_DECLARATION = "schema.invalid_declaration"
+    SCHEMA_INVALID_KEY = "schema.invalid_key"
+    SCHEMA_MISSING_GRANULARITY = "schema.missing_granularity"
+    SCHEMA_MISSING_SNAPSHOT_CLASS = "schema.missing_snapshot_class"
+    SCHEMA_NULLABILITY = "schema.nullability"
+    SCHEMA_ORDINAL_RANGE = "schema.ordinal_range"
+    SCHEMA_RULE_FLOAT_KEY = "schema.rule_float_key"
+    SCHEMA_RULE_STRATIFICATION = "schema.rule_stratification"
+    SCHEMA_STORAGE = "schema.storage"
+    SCHEMA_UNKNOWN_METADATA = "schema.unknown_metadata"
+    SCHEMA_UNKNOWN_REFERENCE = "schema.unknown_reference"
+    SCHEMA_UNKNOWN_REGISTRY = "schema.unknown_registry"
+    SCHEMA_UNSUPPORTED_LAYOUT = "schema.unsupported_layout"
+    SCHEMA_VERSION_MISMATCH = "schema.version_mismatch"
+    SOLVE_EVALUATION_ERROR = "solve.evaluation_error"
+    SOLVE_INFEASIBLE = "solve.infeasible"
+    SOLVE_LIMIT = "solve.limit"
+    SOLVE_LOCALLY_INFEASIBLE = "solve.locally_infeasible"
+    SOLVE_SOLVER_ERROR = "solve.solver_error"
+    SOLVE_UNBOUNDED = "solve.unbounded"
+    TEMPLATE_GUARD_UNDECIDABLE = "template.guard_undecidable"
+    USER_MODEL = "user.model"
+    VALIDATION_INVARIANT = "validation.invariant"
 
 
 class Direction(StrEnum):
@@ -484,13 +410,6 @@ class Direction(StrEnum):
     INLET = "inlet"
     OUTLET = "outlet"
     BIDIRECTIONAL = "bidirectional"
-
-
-class DiscretizationMethod(StrEnum):
-    """The declared DiscretizationMethod enumeration."""
-
-    FINITE_DIFFERENCE = "finite_difference"
-    COLLOCATION = "collocation"
 
 
 class DiscretizationScheme(StrEnum):
@@ -613,49 +532,11 @@ class EntityKind(StrEnum):
     DISCRETIZATION_POLICY = "discretization_policy"
 
 
-class EquationFamily(StrEnum):
-    """The declared EquationFamily enumeration."""
-
-    BOUND = "BOUND"
-    AFFINE_EQUALITY = "AFFINE_EQUALITY"
-    AFFINE_INEQUALITY = "AFFINE_INEQUALITY"
-    NETWORK_BALANCE = "NETWORK_BALANCE"
-    SIMPLEX_ALLOCATION = "SIMPLEX_ALLOCATION"
-    BILINEAR = "BILINEAR"
-    SMOOTH_TRANSCENDENTAL = "SMOOTH_TRANSCENDENTAL"
-    NONSMOOTH_CONVEX = "NONSMOOTH_CONVEX"
-    BLACK_BOX = "BLACK_BOX"
-    DEFINITION = "DEFINITION"
-    REPORTING_DEFINITION = "REPORTING_DEFINITION"
-    GENERAL_NONLINEAR = "GENERAL_NONLINEAR"
-    UNCLASSIFIED = "UNCLASSIFIED"
-
-
-class EquationRole(StrEnum):
-    """The declared EquationRole enumeration."""
-
-    HARD_FEASIBILITY = "HARD_FEASIBILITY"
-    DEFINITION = "DEFINITION"
-    LINKING = "LINKING"
-    DOMAIN_GUARD = "DOMAIN_GUARD"
-    REPORTING = "REPORTING"
-    APPROXIMATION = "APPROXIMATION"
-
-
 class EquationSyntax(StrEnum):
     """The declared EquationSyntax enumeration."""
 
     RELATION = "relation"
     CONDITIONAL = "conditional"
-
-
-class ExecutionForm(StrEnum):
-    """The declared ExecutionForm enumeration."""
-
-    SCALAR = "scalar"
-    BATCH_ARROW = "batch_arrow"
-    DUAL = "dual"
-    HYPERDUAL = "hyperdual"
 
 
 class ExpressionFamily(StrEnum):
@@ -673,24 +554,6 @@ class ExpressionOwnerKind(StrEnum):
 
     TEMPLATE = "template"
     INSTANCE = "instance"
-
-
-class ExpressionPathSegmentKind(StrEnum):
-    """The declared ExpressionPathSegmentKind enumeration."""
-
-    CHILD = "child"
-    MEMBER = "member"
-    INSTANCE_PARAMETER = "instance_parameter"
-
-
-class ExpressionRootRole(StrEnum):
-    """The declared ExpressionRootRole enumeration."""
-
-    SYMBOL_EXPRESSION = "symbol_expression"
-    CONTRIBUTION = "contribution"
-    DISPLAY = "display"
-    METHOD_OUTPUT = "method_output"
-    GUARD = "guard"
 
 
 class ExpressionSyntax(StrEnum):
@@ -728,14 +591,6 @@ class FailureClass(StrEnum):
     CONFIG_INVALID = "config.invalid"
     INTERNAL_INVARIANT = "internal.invariant"
     USER_MODEL = "user.model"
-
-
-class FailurePolicy(StrEnum):
-    """The declared FailurePolicy enumeration."""
-
-    ABORT = "abort"
-    CONTINUE = "continue"
-    RETRY_WITH_PROFILE = "retry_with_profile"
 
 
 class FanMaterial(StrEnum):
@@ -792,13 +647,6 @@ class FlowDirection(StrEnum):
     NOTSET = "notSet"
     FORWARD = "forward"
     BACKWARD = "backward"
-
-
-class FmaPolicy(StrEnum):
-    """The declared FmaPolicy enumeration."""
-
-    DISABLED = "disabled"
-    EXPLICIT = "explicit"
 
 
 class GeneratorKind(StrEnum):
@@ -887,13 +735,6 @@ class IdPolicy(StrEnum):
     NAMED = "named"
 
 
-class IncidenceKind(StrEnum):
-    """The declared IncidenceKind enumeration."""
-
-    LINEAR = "linear"
-    NONLINEAR = "nonlinear"
-
-
 class IndexMapKind(StrEnum):
     """The declared IndexMapKind enumeration."""
 
@@ -932,40 +773,6 @@ class InvariantKind(StrEnum):
     ACYCLIC = "acyclic"
 
 
-class KernelBehavior(StrEnum):
-    """The declared KernelBehavior enumeration."""
-
-    EXPLICIT = "explicit"
-    IMPLICIT = "implicit"
-
-
-class KernelEffects(StrEnum):
-    """The declared KernelEffects enumeration."""
-
-    PURE = "pure"
-
-
-class KernelFailure(StrEnum):
-    """The declared KernelFailure enumeration."""
-
-    DOMAIN_VIOLATION = "domain_violation"
-    NON_FINITE = "non_finite"
-    UNSUPPORTED = "unsupported"
-
-
-class KernelFailurePolicy(StrEnum):
-    """The declared KernelFailurePolicy enumeration."""
-
-    TYPED_ERROR = "typed_error"
-
-
-class KernelNullPolicy(StrEnum):
-    """The declared KernelNullPolicy enumeration."""
-
-    REJECT = "reject"
-    PROPAGATE_MISSING = "propagate_missing"
-
-
 class KernelOutcome(StrEnum):
     """The declared KernelOutcome enumeration."""
 
@@ -973,13 +780,6 @@ class KernelOutcome(StrEnum):
     MISSING_INPUT = "missing_input"
     DOMAIN_FAILURE = "domain_failure"
     IMPLEMENTATION_FAILURE = "implementation_failure"
-
-
-class KernelParameterBindingKind(StrEnum):
-    """The declared KernelParameterBindingKind enumeration."""
-
-    SYMBOL = "symbol"
-    LITERAL = "literal"
 
 
 class LawExpansion(StrEnum):
@@ -1026,63 +826,6 @@ class MaterialFlowBasis(StrEnum):
     MOLAR = "molar"
     MASS = "mass"
     OTHER = "other"
-
-
-class MathDomainKind(StrEnum):
-    """The declared MathDomainKind enumeration."""
-
-    ACTUAL = "actual"
-    TEMPLATE = "template"
-
-
-class MathGuardKind(StrEnum):
-    """The declared MathGuardKind enumeration."""
-
-    MATH = "math"
-    PREDICATE = "predicate"
-
-
-class MathPayloadKind(StrEnum):
-    """The declared MathPayloadKind enumeration."""
-
-    NONE = "none"
-    SYMBOL = "symbol"
-    FLOAT = "float"
-    INTEGER = "integer"
-    AFFINE = "affine"
-    WEIGHTED_MEAN = "weighted_mean"
-    REDUCTION = "reduction"
-    GATHER = "gather"
-    PENDING_GATHER = "pending_gather"
-    PENDING_PATH = "pending_path"
-    BROADCAST = "broadcast"
-    DERIVATIVE = "derivative"
-    INTEGRAL = "integral"
-    SMOOTH = "smooth"
-    PENDING_SMOOTH = "pending_smooth"
-    CONDITIONAL = "conditional"
-    KERNEL_CALL = "kernel_call"
-    IMPLICIT_REF = "implicit_ref"
-    UNIT_CONVERT = "unit_convert"
-    PENDING_UNIT_CONVERT = "pending_unit_convert"
-    PIECEWISE_LINEAR = "piecewise_linear"
-
-
-class MathReferenceKind(StrEnum):
-    """The declared MathReferenceKind enumeration."""
-
-    SYMBOL = "symbol"
-    TEMPLATE = "template"
-    DOMAIN = "domain"
-    INDEX = "index"
-
-
-class MathTemplateMemberKind(StrEnum):
-    """The declared MathTemplateMemberKind enumeration."""
-
-    PARAMETER = "parameter"
-    FEATURE = "feature"
-    PORT = "port"
 
 
 class MemberSelectionKind(StrEnum):
@@ -1186,16 +929,6 @@ class MomentumMixingType(StrEnum):
     MINIMIZE_AND_EQUALITY = "minimize_and_equality"
 
 
-class Monotonicity(StrEnum):
-    """The declared Monotonicity enumeration."""
-
-    INCREASING = "increasing"
-    DECREASING = "decreasing"
-    CONSTANT = "constant"
-    NONMONOTONE = "nonmonotone"
-    UNKNOWN = "unknown"
-
-
 class Namespace(StrEnum):
     """The declared Namespace enumeration."""
 
@@ -1236,32 +969,30 @@ class NativeDependencyKind(StrEnum):
     OBSERVATION = "observation"
 
 
-class NegationPolicy(StrEnum):
-    """The declared NegationPolicy enumeration."""
+class NativeMetricKind(StrEnum):
+    """The declared NativeMetricKind enumeration."""
 
-    NONE = "none"
-    STRATIFIED = "stratified"
-
-
-class NodeKind(StrEnum):
-    """The declared NodeKind enumeration."""
-
-    ELEMENT_BOUNDARY = "element_boundary"
-    COLLOCATION = "collocation"
-    INTERIOR = "interior"
+    REAL = "real"
+    INTEGER = "integer"
+    BOOLEAN = "boolean"
+    TEXT = "text"
 
 
-class NonfinitePolicy(StrEnum):
-    """The declared NonfinitePolicy enumeration."""
-
-    EVALUATION_ERROR = "evaluation_error"
-
-
-class ObjectiveSense(StrEnum):
-    """The declared ObjectiveSense enumeration."""
+class NativeObjectiveSense(StrEnum):
+    """The declared NativeObjectiveSense enumeration."""
 
     MINIMIZE = "minimize"
     MAXIMIZE = "maximize"
+
+
+class NativeVariableDomain(StrEnum):
+    """The declared NativeVariableDomain enumeration."""
+
+    CONTINUOUS = "continuous"
+    INTEGER = "integer"
+    BINARY = "binary"
+    SEMI_CONTINUOUS = "semi_continuous"
+    SEMI_INTEGER = "semi_integer"
 
 
 class Opcode(StrEnum):
@@ -1323,22 +1054,6 @@ class OperationEffect(StrEnum):
     PUBLISH = "publish"
 
 
-class OperatorFamily(StrEnum):
-    """The declared OperatorFamily enumeration."""
-
-    LEAF = "leaf"
-    ARITHMETIC = "arithmetic"
-    TRANSCENDENTAL = "transcendental"
-    SMOOTH = "smooth"
-    CONDITIONAL = "conditional"
-    REDUCTION = "reduction"
-    INDEX = "index"
-    CALCULUS = "calculus"
-    BINDING = "binding"
-    CONVERSION = "conversion"
-    PIECEWISE = "piecewise"
-
-
 class Orientation(StrEnum):
     """The declared Orientation enumeration."""
 
@@ -1365,28 +1080,12 @@ class ParameterSourceCoordinate(StrEnum):
     PHASE_SPECIES_PAIR = "phase_species_pair"
 
 
-class ParticipationDecision(StrEnum):
-    """The declared ParticipationDecision enumeration."""
-
-    INCLUDED = "included"
-    EXCLUDED = "excluded"
-
-
 class ParticipationExclusionReason(StrEnum):
     """The declared ParticipationExclusionReason enumeration."""
 
     FAMILY_MISMATCH = "family_mismatch"
     SUBJECT_MISMATCH = "subject_mismatch"
     INTERNAL_TRANSFER = "internal_transfer"
-
-
-class PathTargetKind(StrEnum):
-    """The declared PathTargetKind enumeration."""
-
-    SYMBOL = "symbol"
-    PARAMETER = "parameter"
-    FEATURE = "feature"
-    PORT = "port"
 
 
 class PhaseType(StrEnum):
@@ -1465,6 +1164,8 @@ class PublicationKind(StrEnum):
     CASE = "case"
     PROBLEM = "problem"
     RUN = "run"
+    DIAGNOSTICS = "diagnostics"
+    INSPECTION = "inspection"
 
 
 class PumpMaterial(StrEnum):
@@ -1549,13 +1250,6 @@ class ReactionKind(StrEnum):
     INHERENT = "inherent"
 
 
-class ReassociationPolicy(StrEnum):
-    """The declared ReassociationPolicy enumeration."""
-
-    PRESERVE_ORDER = "preserve_order"
-    CANONICAL_ORDER = "canonical_order"
-
-
 class ReductionKind(StrEnum):
     """The declared ReductionKind enumeration."""
 
@@ -1584,15 +1278,6 @@ class ReferenceStateKind(StrEnum):
     CUSTOM = "custom"
 
 
-class RelationOp(StrEnum):
-    """The declared RelationOp enumeration."""
-
-    GT = "gt"
-    GE = "ge"
-    LE = "le"
-    NE = "ne"
-
-
 class RequirementSource(StrEnum):
     """The declared RequirementSource enumeration."""
 
@@ -1617,61 +1302,11 @@ class RetentionReason(StrEnum):
     CHANGES = "changes"
 
 
-class RewriteMode(StrEnum):
-    """The declared RewriteMode enumeration."""
-
-    GUARDED_FLOATING = "guarded_floating"
-
-
-class RowKind(StrEnum):
-    """The declared RowKind enumeration."""
-
-    EQUALITY = "equality"
-    INEQUALITY = "inequality"
-    OBJECTIVE = "objective"
-
-
-class RuleOutcomeReason(StrEnum):
-    """The declared RuleOutcomeReason enumeration."""
-
-    ASSERTED = "asserted"
-    PREDICATE_FALSE = "predicate_false"
-    PREDICATE_UNKNOWN = "predicate_unknown"
-    VALUE_CONFLICT = "value_conflict"
-
-
-class RuleSupportKind(StrEnum):
-    """The declared RuleSupportKind enumeration."""
-
-    DELTA = "delta"
-    FACTS = "facts"
-    WORKSPACE = "workspace"
-    COMPLETED = "completed"
-    ABSENCE = "absence"
-
-
 class ScaleKind(StrEnum):
     """The declared ScaleKind enumeration."""
 
     POINT = "point"
     DIFFERENCE = "difference"
-
-
-class ScaleSource(StrEnum):
-    """The declared ScaleSource enumeration."""
-
-    CASE = "case"
-    PACKAGE = "package"
-    NOMINAL = "nominal"
-    RULE = "rule"
-
-
-class ScalingMode(StrEnum):
-    """The declared ScalingMode enumeration."""
-
-    USER = "user"
-    GRADIENT_BASED = "gradient_based"
-    NONE = "none"
 
 
 class ScopeKind(StrEnum):
@@ -1682,22 +1317,6 @@ class ScopeKind(StrEnum):
     SPECIES = "species"
     PHASE_SPECIES = "phase_species"
     REACTION = "reaction"
-
-
-class SelectorNodeOp(StrEnum):
-    """The declared SelectorNodeOp enumeration."""
-
-    CONSTANT = "constant"
-    IDENTITY = "identity"
-    UNION = "union"
-    INTERSECTION = "intersection"
-    DIFFERENCE = "difference"
-    INCLUDE = "include"
-    EXCLUDE = "exclude"
-    SELF = "self"
-    KIND_IS = "kind_is"
-    DESCENDANT_OF = "descendant_of"
-    INSTANCE_PARAMETER = "instance_parameter"
 
 
 class SelectorOp(StrEnum):
@@ -1721,8 +1340,8 @@ class Sense(StrEnum):
     EQ = "eq"
     LE = "le"
     GE = "ge"
-    RANGE = "range"
     DEFINITION = "definition"
+    RANGE = "range"
 
 
 class Severity(StrEnum):
@@ -1739,25 +1358,6 @@ class SnapshotClass(StrEnum):
     CASE = "case"
     DERIVED = "derived"
     SIDECAR = "sidecar"
-
-
-class SolvePlanClass(StrEnum):
-    """The declared SolvePlanClass enumeration."""
-
-    SQUARE_NLE = "SQUARE_NLE"
-    NLP_LOCAL = "NLP_LOCAL"
-    DAE_INTEGRATE = "DAE_INTEGRATE"
-    MINLP = "MINLP"
-    GDP = "GDP"
-
-
-class SolverTermination(StrEnum):
-    """The declared SolverTermination enumeration."""
-
-    SUCCESS = "success"
-    STOPPED = "stopped"
-    CANCELLED = "cancelled"
-    EVALUATION_FAILURE = "evaluation_failure"
 
 
 class SolverVariableType(StrEnum):
@@ -1781,13 +1381,6 @@ class SourceBindingKind(StrEnum):
     UNIT = "unit"
 
 
-class SparsityKind(StrEnum):
-    """The declared SparsityKind enumeration."""
-
-    JACOBIAN = "jacobian"
-    HESSIAN = "hessian"
-
-
 class SplittingType(StrEnum):
     """The declared SplittingType enumeration."""
 
@@ -1803,29 +1396,6 @@ class Stability(StrEnum):
     STABLE = "stable"
     EVOLVING = "evolving"
     INTERNAL = "internal"
-
-
-class StageKind(StrEnum):
-    """The declared StageKind enumeration."""
-
-    SOLVE_SUBSET = "solve_subset"
-    SOLVE_BLOCKS = "solve_blocks"
-    PROPAGATE = "propagate"
-    APPLY_OVERLAY = "apply_overlay"
-    CONTINUATION = "continuation"
-    CALL_PLAN = "call_plan"
-    CHECK = "check"
-    RESTORE = "restore"
-
-
-class StageTargetKind(StrEnum):
-    """The declared StageTargetKind enumeration."""
-
-    INSTANCE = "instance"
-    EQUATION_SET = "equation_set"
-    BLOCKS = "blocks"
-    CONNECTION = "connection"
-    ALL = "all"
 
 
 class StateIndex(StrEnum):
@@ -1871,12 +1441,6 @@ class TargetKind(StrEnum):
     GROUP = "group"
     EQUATION = "equation"
     INSTANCE_WILDCARD = "instance_wildcard"
-
-
-class TearMethod(StrEnum):
-    """The declared TearMethod enumeration."""
-
-    FEEDBACK_ARC_SET = "feedback_arc_set"
 
 
 class TemplateKind(StrEnum):
@@ -1962,31 +1526,12 @@ class TruthValue(StrEnum):
     CONFLICT = "conflict"
 
 
-class ValueSource(StrEnum):
-    """The declared ValueSource enumeration."""
-
-    CASE_SPEC = "case_spec"
-    PACKAGE_DEFAULT = "package_default"
-    TEMPLATE_DEFAULT = "template_default"
-
-
 class ValveFunctionType(StrEnum):
     """The declared ValveFunctionType enumeration."""
 
     LINEAR = "linear"
     QUICK_OPENING = "quick_opening"
     EQUAL_PERCENTAGE = "equal_percentage"
-
-
-class VariableLifecycle(StrEnum):
-    """The declared VariableLifecycle enumeration."""
-
-    AUTHORED = "authored"
-    GENERATED_SEMANTIC = "generated_semantic"
-    GENERATED_DISCRETIZATION = "generated_discretization"
-    GENERATED_REFORMULATION = "generated_reformulation"
-    GENERATED_RELAXATION = "generated_relaxation"
-    RUNTIME_ARTIFACT = "runtime_artifact"
 
 
 class VariableSemanticRole(StrEnum):

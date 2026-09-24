@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-ids"
-description = "SemanticId, ContentHash, ordinals, derived-ID rules and the canonical IPC serializer (blueprint §3.2, §5.1)."
+description = "SemanticId, ContentHash, scalar semantics and typed identity framing (blueprint §3.2, §5.1)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -16,23 +16,12 @@ publish.workspace = true
 [lints]
 workspace = true
 
-[features]
-# Read-only timing observations; admission and reservations remain mandatory.
-bench-instrumentation = []
-
 [dependencies]
+pse-diagnostics.workspace = true
 blake3.workspace = true
-bytes.workspace = true
 serde.workspace = true
-arrow.workspace = true
-arrow-array.workspace = true
-arrow-schema.workspace = true
-arrow-ipc.workspace = true
-arrow-buffer.workspace = true
-arrow-row.workspace = true
 thiserror.workspace = true
 miette.workspace = true
-tokio-util.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

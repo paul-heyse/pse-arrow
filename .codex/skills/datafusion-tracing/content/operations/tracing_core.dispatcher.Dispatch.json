@@ -1,0 +1,3180 @@
+[
+  {
+    "id": "bdcb8c4598cc406ba313069c",
+    "path": "tracing_core::dispatcher::Dispatch",
+    "name": "Dispatch",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "struct",
+    "signature": "struct Dispatch",
+    "docs": "`Dispatch` trace data to a [`Subscriber`].",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        149,
+        1
+      ],
+      "end": [
+        151,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          156,
+          157,
+          158,
+          159,
+          160,
+          161,
+          162,
+          163,
+          164,
+          165,
+          166,
+          167,
+          168,
+          169,
+          170,
+          171,
+          172,
+          174,
+          176,
+          179,
+          181
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Subscriber`": 112
+    },
+    "link_paths": {
+      "`Subscriber`": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "120",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-bdcb8c4598cc406ba313069c",
+    "aliases": [
+      "tracing::Dispatch",
+      "tracing::dispatcher::Dispatch",
+      "tracing_core::Dispatch"
+    ],
+    "resolved_doc_links": {
+      "`Subscriber`": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "5e5dbdadc661fed8b9bc18a3",
+    "path": "tracing_core::dispatcher::Dispatch::clone",
+    "name": "clone",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Dispatch",
+    "docs": "",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        148,
+        10
+      ],
+      "end": [
+        148,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Dispatch",
+              "id": 120,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "120": "tracing_core::dispatcher::Dispatch"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          148,
+          10
+        ],
+        "end": [
+          148,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "173",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-5e5dbdadc661fed8b9bc18a3",
+    "aliases": [
+      "tracing::Dispatch::clone",
+      "tracing::dispatcher::Dispatch::clone",
+      "tracing_core::Dispatch::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "aedbb7574b6dc95422a134c9",
+    "path": "tracing_core::dispatcher::Dispatch::clone_span",
+    "name": "clone_span",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn clone_span(&self, id: &span::Id) -> span::Id",
+    "docs": "Notifies the subscriber that a [span ID] has been cloned.\n\nThis function must only be called with span IDs that were returned by\nthis `Dispatch`'s [`new_span`] function. The `tracing` crate upholds\nthis guarantee and any other libraries implementing instrumentation APIs\nmust as well.\n\nThis calls the [`clone_span`] function on the `Subscriber` that this\n`Dispatch` forwards to.\n\n[span ID]: super::span::Id\n[`Subscriber`]: super::subscriber::Subscriber\n[`clone_span`]: super::subscriber::Subscriber::clone_span\n[`new_span`]: super::subscriber::Subscriber::new_span",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        651,
+        5
+      ],
+      "end": [
+        653,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "span::Id",
+              "id": 128,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber::clone_span": 144,
+      "super::subscriber::Subscriber::new_span": 129,
+      "super::subscriber::Subscriber": 112,
+      "super::span::Id": 128
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::clone_span": "tracing_core::subscriber::Subscriber::clone_span",
+      "super::subscriber::Subscriber::new_span": "tracing_core::subscriber::Subscriber::new_span",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::span::Id": "tracing_core::span::Id"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "145",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-aedbb7574b6dc95422a134c9",
+    "aliases": [
+      "tracing::Dispatch::clone_span",
+      "tracing::dispatcher::Dispatch::clone_span",
+      "tracing_core::Dispatch::clone_span"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::clone_span": "../operations/tracing_core.subscriber.Subscriber.md#op-7352d6acfcd094e272b99023",
+      "super::subscriber::Subscriber::new_span": "../operations/tracing_core.subscriber.Subscriber.md#op-2078a9c33e5e65d3b31ba990",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f"
+    }
+  },
+  {
+    "id": "96c9a6d2832b8129d2418a01",
+    "path": "tracing_core::dispatcher::Dispatch::current_span",
+    "name": "current_span",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn current_span(&self) -> span::Current",
+    "docs": "Returns a type representing this subscriber's view of the current span.\n\nThis calls the [`current`] function on the `Subscriber` that this\n`Dispatch` forwards to.\n\n[`current`]: super::subscriber::Subscriber::current_span",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        710,
+        5
+      ],
+      "end": [
+        712,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "span::Current",
+              "id": 152,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "152": "tracing_core::span::Current"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber::current_span": 150
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::current_span": "tracing_core::subscriber::Subscriber::current_span"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "151",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-96c9a6d2832b8129d2418a01",
+    "aliases": [
+      "tracing::Dispatch::current_span",
+      "tracing::dispatcher::Dispatch::current_span",
+      "tracing_core::Dispatch::current_span"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::current_span": "../operations/tracing_core.subscriber.Subscriber.md#op-b822e2619731be50b1f79f07"
+    }
+  },
+  {
+    "id": "ad2efd9f11d503cd00c949ca",
+    "path": "tracing_core::dispatcher::Dispatch::default",
+    "name": "default",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "Returns the current default dispatcher",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        731,
+        5
+      ],
+      "end": [
+        733,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          729,
+          1
+        ],
+        "end": [
+          734,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "175",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-ad2efd9f11d503cd00c949ca",
+    "aliases": [
+      "tracing::Dispatch::default",
+      "tracing::dispatcher::Dispatch::default",
+      "tracing_core::Dispatch::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "890a82577d6562a4cd4f6ccf",
+    "path": "tracing_core::dispatcher::Dispatch::downcast_ref",
+    "name": "downcast_ref",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn downcast_ref<T: Any>(&self) -> Option<&T>",
+    "docs": "Returns some reference to the `Subscriber` this `Dispatch` forwards to\nif it is of type `T`, or `None` if it isn't.",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        724,
+        5
+      ],
+      "end": [
+        726,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 155,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": null,
+                          "is_mutable": false,
+                          "type": {
+                            "generic": "T"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Any",
+                          "id": 65,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "155": "core::option::Option",
+      "65": "core::any::Any"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "154",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-890a82577d6562a4cd4f6ccf",
+    "aliases": [
+      "tracing::Dispatch::downcast_ref",
+      "tracing::dispatcher::Dispatch::downcast_ref",
+      "tracing_core::Dispatch::downcast_ref"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3d911653bdde5f29cad4eafd",
+    "path": "tracing_core::dispatcher::Dispatch::downgrade",
+    "name": "downgrade",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn downgrade(&self) -> WeakDispatch",
+    "docs": "Creates a [`WeakDispatch`] from this `Dispatch`.\n\nA [`WeakDispatch`] is similar to a [`Dispatch`], but it does not prevent\nthe underlying [`Subscriber`] from being dropped. Instead, it only permits\naccess while other references to the `Subscriber` exist. This is equivalent\nto the standard library's [`Arc::downgrade`] method, but for `Dispatch`\nrather than `Arc`.\n\nThe primary use for creating a [`WeakDispatch`] is to allow a `Subscriber`\nto hold a cyclical reference to itself without creating a memory leak.\nSee [here] for details.\n\n[`Arc::downgrade`]: std::sync::Arc::downgrade\n[here]: Subscriber#avoiding-memory-leaks",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        502,
+        5
+      ],
+      "end": [
+        506,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WeakDispatch",
+              "id": 124,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "124": "tracing_core::dispatcher::WeakDispatch"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "Subscriber#avoiding-memory-leaks": 112,
+      "`Subscriber`": 112,
+      "std::sync::Arc::downgrade": 125,
+      "`WeakDispatch`": 124,
+      "`Dispatch`": 120
+    },
+    "link_paths": {
+      "Subscriber#avoiding-memory-leaks": "tracing_core::subscriber::Subscriber",
+      "`Subscriber`": "tracing_core::subscriber::Subscriber",
+      "std::sync::Arc::downgrade": "alloc::sync::Arc::downgrade",
+      "`WeakDispatch`": "tracing_core::dispatcher::WeakDispatch",
+      "`Dispatch`": "tracing_core::dispatcher::Dispatch"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "126",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-3d911653bdde5f29cad4eafd",
+    "aliases": [
+      "tracing::Dispatch::downgrade",
+      "tracing::dispatcher::Dispatch::downgrade",
+      "tracing_core::Dispatch::downgrade"
+    ],
+    "resolved_doc_links": {
+      "Subscriber#avoiding-memory-leaks": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "`Subscriber`": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "`WeakDispatch`": "../operations/tracing_core.dispatcher.WeakDispatch.md#op-0beab352f71fbbf38e94b386",
+      "`Dispatch`": "../operations/tracing_core.dispatcher.Dispatch.md#op-bdcb8c4598cc406ba313069c"
+    }
+  },
+  {
+    "id": "46686383443d79747d3a330e",
+    "path": "tracing_core::dispatcher::Dispatch::drop_span",
+    "name": "drop_span",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn drop_span(&self, id: span::Id)",
+    "docs": "Notifies the subscriber that a [span ID] has been dropped.\n\nThis function must only be called with span IDs that were returned by\nthis `Dispatch`'s [`new_span`] function. The `tracing` crate upholds\nthis guarantee and any other libraries implementing instrumentation APIs\nmust as well.\n\nThis calls the [`drop_span`] function on the [`Subscriber`] that this\n`Dispatch` forwards to.\n\n<pre class=\"compile_fail\" style=\"white-space:normal;font:inherit;\">\n    <strong>Deprecated</strong>: The <a href=\"#method.try_close\"><code>\n    try_close</code></a> method is functionally identical, but returns\n    <code>true</code> if the span is now closed. It should be used\n    instead of this method.\n</pre>\n\n[span ID]: super::span::Id\n[`Subscriber`]: super::subscriber::Subscriber\n[`drop_span`]: super::subscriber::Subscriber::drop_span\n[`new_span`]: super::subscriber::Subscriber::new_span\n[`try_close`]: Self::try_close()",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        679,
+        5
+      ],
+      "end": [
+        682,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": {
+      "since": "0.1.2",
+      "note": "use `Dispatch::try_close` instead"
+    },
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "resolved_path": {
+                  "path": "span::Id",
+                  "id": 128,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber::drop_span": 146,
+      "super::subscriber::Subscriber::new_span": 129,
+      "super::subscriber::Subscriber": 112,
+      "super::span::Id": 128,
+      "Self::try_close()": 147
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::drop_span": "tracing_core::subscriber::Subscriber::drop_span",
+      "super::subscriber::Subscriber::new_span": "tracing_core::subscriber::Subscriber::new_span",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::span::Id": "tracing_core::span::Id",
+      "Self::try_close()": "tracing_core::dispatcher::Dispatch::try_close"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "148",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-46686383443d79747d3a330e",
+    "aliases": [
+      "tracing::Dispatch::drop_span",
+      "tracing::dispatcher::Dispatch::drop_span",
+      "tracing_core::Dispatch::drop_span"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::drop_span": "../operations/tracing_core.subscriber.Subscriber.md#op-318d7870f3253ee81d24adfb",
+      "super::subscriber::Subscriber::new_span": "../operations/tracing_core.subscriber.Subscriber.md#op-2078a9c33e5e65d3b31ba990",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "Self::try_close()": "../operations/tracing_core.dispatcher.Dispatch.md#op-e45eeed45149055271d4be8a"
+    }
+  },
+  {
+    "id": "59cc1becf3a5c0e11ed4fc0c",
+    "path": "tracing_core::dispatcher::Dispatch::enabled",
+    "name": "enabled",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn enabled(&self, metadata: &Metadata<'_>) -> bool",
+    "docs": "Returns true if a span with the specified [metadata] would be\nrecorded.\n\nThis calls the [`enabled`] function on the [`Subscriber`] that this\n`Dispatch` forwards to.\n\n[metadata]: super::metadata::Metadata\n[`Subscriber`]: super::subscriber::Subscriber\n[`enabled`]: super::subscriber::Subscriber::enabled",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        594,
+        5
+      ],
+      "end": [
+        596,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 13,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "13": "tracing_core::metadata::Metadata"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber": 112,
+      "super::metadata::Metadata": 13,
+      "super::subscriber::Subscriber::enabled": 119
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::metadata::Metadata": "tracing_core::metadata::Metadata",
+      "super::subscriber::Subscriber::enabled": "tracing_core::subscriber::Subscriber::enabled"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "137",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-59cc1becf3a5c0e11ed4fc0c",
+    "aliases": [
+      "tracing::Dispatch::enabled",
+      "tracing::dispatcher::Dispatch::enabled",
+      "tracing_core::Dispatch::enabled"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::metadata::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "super::subscriber::Subscriber::enabled": "../operations/tracing_core.subscriber.Subscriber.md#op-df007f57ed0cab78f4b9e43b"
+    }
+  },
+  {
+    "id": "2ebbe3198bcfd3842199b1e1",
+    "path": "tracing_core::dispatcher::Dispatch::enter",
+    "name": "enter",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn enter(&self, span: &span::Id)",
+    "docs": "Records that a span has been can_enter.\n\nThis calls the [`enter`] function on the [`Subscriber`] that this\n`Dispatch` forwards to.\n\n[`Subscriber`]: super::subscriber::Subscriber\n[`enter`]: super::subscriber::Subscriber::enter",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        621,
+        5
+      ],
+      "end": [
+        623,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber::enter": 140,
+      "super::subscriber::Subscriber": 112
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::enter": "tracing_core::subscriber::Subscriber::enter",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "141",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-2ebbe3198bcfd3842199b1e1",
+    "aliases": [
+      "tracing::Dispatch::enter",
+      "tracing::dispatcher::Dispatch::enter",
+      "tracing_core::Dispatch::enter"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::enter": "../operations/tracing_core.subscriber.Subscriber.md#op-95e34b84088cd585fdd63d02",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "7c17283aaed18117f8dac913",
+    "path": "tracing_core::dispatcher::Dispatch::event",
+    "name": "event",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn event(&self, event: &Event<'_>)",
+    "docs": "Records that an [`Event`] has occurred.\n\nThis calls the [`event`] function on the [`Subscriber`] that this\n`Dispatch` forwards to.\n\n[`Event`]: super::event::Event\n[`Subscriber`]: super::subscriber::Subscriber\n[`event`]: super::subscriber::Subscriber::event",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        607,
+        5
+      ],
+      "end": [
+        612,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 138,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "138": "tracing_core::event::Event"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber": 112,
+      "super::event::Event": 138
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::event::Event": "tracing_core::event::Event"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "139",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-7c17283aaed18117f8dac913",
+    "aliases": [
+      "tracing::Dispatch::event",
+      "tracing::dispatcher::Dispatch::event",
+      "tracing_core::Dispatch::event"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::event::Event": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039"
+    }
+  },
+  {
+    "id": "59f7ef13722e3e2e02a03244",
+    "path": "tracing_core::dispatcher::Dispatch::exit",
+    "name": "exit",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn exit(&self, span: &span::Id)",
+    "docs": "Records that a span has been exited.\n\nThis calls the [`exit`] function on the [`Subscriber`] that this\n`Dispatch` forwards to.\n\n[`Subscriber`]: super::subscriber::Subscriber\n[`exit`]: super::subscriber::Subscriber::exit",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        632,
+        5
+      ],
+      "end": [
+        634,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber::exit": 142,
+      "super::subscriber::Subscriber": 112
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::exit": "tracing_core::subscriber::Subscriber::exit",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "143",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-59f7ef13722e3e2e02a03244",
+    "aliases": [
+      "tracing::Dispatch::exit",
+      "tracing::dispatcher::Dispatch::exit",
+      "tracing_core::Dispatch::exit"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::exit": "../operations/tracing_core.subscriber.Subscriber.md#op-0b5bdf535b6a65a9bad07b05",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "9e9eb2062c3fcb1dd44a413a",
+    "path": "tracing_core::dispatcher::Dispatch::fmt",
+    "name": "fmt",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        737,
+        5
+      ],
+      "end": [
+        748,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 79,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 80,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "79": "core::fmt::Formatter",
+      "80": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          736,
+          1
+        ],
+        "end": [
+          749,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "178",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-9e9eb2062c3fcb1dd44a413a",
+    "aliases": [
+      "tracing::Dispatch::fmt",
+      "tracing::dispatcher::Dispatch::fmt",
+      "tracing_core::Dispatch::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7675f939fc207f1484da2186",
+    "path": "tracing_core::dispatcher::Dispatch::from",
+    "name": "from",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn from(subscriber: S) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        756,
+        5
+      ],
+      "end": [
+        758,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "subscriber",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          751,
+          1
+        ],
+        "end": [
+          759,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "180",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-7675f939fc207f1484da2186",
+    "aliases": [
+      "tracing::Dispatch::from",
+      "tracing::dispatcher::Dispatch::from",
+      "tracing_core::Dispatch::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c77c6b1b94d1951ab1f892c5",
+    "path": "tracing_core::dispatcher::Dispatch::is",
+    "name": "is",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is<T: Any>(&self) -> bool",
+    "docs": "Returns `true` if this `Dispatch` forwards to a `Subscriber` of type\n`T`.",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        717,
+        5
+      ],
+      "end": [
+        719,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Any",
+                          "id": 65,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "65": "core::any::Any"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "153",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-c77c6b1b94d1951ab1f892c5",
+    "aliases": [
+      "tracing::Dispatch::is",
+      "tracing::dispatcher::Dispatch::is",
+      "tracing_core::Dispatch::is"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f05d362d48014c7fcd740d82",
+    "path": "tracing_core::dispatcher::Dispatch::new",
+    "name": "new",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn new<S>(subscriber: S) -> Self where S: Subscriber + Send + Sync + 'static",
+    "docs": "Returns a `Dispatch` that forwards to the given [`Subscriber`].\n\n[`Subscriber`]: super::subscriber::Subscriber",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        472,
+        5
+      ],
+      "end": [
+        481,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "subscriber",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Subscriber",
+                        "id": 112,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 24,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sync",
+                        "id": 17,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "112": "tracing_core::subscriber::Subscriber",
+      "24": "core::marker::Send",
+      "17": "core::marker::Sync"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber": 112
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "123",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-f05d362d48014c7fcd740d82",
+    "aliases": [
+      "tracing::Dispatch::new",
+      "tracing::dispatcher::Dispatch::new",
+      "tracing_core::Dispatch::new"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "182ced619ada82e85e23e4d4",
+    "path": "tracing_core::dispatcher::Dispatch::new_span",
+    "name": "new_span",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn new_span(&self, span: &span::Attributes<'_>) -> span::Id",
+    "docs": "Record the construction of a new span, returning a new [ID] for the\nspan being constructed.\n\nThis calls the [`new_span`] function on the [`Subscriber`] that this\n`Dispatch` forwards to.\n\n[ID]: super::span::Id\n[`Subscriber`]: super::subscriber::Subscriber\n[`new_span`]: super::subscriber::Subscriber::new_span",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        555,
+        5
+      ],
+      "end": [
+        557,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Attributes",
+                      "id": 131,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "span::Id",
+              "id": 128,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "131": "tracing_core::span::Attributes",
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::span::Id": 128,
+      "super::subscriber::Subscriber::new_span": 129,
+      "super::subscriber::Subscriber": 112
+    },
+    "link_paths": {
+      "super::span::Id": "tracing_core::span::Id",
+      "super::subscriber::Subscriber::new_span": "tracing_core::subscriber::Subscriber::new_span",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "130",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-182ced619ada82e85e23e4d4",
+    "aliases": [
+      "tracing::Dispatch::new_span",
+      "tracing::dispatcher::Dispatch::new_span",
+      "tracing_core::Dispatch::new_span"
+    ],
+    "resolved_doc_links": {
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "super::subscriber::Subscriber::new_span": "../operations/tracing_core.subscriber.Subscriber.md#op-2078a9c33e5e65d3b31ba990",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "32d91e13873d14cc5ba6b3e0",
+    "path": "tracing_core::dispatcher::Dispatch::none",
+    "name": "none",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn none() -> Self",
+    "docs": "Returns a new `Dispatch` that discards events and spans.",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        463,
+        5
+      ],
+      "end": [
+        467,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "122",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-32d91e13873d14cc5ba6b3e0",
+    "aliases": [
+      "tracing::Dispatch::none",
+      "tracing::dispatcher::Dispatch::none",
+      "tracing_core::Dispatch::none"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7f467d377959335c1f2d3c71",
+    "path": "tracing_core::dispatcher::Dispatch::record",
+    "name": "record",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn record(&self, span: &span::Id, values: &span::Record<'_>)",
+    "docs": "Record a set of values on a span.\n\nThis calls the [`record`] function on the [`Subscriber`] that this\n`Dispatch` forwards to.\n\n[`Subscriber`]: super::subscriber::Subscriber\n[`record`]: super::subscriber::Subscriber::record",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        567,
+        5
+      ],
+      "end": [
+        569,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "values",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Record",
+                      "id": 134,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id",
+      "134": "tracing_core::span::Record"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber::record": 132,
+      "super::subscriber::Subscriber": 112
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::record": "tracing_core::subscriber::Subscriber::record",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "133",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-7f467d377959335c1f2d3c71",
+    "aliases": [
+      "tracing::Dispatch::record",
+      "tracing::dispatcher::Dispatch::record",
+      "tracing_core::Dispatch::record"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::record": "../operations/tracing_core.subscriber.Subscriber.md#op-6a1be0ff2718eafc8be1ea03",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "45f811dcf08f771ac4ccfaf8",
+    "path": "tracing_core::dispatcher::Dispatch::record_follows_from",
+    "name": "record_follows_from",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn record_follows_from(&self, span: &span::Id, follows: &span::Id)",
+    "docs": "Adds an indication that `span` follows from the span with the id\n`follows`.\n\nThis calls the [`record_follows_from`] function on the [`Subscriber`]\nthat this `Dispatch` forwards to.\n\n[`Subscriber`]: super::subscriber::Subscriber\n[`record_follows_from`]: super::subscriber::Subscriber::record_follows_from",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        580,
+        5
+      ],
+      "end": [
+        582,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "follows",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber::record_follows_from": 135,
+      "super::subscriber::Subscriber": 112
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::record_follows_from": "tracing_core::subscriber::Subscriber::record_follows_from",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "136",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-45f811dcf08f771ac4ccfaf8",
+    "aliases": [
+      "tracing::Dispatch::record_follows_from",
+      "tracing::dispatcher::Dispatch::record_follows_from",
+      "tracing_core::Dispatch::record_follows_from"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::record_follows_from": "../operations/tracing_core.subscriber.Subscriber.md#op-6723dd7804078d48ea4b536f",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "75d71ac96910299a244e6ddb",
+    "path": "tracing_core::dispatcher::Dispatch::register_callsite",
+    "name": "register_callsite",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn register_callsite(&self, metadata: &'static Metadata<'static>) -> subscriber::Interest",
+    "docs": "Registers a new callsite with this subscriber, returning whether or not\nthe subscriber is interested in being notified about the callsite.\n\nThis calls the [`register_callsite`] function on the [`Subscriber`]\nthat this `Dispatch` forwards to.\n\n[`Subscriber`]: super::subscriber::Subscriber\n[`register_callsite`]: super::subscriber::Subscriber::register_callsite",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        525,
+        5
+      ],
+      "end": [
+        527,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 13,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "subscriber::Interest",
+              "id": 10,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "13": "tracing_core::metadata::Metadata",
+      "10": "tracing_core::subscriber::Interest"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber": 112,
+      "super::subscriber::Subscriber::register_callsite": 116
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::subscriber::Subscriber::register_callsite": "tracing_core::subscriber::Subscriber::register_callsite"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "127",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-75d71ac96910299a244e6ddb",
+    "aliases": [
+      "tracing::Dispatch::register_callsite",
+      "tracing::dispatcher::Dispatch::register_callsite",
+      "tracing_core::Dispatch::register_callsite"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::subscriber::Subscriber::register_callsite": "../operations/tracing_core.subscriber.Subscriber.md#op-19b9abf22f078e184d986225"
+    }
+  },
+  {
+    "id": "e45eeed45149055271d4be8a",
+    "path": "tracing_core::dispatcher::Dispatch::try_close",
+    "name": "try_close",
+    "owner": "tracing_core::dispatcher::Dispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn try_close(&self, id: span::Id) -> bool",
+    "docs": "Notifies the subscriber that a [span ID] has been dropped, and returns\n`true` if there are now 0 IDs referring to that span.\n\nThis function must only be called with span IDs that were returned by\nthis `Dispatch`'s [`new_span`] function. The `tracing` crate upholds\nthis guarantee and any other libraries implementing instrumentation APIs\nmust as well.\n\nThis calls the [`try_close`] function on the [`Subscriber`] that this\n `Dispatch` forwards to.\n\n[span ID]: super::span::Id\n[`Subscriber`]: super::subscriber::Subscriber\n[`try_close`]: super::subscriber::Subscriber::try_close\n[`new_span`]: super::subscriber::Subscriber::new_span",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        699,
+        5
+      ],
+      "end": [
+        701,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "resolved_path": {
+                  "path": "span::Id",
+                  "id": 128,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Dispatch",
+          "id": "tracing_core::dispatcher::Dispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          460,
+          1
+        ],
+        "end": [
+          727,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber::new_span": 129,
+      "super::subscriber::Subscriber": 112,
+      "super::span::Id": 128,
+      "super::subscriber::Subscriber::try_close": 149
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::new_span": "tracing_core::subscriber::Subscriber::new_span",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::span::Id": "tracing_core::span::Id",
+      "super::subscriber::Subscriber::try_close": "tracing_core::subscriber::Subscriber::try_close"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "147",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.Dispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.Dispatch.json",
+    "anchor": "op-e45eeed45149055271d4be8a",
+    "aliases": [
+      "tracing::Dispatch::try_close",
+      "tracing::dispatcher::Dispatch::try_close",
+      "tracing_core::Dispatch::try_close"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::new_span": "../operations/tracing_core.subscriber.Subscriber.md#op-2078a9c33e5e65d3b31ba990",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "super::subscriber::Subscriber::try_close": "../operations/tracing_core.subscriber.Subscriber.md#op-eccad0ed6b21bf85cd56e13d"
+    }
+  }
+]

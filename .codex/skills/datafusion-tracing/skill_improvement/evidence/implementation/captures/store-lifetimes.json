@@ -1,0 +1,96 @@
+[
+  {
+    "kind": "open",
+    "id": 274877906945,
+    "parent": null,
+    "name": "get_opts",
+    "target": "instrumented_object_store::instrumented_object_store",
+    "fields": {
+      "object_store.location": "sample",
+      "object_store.options": "GetOptions { if_match: None, if_none_match: None, if_modified_since: None, if_unmodified_since: None, range: None, version: None, head: false, extensions: {} }",
+      "otel.name": "fixture.get_opts"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 274877906945,
+    "name": "get_opts",
+    "target": "instrumented_object_store::instrumented_object_store",
+    "fields": {
+      "object_store.location": "sample",
+      "object_store.options": "GetOptions { if_match: None, if_none_match: None, if_modified_since: None, if_unmodified_since: None, range: None, version: None, head: false, extensions: {} }",
+      "object_store.result.meta": "ObjectMeta { location: Path { raw: \"sample\" }, last_modified: 2026-09-19T02:15:15.187164975Z, size: 6, e_tag: Some(\"0\"), version: None }",
+      "object_store.result.range": "0..6",
+      "otel.name": "fixture.get_opts"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 2252074691592193,
+    "parent": null,
+    "name": "get_ranges",
+    "target": "instrumented_object_store::instrumented_object_store",
+    "fields": {
+      "object_store.location": "sample",
+      "object_store.ranges": "[0..2, 4..6]",
+      "otel.name": "fixture.get_ranges"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 2252074691592193,
+    "name": "get_ranges",
+    "target": "instrumented_object_store::instrumented_object_store",
+    "fields": {
+      "object_store.location": "sample",
+      "object_store.ranges": "[0..2, 4..6]",
+      "object_store.result.content_length": "4",
+      "otel.name": "fixture.get_ranges"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 4503874505277441,
+    "parent": null,
+    "name": "get_opts",
+    "target": "instrumented_object_store::instrumented_object_store",
+    "fields": {
+      "object_store.location": "missing",
+      "object_store.options": "GetOptions { if_match: None, if_none_match: None, if_modified_since: None, if_unmodified_since: None, range: None, version: None, head: false, extensions: {} }",
+      "otel.name": "fixture.get_opts"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 4503874505277441,
+    "name": "get_opts",
+    "target": "instrumented_object_store::instrumented_object_store",
+    "fields": {
+      "object_store.location": "missing",
+      "object_store.options": "GetOptions { if_match: None, if_none_match: None, if_modified_since: None, if_unmodified_since: None, range: None, version: None, head: false, extensions: {} }",
+      "object_store.result.err": "Object at location missing not found: No data in memory found. Location: missing",
+      "otel.name": "fixture.get_opts"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 6755674318962689,
+    "parent": null,
+    "name": "list",
+    "target": "instrumented_object_store::instrumented_object_store",
+    "fields": {
+      "object_store.prefix": "",
+      "otel.name": "fixture.list"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 6755674318962689,
+    "name": "list",
+    "target": "instrumented_object_store::instrumented_object_store",
+    "fields": {
+      "object_store.prefix": "",
+      "otel.name": "fixture.list"
+    }
+  }
+]

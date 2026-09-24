@@ -1,0 +1,164 @@
+[
+  {
+    "id": "4afec9087dca8bb3ed230ac2",
+    "path": "tracing_opentelemetry::layer::layer",
+    "name": "layer",
+    "owner": null,
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn layer<S>() -> OpenTelemetryLayer<S, noop::NoopTracer> where S: Subscriber + for<'span> LookupSpan<'span>",
+    "docs": "Construct a layer to track spans via [OpenTelemetry].\n\n[OpenTelemetry]: https://opentelemetry.io\n\n# Examples\n\n```rust,no_run\nuse tracing_subscriber::layer::SubscriberExt;\nuse tracing_subscriber::Registry;\n\n// Use the tracing subscriber `Registry`, or any other subscriber\n// that impls `LookupSpan`\nlet subscriber = Registry::default().with(tracing_opentelemetry::layer());\n# drop(subscriber);\n```",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        76,
+        1
+      ],
+      "end": [
+        81,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "OpenTelemetryLayer",
+              "id": 84,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "noop::NoopTracer",
+                          "id": 119,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Subscriber",
+                        "id": 6,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 7,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'span"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'span",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "84": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+      "119": "opentelemetry::trace::noop::NoopTracer",
+      "6": "tracing_core::subscriber::Subscriber",
+      "7": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "132",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.layer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.layer.json",
+    "anchor": "op-4afec9087dca8bb3ed230ac2",
+    "aliases": [
+      "tracing_opentelemetry::layer"
+    ],
+    "resolved_doc_links": {}
+  }
+]

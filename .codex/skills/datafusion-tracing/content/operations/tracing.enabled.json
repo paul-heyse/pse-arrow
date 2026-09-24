@@ -1,0 +1,85 @@
+[
+  {
+    "id": "3383abc1e97aee1544e7701c",
+    "path": "tracing::enabled",
+    "name": "enabled",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "macro",
+    "signature": "macro_rules! enabled",
+    "docs": "Checks whether a span or event is [enabled] based on the provided [metadata].\n\n[enabled]: crate::Subscriber::enabled\n[metadata]: crate::Metadata\n\nThis macro is a specialized tool: it is intended to be used prior\nto an expensive computation required *just* for that event, but\n*cannot* be done as part of an argument to that event, such as\nwhen multiple events are emitted (e.g., iterating over a collection\nand emitting an event for each item).\n\n# Usage\n\n[Subscribers] can make filtering decisions based all the data included in a\nspan or event's [`Metadata`]. This means that it is possible for `enabled!`\nto return a _false positive_ (indicating that something would be enabled\nwhen it actually would not be) or a _false negative_ (indicating that\nsomething would be disabled when it would actually be enabled).\n\n[Subscribers]: crate::subscriber::Subscriber\n[`Metadata`]: crate::metadata::Metadata\n\nThis occurs when a subscriber is using a _more specific_ filter than the\nmetadata provided to the `enabled!` macro. Some situations that can result\nin false positives or false negatives include:\n\n- If a subscriber is using a filter which may enable a span or event based\n  on field names, but `enabled!` is invoked without listing field names,\n  `enabled!` may return a false negative if a specific field name would\n  cause the subscriber to enable something that would otherwise be disabled.\n- If a subscriber is using a filter which enables or disables specific events by\n  file path and line number,  a particular event may be enabled/disabled\n  even if an `enabled!` invocation with the same level, target, and fields\n  indicated otherwise.\n- The subscriber can choose to enable _only_ spans or _only_ events, which `enabled`\n  will not reflect.\n\n`enabled!()` requires a [level](crate::Level) argument, an optional `target:`\nargument, and an optional set of field names. If the fields are not provided,\nthey are considered to be unknown. `enabled!` attempts to match the\nsyntax of `event!()` as closely as possible, which can be seen in the\nexamples below.\n\n# Examples\n\nIf the current subscriber is interested in recording `DEBUG`-level spans and\nevents in the current file and module path, this will evaluate to true:\n```rust\nuse tracing::{enabled, Level};\n\nif enabled!(Level::DEBUG) {\n    // some expensive work...\n}\n```\n\nIf the current subscriber is interested in recording spans and events\nin the current file and module path, with the target \"my_crate\", and at the\nlevel  `DEBUG`, this will evaluate to true:\n```rust\n# use tracing::{enabled, Level};\nif enabled!(target: \"my_crate\", Level::DEBUG) {\n    // some expensive work...\n}\n```\n\nIf the current subscriber is interested in recording spans and events\nin the current file and module path, with the target \"my_crate\", at\nthe level `DEBUG`, and with a field named \"hello\", this will evaluate\nto true:\n\n```rust\n# use tracing::{enabled, Level};\nif enabled!(target: \"my_crate\", Level::DEBUG, hello) {\n    // some expensive work...\n}\n```\n\n# Alternatives\n\n`enabled!` queries subscribers with [`Metadata`] where\n[`is_event`] and [`is_span`] both return `false`. Alternatively,\nuse [`event_enabled!`] or [`span_enabled!`] to ensure one of these\nreturns true.\n\n\n[`Metadata`]: crate::Metadata\n[`is_event`]: crate::Metadata::is_event\n[`is_span`]: crate::Metadata::is_span\n[`enabled!`]: crate::enabled\n[`span_enabled!`]: crate::span_enabled",
+    "span": {
+      "filename": "src/macros.rs",
+      "begin": [
+        1214,
+        1
+      ],
+      "end": [
+        1294,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! enabled {\n    (kind: $kind:expr, target: $target:expr, $lvl:expr, { $($fields:tt)* } ) => { ... };\n    (kind: $kind:expr, target: $target:expr, $lvl:expr ) => { ... };\n    (target: $target:expr, $lvl:expr ) => { ... };\n    (kind: $kind:expr, target: $target:expr, $lvl:expr, $($field:tt)*) => { ... };\n    (target: $target:expr, $lvl:expr, $($field:tt)*) => { ... };\n    (kind: $kind:expr, $lvl:expr, $($field:tt)*) => { ... };\n    (kind: $kind:expr, $lvl:expr) => { ... };\n    ($lvl:expr) => { ... };\n    ($lvl:expr, $($field:tt)*) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::Subscriber::enabled": 213,
+      "crate::span_enabled": 389,
+      "crate::subscriber::Subscriber": 17,
+      "`event_enabled!`": 390,
+      "crate::Metadata": 20,
+      "crate::Metadata::is_span": 392,
+      "crate::enabled": 388,
+      "crate::metadata::Metadata": 20,
+      "crate::Metadata::is_event": 391,
+      "crate::Level": 320
+    },
+    "link_paths": {
+      "crate::Subscriber::enabled": "tracing_core::subscriber::Subscriber::enabled",
+      "crate::span_enabled": "tracing::span_enabled",
+      "crate::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "`event_enabled!`": "tracing::event_enabled",
+      "crate::Metadata": "tracing_core::metadata::Metadata",
+      "crate::Metadata::is_span": "tracing_core::metadata::Metadata::is_span",
+      "crate::enabled": "tracing::enabled",
+      "crate::metadata::Metadata": "tracing_core::metadata::Metadata",
+      "crate::Metadata::is_event": "tracing_core::metadata::Metadata::is_event",
+      "crate::Level": "tracing_core::metadata::Level"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "388",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.enabled.md",
+    "record_file": "operations/tracing.enabled.json",
+    "anchor": "op-3383abc1e97aee1544e7701c",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::Subscriber::enabled": "../operations/tracing_core.subscriber.Subscriber.md#op-df007f57ed0cab78f4b9e43b",
+      "crate::span_enabled": "../operations/tracing.span_enabled.md#op-aeaa6345fd504f0ab1a2dfdf",
+      "crate::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "`event_enabled!`": "../operations/tracing.event_enabled.md#op-5c503bd4b54f790d8060983b",
+      "crate::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "crate::enabled": "../operations/tracing.enabled.md#op-3383abc1e97aee1544e7701c",
+      "crate::metadata::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "crate::Level": "../operations/tracing_core.metadata.Level.md#op-f8804717be954252aadd54ff"
+    }
+  }
+]

@@ -6,7 +6,6 @@
 //! admission establishes the cross-relation and domain contract separately.
 mod execution;
 mod merge;
-pub use execution::MutationError;
 
 use datafusion::{
     arrow::datatypes::SchemaRef,
@@ -49,7 +48,7 @@ impl WritableTable {
             ));
         }
         let lease =
-            super::lease::read(table.table_url(), &pse_ids::CancellationToken::new()).await?;
+            super::lease::read(table.table_url(), &pse_columnar::CancellationToken::new()).await?;
         let scan = super::leased::retain(
             Arc::new(table.table_provider().with_session(state).build().await?),
             lease.clone(),
@@ -94,18 +93,16 @@ impl WritableTable {
             .ok_or_else(|| {
                 DataFusionError::Plan("Delta mutation requires the actual SessionState".into())
             })?;
-        let state = match &self.contract {
-            Some(contract) => contract.bind(state)?,
-            None => state.clone(),
-        };
+        let state = state.clone();
         Ok(super::leased::retain_execution(
-            Arc::new(execution::MutationExec::new(
+            execution::plan(
                 self.table.clone(),
                 Arc::new(state),
-                self.commit.clone().with_max_retries(0),
+                self.commit.clone(),
+                self.contract.clone(),
                 command,
                 children,
-            )),
+            )?,
             self.lease.clone(),
         ))
     }

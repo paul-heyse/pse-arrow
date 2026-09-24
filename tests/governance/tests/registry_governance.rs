@@ -8,108 +8,15 @@
 )]
 mod common;
 use pse_schema::model::{Authority, Namespace, SnapshotClass};
-use std::collections::BTreeSet;
-
-fn relation_names(cell: &str) -> Vec<&str> {
-    let mut depth = 0_usize;
-    let mut names = Vec::new();
-    for (index, text) in cell.split('`').enumerate() {
-        if index % 2 == 1 {
-            if depth == 0 {
-                names.push(text);
-            }
-        } else {
-            for character in text.chars() {
-                match character {
-                    '(' => depth += 1,
-                    ')' => depth = depth.saturating_sub(1),
-                    _ => {}
-                }
-            }
-        }
-    }
-    names
-}
+// Plan 14 removes the historical Appendix B math transport rather than aliasing it.
+// Current registry contracts and function admission are checked directly below.
 
 #[test]
-fn relation_index_excludes_explanatory_inline_types() {
-    assert_eq!(
-        relation_names("`template_expr_*` (one family per `pse.expr_dsl` column), `units`"),
-        ["template_expr_*", "units"]
-    );
-}
-
-#[test]
-fn appendix_b_has_declared_replacements_or_explicit_deferred_contracts() {
-    let root = common::workspace_root();
-    let blueprint = common::read(&root.join("docs/authoritative_design/blueprint.md"));
-    let appendix = blueprint
-        .split("## Appendix B. Relation index")
-        .nth(1)
-        .expect("Appendix B")
-        .split("## Appendix C.")
-        .next()
-        .expect("Appendix B body");
-    let deferred = common::parse_toml(&root.join("tests/governance/appendix-b-deferred.toml"));
-    let deferred = deferred["deferred"]
-        .as_table()
-        .expect("explicit deferred rows");
-    let replacements =
-        common::parse_toml(&root.join("tests/governance/appendix-b-replacements.toml"));
-    let replacements = replacements["replacements"]
-        .as_table()
-        .expect("explicit replacements");
+fn target_registry_has_no_legacy_arithmetic_transport_or_placeholder_normalizer() {
     let registry = pse_schema::registry().expect("registry");
-    let mut seen = BTreeSet::new();
-    let mut replaced = BTreeSet::new();
-    for row in appendix.lines().filter(|row| row.starts_with("| `")) {
-        let columns = row.split('|').collect::<Vec<_>>();
-        let namespace = columns[1].trim().trim_matches('`');
-        for name in relation_names(columns[2]) {
-            let qualified = format!("{namespace}.{name}");
-            if let Some(replacement) = replacements.get(&qualified) {
-                assert!(
-                    registry.relation(&qualified).is_none(),
-                    "legacy declaration {qualified}"
-                );
-                let target = replacement["relation"]
-                    .as_str()
-                    .expect("replacement relation");
-                let column = replacement["column"].as_str().expect("replacement column");
-                let spec = registry.relation(target).expect("declared replacement");
-                assert!(
-                    spec.columns.iter().any(|field| field.name() == column),
-                    "{target}.{column}"
-                );
-                replaced.insert(qualified);
-            } else if let Some(prefix) = qualified.strip_suffix('*') {
-                assert!(
-                    registry
-                        .relations()
-                        .iter()
-                        .any(|spec| spec.qualified_name().starts_with(prefix)),
-                    "{qualified}"
-                );
-            } else if registry.relation(&qualified).is_none() {
-                let reason = deferred
-                    .get(&qualified)
-                    .and_then(toml::Value::as_str)
-                    .expect(&qualified);
-                assert!(!reason.trim().is_empty(), "{qualified}");
-                seen.insert(qualified);
-            }
-        }
-    }
-    assert_eq!(
-        replaced,
-        replacements.keys().cloned().collect(),
-        "replacement rows must name removed Appendix B declarations"
-    );
-    assert_eq!(
-        seen,
-        deferred.keys().cloned().collect(),
-        "deferred rows cannot hide registered or removed declarations"
-    );
+    assert!(registry.relations().iter().all(|r| !r.key.name.starts_with("math_") || r.qualified_name() == "reference.math_context"));
+    assert!(registry.algorithms().iter().all(|a| a.name != "P3"));
+    assert!(registry.relation("reference.function_capabilities").is_some());
 }
 
 #[test]
@@ -147,7 +54,7 @@ fn primitive_authority_has_no_compiled_fk_or_later_pass_writer() {
     for pass in registry
         .algorithms()
         .iter()
-        .filter(|pass| !matches!(pass.name, "source" | "source_edit" | "source_rename"))
+        .filter(|pass| pass.name != "source")
     {
         for port in &pass.outputs {
             let spec = registry.relation(&port.relation).expect("declared output");

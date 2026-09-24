@@ -4,14 +4,14 @@
     "reference.algorithm_arguments": [
       {
         "algorithm_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "consumption": "[\"struct\",[[\"text\",\"columns\"],[\"struct\",[[\"list\",[]]]]]]",
+        "consumption": "[\"struct\",[[\"enum\",\"columns\"],[\"struct\",[[\"list\",[]]]]]]",
         "port": "[\"text\",\"value-1\"]",
         "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "required": "[\"bool\",true]"
       },
       {
         "algorithm_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "consumption": "[\"struct\",[[\"text\",\"columns\"],[\"struct\",[[\"list\",[]]]]]]",
+        "consumption": "[\"struct\",[[\"enum\",\"columns\"],[\"struct\",[[\"list\",[]]]]]]",
         "port": "[\"text\",\"value-1\"]",
         "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "required": "[\"bool\",true]"

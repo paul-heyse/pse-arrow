@@ -1,0 +1,258 @@
+[
+  {
+    "id": "b1ea7133a7b88ac9021f7aca",
+    "path": "datafusion_tracing::rule_instrumentation::OptimizerPassTracker",
+    "name": "OptimizerPassTracker",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct OptimizerPassTracker",
+    "docs": "Tracks the optimizer pass count, resetting when a new query starts.\nA new query is detected by a change in the parent span ID or when\nthe physical optimizer phase completes.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        117,
+        1
+      ],
+      "end": [
+        120,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              425,
+              426
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          431,
+          432,
+          433,
+          434,
+          435,
+          436,
+          437,
+          438,
+          439,
+          440,
+          441,
+          442,
+          443,
+          444,
+          445,
+          446,
+          447,
+          448,
+          449,
+          450,
+          451,
+          452
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "427",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.OptimizerPassTracker.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.OptimizerPassTracker.json",
+    "anchor": "op-b1ea7133a7b88ac9021f7aca",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "74912e8dea1bad87bfbccfaf",
+    "path": "datafusion_tracing::rule_instrumentation::OptimizerPassTracker::parent_span_id",
+    "name": "parent_span_id",
+    "owner": "datafusion_tracing::rule_instrumentation::OptimizerPassTracker",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "parent_span_id: Option<tracing::span::Id>",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        118,
+        5
+      ],
+      "end": [
+        118,
+        46
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 118,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing::span::Id",
+                      "id": 229,
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "118": "core::option::Option",
+      "229": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "425",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.OptimizerPassTracker.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.OptimizerPassTracker.json",
+    "anchor": "op-74912e8dea1bad87bfbccfaf",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "36f881dc12ee2bf3351d9fdf",
+    "path": "datafusion_tracing::rule_instrumentation::OptimizerPassTracker::pass_count",
+    "name": "pass_count",
+    "owner": "datafusion_tracing::rule_instrumentation::OptimizerPassTracker",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "pass_count: usize",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        119,
+        5
+      ],
+      "end": [
+        119,
+        22
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "usize"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "426",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.OptimizerPassTracker.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.OptimizerPassTracker.json",
+    "anchor": "op-36f881dc12ee2bf3351d9fdf",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

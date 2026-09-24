@@ -1,0 +1,817 @@
+[
+  {
+    "id": "706ea1b7b4228b64b76d4ba5",
+    "path": "tracing_subscriber::filter::layer_filters::FilterExt",
+    "name": "FilterExt",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait FilterExt<S>: layer::Filter<S>",
+    "docs": "Extension trait adding [combinators] for combining [`Filter`].\n\n[combinators]: crate::filter::combinator\n[`Filter`]: crate::layer::Filter",
+    "span": {
+      "filename": "src/filter/layer_filters/mod.rs",
+      "begin": [
+        182,
+        1
+      ],
+      "end": [
+        456,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          631,
+          669,
+          706,
+          826
+        ],
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "layer::Filter",
+                "id": 280,
+                "args": {
+                  "angle_bracketed": {
+                    "args": [
+                      {
+                        "type": {
+                          "generic": "S"
+                        }
+                      }
+                    ],
+                    "constraints": []
+                  }
+                }
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          828
+        ]
+      }
+    },
+    "type_references": {
+      "280": "tracing_subscriber::layer::Filter"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::filter::combinator": 741,
+      "crate::layer::Filter": 280
+    },
+    "link_paths": {
+      "crate::filter::combinator": "tracing_subscriber::filter::layer_filters::combinator",
+      "crate::layer::Filter": "tracing_subscriber::layer::Filter"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "298",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.layer_filters.FilterExt.md",
+    "record_file": "operations/tracing_subscriber.filter.layer_filters.FilterExt.json",
+    "anchor": "op-706ea1b7b4228b64b76d4ba5",
+    "aliases": [
+      "tracing_subscriber::filter::FilterExt"
+    ],
+    "resolved_doc_links": {
+      "crate::filter::combinator": "../modules/tracing_subscriber.filter.layer_filters.combinator.md#op-a4f01a06be7792a5f5be77ec",
+      "crate::layer::Filter": "../operations/tracing_subscriber.layer.Filter.md#op-fd31ac1a2cd1ed4f447625f3"
+    }
+  },
+  {
+    "id": "3c3a87367661dd9b2afacca3",
+    "path": "tracing_subscriber::filter::layer_filters::FilterExt::and",
+    "name": "and",
+    "owner": "tracing_subscriber::filter::layer_filters::FilterExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn and<B>(self, other: B) -> combinator::And<Self, B, S> where Self: Sized, B: layer::Filter<S>",
+    "docs": "Combines this [`Filter`] with another [`Filter`] s so that spans and\nevents are enabled if and only if *both* filters return `true`.\n\n# Examples\n\nEnabling spans or events if they have both a particular target *and* are\nabove a certain level:\n\n```\nuse tracing_subscriber::{\n    filter::{filter_fn, LevelFilter, FilterExt},\n    prelude::*,\n};\n\n// Enables spans and events with targets starting with `interesting_target`:\nlet target_filter = filter_fn(|meta| {\n    meta.target().starts_with(\"interesting_target\")\n});\n\n// Enables spans and events with levels `INFO` and below:\nlet level_filter = LevelFilter::INFO;\n\n// Combine the two filters together, returning a filter that only enables\n// spans and events that *both* filters will enable:\nlet filter = target_filter.and(level_filter);\n\ntracing_subscriber::registry()\n    .with(tracing_subscriber::fmt::layer().with_filter(filter))\n    .init();\n\n// This event will *not* be enabled:\ntracing::info!(\"an event with an uninteresting target\");\n\n// This event *will* be enabled:\ntracing::info!(target: \"interesting_target\", \"a very interesting event\");\n\n// This event will *not* be enabled:\ntracing::debug!(target: \"interesting_target\", \"interesting debug event...\");\n```\n\n[`Filter`]: crate::layer::Filter",
+    "span": {
+      "filename": "src/filter/layer_filters/mod.rs",
+      "begin": [
+        224,
+        5
+      ],
+      "end": [
+        230,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "other",
+              {
+                "generic": "B"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "combinator::And",
+              "id": 632,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "B"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "B",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "B"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "layer::Filter",
+                        "id": 280,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "generic": "S"
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "632": "tracing_subscriber::filter::layer_filters::combinator::And",
+      "26": "core::marker::Sized",
+      "280": "tracing_subscriber::layer::Filter"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::layer::Filter": 280
+    },
+    "link_paths": {
+      "crate::layer::Filter": "tracing_subscriber::layer::Filter"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "631",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.layer_filters.FilterExt.md",
+    "record_file": "operations/tracing_subscriber.filter.layer_filters.FilterExt.json",
+    "anchor": "op-3c3a87367661dd9b2afacca3",
+    "aliases": [
+      "tracing_subscriber::filter::FilterExt::and"
+    ],
+    "resolved_doc_links": {
+      "crate::layer::Filter": "../operations/tracing_subscriber.layer.Filter.md#op-fd31ac1a2cd1ed4f447625f3"
+    }
+  },
+  {
+    "id": "965ee52fcf3d19c61b305d92",
+    "path": "tracing_subscriber::filter::layer_filters::FilterExt::boxed",
+    "name": "boxed",
+    "owner": "tracing_subscriber::filter::layer_filters::FilterExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn boxed(self) -> Box<dyn layer::Filter<S> + Send + Sync + 'static> where Self: Sized + Send + Sync + 'static",
+    "docs": "[Boxes] `self`, erasing its concrete type.\n\nThis is equivalent to calling [`Box::new`], but in method form, so that\nit can be used when chaining combinator methods.\n\n# Examples\n\nWhen different combinations of filters are used conditionally, they may\nhave different types. For example, the following code won't compile,\nsince the `if` and `else` clause produce filters of different types:\n\n```compile_fail\nuse tracing_subscriber::{\n    filter::{filter_fn, LevelFilter, FilterExt},\n    prelude::*,\n};\n\nlet enable_bar_target: bool = // ...\n# false;\n\nlet filter = if enable_bar_target {\n    filter_fn(|meta| meta.target().starts_with(\"foo\"))\n        // If `enable_bar_target` is true, add a `filter_fn` enabling\n        // spans and events with the target `bar`:\n        .or(filter_fn(|meta| meta.target().starts_with(\"bar\")))\n        .and(LevelFilter::INFO)\n} else {\n    filter_fn(|meta| meta.target().starts_with(\"foo\"))\n        .and(LevelFilter::INFO)\n};\n\ntracing_subscriber::registry()\n    .with(tracing_subscriber::fmt::layer().with_filter(filter))\n    .init();\n```\n\nBy using `boxed`, the types of the two different branches can be erased,\nso the assignment to the `filter` variable is valid (as both branches\nhave the type `Box<dyn Filter<S> + Send + Sync + 'static>`). The\nfollowing code *does* compile:\n\n```\nuse tracing_subscriber::{\n    filter::{filter_fn, LevelFilter, FilterExt},\n    prelude::*,\n};\n\nlet enable_bar_target: bool = // ...\n# false;\n\nlet filter = if enable_bar_target {\n    filter_fn(|meta| meta.target().starts_with(\"foo\"))\n        .or(filter_fn(|meta| meta.target().starts_with(\"bar\")))\n        .and(LevelFilter::INFO)\n        // Boxing the filter erases its type, so both branches now\n        // have the same type.\n        .boxed()\n} else {\n    filter_fn(|meta| meta.target().starts_with(\"foo\"))\n        .and(LevelFilter::INFO)\n        .boxed()\n};\n\ntracing_subscriber::registry()\n    .with(tracing_subscriber::fmt::layer().with_filter(filter))\n    .init();\n```\n\n[Boxes]: std::boxed\n[`Box::new`]: std::boxed::Box::new",
+    "span": {
+      "filename": "src/filter/layer_filters/mod.rs",
+      "begin": [
+        450,
+        5
+      ],
+      "end": [
+        455,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Box",
+              "id": 827,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "dyn_trait": {
+                          "traits": [
+                            {
+                              "trait": {
+                                "path": "layer::Filter",
+                                "id": 280,
+                                "args": {
+                                  "angle_bracketed": {
+                                    "args": [
+                                      {
+                                        "type": {
+                                          "generic": "S"
+                                        }
+                                      }
+                                    ],
+                                    "constraints": []
+                                  }
+                                }
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Send",
+                                "id": 6,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Sync",
+                                "id": 8,
+                                "args": null
+                              },
+                              "generic_params": []
+                            }
+                          ],
+                          "lifetime": "'static"
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 6,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sync",
+                        "id": 8,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "827": "alloc::boxed::Box",
+      "280": "tracing_subscriber::layer::Filter",
+      "6": "core::marker::Send",
+      "8": "core::marker::Sync",
+      "26": "core::marker::Sized"
+    },
+    "impl_context": null,
+    "links": {
+      "std::boxed::Box::new": 825,
+      "std::boxed": 824
+    },
+    "link_paths": {
+      "std::boxed::Box::new": null,
+      "std::boxed": "alloc::boxed"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "826",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.layer_filters.FilterExt.md",
+    "record_file": "operations/tracing_subscriber.filter.layer_filters.FilterExt.json",
+    "anchor": "op-965ee52fcf3d19c61b305d92",
+    "aliases": [
+      "tracing_subscriber::filter::FilterExt::boxed"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1246ff100777c68ac1f61e6e",
+    "path": "tracing_subscriber::filter::layer_filters::FilterExt::not",
+    "name": "not",
+    "owner": "tracing_subscriber::filter::layer_filters::FilterExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn not(self) -> combinator::Not<Self, S> where Self: Sized",
+    "docs": "Inverts `self`, returning a filter that enables spans and events only if\n`self` would *not* enable them.\n\nThis inverts the values returned by the [`enabled`] and [`callsite_enabled`]\nmethods on the wrapped filter; it does *not* invert [`event_enabled`], as\nfilters which do not implement filtering on event field values will return\nthe default `true` even for events that their [`enabled`] method disables.\n\nConsider a normal filter defined as:\n\n```ignore (pseudo-code)\n// for spans\nmatch callsite_enabled() {\n    ALWAYS => on_span(),\n    SOMETIMES => if enabled() { on_span() },\n    NEVER => (),\n}\n// for events\nmatch callsite_enabled() {\n   ALWAYS => on_event(),\n   SOMETIMES => if enabled() && event_enabled() { on_event() },\n   NEVER => (),\n}\n```\n\nand an inverted filter defined as:\n\n```ignore (pseudo-code)\n// for spans\nmatch callsite_enabled() {\n    ALWAYS => (),\n    SOMETIMES => if !enabled() { on_span() },\n    NEVER => on_span(),\n}\n// for events\nmatch callsite_enabled() {\n    ALWAYS => (),\n    SOMETIMES => if !enabled() { on_event() },\n    NEVER => on_event(),\n}\n```\n\nA proper inversion would do `!(enabled() && event_enabled())` (or\n`!enabled() || !event_enabled()`), but because of the implicit `&&`\nrelation between `enabled` and `event_enabled`, it is difficult to\nshort circuit and not call the wrapped `event_enabled`.\n\nA combinator which remembers the result of `enabled` in order to call\n`event_enabled` only when `enabled() == true` is possible, but requires\nadditional thread-local mutable state to support a very niche use case.\n\n[`Filter`]: crate::layer::Filter\n[`enabled`]: crate::layer::Filter::enabled\n[`event_enabled`]: crate::layer::Filter::event_enabled\n[`callsite_enabled`]: crate::layer::Filter::callsite_enabled",
+    "span": {
+      "filename": "src/filter/layer_filters/mod.rs",
+      "begin": [
+        373,
+        5
+      ],
+      "end": [
+        378,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "combinator::Not",
+              "id": 707,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "707": "tracing_subscriber::filter::layer_filters::combinator::Not",
+      "26": "core::marker::Sized"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::layer::Filter::callsite_enabled": 334,
+      "crate::layer::Filter::enabled": 335,
+      "crate::layer::Filter::event_enabled": 823,
+      "crate::layer::Filter": 280
+    },
+    "link_paths": {
+      "crate::layer::Filter::callsite_enabled": null,
+      "crate::layer::Filter::enabled": null,
+      "crate::layer::Filter::event_enabled": null,
+      "crate::layer::Filter": "tracing_subscriber::layer::Filter"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "706",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.layer_filters.FilterExt.md",
+    "record_file": "operations/tracing_subscriber.filter.layer_filters.FilterExt.json",
+    "anchor": "op-1246ff100777c68ac1f61e6e",
+    "aliases": [
+      "tracing_subscriber::filter::FilterExt::not"
+    ],
+    "resolved_doc_links": {
+      "crate::layer::Filter::callsite_enabled": "../operations/tracing_subscriber.layer.Filter.md#op-49af4e3414ecfc52a0cb5887",
+      "crate::layer::Filter::enabled": "../operations/tracing_subscriber.layer.Filter.md#op-104b1d844775b41b079882e6",
+      "crate::layer::Filter::event_enabled": "../operations/tracing_subscriber.layer.Filter.md#op-5acd83c66b6bfc670a28b845",
+      "crate::layer::Filter": "../operations/tracing_subscriber.layer.Filter.md#op-fd31ac1a2cd1ed4f447625f3"
+    }
+  },
+  {
+    "id": "01aa9ef8b9fa3ea3145f705d",
+    "path": "tracing_subscriber::filter::layer_filters::FilterExt::or",
+    "name": "or",
+    "owner": "tracing_subscriber::filter::layer_filters::FilterExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn or<B>(self, other: B) -> combinator::Or<Self, B, S> where Self: Sized, B: layer::Filter<S>",
+    "docs": "Combines two [`Filter`]s so that spans and events are enabled if *either* filter\nreturns `true`.\n\n# Examples\n\nEnabling spans and events at the `INFO` level and above, and all spans\nand events with a particular target:\n```\nuse tracing_subscriber::{\n    filter::{filter_fn, LevelFilter, FilterExt},\n    prelude::*,\n};\n\n// Enables spans and events with targets starting with `interesting_target`:\nlet target_filter = filter_fn(|meta| {\n    meta.target().starts_with(\"interesting_target\")\n});\n\n// Enables spans and events with levels `INFO` and below:\nlet level_filter = LevelFilter::INFO;\n\n// Combine the two filters together so that a span or event is enabled\n// if it is at INFO or lower, or if it has a target starting with\n// `interesting_target`.\nlet filter = level_filter.or(target_filter);\n\ntracing_subscriber::registry()\n    .with(tracing_subscriber::fmt::layer().with_filter(filter))\n    .init();\n\n// This event will *not* be enabled:\ntracing::debug!(\"an uninteresting event\");\n\n// This event *will* be enabled:\ntracing::info!(\"an uninteresting INFO event\");\n\n// This event *will* be enabled:\ntracing::info!(target: \"interesting_target\", \"a very interesting event\");\n\n// This event *will* be enabled:\ntracing::debug!(target: \"interesting_target\", \"interesting debug event...\");\n```\n\nEnabling a higher level for a particular target by using `or` in\nconjunction with the [`and`] combinator:\n\n```\nuse tracing_subscriber::{\n    filter::{filter_fn, LevelFilter, FilterExt},\n    prelude::*,\n};\n\n// This filter will enable spans and events with targets beginning with\n// `my_crate`:\nlet my_crate = filter_fn(|meta| {\n    meta.target().starts_with(\"my_crate\")\n});\n\nlet filter = my_crate\n    // Combine the `my_crate` filter with a `LevelFilter` to produce a\n    // filter that will enable the `INFO` level and lower for spans and\n    // events with `my_crate` targets:\n    .and(LevelFilter::INFO)\n    // If a span or event *doesn't* have a target beginning with\n    // `my_crate`, enable it if it has the `WARN` level or lower:\n    .or(LevelFilter::WARN);\n\ntracing_subscriber::registry()\n    .with(tracing_subscriber::fmt::layer().with_filter(filter))\n    .init();\n```\n\n[`Filter`]: crate::layer::Filter\n[`and`]: FilterExt::and",
+    "span": {
+      "filename": "src/filter/layer_filters/mod.rs",
+      "begin": [
+        306,
+        5
+      ],
+      "end": [
+        312,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "other",
+              {
+                "generic": "B"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "combinator::Or",
+              "id": 670,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "B"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "B",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "B"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "layer::Filter",
+                        "id": 280,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "generic": "S"
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "670": "tracing_subscriber::filter::layer_filters::combinator::Or",
+      "26": "core::marker::Sized",
+      "280": "tracing_subscriber::layer::Filter"
+    },
+    "impl_context": null,
+    "links": {
+      "FilterExt::and": 631,
+      "crate::layer::Filter": 280
+    },
+    "link_paths": {
+      "FilterExt::and": null,
+      "crate::layer::Filter": "tracing_subscriber::layer::Filter"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "669",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.layer_filters.FilterExt.md",
+    "record_file": "operations/tracing_subscriber.filter.layer_filters.FilterExt.json",
+    "anchor": "op-01aa9ef8b9fa3ea3145f705d",
+    "aliases": [
+      "tracing_subscriber::filter::FilterExt::or"
+    ],
+    "resolved_doc_links": {
+      "FilterExt::and": "../operations/tracing_subscriber.filter.layer_filters.FilterExt.md#op-3c3a87367661dd9b2afacca3",
+      "crate::layer::Filter": "../operations/tracing_subscriber.layer.Filter.md#op-fd31ac1a2cd1ed4f447625f3"
+    }
+  }
+]

@@ -7,10 +7,8 @@
     reason = "test fixture construction and exact independent value assertions"
 )]
 
-use pse_authoring::{
-    ParseBudget,
-    document::{DocumentBundle, load_package, load_package_texts},
-};
+use pse_authoring::ParseBudget;
+use pse_runtime::authoring_driver::document::{DocumentBundle, load_package, load_package_texts};
 use pse_schema::Registry;
 use std::{collections::BTreeMap, path::Path};
 

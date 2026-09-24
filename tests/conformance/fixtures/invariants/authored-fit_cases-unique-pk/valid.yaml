@@ -1,0 +1,15 @@
+{
+  "invariant": "authored.fit_cases:unique:pk",
+  "rows": {
+    "authored.fit_cases": [
+      {
+        "experiments": "[\"list\",[]]",
+        "fit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "observations": "[\"list\",[]]",
+        "parameters": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

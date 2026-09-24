@@ -1,0 +1,1753 @@
+[
+  {
+    "id": "aec6a10d8256d449d9700eec",
+    "path": "opentelemetry::common::StringValue",
+    "name": "StringValue",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct StringValue",
+    "docs": "Wrapper for string-like values",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        237,
+        1
+      ],
+      "end": [
+        237,
+        36
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "non_exhaustive"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "tuple": [
+            null
+          ]
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          811,
+          812,
+          813,
+          814,
+          815,
+          816,
+          817,
+          818,
+          819,
+          820,
+          821,
+          822,
+          823,
+          824,
+          825,
+          826,
+          827,
+          828,
+          829,
+          830,
+          832,
+          833,
+          835,
+          836,
+          838,
+          840,
+          842,
+          844,
+          846,
+          848,
+          850,
+          852,
+          854,
+          790,
+          798,
+          857
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "193",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-aec6a10d8256d449d9700eec",
+    "aliases": [
+      "opentelemetry::StringValue"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e8ec0b2ab4efe6e9956ef794",
+    "path": "opentelemetry::common::StringValue::as_ref",
+    "name": "as_ref",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn as_ref(&self) -> &str",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        256,
+        5
+      ],
+      "end": [
+        258,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "primitive": "str"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "AsRef",
+        "id": "core::convert::AsRef",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "str"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::AsRef",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          255,
+          1
+        ],
+        "end": [
+          259,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "843",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-e8ec0b2ab4efe6e9956ef794",
+    "aliases": [
+      "opentelemetry::StringValue::as_ref"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5c9b6b52e930715bc3c20117",
+    "path": "opentelemetry::common::StringValue::as_str",
+    "name": "as_str",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn as_str(&self) -> &str",
+    "docs": "Returns a string slice to this value",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        263,
+        5
+      ],
+      "end": [
+        265,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "primitive": "str"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          261,
+          1
+        ],
+        "end": [
+          266,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "810",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-5c9b6b52e930715bc3c20117",
+    "aliases": [
+      "opentelemetry::StringValue::as_str"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f84bf156c91e5ad33bc39f00",
+    "path": "opentelemetry::common::StringValue::clone",
+    "name": "clone",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> StringValue",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        236,
+        10
+      ],
+      "end": [
+        236,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "StringValue",
+              "id": 193,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "193": "opentelemetry::common::StringValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          236,
+          10
+        ],
+        "end": [
+          236,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "831",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-f84bf156c91e5ad33bc39f00",
+    "aliases": [
+      "opentelemetry::StringValue::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7dc5d3c9300a8a91eaf8fdee",
+    "path": "opentelemetry::common::StringValue::eq",
+    "name": "eq",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &StringValue) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        236,
+        17
+      ],
+      "end": [
+        236,
+        26
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "StringValue",
+                      "id": 193,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "193": "opentelemetry::common::StringValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          236,
+          17
+        ],
+        "end": [
+          236,
+          26
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "834",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-7dc5d3c9300a8a91eaf8fdee",
+    "aliases": [
+      "opentelemetry::StringValue::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0ce78be95d4fab37b9fce852",
+    "path": "opentelemetry::common::StringValue::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        246,
+        5
+      ],
+      "end": [
+        252,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Display",
+        "id": "core::fmt::Display",
+        "args": null
+      },
+      "trait_path": "core::fmt::Display",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          245,
+          1
+        ],
+        "end": [
+          253,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "841",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-0ce78be95d4fab37b9fce852",
+    "aliases": [
+      "opentelemetry::StringValue::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ad1070b692980495d04e951b",
+    "path": "opentelemetry::common::StringValue::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        240,
+        5
+      ],
+      "end": [
+        242,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          239,
+          1
+        ],
+        "end": [
+          243,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "839",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-ad1070b692980495d04e951b",
+    "aliases": [
+      "opentelemetry::StringValue::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2744c46b07c547a560d559ff",
+    "path": "opentelemetry::common::StringValue::from",
+    "name": "from",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(s: Value) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        306,
+        5
+      ],
+      "end": [
+        314,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "s",
+              {
+                "resolved_path": {
+                  "path": "Value",
+                  "id": 760,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "760": "opentelemetry::common::Value"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "Value",
+                    "id": "opentelemetry::common::Value",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          305,
+          1
+        ],
+        "end": [
+          315,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "789",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-2744c46b07c547a560d559ff",
+    "aliases": [
+      "opentelemetry::StringValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "32f23e35407aa928465b2660",
+    "path": "opentelemetry::common::StringValue::from",
+    "name": "from",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(s: String) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        285,
+        5
+      ],
+      "end": [
+        287,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "s",
+              {
+                "resolved_path": {
+                  "path": "String",
+                  "id": 222,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "222": "alloc::string::String"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "String",
+                    "id": "alloc::string::String",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          284,
+          1
+        ],
+        "end": [
+          288,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "849",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-32f23e35407aa928465b2660",
+    "aliases": [
+      "opentelemetry::StringValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "49ff43af84c5cc96d5d5f53b",
+    "path": "opentelemetry::common::StringValue::from",
+    "name": "from",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(s: &'static str) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        279,
+        5
+      ],
+      "end": [
+        281,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "s",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "borrowed_ref": {
+                    "lifetime": "'static",
+                    "is_mutable": false,
+                    "type": {
+                      "primitive": "str"
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          278,
+          1
+        ],
+        "end": [
+          282,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "847",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-49ff43af84c5cc96d5d5f53b",
+    "aliases": [
+      "opentelemetry::StringValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bc771467bc34c9d3d8130b1c",
+    "path": "opentelemetry::common::StringValue::from",
+    "name": "from",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(s: Arc<str>) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        291,
+        5
+      ],
+      "end": [
+        293,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "s",
+              {
+                "resolved_path": {
+                  "path": "Arc",
+                  "id": 9,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "primitive": "str"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "9": "alloc::sync::Arc"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "Arc",
+                    "id": "alloc::sync::Arc",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "type": {
+                              "primitive": "str"
+                            }
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          290,
+          1
+        ],
+        "end": [
+          294,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "851",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-bc771467bc34c9d3d8130b1c",
+    "aliases": [
+      "opentelemetry::StringValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e2ac20a0c4562a1859a73c97",
+    "path": "opentelemetry::common::StringValue::from",
+    "name": "from",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(s: Cow<'static, str>) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        297,
+        5
+      ],
+      "end": [
+        302,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "s",
+              {
+                "resolved_path": {
+                  "path": "Cow",
+                  "id": 19,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'static"
+                        },
+                        {
+                          "type": {
+                            "primitive": "str"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "Cow",
+                    "id": "alloc::borrow::Cow",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "lifetime": "'static"
+                          },
+                          {
+                            "type": {
+                              "primitive": "str"
+                            }
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          296,
+          1
+        ],
+        "end": [
+          303,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "853",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-e2ac20a0c4562a1859a73c97",
+    "aliases": [
+      "opentelemetry::StringValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fbeb483f9ad2a20cd1715328",
+    "path": "opentelemetry::common::StringValue::hash",
+    "name": "hash",
+    "owner": "opentelemetry::common::StringValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn hash<__H: hash::Hasher>(&self, state: &mut __H)",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        236,
+        32
+      ],
+      "end": [
+        236,
+        36
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "state",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "__H"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "__H",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "$crate::hash::Hasher",
+                          "id": 544,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "544": "core::hash::Hasher"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StringValue",
+          "id": "opentelemetry::common::StringValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Hash",
+        "id": "core::hash::Hash",
+        "args": null
+      },
+      "trait_path": "core::hash::Hash",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          236,
+          32
+        ],
+        "end": [
+          236,
+          36
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "837",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.StringValue.md",
+    "record_file": "operations/opentelemetry.common.StringValue.json",
+    "anchor": "op-fbeb483f9ad2a20cd1715328",
+    "aliases": [
+      "opentelemetry::StringValue::hash"
+    ],
+    "resolved_doc_links": {}
+  }
+]

@@ -1,0 +1,63 @@
+[
+  {
+    "id": "29712801368d296a19431f6d",
+    "path": "opentelemetry_sdk::logs::log_processor_with_async_runtime",
+    "name": "log_processor_with_async_runtime",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod log_processor_with_async_runtime",
+    "docs": "Module for BatchLogProcessor with async runtime.",
+    "span": {
+      "filename": "src/logs/log_processor_with_async_runtime.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        851,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"experimental_logs_batch_log_processor_with_async_runtime\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          243,
+          643
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "694",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry_sdk.logs.log_processor_with_async_runtime.md",
+    "record_file": "modules/opentelemetry_sdk.logs.log_processor_with_async_runtime.json",
+    "anchor": "op-29712801368d296a19431f6d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

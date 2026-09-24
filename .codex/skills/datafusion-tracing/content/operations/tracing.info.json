@@ -1,0 +1,63 @@
+[
+  {
+    "id": "cb9ffd84d965099ac69e7a54",
+    "path": "tracing::info",
+    "name": "info",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "macro",
+    "signature": "macro_rules! info",
+    "docs": "Constructs an event at the info level.\n\nThis functions similarly to the [`event!`] macro. See [the top-level\ndocumentation][lib] for details on the syntax accepted by\nthis macro.\n\n[`event!`]: crate::event!\n[lib]: crate#using-the-macros\n\n# Examples\n\n```rust\nuse tracing::info;\n# // this is so the test will still work in no-std mode\n# #[derive(Debug)]\n# pub struct Ipv4Addr;\n# impl Ipv4Addr { fn new(o1: u8, o2: u8, o3: u8, o4: u8) -> Self { Self } }\n# fn main() {\n# struct Connection { port: u32, speed: f32 }\nuse tracing::field;\n\nlet addr = Ipv4Addr::new(127, 0, 0, 1);\nlet conn = Connection { port: 40, speed: 3.20 };\n\ninfo!(conn.port, \"connected to {:?}\", addr);\ninfo!(\n    target: \"connection_events\",\n    ip = ?addr,\n    conn.port,\n    ?conn.speed,\n);\ninfo!(name: \"completed\", \"completed connection to {:?}\", addr);\n# }\n```",
+    "span": {
+      "filename": "src/macros.rs",
+      "begin": [
+        1896,
+        1
+      ],
+      "end": [
+        2146,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! info {\n    (name: $name:expr, target: $target:expr, parent: $parent:expr, { $($field:tt)* }, $($arg:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, parent: $parent:expr, $($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, parent: $parent:expr, ?$($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, parent: $parent:expr, %$($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, parent: $parent:expr, $($arg:tt)+ ) => { ... };\n    (name: $name:expr, target: $target:expr, { $($field:tt)* }, $($arg:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, $($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, ?$($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, %$($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, target: $target:expr, $($arg:tt)+ ) => { ... };\n    (target: $target:expr, parent: $parent:expr, { $($field:tt)* }, $($arg:tt)* ) => { ... };\n    (target: $target:expr, parent: $parent:expr, $($k:ident).+ $($field:tt)* ) => { ... };\n    (target: $target:expr, parent: $parent:expr, ?$($k:ident).+ $($field:tt)* ) => { ... };\n    (target: $target:expr, parent: $parent:expr, %$($k:ident).+ $($field:tt)* ) => { ... };\n    (target: $target:expr, parent: $parent:expr, $($arg:tt)+ ) => { ... };\n    (name: $name:expr, parent: $parent:expr, { $($field:tt)* }, $($arg:tt)* ) => { ... };\n    (name: $name:expr, parent: $parent:expr, $($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, parent: $parent:expr, ?$($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, parent: $parent:expr, %$($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, parent: $parent:expr, $($arg:tt)+ ) => { ... };\n    (name: $name:expr, { $($field:tt)* }, $($arg:tt)* ) => { ... };\n    (name: $name:expr, $($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, ?$($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, %$($k:ident).+ $($field:tt)* ) => { ... };\n    (name: $name:expr, $($arg:tt)+ ) => { ... };\n    (target: $target:expr, { $($field:tt)* }, $($arg:tt)* ) => { ... };\n    (target: $target:expr, $($k:ident).+ $($field:tt)* ) => { ... };\n    (target: $target:expr, ?$($k:ident).+ $($field:tt)* ) => { ... };\n    (target: $target:expr, %$($k:ident).+ $($field:tt)* ) => { ... };\n    (target: $target:expr, $($arg:tt)+ ) => { ... };\n    (parent: $parent:expr, { $($field:tt)+ }, $($arg:tt)+ ) => { ... };\n    (parent: $parent:expr, $($k:ident).+ = $($field:tt)*) => { ... };\n    (parent: $parent:expr, ?$($k:ident).+ = $($field:tt)*) => { ... };\n    (parent: $parent:expr, %$($k:ident).+ = $($field:tt)*) => { ... };\n    (parent: $parent:expr, $($k:ident).+, $($field:tt)*) => { ... };\n    (parent: $parent:expr, ?$($k:ident).+, $($field:tt)*) => { ... };\n    (parent: $parent:expr, %$($k:ident).+, $($field:tt)*) => { ... };\n    (parent: $parent:expr, $($arg:tt)+) => { ... };\n    ({ $($field:tt)+ }, $($arg:tt)+ ) => { ... };\n    ($($k:ident).+ = $($field:tt)*) => { ... };\n    (?$($k:ident).+ = $($field:tt)*) => { ... };\n    (%$($k:ident).+ = $($field:tt)*) => { ... };\n    ($($k:ident).+, $($field:tt)*) => { ... };\n    (?$($k:ident).+, $($field:tt)*) => { ... };\n    (%$($k:ident).+, $($field:tt)*) => { ... };\n    (?$($k:ident).+) => { ... };\n    (%$($k:ident).+) => { ... };\n    ($($k:ident).+) => { ... };\n    ($($arg:tt)+) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::event!": 386,
+      "crate#using-the-macros": 385
+    },
+    "link_paths": {
+      "crate::event!": "tracing::event",
+      "crate#using-the-macros": "tracing"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "395",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.info.md",
+    "record_file": "operations/tracing.info.json",
+    "anchor": "op-cb9ffd84d965099ac69e7a54",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::event!": "../operations/tracing.event.md#op-c45070aa88b3630e47ea433f",
+      "crate#using-the-macros": "../modules/tracing.md#op-9c1f7d23f358e3a0a8455190"
+    }
+  }
+]

@@ -1,0 +1,98 @@
+[
+  {
+    "id": "d7e2bc0dc5244417e035b9f2",
+    "path": "opentelemetry_sdk::metrics",
+    "name": "metrics",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod metrics",
+    "docs": "The crust of the OpenTelemetry metrics SDK.\n\n## Configuration\n\nThe metrics SDK configuration is stored with each [SdkMeterProvider].\nConfiguration for [Resource]s, views, and [ManualReader] or\n[PeriodicReader] instances can be specified.\n\n### Example\n\n```\nuse opentelemetry::global;\nuse opentelemetry::KeyValue;\nuse opentelemetry_sdk::{metrics::SdkMeterProvider, Resource};\n\n// Generate SDK configuration, resource, views, etc\nlet resource = Resource::builder().build(); // default attributes about the current process\n\n// Create a meter provider with the desired config\nlet meter_provider = SdkMeterProvider::builder().with_resource(resource).build();\nglobal::set_meter_provider(meter_provider.clone());\n\n// Use the meter provider to create meter instances\nlet meter = global::meter(\"my_app\");\n\n// Create instruments scoped to the meter\nlet counter = meter\n    .u64_counter(\"power_consumption\")\n    .with_unit(\"kWh\")\n    .build();\n\n// use instruments to record measurements\ncounter.add(10, &[KeyValue::new(\"rate\", \"standard\")]);\n\n// shutdown the provider at the end of the application to ensure any metrics not yet\n// exported are flushed.\nmeter_provider.shutdown().unwrap();\n```\n\n[Resource]: crate::Resource",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        3367,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"metrics\")]"
+      },
+      {
+        "other": "#[<cfg_attr>(docsrs, doc(cfg(feature = \"metrics\")))]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"metrics\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          1311,
+          1326,
+          1764,
+          1771,
+          1834,
+          1835,
+          1836,
+          1837,
+          1838,
+          1839,
+          1840,
+          1043,
+          1878,
+          1879,
+          1880,
+          1881
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::Resource": 81,
+      "SdkMeterProvider": 1558,
+      "PeriodicReader": 1602,
+      "ManualReader": 1492
+    },
+    "link_paths": {
+      "crate::Resource": "opentelemetry_sdk::resource::Resource",
+      "SdkMeterProvider": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+      "PeriodicReader": "opentelemetry_sdk::metrics::periodic_reader::PeriodicReader",
+      "ManualReader": "opentelemetry_sdk::metrics::manual_reader::ManualReader"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1632",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry_sdk.metrics.md",
+    "record_file": "modules/opentelemetry_sdk.metrics.json",
+    "anchor": "op-d7e2bc0dc5244417e035b9f2",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::Resource": "../operations/opentelemetry_sdk.resource.Resource.md#op-6665d2e0897d180bf11ccb3b",
+      "SdkMeterProvider": "../operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md#op-d674cddddafa66c4223d1cb6",
+      "PeriodicReader": "../operations/opentelemetry_sdk.metrics.periodic_reader.PeriodicReader.md#op-7af448cc206ead85a28fc452",
+      "ManualReader": "../operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md#op-ae28e473e5d34d7697a88a62"
+    }
+  }
+]

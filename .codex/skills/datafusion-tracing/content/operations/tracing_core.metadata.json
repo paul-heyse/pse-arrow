@@ -1,0 +1,63 @@
+[
+  {
+    "id": "7a501fed5f3300a565f6eecc",
+    "path": "tracing_core::metadata",
+    "name": "metadata",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "macro",
+    "signature": "macro_rules! metadata",
+    "docs": "Statically constructs new span [metadata].\n\n/// For example:\n```rust\n# use tracing_core::{callsite::Callsite, subscriber::Interest};\nuse tracing_core::metadata;\nuse tracing_core::metadata::{Kind, Level, Metadata};\n# fn main() {\n# pub struct MyCallsite { }\n# impl Callsite for MyCallsite {\n# fn set_interest(&self, _: Interest) { unimplemented!() }\n# fn metadata(&self) -> &Metadata { unimplemented!() }\n# }\n#\nstatic FOO_CALLSITE: MyCallsite = MyCallsite {\n    // ...\n};\n\nstatic FOO_METADATA: Metadata = metadata!{\n    name: \"foo\",\n    target: module_path!(),\n    level: Level::DEBUG,\n    fields: &[\"bar\", \"baz\"],\n    callsite: &FOO_CALLSITE,\n    kind: Kind::SPAN,\n};\n# }\n```\n\n[metadata]: metadata::Metadata\n[`Metadata::new`]: metadata::Metadata::new",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        230,
+        1
+      ],
+      "end": [
+        267,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! metadata {\n    (\n        name: $name:expr,\n        target: $target:expr,\n        level: $level:expr,\n        fields: $fields:expr,\n        callsite: $callsite:expr,\n        kind: $kind:expr\n    ) => { ... };\n    (\n        name: $name:expr,\n        target: $target:expr,\n        level: $level:expr,\n        fields: $fields:expr,\n        callsite: $callsite:expr,\n        kind: $kind:expr,\n    ) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "metadata::Metadata": 13,
+      "metadata::Metadata::new": 648
+    },
+    "link_paths": {
+      "metadata::Metadata": "tracing_core::metadata::Metadata",
+      "metadata::Metadata::new": "tracing_core::metadata::Metadata::new"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1115",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.md",
+    "record_file": "operations/tracing_core.metadata.json",
+    "anchor": "op-7a501fed5f3300a565f6eecc",
+    "aliases": [],
+    "resolved_doc_links": {
+      "metadata::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "metadata::Metadata::new": "../operations/tracing_core.metadata.Metadata.md#op-2b66c84a4300c1c1a870c890"
+    }
+  }
+]

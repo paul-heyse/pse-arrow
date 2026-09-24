@@ -22,7 +22,21 @@
 //! `IPOPT_DIR` selects an installed prefix; otherwise the generator extracts headers
 //! from the digest-pinned solver image. The C interface and dependent types are
 //! generated and committed, and `just codegen-check` compares real regeneration.
-//! The safe driver — `index_style = 0`, one `catch_unwind` per callback — is
-//! `pse-backend-native`.
+//! Plan 14 M11 supplies the safe native driver; the former driver has been removed.
 
 include!("bindings.rs");
+
+#[cfg(all(test, feature = "link"))]
+mod abi_tests {
+    #[test]
+    fn pinned_c_interface_links_with_expected_scalar_and_index_width() {
+        assert_eq!(size_of::<super::ipindex>(), 4);
+        assert_eq!(size_of::<super::ipnumber>(), 8);
+        assert_eq!(super::IPOPT_VERSION, b"3.14.20\0");
+        // Retain relocations to the real C entry points without running a solve.
+        std::hint::black_box(super::CreateIpoptProblem);
+        std::hint::black_box(super::FreeIpoptProblem);
+        std::hint::black_box(super::IpoptSolve);
+        std::hint::black_box(super::SetIntermediateCallback);
+    }
+}

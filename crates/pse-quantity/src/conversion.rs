@@ -24,3 +24,18 @@ pub struct ConversionRule {
     /// Resolved additive coefficient; absent for a kernel.
     pub offset: Option<f64>,
 }
+
+// Semantic equality preserves every declared IEEE bit, including signed zero.
+impl PartialEq for ConversionRule {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.from == other.from
+            && self.to == other.to
+            && self.kind == other.kind
+            && self.kernel == other.kernel
+            && self.required_parameters == other.required_parameters
+            && self.scale.map(f64::to_bits) == other.scale.map(f64::to_bits)
+            && self.offset.map(f64::to_bits) == other.offset.map(f64::to_bits)
+    }
+}
+impl Eq for ConversionRule {}

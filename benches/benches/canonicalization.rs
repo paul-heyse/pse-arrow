@@ -12,11 +12,9 @@ use arrow::{
     datatypes::{DataType, Field, Schema},
 };
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use pse_ids::canon::benchmark::{StageTimings, canonicalize_stages};
-use pse_ids::{
-    CancellationToken, CanonicalContract, CanonicalizeOptions, ContentHash, FixedBudget,
-    SchemaVersion, SemanticId, canonicalize,
-};
+use pse_columnar::canon::benchmark::{StageTimings, canonicalize_stages};
+use pse_columnar::{CancellationToken, CanonicalContract, CanonicalizeOptions, canonicalize};
+use pse_ids::{ContentHash, SchemaVersion, SemanticId};
 use std::{collections::BTreeMap, hint::black_box, sync::Arc};
 
 fn canonicalization(c: &mut Criterion) {
@@ -33,7 +31,8 @@ fn canonicalization(c: &mut Criterion) {
         &BTreeMap::new(),
     )
     .expect("declared benchmark relation");
-    let budget = FixedBudget::new(128 << 20);
+    let budget: Arc<dyn pse_columnar::MemoryPool> =
+        Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
     let cancel = CancellationToken::default();
     for (stage, label) in std::iter::once((None, "whole")).chain(
         StageTimings::default()
@@ -68,7 +67,7 @@ fn canonicalization(c: &mut Criterion) {
                                     let (output, times) = canonicalize_stages(
                                         &contract,
                                         std::slice::from_ref(black_box(batch)),
-                                        budget.as_ref(),
+                                        &budget,
                                         CanonicalizeOptions {
                                             cancel: Some(cancel.clone()),
                                             ..Default::default()
@@ -85,7 +84,7 @@ fn canonicalization(c: &mut Criterion) {
                             canonicalize(
                                 &contract,
                                 std::slice::from_ref(black_box(batch)),
-                                budget.as_ref(),
+                                &budget,
                                 CanonicalizeOptions {
                                     cancel: Some(cancel.clone()),
                                     ..Default::default()

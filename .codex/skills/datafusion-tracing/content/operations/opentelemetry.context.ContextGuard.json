@@ -1,0 +1,347 @@
+[
+  {
+    "id": "30c719e39d73839fb9d98820",
+    "path": "opentelemetry::context::ContextGuard",
+    "name": "ContextGuard",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct ContextGuard",
+    "docs": "A guard that resets the current context to the prior context when dropped.",
+    "span": {
+      "filename": "src/context.rs",
+      "begin": [
+        456,
+        1
+      ],
+      "end": [
+        461,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          482,
+          483,
+          484,
+          485,
+          486,
+          487,
+          488,
+          489,
+          490,
+          491,
+          492,
+          493,
+          494,
+          495,
+          496,
+          497,
+          499,
+          501
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "437",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.ContextGuard.md",
+    "record_file": "operations/opentelemetry.context.ContextGuard.json",
+    "anchor": "op-30c719e39d73839fb9d98820",
+    "aliases": [
+      "opentelemetry::ContextGuard"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c062c2f4e48bde6e9b2c899a",
+    "path": "opentelemetry::context::ContextGuard::drop",
+    "name": "drop",
+    "owner": "opentelemetry::context::ContextGuard",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn drop(&mut self)",
+    "docs": "",
+    "span": {
+      "filename": "src/context.rs",
+      "begin": [
+        464,
+        5
+      ],
+      "end": [
+        469,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ContextGuard",
+          "id": "opentelemetry::context::ContextGuard",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Drop",
+        "id": "core::ops::drop::Drop",
+        "args": null
+      },
+      "trait_path": "core::ops::drop::Drop",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context.rs",
+        "begin": [
+          463,
+          1
+        ],
+        "end": [
+          470,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "500",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.ContextGuard.md",
+    "record_file": "operations/opentelemetry.context.ContextGuard.json",
+    "anchor": "op-c062c2f4e48bde6e9b2c899a",
+    "aliases": [
+      "opentelemetry::ContextGuard::drop"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "777440cfefd1eea8808144c8",
+    "path": "opentelemetry::context::ContextGuard::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::context::ContextGuard",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/context.rs",
+      "begin": [
+        455,
+        10
+      ],
+      "end": [
+        455,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ContextGuard",
+          "id": "opentelemetry::context::ContextGuard",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context.rs",
+        "begin": [
+          455,
+          10
+        ],
+        "end": [
+          455,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "498",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.ContextGuard.md",
+    "record_file": "operations/opentelemetry.context.ContextGuard.json",
+    "anchor": "op-777440cfefd1eea8808144c8",
+    "aliases": [
+      "opentelemetry::ContextGuard::fmt"
+    ],
+    "resolved_doc_links": {}
+  }
+]

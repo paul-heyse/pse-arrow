@@ -25,6 +25,10 @@ replacement with the remaining schema-first hard pivot.
 
 ## Scope
 
+ADR-0074 and Plan 11 govern the integrated lifetime, evidence-preservation and
+implementation-testing amendments. This proposed record retains its historical
+evidence; its prior per-boundary or whole-stage mechanisms do not restrict that target.
+
 Refine ADR-0068/0069 and the resource contract of ADR-0046 for existing functions.
 Record the required blueprint amendment through the decision/design PR route; this
 record does not claim acceptance of those proposed records or edit accepted ADRs.

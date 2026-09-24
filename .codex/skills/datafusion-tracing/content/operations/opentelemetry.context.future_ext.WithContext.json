@@ -1,0 +1,2482 @@
+[
+  {
+    "id": "c0ac280a4efa69c265e9ade8",
+    "path": "opentelemetry::context::future_ext::WithContext",
+    "name": "WithContext",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct WithContext<T>",
+    "docs": "A future, stream, or sink that has an associated context.",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        31,
+        1
+      ],
+      "end": [
+        39,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          368,
+          369,
+          370,
+          371,
+          372,
+          373,
+          374,
+          375,
+          376,
+          377,
+          378,
+          379,
+          380,
+          381,
+          387,
+          388,
+          395,
+          401,
+          403,
+          404,
+          407,
+          410,
+          412,
+          414,
+          415,
+          424
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "367",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-c0ac280a4efa69c265e9ade8",
+    "aliases": [
+      "opentelemetry::context::WithContext",
+      "opentelemetry::trace::WithContext"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1f1455cf7389a69563943aee",
+    "path": "opentelemetry::context::future_ext::WithContext::Error",
+    "name": "Error",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Error",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        45,
+        5
+      ],
+      "end": [
+        45,
+        27
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "qualified_path": {
+            "name": "Error",
+            "args": null,
+            "self_type": {
+              "generic": "T"
+            },
+            "trait": {
+              "path": "Sink",
+              "id": 419,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "I"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "419": "futures_sink::Sink"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Sink",
+        "id": "futures_sink::Sink",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "I"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "futures_sink::Sink",
+      "generics": {
+        "params": [
+          {
+            "name": "I",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sink",
+                      "id": "futures_sink::Sink",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "generic": "I"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          41,
+          1
+        ],
+        "end": [
+          79,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "418",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-1f1455cf7389a69563943aee",
+    "aliases": [
+      "opentelemetry::context::WithContext::Error",
+      "opentelemetry::trace::WithContext::Error"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f6fa671bffaa47dc90024408",
+    "path": "opentelemetry::context::future_ext::WithContext::Item",
+    "name": "Item",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Item",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        22,
+        5
+      ],
+      "end": [
+        22,
+        25
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "qualified_path": {
+            "name": "Item",
+            "args": null,
+            "self_type": {
+              "generic": "T"
+            },
+            "trait": {
+              "path": "Stream",
+              "id": 402,
+              "args": null
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "402": "futures_core::stream::Stream"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Stream",
+        "id": "futures_core::stream::Stream",
+        "args": null
+      },
+      "trait_path": "futures_core::stream::Stream",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Stream",
+                        "id": "futures_core::stream::Stream",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          21,
+          1
+        ],
+        "end": [
+          29,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "408",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-f6fa671bffaa47dc90024408",
+    "aliases": [
+      "opentelemetry::context::WithContext::Item",
+      "opentelemetry::trace::WithContext::Item"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e2a5c336ecda169f2886121a",
+    "path": "opentelemetry::context::future_ext::WithContext::Output",
+    "name": "Output",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Output",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        11,
+        5
+      ],
+      "end": [
+        11,
+        29
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "qualified_path": {
+            "name": "Output",
+            "args": null,
+            "self_type": {
+              "generic": "T"
+            },
+            "trait": {
+              "path": "Future",
+              "id": 383,
+              "args": null
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "383": "core::future::future::Future"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Future",
+        "id": "core::future::future::Future",
+        "args": null
+      },
+      "trait_path": "core::future::future::Future",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "std::future::Future",
+                        "id": "core::future::future::Future",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          10,
+          1
+        ],
+        "end": [
+          19,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "405",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-e2a5c336ecda169f2886121a",
+    "aliases": [
+      "opentelemetry::context::WithContext::Output",
+      "opentelemetry::trace::WithContext::Output"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5c47cd44d236c96da64467c6",
+    "path": "opentelemetry::context::future_ext::WithContext::clone",
+    "name": "clone",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> WithContext<T>",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        33,
+        14
+      ],
+      "end": [
+        33,
+        19
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WithContext",
+              "id": 367,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "T"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "367": "opentelemetry::context::future_ext::WithContext"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::clone::Clone",
+                        "id": "core::clone::Clone",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          33,
+          14
+        ],
+        "end": [
+          33,
+          19
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "411",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-5c47cd44d236c96da64467c6",
+    "aliases": [
+      "opentelemetry::context::WithContext::clone",
+      "opentelemetry::trace::WithContext::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fa6eebc0fe06284e693213e8",
+    "path": "opentelemetry::context::future_ext::WithContext::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        33,
+        21
+      ],
+      "end": [
+        33,
+        26
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          33,
+          21
+        ],
+        "end": [
+          33,
+          26
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "413",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-fa6eebc0fe06284e693213e8",
+    "aliases": [
+      "opentelemetry::context::WithContext::fmt",
+      "opentelemetry::trace::WithContext::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6cd5cd7295b4841e7377f6cf",
+    "path": "opentelemetry::context::future_ext::WithContext::poll",
+    "name": "poll",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn poll(Pin<&mut self>, task_cx: &mut TaskContext<'_>) -> Poll<Self::Output>",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        13,
+        5
+      ],
+      "end": [
+        18,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 392,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": true,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "task_cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "TaskContext",
+                      "id": 393,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Poll",
+              "id": 394,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Output",
+                          "args": null,
+                          "self_type": {
+                            "generic": "Self"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 383,
+                            "args": null
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "392": "core::pin::Pin",
+      "393": "core::task::wake::Context",
+      "394": "core::task::poll::Poll",
+      "383": "core::future::future::Future"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Future",
+        "id": "core::future::future::Future",
+        "args": null
+      },
+      "trait_path": "core::future::future::Future",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "std::future::Future",
+                        "id": "core::future::future::Future",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          10,
+          1
+        ],
+        "end": [
+          19,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "406",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-6cd5cd7295b4841e7377f6cf",
+    "aliases": [
+      "opentelemetry::context::WithContext::poll",
+      "opentelemetry::trace::WithContext::poll"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "28e5f1c0dacd1fb3cdf4d9f6",
+    "path": "opentelemetry::context::future_ext::WithContext::poll_close",
+    "name": "poll_close",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn poll_close(Pin<&mut self>, task_cx: &mut TaskContext<'_>) -> Poll<Result<(), Self::Error>>",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        71,
+        5
+      ],
+      "end": [
+        78,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 392,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": true,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "task_cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "TaskContext",
+                      "id": 393,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Poll",
+              "id": 394,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Result",
+                          "id": 77,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "tuple": []
+                                  }
+                                },
+                                {
+                                  "type": {
+                                    "qualified_path": {
+                                      "name": "Error",
+                                      "args": null,
+                                      "self_type": {
+                                        "generic": "Self"
+                                      },
+                                      "trait": {
+                                        "path": "",
+                                        "id": 419,
+                                        "args": null
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "392": "core::pin::Pin",
+      "393": "core::task::wake::Context",
+      "394": "core::task::poll::Poll",
+      "77": "core::result::Result",
+      "419": "futures_sink::Sink"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Sink",
+        "id": "futures_sink::Sink",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "I"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "futures_sink::Sink",
+      "generics": {
+        "params": [
+          {
+            "name": "I",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sink",
+                      "id": "futures_sink::Sink",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "generic": "I"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          41,
+          1
+        ],
+        "end": [
+          79,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "423",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-28e5f1c0dacd1fb3cdf4d9f6",
+    "aliases": [
+      "opentelemetry::context::WithContext::poll_close",
+      "opentelemetry::trace::WithContext::poll_close"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9b85ea2ab87118593fbd4b0f",
+    "path": "opentelemetry::context::future_ext::WithContext::poll_flush",
+    "name": "poll_flush",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn poll_flush(Pin<&mut self>, task_cx: &mut TaskContext<'_>) -> Poll<Result<(), Self::Error>>",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        62,
+        5
+      ],
+      "end": [
+        69,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 392,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": true,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "task_cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "TaskContext",
+                      "id": 393,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Poll",
+              "id": 394,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Result",
+                          "id": 77,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "tuple": []
+                                  }
+                                },
+                                {
+                                  "type": {
+                                    "qualified_path": {
+                                      "name": "Error",
+                                      "args": null,
+                                      "self_type": {
+                                        "generic": "Self"
+                                      },
+                                      "trait": {
+                                        "path": "",
+                                        "id": 419,
+                                        "args": null
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "392": "core::pin::Pin",
+      "393": "core::task::wake::Context",
+      "394": "core::task::poll::Poll",
+      "77": "core::result::Result",
+      "419": "futures_sink::Sink"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Sink",
+        "id": "futures_sink::Sink",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "I"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "futures_sink::Sink",
+      "generics": {
+        "params": [
+          {
+            "name": "I",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sink",
+                      "id": "futures_sink::Sink",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "generic": "I"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          41,
+          1
+        ],
+        "end": [
+          79,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "422",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-9b85ea2ab87118593fbd4b0f",
+    "aliases": [
+      "opentelemetry::context::WithContext::poll_flush",
+      "opentelemetry::trace::WithContext::poll_flush"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f5591fe4cf8c43df5908107e",
+    "path": "opentelemetry::context::future_ext::WithContext::poll_next",
+    "name": "poll_next",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn poll_next(Pin<&mut self>, task_cx: &mut TaskContext<'_>) -> Poll<Option<Self::Item>>",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        24,
+        5
+      ],
+      "end": [
+        28,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 392,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": true,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "task_cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "TaskContext",
+                      "id": 393,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Poll",
+              "id": 394,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Option",
+                          "id": 192,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "qualified_path": {
+                                      "name": "Item",
+                                      "args": null,
+                                      "self_type": {
+                                        "generic": "Self"
+                                      },
+                                      "trait": {
+                                        "path": "",
+                                        "id": 402,
+                                        "args": null
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "392": "core::pin::Pin",
+      "393": "core::task::wake::Context",
+      "394": "core::task::poll::Poll",
+      "192": "core::option::Option",
+      "402": "futures_core::stream::Stream"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Stream",
+        "id": "futures_core::stream::Stream",
+        "args": null
+      },
+      "trait_path": "futures_core::stream::Stream",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Stream",
+                        "id": "futures_core::stream::Stream",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          21,
+          1
+        ],
+        "end": [
+          29,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "409",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-f5591fe4cf8c43df5908107e",
+    "aliases": [
+      "opentelemetry::context::WithContext::poll_next",
+      "opentelemetry::trace::WithContext::poll_next"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a223bd93204ee7a79be154b5",
+    "path": "opentelemetry::context::future_ext::WithContext::poll_ready",
+    "name": "poll_ready",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn poll_ready(Pin<&mut self>, task_cx: &mut TaskContext<'_>) -> Poll<Result<(), Self::Error>>",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        47,
+        5
+      ],
+      "end": [
+        54,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 392,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": true,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "task_cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "TaskContext",
+                      "id": 393,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Poll",
+              "id": 394,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Result",
+                          "id": 77,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "tuple": []
+                                  }
+                                },
+                                {
+                                  "type": {
+                                    "qualified_path": {
+                                      "name": "Error",
+                                      "args": null,
+                                      "self_type": {
+                                        "generic": "Self"
+                                      },
+                                      "trait": {
+                                        "path": "",
+                                        "id": 419,
+                                        "args": null
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "392": "core::pin::Pin",
+      "393": "core::task::wake::Context",
+      "394": "core::task::poll::Poll",
+      "77": "core::result::Result",
+      "419": "futures_sink::Sink"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Sink",
+        "id": "futures_sink::Sink",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "I"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "futures_sink::Sink",
+      "generics": {
+        "params": [
+          {
+            "name": "I",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sink",
+                      "id": "futures_sink::Sink",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "generic": "I"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          41,
+          1
+        ],
+        "end": [
+          79,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "420",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-a223bd93204ee7a79be154b5",
+    "aliases": [
+      "opentelemetry::context::WithContext::poll_ready",
+      "opentelemetry::trace::WithContext::poll_ready"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "53d43ecd7f9b4a0aeb3290ad",
+    "path": "opentelemetry::context::future_ext::WithContext::start_send",
+    "name": "start_send",
+    "owner": "opentelemetry::context::future_ext::WithContext",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn start_send(Pin<&mut self>, item: I) -> Result<(), Self::Error>",
+    "docs": "",
+    "span": {
+      "filename": "src/context/future_ext.rs",
+      "begin": [
+        56,
+        5
+      ],
+      "end": [
+        60,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 392,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": true,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "item",
+              {
+                "generic": "I"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 77,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "tuple": []
+                      }
+                    },
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Error",
+                          "args": null,
+                          "self_type": {
+                            "generic": "Self"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 419,
+                            "args": null
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "392": "core::pin::Pin",
+      "77": "core::result::Result",
+      "419": "futures_sink::Sink"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithContext",
+          "id": "opentelemetry::context::future_ext::WithContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Sink",
+        "id": "futures_sink::Sink",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "I"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "futures_sink::Sink",
+      "generics": {
+        "params": [
+          {
+            "name": "I",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sink",
+                      "id": "futures_sink::Sink",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "generic": "I"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/context/future_ext.rs",
+        "begin": [
+          41,
+          1
+        ],
+        "end": [
+          79,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "421",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.context.future_ext.WithContext.md",
+    "record_file": "operations/opentelemetry.context.future_ext.WithContext.json",
+    "anchor": "op-53d43ecd7f9b4a0aeb3290ad",
+    "aliases": [
+      "opentelemetry::context::WithContext::start_send",
+      "opentelemetry::trace::WithContext::start_send"
+    ],
+    "resolved_doc_links": {}
+  }
+]

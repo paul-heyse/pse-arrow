@@ -1,0 +1,84 @@
+[
+  {
+    "id": "347b2c3d2ae02adcb1b1946b",
+    "path": "tracing_subscriber::filter::targets",
+    "name": "targets",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "module",
+    "signature": "mod targets",
+    "docs": "A [filter] that enables or disables spans and events based on their [target] and [level].\n\nSee [`Targets`] for details.\n\n[target]: tracing_core::Metadata::target\n[level]: tracing_core::Level\n[filter]: crate::layer#filtering-with-layers",
+    "span": {
+      "filename": "src/filter/targets.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        836,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([Any([NameValue { name: \"feature\", value: Some(\"std\"), span: src/filter/mod.rs:34:12: 34:27 (#0) }, NameValue { name: \"feature\", value: Some(\"alloc\"), span: src/filter/mod.rs:34:29: 34:46 (#0) }], src/filter/mod.rs:34:11: 34:47 (#0))])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(any(feature = \"std\", feature = \"alloc\")))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          516,
+          897,
+          844
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Targets`": 516,
+      "tracing_core::Level": 285,
+      "crate::layer#filtering-with-layers": 279,
+      "tracing_core::Metadata::target": 835
+    },
+    "link_paths": {
+      "`Targets`": "tracing_subscriber::filter::targets::Targets",
+      "tracing_core::Level": "tracing_core::metadata::Level",
+      "crate::layer#filtering-with-layers": "tracing_subscriber::layer",
+      "tracing_core::Metadata::target": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "958",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_subscriber.filter.targets.md",
+    "record_file": "modules/tracing_subscriber.filter.targets.json",
+    "anchor": "op-347b2c3d2ae02adcb1b1946b",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`Targets`": "../operations/tracing_subscriber.filter.targets.Targets.md#op-641e1a5b3033eaed5a14d773",
+      "tracing_core::Level": "../operations/tracing_core.metadata.Level.md#op-f8804717be954252aadd54ff",
+      "crate::layer#filtering-with-layers": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d"
+    }
+  }
+]

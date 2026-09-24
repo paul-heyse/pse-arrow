@@ -1,0 +1,1062 @@
+[
+  {
+    "id": "1effe42b4434f4f4751060f0",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+    "name": "BatchConfigBuilder",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct BatchConfigBuilder",
+    "docs": "A builder for creating [`BatchConfig`] instances.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        770,
+        1
+      ],
+      "end": [
+        776,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          3016,
+          3017,
+          3018,
+          3019,
+          3020,
+          3021,
+          3022,
+          3023,
+          3024,
+          3025,
+          3026,
+          3027,
+          3028,
+          3029,
+          3030,
+          3031,
+          3032,
+          3033,
+          3034,
+          3035,
+          3037,
+          3039
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`BatchConfig`": 2923
+    },
+    "link_paths": {
+      "`BatchConfig`": "opentelemetry_sdk::trace::span_processor::BatchConfig"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2981",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.json",
+    "anchor": "op-1effe42b4434f4f4751060f0",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchConfigBuilder"
+    ],
+    "resolved_doc_links": {
+      "`BatchConfig`": "../operations/opentelemetry_sdk.trace.span_processor.BatchConfig.md#op-a720188ad3561d355afeaadf"
+    }
+  },
+  {
+    "id": "78bbbdc40f8f77e6073dfe35",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> BatchConfig",
+    "docs": "Builds a `BatchConfig` enforcing the following invariants:\n* `max_export_batch_size` must be less than or equal to `max_queue_size`.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        873,
+        5
+      ],
+      "end": [
+        885,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "BatchConfig",
+              "id": 2923,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2923": "opentelemetry_sdk::trace::span_processor::BatchConfig"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchConfigBuilder",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          801,
+          1
+        ],
+        "end": [
+          931,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3015",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.json",
+    "anchor": "op-78bbbdc40f8f77e6073dfe35",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchConfigBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d95b60aa2738db5c7c017d9d",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "Create a new [`BatchConfigBuilder`] initialized with default batch config values as per the specs.\nThe values are overriden by environment variables if set.\nThe supported environment variables are:\n* `OTEL_BSP_MAX_QUEUE_SIZE`\n* `OTEL_BSP_SCHEDULE_DELAY`\n* `OTEL_BSP_MAX_EXPORT_BATCH_SIZE`\n* `OTEL_BSP_EXPORT_TIMEOUT`\n* `OTEL_BSP_MAX_CONCURRENT_EXPORTS`\n\nNote: Programmatic configuration overrides any value set via the environment variable.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        789,
+        5
+      ],
+      "end": [
+        798,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchConfigBuilder",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          778,
+          1
+        ],
+        "end": [
+          799,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`BatchConfigBuilder`": 2981
+    },
+    "link_paths": {
+      "`BatchConfigBuilder`": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3038",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.json",
+    "anchor": "op-d95b60aa2738db5c7c017d9d",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchConfigBuilder::default"
+    ],
+    "resolved_doc_links": {
+      "`BatchConfigBuilder`": "../operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md#op-1effe42b4434f4f4751060f0"
+    }
+  },
+  {
+    "id": "a8c1a1a7d9ccc6131d5b83c5",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        769,
+        10
+      ],
+      "end": [
+        769,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchConfigBuilder",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          769,
+          10
+        ],
+        "end": [
+          769,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3036",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.json",
+    "anchor": "op-a8c1a1a7d9ccc6131d5b83c5",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchConfigBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fd1f63fb937a80c5d64a4ce3",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder::with_max_concurrent_exports",
+    "name": "with_max_concurrent_exports",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_max_concurrent_exports(self, max_concurrent_exports: usize) -> Self",
+    "docs": "Set max_concurrent_exports for [`BatchConfigBuilder`].\nIt's the maximum number of concurrent exports.\nLimits the number of spawned tasks for exports and thus memory consumed by an exporter.\nThe default value is 1.\nIf the max_concurrent_exports value is default value, it will cause exports to be performed\nsynchronously on the BatchSpanProcessor task.\nThe default value is 1.\n\nCorresponding environment variable: `OTEL_BSP_MAX_CONCURRENT_EXPORTS`.\n\nNote: Programmatically setting this will override any value set via the environment variable.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        841,
+        5
+      ],
+      "end": [
+        844,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature =\n\"experimental_trace_batch_span_processor_with_async_runtime\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "max_concurrent_exports",
+              {
+                "primitive": "usize"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchConfigBuilder",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          801,
+          1
+        ],
+        "end": [
+          931,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`BatchConfigBuilder`": 2981
+    },
+    "link_paths": {
+      "`BatchConfigBuilder`": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3012",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.json",
+    "anchor": "op-fd1f63fb937a80c5d64a4ce3",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchConfigBuilder::with_max_concurrent_exports"
+    ],
+    "resolved_doc_links": {
+      "`BatchConfigBuilder`": "../operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md#op-1effe42b4434f4f4751060f0"
+    }
+  },
+  {
+    "id": "7b231c465e6efc9961b4d0d4",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder::with_max_export_batch_size",
+    "name": "with_max_export_batch_size",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_max_export_batch_size(self, max_export_batch_size: usize) -> Self",
+    "docs": "Set max_export_batch_size for [`BatchConfigBuilder`].\nIt's the maximum number of spans to process in a single batch. If there are\nmore than one batch worth of spans then it processes multiple batches\nof spans one batch after the other without any delay. The default value\nis 512.\n\nCorresponding environment variable: `OTEL_BSP_MAX_EXPORT_BATCH_SIZE`.\n\nNote: Programmatically setting this will override any value set via the environment variable.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        824,
+        5
+      ],
+      "end": [
+        827,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "max_export_batch_size",
+              {
+                "primitive": "usize"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchConfigBuilder",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          801,
+          1
+        ],
+        "end": [
+          931,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`BatchConfigBuilder`": 2981
+    },
+    "link_paths": {
+      "`BatchConfigBuilder`": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3011",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.json",
+    "anchor": "op-7b231c465e6efc9961b4d0d4",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchConfigBuilder::with_max_export_batch_size"
+    ],
+    "resolved_doc_links": {
+      "`BatchConfigBuilder`": "../operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md#op-1effe42b4434f4f4751060f0"
+    }
+  },
+  {
+    "id": "ba3a0fa8590070227d0a25d8",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder::with_max_export_timeout",
+    "name": "with_max_export_timeout",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_max_export_timeout(self, max_export_timeout: Duration) -> Self",
+    "docs": "Set max_export_timeout for [`BatchConfigBuilder`].\nIt's the maximum duration to export a batch of data.\nThe The default value is 30000 milliseconds.\n\nCorresponding environment variable: `OTEL_BSP_EXPORT_TIMEOUT`.\n\nNote: Programmatically setting this will override any value set via the environment variable.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        866,
+        5
+      ],
+      "end": [
+        869,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature =\n\"experimental_trace_batch_span_processor_with_async_runtime\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "max_export_timeout",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchConfigBuilder",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          801,
+          1
+        ],
+        "end": [
+          931,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`BatchConfigBuilder`": 2981
+    },
+    "link_paths": {
+      "`BatchConfigBuilder`": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3014",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.json",
+    "anchor": "op-ba3a0fa8590070227d0a25d8",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchConfigBuilder::with_max_export_timeout"
+    ],
+    "resolved_doc_links": {
+      "`BatchConfigBuilder`": "../operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md#op-1effe42b4434f4f4751060f0"
+    }
+  },
+  {
+    "id": "2fd44e13de19d4c0dbf12f97",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder::with_max_queue_size",
+    "name": "with_max_queue_size",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_max_queue_size(self, max_queue_size: usize) -> Self",
+    "docs": "Set max_queue_size for [`BatchConfigBuilder`].\nIt's the maximum queue size to buffer spans for delayed processing.\nIf the queue gets full it will drops the spans.\nThe default value is 2048.\n\nCorresponding environment variable: `OTEL_BSP_MAX_QUEUE_SIZE`.\n\nNote: Programmatically setting this will override any value set via the environment variable.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        810,
+        5
+      ],
+      "end": [
+        813,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "max_queue_size",
+              {
+                "primitive": "usize"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchConfigBuilder",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          801,
+          1
+        ],
+        "end": [
+          931,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`BatchConfigBuilder`": 2981
+    },
+    "link_paths": {
+      "`BatchConfigBuilder`": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3010",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.json",
+    "anchor": "op-2fd44e13de19d4c0dbf12f97",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchConfigBuilder::with_max_queue_size"
+    ],
+    "resolved_doc_links": {
+      "`BatchConfigBuilder`": "../operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md#op-1effe42b4434f4f4751060f0"
+    }
+  },
+  {
+    "id": "99048bb8c6bbec339e687e27",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder::with_scheduled_delay",
+    "name": "with_scheduled_delay",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_scheduled_delay(self, scheduled_delay: Duration) -> Self",
+    "docs": "Set scheduled_delay_duration for [`BatchConfigBuilder`].\nIt's the delay interval in milliseconds between two consecutive processing of batches.\nThe default value is 5000 milliseconds.\n\nCorresponding environment variable: `OTEL_BSP_SCHEDULE_DELAY`.\n\nNote: Programmatically setting this will override any value set via the environment variable.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        853,
+        5
+      ],
+      "end": [
+        856,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "scheduled_delay",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchConfigBuilder",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          801,
+          1
+        ],
+        "end": [
+          931,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`BatchConfigBuilder`": 2981
+    },
+    "link_paths": {
+      "`BatchConfigBuilder`": "opentelemetry_sdk::trace::span_processor::BatchConfigBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3013",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.json",
+    "anchor": "op-99048bb8c6bbec339e687e27",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchConfigBuilder::with_scheduled_delay"
+    ],
+    "resolved_doc_links": {
+      "`BatchConfigBuilder`": "../operations/opentelemetry_sdk.trace.span_processor.BatchConfigBuilder.md#op-1effe42b4434f4f4751060f0"
+    }
+  }
+]

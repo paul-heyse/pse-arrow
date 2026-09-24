@@ -5,25 +5,21 @@
     clippy::unwrap_used,
     reason = "test fixture construction and exact independent value assertions"
 )]
-#[path = "../src/fault_store.rs"]
-mod fault_store;
 
-use datafusion::{
-    arrow::array::Int64Array, common::ResolvedTableReference, execution::runtime_env::RuntimeEnv,
-};
-use fault_store::{Fault, FaultPlan, FaultStore};
+use datafusion::{arrow::array::Int64Array, common::ResolvedTableReference};
 use pse_catalog::{
-    CatalogError,
     artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
     delta::publication::{Publication, PublicationRoot},
-    session::{ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile},
 };
-use pse_ids::{CancellationToken, FixedBudget, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_engine::{EngineError, session::EngineFactory};
+use pse_ids::SemanticId;
 use pse_relations::generated::{enums::PublicationKind, runtime::publications};
 use pse_schema::{
     Registry, RegistryBuilder,
-    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
+    model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
+use pse_testkit::fault_store::{Fault, FaultPlan, FaultStore};
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 fn id(value: u8) -> SemanticId {
     SemanticId::from_bytes([value; 16])
@@ -37,7 +33,7 @@ fn name(table: &str) -> ResolvedTableReference {
 }
 struct Fixture {
     registry: Arc<Registry>,
-    factory: SessionFactory,
+    factory: EngineFactory,
     store: Arc<FaultStore>,
     base: url::Url,
 }
@@ -72,28 +68,25 @@ impl Fixture {
             );
         }
         let registry = Arc::new(builder.build().unwrap());
-        let runtime = Arc::new(RuntimeEnv::default());
-        let mut cache_policy = pse_catalog::cache_service::CacheBudget::for_memory(64 << 20);
+        let fixture =
+            pse_testkit::NativeFixture::new(NonZeroUsize::new(64 << 20).unwrap()).unwrap();
+        let runtime = fixture.resources.runtime.clone();
+        let mut cache_policy = pse_catalog::cache_service::DeltaCacheBudget::for_memory(64 << 20);
         cache_policy.crc_replay_max_commits = 16;
         cache_policy.checksum_interval = 1;
         let caches =
-            pse_catalog::cache_service::NativeCacheService::new(cache_policy, &runtime.memory_pool)
+            pse_catalog::cache_service::DeltaCacheService::new(cache_policy, &runtime.memory_pool)
                 .unwrap();
         let base = url::Url::parse("memory://lifecycle/").unwrap();
         let store = FaultStore::new(Arc::new(object_store::memory::InMemory::new()));
         runtime.register_object_store(&base, store.clone());
-        let factory = SessionFactory::new(
-            runtime,
-            FixedBudget::new(64 << 20),
-            ExecutionSettings::default(),
-            ThreadBudget {
-                pool_threads: NonZeroUsize::MIN,
-                target_partitions: NonZeroUsize::MIN,
-            },
-            native_engine_profile(),
-        )
-        .unwrap()
-        .with_cache_service(caches);
+        let factory = fixture
+            .into_factory()
+            .with_cache_service(caches.native().clone())
+            .with_extension(caches)
+            .with_query_planner(Arc::new(pse_engine::session::planner::UnifiedPlanner::new(
+                pse_catalog::assembly::planners(),
+            )));
         Self {
             registry,
             factory,
@@ -106,7 +99,7 @@ impl Fixture {
         attempt: u8,
         parent: Option<u8>,
         value: i64,
-    ) -> Result<PublicationRoot, CatalogError> {
+    ) -> Result<PublicationRoot, EngineError> {
         let cancel = CancellationToken::new();
         let mut batches = BTreeMap::new();
         for table in ["first", "second", "third"] {
@@ -116,10 +109,13 @@ impl Fixture {
                 .unwrap();
             batches.insert(
                 spec.key,
-                pse_relations::cells::batch_from_cells(
+                pse_relations::testing::batch_from_literals(
                     &self.registry,
                     spec,
-                    &[vec![Cell::I64(1), Cell::I64(value)]],
+                    &[vec![
+                        serde_json::json!(["i64", 1]),
+                        serde_json::json!(["i64", value]),
+                    ]],
                 )
                 .unwrap(),
             );

@@ -28,7 +28,6 @@ keywords = [
   "arrow",
   "datafusion",
   "idaes",
-  "pyomo",
   "ipopt",
 ]
 classifiers = [
@@ -56,17 +55,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The Pyomo adapter (blueprint §21.2). Not core: pse.open/compile/solve are native; the
-# adapter exists for parity and Pyomo-ecosystem tools (§21.3). numpy is the §21.6 array
-# boundary, exercised only by the adapter and the parity harness.
-# numpy 2.5, scipy 1.18 and pint 0.26 all require CPython >= 3.12, and the platform
-# floor is 3.11 (abi3-py311 wheels, blueprint §3.1), so each pin is split by
-# interpreter rather than the floor being raised. Both halves stay `==`-exact; the
-# marker is the same mechanism [dependency-groups].parity already uses for IDAES.
-pyomo = [
-  "pyomo==6.10.1",
-  "pint==0.26.1; python_full_version >= '3.12'",
-  "pint==0.25.3; python_full_version < '3.12'",
+# NumPy is used only by the explicit array boundary, not mathematical execution.
+array = [
   "numpy==2.5.3; python_full_version >= '3.12'",
   "numpy==2.4.6; python_full_version < '3.12'",
 ]
@@ -80,6 +70,11 @@ Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
 # PEP 735. Exact pins for tools: a formatter or type checker that drifts produces phantom
 # diffs. Bumping is a deliberate commit (`just lock-upgrade <pkg>`).
 [dependency-groups]
+# Independent frozen thermodynamic references; never a production dependency.
+thermo-reference = [
+  { include-group = "test" },
+  "teqp==0.23.1; python_version == '3.12'",
+]
 # Tools that only execute (formatters, linters, type checkers, test runners) carry
 # floors, not exact pins: uv.lock records what resolved, `uv lock --upgrade` moves them,
 # and nothing in CI or `just doctor` asserts a particular release. Runtime libraries
@@ -99,8 +94,9 @@ test = [
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
   "pytest-xdist>=3.8.0",
+  "unittest-xml-reporting>=4.0.0",
   # Test-time oracles only (blueprint §24.1); import-linter keeps them out of pse proper.
-  # Split by interpreter for the same reason as the `pyomo` extra above.
+  # Split by interpreter for the same reason as the `array` extra above.
   "numpy==2.5.3; python_full_version >= '3.12'",
   "numpy==2.4.6; python_full_version < '3.12'",
   "scipy==1.18.1; python_full_version >= '3.12'",
@@ -113,6 +109,9 @@ test = [
 parity = [
   { include-group = "test" },
   "idaes-pse==2.12.0; python_full_version < '3.14'",
+  "pyomo==6.10.1; python_full_version < '3.14'",
+  "pint==0.26.1; python_full_version >= '3.12' and python_full_version < '3.14'",
+  "pint==0.25.3; python_full_version < '3.12'",
 ]
 evidence = [
   { include-group = "parity" },
@@ -183,14 +182,17 @@ exclude = [
 target-version = "py311"
 line-length = 88
 src = ["python"]
-# Skill content is pinned upstream reference material, including verbatim Python examples.
+# Skill bundles and their tooling are outside the product lint/format scope.
+force-exclude = true
 extend-exclude = [
   "external",
   "build",
   "docs",
   "target",
   "tooling",
-  ".*/skills/*/content",
+  ".codex/skills/**",
+  ".claude/skills/**",
+  ".agents/skills/**",
 ]
 
 [tool.ruff.format]
@@ -277,7 +279,7 @@ ignore = [
 "python/pse/contracts/**" = ["D", "E501", "TID251"]
 "python/pse/codec/**" = ["TID251"]
 # stdlib CLI scripts: json/tomllib are their codec, subprocess is their job, and every
-# helper does not need a google docstring.
+# helper does not need a google docstring. Skill bundles are excluded above.
 "scripts/**" = [
   "T20",
   "INP001",
@@ -346,10 +348,6 @@ python-version = "3.11"
 matches = "python/pse/parity/**"
 replace-imports-with-any = ["idaes.*", "pyomo.*", "pint.*"]
 
-[[tool.pyrefly.sub-config]]
-matches = "python/pse/adapters/pyomo/**"
-replace-imports-with-any = ["pyomo.*", "pint.*"]
-
 [tool.importlinter]
 root_packages = ["pse"]
 include_external_packages = true
@@ -381,7 +379,7 @@ forbidden_modules = ["idaes"]
 ignore_imports = []
 
 [[tool.importlinter.contracts]]
-name = "pyomo/pint only in the adapter, the parity harness, and tests (blueprint §21.2)"
+name = "pyomo/pint only in the isolated parity harness (ADR-0083)"
 type = "forbidden"
 source_modules = ["pse"]
 forbidden_modules = ["pyomo", "pint"]
@@ -390,7 +388,7 @@ ignore_imports = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "generated contracts depend on nothing else in pse"
+name = "generated contracts use only the native identity gateway"
 type = "forbidden"
 source_modules = ["pse.contracts"]
 forbidden_modules = [
@@ -402,6 +400,8 @@ forbidden_modules = [
   "pse._array",
   "pse._build",
 ]
+# Plan 10 N15 / ADR-0073: generated scalar identities use the sole native codec.
+ignore_imports = ["pse.contracts.values -> pse._build"]
 
 [tool.pytest.ini_options]
 minversion = "9.1"

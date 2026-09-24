@@ -1,7 +1,0 @@
-{
-  "invariant": "inferred.unbound_port_targets:all_state_targets_bound",
-  "rows": {
-    "inferred.unbound_port_targets": []
-  },
-  "expected_keys": []
-}

@@ -4,7 +4,7 @@
 //! Quantity kind declarations (blueprint §6.2).
 use crate::{DimensionVector, QuantityAdditionKind, QuantityKindId};
 /// What is measured, independent of basis and datum.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QuantityKind {
     /// Registry identity.
     pub id: QuantityKindId,

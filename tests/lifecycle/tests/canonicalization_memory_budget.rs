@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Canonical Arrow transformation preflight refuses insufficient working memory.
 mod support;
-use pse_ids::{CanonicalizeOptions, FixedBudget};
+use pse_columnar::CanonicalizeOptions;
 #[test]
 fn canonicalization_fails_without_retaining_partial_allocations() {
     let registry = support::registry();
@@ -12,15 +12,11 @@ fn canonicalization_fails_without_retaining_partial_allocations() {
         registry.relation("authored.samples").expect("relation"),
     )
     .expect("contract");
-    let budget = FixedBudget::new(64 << 10);
+    let budget: std::sync::Arc<dyn pse_columnar::MemoryPool> =
+        std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 10));
     assert!(
-        pse_ids::canonicalize(
-            &contract,
-            &[batch],
-            budget.as_ref(),
-            CanonicalizeOptions::default()
-        )
-        .is_err()
+        pse_columnar::canonicalize(&contract, &[batch], &budget, CanonicalizeOptions::default())
+            .is_err()
     );
     assert_eq!(budget.reserved(), 0);
 }

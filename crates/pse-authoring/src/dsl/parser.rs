@@ -6,7 +6,7 @@
 use super::DslError;
 use super::ast::{
     BinaryOp, Binder, CompareOp, Equation, EquationKind, EquationSense, Expr, ExprKind, Function,
-    NamedArg, Number, Path, PathSegment, Predicate, PredicateKind, ReduceKind, Span,
+    Number, Path, PathSegment, Predicate, PredicateKind, ReduceKind, Span,
 };
 use super::lexer::{Kind, Token, syntax, tokenize};
 
@@ -236,10 +236,7 @@ impl<'a> Cursor<'a> {
                 name.push_str(&self.ident()?);
             }
             self.expect("(")?;
-            let (args, named) = self.arguments()?;
-            if !named.is_empty() {
-                return Err(self.error("positional kernel arguments"));
-            }
+            let args = self.arguments()?;
             return Ok(ExprKind::Kernel { name, args });
         }
         if self.eat("(") {
@@ -272,57 +269,30 @@ impl<'a> Cursor<'a> {
             }
             let function = Function::parse(&name)
                 .ok_or_else(|| syntax(start, "declared function or kernel.name", &name))?;
-            let (args, named) = self.arguments()?;
-            if function == Function::WeightedMean
-                && (args.is_empty() || args.len() % 2 != 0 || !named.is_empty())
-            {
-                return Err(DslError::WeightedMeanArity { offset: start });
-            }
-            if !named.is_empty() && !function.has_epsilon() {
-                return Err(syntax(start, "function without named epsilon", &name));
-            }
+            let args = self.arguments()?;
             if function == Function::Broadcast
                 && !matches!(args.as_slice(), [_, Expr { kind: ExprKind::Path(path), .. }]
                     if path.segments.len() == 1 && path.segments[0].indices.is_empty())
             {
                 return Err(syntax(start, "broadcast(value, bound_index)", &name));
             }
-            return Ok(ExprKind::Call {
-                function,
-                args,
-                named,
-            });
+            return Ok(ExprKind::Call { function, args });
         }
         Ok(ExprKind::Path(self.path_tail(name)?))
     }
-    fn arguments(&mut self) -> Result<(Vec<Expr>, Vec<NamedArg>), DslError> {
+    fn arguments(&mut self) -> Result<Vec<Expr>, DslError> {
         let mut args = Vec::new();
-        let mut named = Vec::new();
         if self.eat(")") {
-            return Ok((args, named));
+            return Ok(args);
         }
         loop {
-            if self.is("eps")
-                && self
-                    .tokens
-                    .get(self.position + 1)
-                    .is_some_and(|token| token.text == "=")
-            {
-                self.position += 2;
-                named.push(NamedArg {
-                    name: "eps".to_owned(),
-                    value: self.expr()?,
-                });
-                self.expect(")")?;
-                break;
-            }
             args.push(self.expr()?);
             if self.eat(")") {
                 break;
             }
             self.expect(",")?;
         }
-        Ok((args, named))
+        Ok(args)
     }
     fn reduce(&mut self, kind: ReduceKind) -> Result<ExprKind, DslError> {
         let var = self.ident()?;

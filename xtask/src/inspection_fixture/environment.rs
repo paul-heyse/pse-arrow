@@ -2,104 +2,52 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Fresh native plans and Delta publications under one shared runtime.
-#[path = "../../../tests/support/workflow_budget.rs"]
-mod workflow_budget;
+#[path = "../../../tests/support/workflow_runtime.rs"]
+mod workflow_runtime;
 use anyhow::{Context, Result, ensure};
 use datafusion::{arrow::array::Int64Array, common::ResolvedTableReference};
 use pse_catalog::{
-    ExecutionSettings, ThreadBudget,
     artifact::{ArtifactPlan, PublicationTarget},
     delta::publication::{Publication, PublicationRoot},
-    session::{SessionFactory, SnapshotSession, native_engine_profile},
 };
-use pse_ids::CancellationToken;
 use pse_relations::{
-    columnar::FieldCheckedBatch,
-    generated::{authored, enums::PublicationKind, runtime::publications},
+    generated::{enums::PublicationKind, runtime::publications},
 };
-use pse_runtime::{ResourceBudget, SharedRuntime};
-use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
+use workflow_runtime::WorkflowRuntime;
 
-pub(crate) struct Environment {
-    pub registry: Arc<pse_schema::Registry>,
-    pub sessions: Arc<SessionFactory>,
-    pub cancel: CancellationToken,
-    pub runtime: Arc<SharedRuntime>,
-    _spill: tempfile::TempDir,
+pub(crate) struct Environment(WorkflowRuntime);
+impl std::ops::Deref for Environment {
+    type Target = WorkflowRuntime;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 impl Environment {
     pub(crate) fn new(_: &Path) -> Result<Self> {
-        let registry = Arc::new(pse_schema::catalog::assemble()?);
-        let spill = tempfile::tempdir()?;
-        let one = NonZeroUsize::new(1).context("one is positive")?;
-        let threads = ThreadBudget {
-            pool_threads: one,
-            target_partitions: one,
-        };
-        let runtime = SharedRuntime::build(ResourceBudget {
-            memory_limit_bytes: NonZeroUsize::new(workflow_budget::MEMORY_LIMIT_BYTES)
-                .context("positive memory limit")?,
-            spill_dir: spill.path().to_path_buf(),
-            max_temp_dir_bytes: 1 << 30,
-            top_consumers: NonZeroUsize::new(16).context("positive consumers")?,
-            threads,
-            execution: ExecutionSettings::default(),
-            cache: pse_runtime::CacheBudget::for_memory(workflow_budget::MEMORY_LIMIT_BYTES),
-            hashing_may_use_pool: false,
-        })?;
-        let sessions = Arc::new(
-            runtime
-                .session_factory(native_engine_profile())?
-                .with_requirement_planner(Arc::new(
-                    pse_rules::invariants::RegistryRequirementPlanner,
-                )),
-        );
-        Ok(Self {
-            registry,
-            sessions,
-            runtime,
-            cancel: CancellationToken::new(),
-            _spill: spill,
-        })
-    }
-    pub(crate) fn documents(
-        &self,
-        bundles: &[pse_authoring::document::DocumentBundle],
-    ) -> Result<SnapshotSession> {
-        let rows = pse_authoring::p1::source_batches(bundles, &self.registry)?;
-        let documents = rows
-            .get(&authored::documents::RELATION_ID)
-            .context("source documents absent")?
-            .clone();
-        Ok(self
-            .sessions
-            .candidate_checked(
-                BTreeMap::from([(authored::documents::RELATION_KEY, documents)]),
-                Arc::clone(&self.registry),
-                &self.cancel,
-            )?
-            .with_purpose(pse_schema::model::provider::OperationPurpose::Construct))
+        Ok(Self(
+            WorkflowRuntime::new().map_err(anyhow::Error::from_boxed)?,
+        ))
     }
     pub(crate) async fn source_plan(
         &self,
-        bundles: &[pse_authoring::document::DocumentBundle],
-        compile: bool,
+        bundles: &[pse_runtime::authoring_driver::document::DocumentBundle],
     ) -> Result<ArtifactPlan> {
-        let session = self.documents(bundles)?;
-        let reference = session.table_reference(&authored::documents::RELATION_KEY)?;
-        let documents = session.relation_plan(&ResolvedTableReference {
-            catalog: reference
-                .catalog()
-                .context("document catalog absent")?
-                .into(),
-            schema: reference.schema().context("document schema absent")?.into(),
-            table: reference.table().into(),
-        })?;
-        Ok(if compile {
-            pse_compiler::native::model::from_documents(&session, documents, &self.cancel).await?
-        } else {
-            pse_compiler::native::model::source(&session, documents, &self.cancel).await?
-        })
+        let rows = pse_runtime::authoring_driver::p1::source_batches(bundles, &self.registry)?;
+        let rows = rows.into_iter().map(|(id, batch)| {
+            Ok((self.registry.relation_by_id(id).context("source relation absent")?.key, batch))
+        }).collect::<Result<BTreeMap<_, _>>>()?;
+        let keys = rows.keys().copied().collect::<Vec<_>>();
+        let session = self.sessions.candidate_checked(rows, Arc::clone(&self.registry), &self.cancel)?;
+        let mut outputs = BTreeMap::new();
+        for key in keys {
+            let reference = session.table_reference(&key)?;
+            let reference = ResolvedTableReference { catalog: reference.catalog().context("source catalog")?.into(), schema: reference.schema().context("source schema")?.into(), table: reference.table().into() };
+            let plan = session.relation_plan(&reference)?.plan().clone();
+            let relation_id = self.registry.relation(&key.qualified_name()).context("source declaration")?.id;
+            outputs.insert(reference, pse_catalog::artifact::RelationOutput { relation_id, plan });
+        }
+        Ok(ArtifactPlan::new(session, outputs, &self.cancel)?)
     }
     pub(crate) async fn publish(
         &self,
@@ -169,32 +117,5 @@ impl Environment {
             &self.cancel,
         )
         .await?)
-    }
-    pub(crate) async fn capture(
-        &self,
-        publication: &Publication,
-    ) -> Result<BTreeMap<pse_schema::model::RelationKey, FieldCheckedBatch>> {
-        let mut rows = BTreeMap::new();
-        for member in &publication.record().members {
-            let key = self
-                .registry
-                .relation_by_id(member.relation_id)
-                .context("member declaration absent")?
-                .key;
-            let reference = ResolvedTableReference {
-                catalog: member.catalog_name.clone().into(),
-                schema: member.schema_name.clone().into(),
-                table: member.table_name.clone().into(),
-            };
-            let facts = publication
-                .session()
-                .capture_relation(&reference, &self.cancel)
-                .await?;
-            ensure!(
-                rows.insert(key, facts.checked().clone()).is_none(),
-                "fixture has ambiguous relation roles"
-            );
-        }
-        Ok(rows)
     }
 }

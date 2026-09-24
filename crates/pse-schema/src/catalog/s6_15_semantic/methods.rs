@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Method selection, dependency and provision contracts are separate from realization.
-use super::{N, RegistryBuilder, S, T, column, derived, enumeration, relation};
+use super::{N, RegistryBuilder, S, T, column, enumeration, relation};
 
 #[expect(
     clippy::too_many_lines,
@@ -147,74 +147,14 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ],
         "Complete parameter physical type and natural coordinate.",
     );
-    derived(
-        builder,
-        N::Inferred,
-        "requirement_support",
-        &["requirement_id", "requester_id"],
-        vec![
-            column("requirement_id", T::id()),
-            column("requester_id", T::id()),
-            column("source_kind", T::enumeration("RequirementSource")),
-        ],
-        "Finite many-to-many direct demand support, including recursive edges.",
-    );
-    derived(
-        builder,
-        N::Inferred,
-        "method_candidates",
-        &["requirement_id", "selection_id", "method_id"],
-        vec![
-            column("requirement_id", T::id()),
-            column("selection_id", T::id()),
-            column("method_id", T::id()),
-            column("applicable", T::native(arrow_schema::DataType::Boolean)),
-            column("rank", T::nonnegative(i64::from(u16::MAX))).optional(),
-            column("reason", T::enumeration("MethodCandidateReason")),
-        ],
-        "Complete candidate classification; absence requires the entire declared inventory.",
-    );
-    derived(
-        builder,
-        N::Compiled,
-        "method_realizations",
-        &["requirement_id"],
-        vec![
-            column("requirement_id", T::id()),
-            column("method_id", T::id()),
-            column("output_symbol_id", T::id()),
-            column("realization", method_realization()),
-        ],
-        "P9 provision witness, distinct from P6 candidate selection.",
-    );
+
+
+
 }
 
 /// Both realization routes produce an actual symbol. Only the producer-specific
 /// correspondence is alternative; it cannot erase the common output identity.
-fn method_realization() -> T {
-    let alternative = crate::model::TaggedAlternative::new(
-        "kind",
-        [
-            ("template_symbol".into(), "template_symbol".into()),
-            ("kernel_output".into(), "kernel_output".into()),
-        ],
-    );
-    T::structure(vec![
-        T::enumeration("MethodOutputKind").with_name("kind"),
-        T::structure(vec![T::id().with_name("template_instance_id")])
-            .with_name("template_symbol")
-            .optional(),
-        T::structure(vec![
-            T::id().with_name("kernel_binding_id"),
-            T::nonnegative(i64::from(u16::MAX)).with_name("output_ordinal"),
-        ])
-        .with_name("kernel_output")
-        .optional(),
-    ])
-    .with_alternative(&alternative)
-}
 
-/// One complete coordinate source; the enclosing item carries its common domain kind.
 fn index_coordinate() -> T {
     T::structure(vec![
         T::enumeration("IndexMapKind").with_name("kind"),

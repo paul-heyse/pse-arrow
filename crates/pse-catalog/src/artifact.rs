@@ -3,15 +3,19 @@
 
 //! Named native outputs and one coherent Delta publication. There is no scheduler,
 //! pass record, content-addressed stage restore, or execution callback here.
+mod checkpoint;
 mod consumption;
 pub(crate) mod dependencies;
-use crate::{
-    CatalogError,
-    delta::publication_plan::{self, Member, MemberWrite},
-    session::{PreparedComputation, SnapshotSession},
-};
+mod descriptor;
+use crate::delta::publication_plan::{self, Member, MemberWrite};
+pub use checkpoint::prepare_checkpoint;
 use datafusion::{common::ResolvedTableReference, logical_expr::LogicalPlan};
-use pse_ids::{CancellationToken, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_engine::{
+    EngineError,
+    session::{EngineSession, PreparedComputation},
+};
+use pse_ids::SemanticId;
 use pse_relations::generated::runtime::publications;
 use pse_schema::model::provider::{OperationPurpose, ProviderScope};
 use std::{collections::BTreeMap, sync::Arc};
@@ -38,21 +42,28 @@ pub struct PublicationTarget {
 /// Complete named outputs over one retained native provider generation.
 #[derive(Clone, Debug)]
 pub struct ArtifactPlan {
-    session: SnapshotSession,
+    session: EngineSession,
     outputs: BTreeMap<ResolvedTableReference, RelationOutput>,
     // Identifies the retained immutable implementations, not their names or a plan hash.
     operation_id: SemanticId,
     fresh_observations: bool,
+    publication: PublicationSelection,
+}
+#[derive(Clone, Debug)]
+enum PublicationSelection {
+    Relations,
+    Inspection,
+    Product(Arc<pse_model::artifact::ArtifactDescriptor>),
 }
 impl ArtifactPlan {
     /// Bind explicit output declarations without executing any source or algorithm.
     /// # Errors
     /// Empty output set, absent declaration, foreign source or incompatible fields.
     pub fn new(
-        session: SnapshotSession,
+        session: EngineSession,
         outputs: BTreeMap<ResolvedTableReference, RelationOutput>,
         cancel: &CancellationToken,
-    ) -> Result<Self, CatalogError> {
+    ) -> Result<Self, EngineError> {
         if outputs.is_empty() {
             return Err(invalid("a native artifact requires named outputs"));
         }
@@ -77,9 +88,12 @@ impl ArtifactPlan {
                     .registry()
                     .relation_by_id(output.relation_id)
                     .ok_or_else(|| invalid("artifact output declaration absent"))?;
-                let plan =
-                    crate::session::output::declare_relation_output(plan, session.registry(), spec)
-                        .map_err(crate::session::engine)?;
+                let plan = pse_engine::session::output::declare_relation_output(
+                    plan,
+                    session.registry(),
+                    spec,
+                )
+                .map_err(pse_engine::session::engine)?;
                 Ok((
                     name,
                     RelationOutput {
@@ -88,8 +102,8 @@ impl ArtifactPlan {
                     },
                 ))
             })
-            .collect::<Result<_, CatalogError>>()?;
-        let mut fresh_observations = session.bindings.iter().any(|(_, binding)| {
+            .collect::<Result<_, EngineError>>()?;
+        let mut fresh_observations = session.bindings().iter().any(|(_, binding)| {
             binding
                 .effects
                 .iter()
@@ -97,13 +111,21 @@ impl ArtifactPlan {
         });
         fresh_observations |= session
             .plans_require_fresh(outputs.values().map(|output| &output.plan), cancel)
-            .map_err(crate::session::engine)?;
+            .map_err(pse_engine::session::engine)?;
         Ok(Self {
             session,
             outputs,
             operation_id: SemanticId::from_bytes(*uuid::Uuid::now_v7().as_bytes()),
             fresh_observations,
+            publication: PublicationSelection::Relations,
         })
+    }
+    /// Restrict this composition to inspection. Partial value demand does not
+    /// establish a complete publication's member or obligation inventory.
+    #[must_use]
+    pub fn inspection(mut self) -> Self {
+        self.publication = PublicationSelection::Inspection;
+        self
     }
     /// Rebind the same retained composition to new exact selected native inputs.
     /// Opaque providers and executable implementations must remain the actual owners.
@@ -112,9 +134,9 @@ impl ArtifactPlan {
     /// Different implementations, source schemas, opaque providers or effects.
     pub fn rebind_inputs(
         &self,
-        session: SnapshotSession,
+        session: EngineSession,
         cancel: &CancellationToken,
-    ) -> Result<Self, CatalogError> {
+    ) -> Result<Self, EngineError> {
         use datafusion::common::tree_node::Transformed;
         if self.session.implementation_generation() != session.implementation_generation()
             || self.session.registry().fingerprint() != session.registry().fingerprint()
@@ -135,11 +157,11 @@ impl ArtifactPlan {
                     let provider = datafusion::datasource::source_as_provider(&scan.source)?;
                     let originals: Vec<_> = self
                         .session
-                        .bindings
+                        .bindings()
                         .iter()
                         .filter_map(|(_, binding)| {
                             (Arc::ptr_eq(&binding.provider, &provider)
-                                || (binding.selection.is_some()
+                                || (binding.witness.is_some()
                                     && binding.dependencies.len() == 1
                                     && Arc::ptr_eq(&binding.dependencies[0], &provider)))
                             .then_some(binding)
@@ -154,7 +176,7 @@ impl ArtifactPlan {
                         ));
                     };
                     let replacement = session
-                        .bindings
+                        .bindings()
                         .iter()
                         .find_map(|(_, binding)| {
                             (binding.reference == original.reference).then_some(binding)
@@ -164,9 +186,9 @@ impl ArtifactPlan {
                         })?;
                     if original.provider.schema() != replacement.provider.schema()
                         || original.effects != replacement.effects
-                        || (original.selection.is_none()
+                        || (original.witness.is_none()
                             && !Arc::ptr_eq(&original.provider, &replacement.provider))
-                        || original.selection.is_some() != replacement.selection.is_some()
+                        || original.witness.is_some() != replacement.witness.is_some()
                     {
                         return Err(datafusion::common::DataFusionError::Plan(
                             "rebind changed an opaque source or source contract".into(),
@@ -190,7 +212,7 @@ impl ArtifactPlan {
                     scan.source = datafusion::datasource::provider_as_source(source);
                     Ok(Transformed::yes(LogicalPlan::TableScan(scan)))
                 })
-                .map_err(crate::session::engine)?
+                .map_err(pse_engine::session::engine)?
                 .data;
             outputs.insert(
                 name.clone(),
@@ -202,10 +224,11 @@ impl ArtifactPlan {
         }
         let mut rebound = Self::new(session, outputs, cancel)?;
         rebound.operation_id = self.operation_id;
+        rebound.publication = self.publication.clone();
         Ok(rebound)
     }
     /// Retained native source, function, configuration and resource owners.
-    pub fn session(&self) -> &SnapshotSession {
+    pub fn session(&self) -> &EngineSession {
         &self.session
     }
     /// Exact output contracts and the native graphs that produce them.
@@ -219,9 +242,9 @@ impl ArtifactPlan {
     /// Conflicting source selections or incomplete dependency declarations.
     pub fn dependencies(
         &self,
-    ) -> Result<Vec<pse_relations::generated::runtime::native_dependencies::Row>, CatalogError>
-    {
-        dependencies::capture(self)
+        cancel: &CancellationToken,
+    ) -> Result<Vec<pse_relations::generated::runtime::native_dependencies::Row>, EngineError> {
+        dependencies::capture(self, cancel)
     }
     /// Prepare a native exact-dependency difference query. An empty result admits
     /// equality only for this retained implementation generation and immutable
@@ -232,15 +255,19 @@ impl ArtifactPlan {
         &self,
         previous: &[pse_relations::generated::runtime::native_dependencies::Row],
         cancel: &CancellationToken,
-    ) -> Result<PreparedComputation, CatalogError> {
+    ) -> Result<PreparedComputation, EngineError> {
         if self.fresh_observations {
             return Err(invalid(
                 "observed or unknown native inputs require fresh execution",
             ));
         }
-        let (session, plan) =
-            consumption::comparison(self.session.clone(), self.dependencies()?, previous, cancel)
-                .await?;
+        let (session, plan) = consumption::comparison(
+            self.session.clone(),
+            self.dependencies(cancel)?,
+            previous,
+            cancel,
+        )
+        .await?;
         session.prepare(plan, cancel)
     }
 
@@ -255,7 +282,7 @@ impl ArtifactPlan {
         publication: &crate::delta::publication::Publication,
         reference: &ResolvedTableReference,
         cancel: &CancellationToken,
-    ) -> Result<PreparedComputation, CatalogError> {
+    ) -> Result<PreparedComputation, EngineError> {
         if self.fresh_observations {
             return Err(invalid(
                 "observed or unknown native inputs require fresh execution",
@@ -279,7 +306,7 @@ impl ArtifactPlan {
         let mut session = self.session.clone();
         let source = publication
             .session()
-            .bindings
+            .bindings()
             .iter()
             .find_map(|(_, binding)| {
                 (binding.reference
@@ -303,16 +330,19 @@ impl ArtifactPlan {
         );
         let mut binding = source.as_ref().clone();
         binding.reference = native_alias.clone();
-        session.bindings.target(scope(reference));
+        session.bind_target(scope(reference));
         session
-            .bindings
-            .insert(
-                crate::provider::binding::BindingKey::Native(native_alias),
+            .bind_source(
+                pse_engine::provider::binding::BindingKey::Native(native_alias),
                 binding,
             )
-            .map_err(crate::session::engine)?;
-        let (dependency_session, actual) =
-            session.with_member_dependencies(&alias, "stored_dependencies", cancel)?;
+            .map_err(pse_engine::session::engine)?;
+        let (dependency_session, actual) = crate::delta::dependencies::with_member_dependencies(
+            &session,
+            &alias,
+            "stored_dependencies",
+            cancel,
+        )?;
         // Dependency receipts are a native data child, read through common admission.
         // Their exact selections parameterize the native consumed-value comparisons.
         let spec = pse_relations::generated::runtime::native_dependencies::spec(
@@ -328,9 +358,9 @@ impl ArtifactPlan {
             pse_relations::generated::runtime::native_dependencies::View::from_checked(&checked)?;
         let previous = batch.rows()?;
         let (session, violations) =
-            consumption::comparison(session, self.dependencies()?, &previous, cancel).await?;
+            consumption::comparison(session, self.dependencies(cancel)?, &previous, cancel).await?;
         let value = session.relation_plan(&alias)?;
-        let guarded = crate::session::contract::ExecutionContract::plan(
+        let guarded = pse_engine::session::contract::ExecutionContract::plan(
             value.plan().clone(),
             Some(violations),
             [pse_schema::model::provider::OperationEffect::Read]
@@ -348,17 +378,20 @@ impl ArtifactPlan {
     pub async fn execute_outputs(
         &self,
         cancel: &CancellationToken,
-    ) -> Result<BTreeMap<ResolvedTableReference, crate::session::CompletedComputation>, CatalogError>
-    {
-        let mut planning = self.session.cache_planning_scope(cancel);
-        let completed = PreparedComputation::execute_group(
-            self.outputs.values().map(|output| {
-                self.session
-                    .prepare_group_member(output.plan.clone(), cancel, &mut planning)
-            }),
+    ) -> Result<
+        BTreeMap<ResolvedTableReference, pse_engine::session::CompletedComputation>,
+        EngineError,
+    > {
+        let prepared = self.session.prepare_many(
+            &self
+                .outputs
+                .values()
+                .map(|output| output.plan.clone())
+                .collect::<Vec<_>>(),
             cancel,
-        )
-        .await?;
+        )?;
+        let completed =
+            PreparedComputation::execute_group(prepared.into_iter().map(Ok), cancel).await?;
         Ok(self.outputs.keys().cloned().zip(completed).collect())
     }
 
@@ -369,7 +402,7 @@ impl ArtifactPlan {
         &self,
         reference: &ResolvedTableReference,
         cancel: &CancellationToken,
-    ) -> Result<PreparedComputation, CatalogError> {
+    ) -> Result<PreparedComputation, EngineError> {
         let output = self
             .outputs
             .get(reference)
@@ -389,19 +422,25 @@ impl ArtifactPlan {
         mut destinations: BTreeMap<ResolvedTableReference, url::Url>,
         retained: Vec<publications::RuntimePublicationsFieldMembersItem>,
         cancel: &CancellationToken,
-    ) -> Result<PreparedComputation, CatalogError> {
+    ) -> Result<PreparedComputation, EngineError> {
         cancel.checkpoint()?;
+        if matches!(self.publication, PublicationSelection::Inspection) {
+            return Err(invalid(
+                "partial inspection cannot publish a complete artifact",
+            ));
+        }
+        self.validate_product_header(&header, cancel)?;
         if self.outputs.keys().ne(destinations.keys()) {
             return Err(invalid(
                 "publication destinations differ from the complete artifact output set",
             ));
         }
-        self.check_publication_inputs(&mut header, &retained)?;
+        self.check_publication_inputs(&mut header, &retained, cancel)?;
         let mut session = self.session.with_purpose(OperationPurpose::Publish);
-        session.bindings.target(scope(&target.reference));
+        session.bind_target(scope(&target.reference));
         let mut members = Vec::with_capacity(self.outputs.len() + retained.len());
         for (reference, output) in &self.outputs {
-            session.bindings.target(scope(reference));
+            session.bind_target(scope(reference));
             members.push(Member::Write(MemberWrite {
                 reference: reference.clone(),
                 relation_id: output.relation_id,
@@ -411,12 +450,12 @@ impl ArtifactPlan {
                         .ok_or_else(|| invalid("publication destination absent"))?,
                     &session.bound_state()?,
                 )
-                .map_err(crate::session::engine)?
+                .map_err(pse_engine::session::engine)?
                 .build()
                 .map_err(|error| {
-                    crate::session::engine(datafusion::common::DataFusionError::External(Box::new(
-                        error,
-                    )))
+                    pse_engine::session::engine(datafusion::common::DataFusionError::External(
+                        Box::new(error),
+                    ))
                 })?,
                 input: output.plan.clone(),
             }));
@@ -432,19 +471,22 @@ impl ArtifactPlan {
             } else {
                 self.operation_id
             },
-            self.dependencies()?,
+            self.dependencies(cancel)?,
         )
-        .map_err(crate::session::engine)?;
+        .map_err(pse_engine::session::engine)?;
         session.prepare(plan, cancel)
     }
     fn check_publication_inputs(
         &self,
         header: &mut publications::Row,
         retained: &[publications::RuntimePublicationsFieldMembersItem],
-    ) -> Result<(), CatalogError> {
+        cancel: &CancellationToken,
+    ) -> Result<(), EngineError> {
         let mut selected = BTreeMap::new();
         for output in self.outputs.values() {
-            for member in self.session.selected_dependencies(&output.plan)? {
+            for member in
+                crate::selection::selected_dependencies(&self.session, &output.plan, cancel)?
+            {
                 selected.insert(
                     (
                         member.catalog_name.clone(),
@@ -466,7 +508,7 @@ impl ArtifactPlan {
                 schema: name.1.clone().into(),
                 table: name.2.clone().into(),
             };
-            if self.session.selected_member(&reference)? != *member {
+            if crate::selection::selected_member(&self.session, &reference)? != *member {
                 return Err(invalid(
                     "retained output is not an exact selected native input",
                 ));
@@ -513,8 +555,8 @@ fn scope(name: &ResolvedTableReference) -> ProviderScope {
         name.table.to_string(),
     )
 }
-fn invalid(reason: &str) -> CatalogError {
-    CatalogError::Admission {
+fn invalid(reason: &str) -> EngineError {
+    EngineError::Admission {
         path: "artifact.plan".into(),
         reason: reason.into(),
     }

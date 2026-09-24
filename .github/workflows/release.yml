@@ -157,9 +157,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist-metadata
-          uv export --frozen --no-emit-project --extra pyomo \
+          uv export --frozen --no-emit-project \
             --output-file dist-metadata/requirements-platform.txt
-          uv export --frozen --no-emit-project --extra pyomo --group parity --python 3.13 \
+          uv export --frozen --no-emit-project --group parity --python 3.13 \
             --output-file dist-metadata/requirements-parity.txt
           cp Cargo.lock uv.lock dist-metadata/
           printf '%s\n' "${SOLVER_IMAGE}" > dist-metadata/solver-image.txt

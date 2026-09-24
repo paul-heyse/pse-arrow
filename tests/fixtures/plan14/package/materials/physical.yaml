@@ -1,0 +1,2466 @@
+{
+  "units": [
+    {
+      "unit_id": "01010101010101010101010101010101",
+      "symbol": "m",
+      "name": "length",
+      "dimension": [
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "02020202020202020202020202020202",
+      "symbol": "kg",
+      "name": "mass",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "03030303030303030303030303030303",
+      "symbol": "s",
+      "name": "time",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "04040404040404040404040404040404",
+      "symbol": "K",
+      "name": "temperature",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "05050505050505050505050505050505",
+      "symbol": "mol",
+      "name": "amount",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "06060606060606060606060606060606",
+      "symbol": "A",
+      "name": "current",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "07070707070707070707070707070707",
+      "symbol": "cd",
+      "name": "luminosity",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "08080808080808080808080808080808",
+      "symbol": "USD_test",
+      "name": "currency",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "symbol": "dimensionless",
+      "name": "one",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Dimensionless unit."
+    },
+    {
+      "unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e",
+      "symbol": "acceptance_temperature",
+      "name": "temperature",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "48361f7abcfc516daa55a7b273772fc2",
+      "symbol": "acceptance_density",
+      "name": "density",
+      "dimension": [
+        {
+          "num": -3,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "8a2458cd40bd57128b052055c1dfad89",
+      "symbol": "acceptance_fraction",
+      "name": "fraction",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "aecacdf343e75fe4841e892db1deba89",
+      "symbol": "acceptance_pressure",
+      "name": "pressure",
+      "dimension": [
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "a439e00281dc56de9fb8a24308a4be84",
+      "symbol": "acceptance_enthalpy",
+      "name": "enthalpy",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "2146f182a52354c7a224631deeb9222d",
+      "symbol": "acceptance_entropy",
+      "name": "entropy",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "835f59b589ed5bc9899002e909dd17d6",
+      "symbol": "acceptance_time",
+      "name": "time",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "c2f6ce5d697458cbaee3699ceb64e308",
+      "symbol": "acceptance_amount",
+      "name": "amount",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "c4bb1015996251f881114cf6812ed626",
+      "symbol": "acceptance_volume",
+      "name": "volume",
+      "dimension": [
+        {
+          "num": 3,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad",
+      "symbol": "acceptance_flow",
+      "name": "flow",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "51455a98f91b5ce393527b777f4c6a5c",
+      "symbol": "acceptance_energy",
+      "name": "energy",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "8f416e34b5c55e62ba0f00a541572ed1",
+      "symbol": "acceptance_power",
+      "name": "power",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -3,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "e1c2c5d0d80c5eeeb9fe079f6393e5d0",
+      "symbol": "acceptance_sqrt_pressure",
+      "name": "sqrt_pressure",
+      "dimension": [
+        {
+          "num": -1,
+          "den": 2
+        },
+        {
+          "num": 1,
+          "den": 2
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "645eda9f522151359ce1737dc48bdfcb",
+      "symbol": "acceptance_valve",
+      "name": "valve",
+      "dimension": [
+        {
+          "num": 1,
+          "den": 2
+        },
+        {
+          "num": -1,
+          "den": 2
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    },
+    {
+      "unit_id": "75bf158544c45d10aaee354d18883907",
+      "symbol": "acceptance_degC",
+      "name": "Celsius",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 273.15,
+      "is_affine": true,
+      "reference_state_id": null,
+      "system": "SI",
+      "doc": "Explicit SI fixture."
+    }
+  ],
+  "unit_sets": [
+    {
+      "unit_set_id": "09090909090909090909090909090909",
+      "name": "component",
+      "time_unit_id": "03030303030303030303030303030303",
+      "length_unit_id": "01010101010101010101010101010101",
+      "mass_unit_id": "02020202020202020202020202020202",
+      "amount_unit_id": "05050505050505050505050505050505",
+      "temperature_unit_id": "04040404040404040404040404040404",
+      "current_unit_id": "06060606060606060606060606060606",
+      "luminous_intensity_unit_id": "07070707070707070707070707070707",
+      "currency_unit_id": "08080808080808080808080808080808"
+    }
+  ],
+  "quantity_kinds": [
+    {
+      "quantity_kind_id": "14141414141414141414141414141414",
+      "name": "length",
+      "dimension": [
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit test kind."
+    },
+    {
+      "quantity_kind_id": "15151515151515151515151515151515",
+      "name": "neutral",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit test kind."
+    },
+    {
+      "quantity_kind_id": "16161616161616161616161616161616",
+      "name": "boolean",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit test kind."
+    },
+    {
+      "quantity_kind_id": "4072d3eb41be5830a3f22f8c09efd706",
+      "name": "temperature",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "origin_sensitive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "d91c3c3286f55587b34ea66974419549",
+      "name": "density",
+      "dimension": [
+        {
+          "num": -3,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "72281d92523851e8abe61ca5e44d7fdd",
+      "name": "fraction",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "15cdc8a7bc455437a891b4f4bed57f69",
+      "name": "pressure",
+      "dimension": [
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "f5433c288a5b58e7acfcb00abd106c30",
+      "name": "enthalpy",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "origin_sensitive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "e8c45e3669245b82a965af465cf2e8db",
+      "name": "entropy",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "origin_sensitive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "dac1f7e8bba05b2a9e8b30690529db01",
+      "name": "time",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "ae73e4191a5d5163a6fa8321dd48b274",
+      "name": "amount",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": true,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "7f4c3b69f85c562db35eb2226e5bfde9",
+      "name": "volume",
+      "dimension": [
+        {
+          "num": 3,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": true,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "93a3c62cc47f54b294ae75cbafecf2a3",
+      "name": "flow",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": true,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "3616a115ebc3578f9d7a013e8ed83ef0",
+      "name": "energy",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -2,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": true,
+      "addition_kind": "origin_sensitive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "dbc34d5447985a27955c16845c4e9f3a",
+      "name": "power",
+      "dimension": [
+        {
+          "num": 2,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -3,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": true,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "2e8a2e561b665e7ea7445f0f9850ed08",
+      "name": "sqrt_pressure",
+      "dimension": [
+        {
+          "num": -1,
+          "den": 2
+        },
+        {
+          "num": 1,
+          "den": 2
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    },
+    {
+      "quantity_kind_id": "02a3c6964af853b2a20085c5d4387392",
+      "name": "valve",
+      "dimension": [
+        {
+          "num": 1,
+          "den": 2
+        },
+        {
+          "num": -1,
+          "den": 2
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Typed physical acceptance contract."
+    }
+  ],
+  "quantity_types": [
+    {
+      "quantity_type_id": "1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e",
+      "quantity_kind_id": "14141414141414141414141414141414",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "01010101010101010101010101010101",
+      "nominal_magnitude": null,
+      "doc": "Explicit scalar test type."
+    },
+    {
+      "quantity_type_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+      "quantity_kind_id": "15151515151515151515151515151515",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "nominal_magnitude": null,
+      "doc": "Explicit scalar test type."
+    },
+    {
+      "quantity_type_id": "b6a7acd0895c5c5698078779ab623f89",
+      "quantity_kind_id": "4072d3eb41be5830a3f22f8c09efd706",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "c363ae8ab1555301b704959a04b94059",
+      "quantity_kind_id": "4072d3eb41be5830a3f22f8c09efd706",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "difference",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "b49a0967029d5fb2b2346dd05f138d81",
+      "quantity_kind_id": "d91c3c3286f55587b34ea66974419549",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "48361f7abcfc516daa55a7b273772fc2",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "eedd3e2221975c328e208490c64fdab2",
+      "quantity_kind_id": "72281d92523851e8abe61ca5e44d7fdd",
+      "basis_id": "295a30608ee25a4b81259de03c240a5d",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "8a2458cd40bd57128b052055c1dfad89",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
+      "quantity_kind_id": "15cdc8a7bc455437a891b4f4bed57f69",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "aecacdf343e75fe4841e892db1deba89",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "ce74927939e45768b340b5f46b7170c6",
+      "quantity_kind_id": "f5433c288a5b58e7acfcb00abd106c30",
+      "basis_id": "10c73313d89e5e04b745bb126a9213a1",
+      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "a439e00281dc56de9fb8a24308a4be84",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "ba1b8ec9384d599c8fd627023a5b850a",
+      "quantity_kind_id": "f5433c288a5b58e7acfcb00abd106c30",
+      "basis_id": "10c73313d89e5e04b745bb126a9213a1",
+      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "scale_kind": "difference",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "a439e00281dc56de9fb8a24308a4be84",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "cb905230d9dd566381859e5cb4905d71",
+      "quantity_kind_id": "e8c45e3669245b82a965af465cf2e8db",
+      "basis_id": "10c73313d89e5e04b745bb126a9213a1",
+      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "2146f182a52354c7a224631deeb9222d",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "a6f3f15cdff75d4b942ebc2c639ffca0",
+      "quantity_kind_id": "e8c45e3669245b82a965af465cf2e8db",
+      "basis_id": "10c73313d89e5e04b745bb126a9213a1",
+      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "scale_kind": "difference",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "2146f182a52354c7a224631deeb9222d",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "ee75ea99ccc15d778d44ec81b4c487ee",
+      "quantity_kind_id": "dac1f7e8bba05b2a9e8b30690529db01",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "835f59b589ed5bc9899002e909dd17d6",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "b62aa5e464785827bb7d0f2f0879467f",
+      "quantity_kind_id": "ae73e4191a5d5163a6fa8321dd48b274",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "c2f6ce5d697458cbaee3699ceb64e308",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "ec8409827f605c11a6168b6008540c79",
+      "quantity_kind_id": "7f4c3b69f85c562db35eb2226e5bfde9",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "c4bb1015996251f881114cf6812ed626",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "9ca99c383f06598db8a6d96f86b92147",
+      "quantity_kind_id": "93a3c62cc47f54b294ae75cbafecf2a3",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "10758b551bae5110947cca0ccc16477f",
+      "quantity_kind_id": "3616a115ebc3578f9d7a013e8ed83ef0",
+      "basis_id": null,
+      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "51455a98f91b5ce393527b777f4c6a5c",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "e7e82546148753f89a6788708535bde8",
+      "quantity_kind_id": "3616a115ebc3578f9d7a013e8ed83ef0",
+      "basis_id": null,
+      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "scale_kind": "difference",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "51455a98f91b5ce393527b777f4c6a5c",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "64f4fe01ca985368a6933eec87362dd9",
+      "quantity_kind_id": "dbc34d5447985a27955c16845c4e9f3a",
+      "basis_id": null,
+      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "8f416e34b5c55e62ba0f00a541572ed1",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "3b0ad68a87595355b18060a8d4da75c6",
+      "quantity_kind_id": "2e8a2e561b665e7ea7445f0f9850ed08",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "e1c2c5d0d80c5eeeb9fe079f6393e5d0",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "17dad3474e8c539088a250d48f48cdb5",
+      "quantity_kind_id": "02a3c6964af853b2a20085c5d4387392",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "645eda9f522151359ce1737dc48bdfcb",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    },
+    {
+      "quantity_type_id": "01028e71b867561487928b278eabdb70",
+      "quantity_kind_id": "93a3c62cc47f54b294ae75cbafecf2a3",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [
+        "port_set"
+      ],
+      "subject_kind": null,
+      "canonical_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad",
+      "nominal_magnitude": null,
+      "doc": "Explicit complete physical key."
+    }
+  ],
+  "math_context": [
+    {
+      "package_id": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "neutral_quantity_type_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+      "boolean_kind_id": "16161616161616161616161616161616"
+    }
+  ],
+  "reference_states": [
+    {
+      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "kind": "custom",
+      "temperature": 298.15,
+      "pressure": null,
+      "include_enthalpy_of_formation": false,
+      "phase_id": null,
+      "doc": "DIPPR100 integral origin."
+    }
+  ],
+  "bases": [
+    {
+      "basis_id": "10c73313d89e5e04b745bb126a9213a1",
+      "kind": "molar",
+      "composition_basis": null,
+      "rate_basis": null,
+      "reference_conditions_id": null
+    },
+    {
+      "basis_id": "295a30608ee25a4b81259de03c240a5d",
+      "kind": "molar",
+      "composition_basis": "mole_fraction",
+      "rate_basis": null,
+      "reference_conditions_id": null
+    }
+  ],
+  "quantity_operations": [
+    {
+      "operation_id": "3743910359505836bf0ce4229eea44af",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "d91c3c3286f55587b34ea66974419549",
+        "7f4c3b69f85c562db35eb2226e5bfde9"
+      ],
+      "result_kind_id": "ae73e4191a5d5163a6fa8321dd48b274",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "1001d3de2b915bda8367b3d788633be8",
+        "6b4da02e815d561da254317f9ed759e4"
+      ]
+    },
+    {
+      "operation_id": "d421ab0060e7514083004c34660b4c87",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "93a3c62cc47f54b294ae75cbafecf2a3",
+        "f5433c288a5b58e7acfcb00abd106c30"
+      ],
+      "result_kind_id": "dbc34d5447985a27955c16845c4e9f3a",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "61d9034ca7a2599ea01f927b483991fe",
+        "2791944e11fd564fb4fefe0c1e9aefbd"
+      ]
+    },
+    {
+      "operation_id": "a2bd459d471153f295eebc61382fae59",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "ae73e4191a5d5163a6fa8321dd48b274",
+        "f5433c288a5b58e7acfcb00abd106c30"
+      ],
+      "result_kind_id": "3616a115ebc3578f9d7a013e8ed83ef0",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "6eee0b9f4a0250dfaeeb773278c5d2e3",
+        "2c5d2a5ac3f1592a8313dd3a03321030"
+      ]
+    },
+    {
+      "operation_id": "cc821665d2da54df8302f89156f95858",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "02a3c6964af853b2a20085c5d4387392",
+        "2e8a2e561b665e7ea7445f0f9850ed08"
+      ],
+      "result_kind_id": "93a3c62cc47f54b294ae75cbafecf2a3",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "1a58f08a54665bb68885ea77083618de",
+        "a14f62656083541a82a6d05bf2aa8ee8"
+      ]
+    },
+    {
+      "operation_id": "5eb171c8a7f8587e851ca1efb9bc8887",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "15cdc8a7bc455437a891b4f4bed57f69",
+        "d91c3c3286f55587b34ea66974419549"
+      ],
+      "result_kind_id": "f5433c288a5b58e7acfcb00abd106c30",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "difference",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": "10c73313d89e5e04b745bb126a9213a1",
+      "result_reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "9df462b110635270bdd29fe38f54fd5a",
+        "15faa2ecb9095c068b720a918fe77581"
+      ]
+    },
+    {
+      "operation_id": "ab6db7f4e3485b2687e09156bd3b73e2",
+      "opcode": "Sqrt",
+      "input_kind_ids": [
+        "15cdc8a7bc455437a891b4f4bed57f69"
+      ],
+      "result_kind_id": "2e8a2e561b665e7ea7445f0f9850ed08",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "542fc65231015a7dbccb57dfaa11e26c"
+      ]
+    },
+    {
+      "operation_id": "cf4bf8eb1f5a57d2a0dca8651da25582",
+      "opcode": "Derivative",
+      "input_kind_ids": [
+        "ae73e4191a5d5163a6fa8321dd48b274"
+      ],
+      "result_kind_id": "93a3c62cc47f54b294ae75cbafecf2a3",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "9bd04d1668af5426ad6aa2edd57c6bdf"
+      ]
+    },
+    {
+      "operation_id": "feb74607099f5734a8a97250b77a65b2",
+      "opcode": "Derivative",
+      "input_kind_ids": [
+        "3616a115ebc3578f9d7a013e8ed83ef0"
+      ],
+      "result_kind_id": "dbc34d5447985a27955c16845c4e9f3a",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "441e3c9e180d51f880b2d19a917f8c56"
+      ]
+    },
+    {
+      "operation_id": "e32d92e5ebb45fcc913ec5daf5e7dfcf",
+      "opcode": "Log",
+      "input_kind_ids": [
+        "72281d92523851e8abe61ca5e44d7fdd"
+      ],
+      "result_kind_id": "15151515151515151515151515151515",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "9dadf5f2611359eb95f8636f091397bc"
+      ]
+    }
+  ],
+  "quantity_preconditions": [
+    {
+      "invariant_id": "1001d3de2b915bda8367b3d788633be8",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "b49a0967029d5fb2b2346dd05f138d81",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "6b4da02e815d561da254317f9ed759e4",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "ec8409827f605c11a6168b6008540c79",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "61d9034ca7a2599ea01f927b483991fe",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "9ca99c383f06598db8a6d96f86b92147",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "2791944e11fd564fb4fefe0c1e9aefbd",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "ce74927939e45768b340b5f46b7170c6",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "6eee0b9f4a0250dfaeeb773278c5d2e3",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "b62aa5e464785827bb7d0f2f0879467f",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "2c5d2a5ac3f1592a8313dd3a03321030",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "ce74927939e45768b340b5f46b7170c6",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "1a58f08a54665bb68885ea77083618de",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "17dad3474e8c539088a250d48f48cdb5",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "a14f62656083541a82a6d05bf2aa8ee8",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "3b0ad68a87595355b18060a8d4da75c6",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "9df462b110635270bdd29fe38f54fd5a",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "15faa2ecb9095c068b720a918fe77581",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "b49a0967029d5fb2b2346dd05f138d81",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "542fc65231015a7dbccb57dfaa11e26c",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "9bd04d1668af5426ad6aa2edd57c6bdf",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "b62aa5e464785827bb7d0f2f0879467f",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "441e3c9e180d51f880b2d19a917f8c56",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "10758b551bae5110947cca0ccc16477f",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "9dadf5f2611359eb95f8636f091397bc",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "eedd3e2221975c328e208490c64fdab2",
+      "match_shape": true
+    }
+  ]
+}

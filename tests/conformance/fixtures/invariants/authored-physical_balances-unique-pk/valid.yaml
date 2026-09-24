@@ -1,0 +1,20 @@
+{
+  "invariant": "authored.physical_balances:unique:pk",
+  "rows": {
+    "authored.physical_balances": [
+      {
+        "accumulation": "[\"id\",\"01010101010101010101010101010101\"]",
+        "balance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "impulses": "[\"list\",[]]",
+        "integral_tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "provenance": "[\"text\",\"value-1\"]",
+        "quantity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "terms": "[\"list\",[]]",
+        "tolerance": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

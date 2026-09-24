@@ -1,0 +1,136 @@
+[
+  {
+    "id": "51d1784681b81283416b31c4",
+    "path": "opentelemetry::global::propagation::set_text_map_propagator",
+    "name": "set_text_map_propagator",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn set_text_map_propagator<P: TextMapPropagator + Send + Sync + 'static>(propagator: P)",
+    "docs": "Sets the given [`TextMapPropagator`] propagator as the current global propagator.",
+    "span": {
+      "filename": "src/global/propagation.rs",
+      "begin": [
+        25,
+        1
+      ],
+      "end": [
+        29,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "propagator",
+              {
+                "generic": "P"
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "P",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "TextMapPropagator",
+                          "id": 13,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Send",
+                          "id": 6,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Sync",
+                          "id": 7,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "outlives": "'static"
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "13": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+      "6": "core::marker::Send",
+      "7": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {
+      "`TextMapPropagator`": 13
+    },
+    "link_paths": {
+      "`TextMapPropagator`": "opentelemetry::propagation::text_map_propagator::TextMapPropagator"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "14",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.propagation.set_text_map_propagator.md",
+    "record_file": "operations/opentelemetry.global.propagation.set_text_map_propagator.json",
+    "anchor": "op-51d1784681b81283416b31c4",
+    "aliases": [
+      "opentelemetry::global::set_text_map_propagator"
+    ],
+    "resolved_doc_links": {
+      "`TextMapPropagator`": "../operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md#op-1877064155d794d3de73d8d3"
+    }
+  }
+]

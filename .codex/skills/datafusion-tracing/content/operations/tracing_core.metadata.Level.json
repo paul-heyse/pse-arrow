@@ -1,0 +1,3460 @@
+[
+  {
+    "id": "f8804717be954252aadd54ff",
+    "path": "tracing_core::metadata::Level",
+    "name": "Level",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "struct",
+    "signature": "struct Level",
+    "docs": "Describes the level of verbosity of a span or event.\n\n# Comparing Levels\n\n`Level` implements the [`PartialOrd`] and [`Ord`] traits, allowing two\n`Level`s to be compared to determine which is considered more or less\nverbose. Levels which are more verbose are considered \"greater than\" levels\nwhich are less verbose, with [`Level::ERROR`] considered the lowest, and\n[`Level::TRACE`] considered the highest.\n\nFor example:\n```\nuse tracing_core::Level;\n\nassert!(Level::TRACE > Level::DEBUG);\nassert!(Level::ERROR < Level::WARN);\nassert!(Level::INFO <= Level::DEBUG);\nassert_eq!(Level::TRACE, Level::TRACE);\n```\n\n# Filtering\n\n`Level`s are typically used to implement filtering that determines which\nspans and events are enabled. Depending on the use case, more or less\nverbose diagnostics may be desired. For example, when running in\ndevelopment, [`DEBUG`]-level traces may be enabled by default. When running in\nproduction, only [`INFO`]-level and lower traces might be enabled. Libraries\nmay include very verbose diagnostics at the [`DEBUG`] and/or [`TRACE`] levels.\nApplications using those libraries typically chose to ignore those traces. However, when\ndebugging an issue involving said libraries, it may be useful to temporarily\nenable the more verbose traces.\n\nThe [`LevelFilter`] type is provided to enable filtering traces by\nverbosity. `Level`s can be compared against [`LevelFilter`]s, and\n[`LevelFilter`] has a variant for each `Level`, which compares analogously\nto that level. In addition, [`LevelFilter`] adds a [`LevelFilter::OFF`]\nvariant, which is considered \"less verbose\" than every other `Level`. This is\nintended to allow filters to completely disable tracing in a particular context.\n\nFor example:\n```\nuse tracing_core::{Level, LevelFilter};\n\nassert!(LevelFilter::OFF < Level::TRACE);\nassert!(LevelFilter::TRACE > Level::DEBUG);\nassert!(LevelFilter::ERROR < Level::WARN);\nassert!(LevelFilter::INFO <= Level::DEBUG);\nassert!(LevelFilter::INFO >= Level::INFO);\n```\n\n## Examples\n\nBelow is a simple example of how a [`Subscriber`] could implement filtering through\na [`LevelFilter`]. When a span or event is recorded, the [`Subscriber::enabled`] method\ncompares the span or event's `Level` against the configured [`LevelFilter`].\nThe optional [`Subscriber::max_level_hint`] method can also be implemented to allow spans\nand events above a maximum verbosity level to be skipped more efficiently,\noften improving performance in short-lived programs.\n\n```\nuse tracing_core::{span, Event, Level, LevelFilter, Subscriber, Metadata};\n# use tracing_core::span::{Id, Record, Current};\n\n#[derive(Debug)]\npub struct MySubscriber {\n    /// The most verbose level that this subscriber will enable.\n    max_level: LevelFilter,\n\n    // ...\n}\n\nimpl MySubscriber {\n    /// Returns a new `MySubscriber` which will record spans and events up to\n    /// `max_level`.\n    pub fn with_max_level(max_level: LevelFilter) -> Self {\n        Self {\n            max_level,\n            // ...\n        }\n    }\n}\nimpl Subscriber for MySubscriber {\n    fn enabled(&self, meta: &Metadata<'_>) -> bool {\n        // A span or event is enabled if it is at or below the configured\n        // maximum level.\n        meta.level() <= &self.max_level\n    }\n\n    // This optional method returns the most verbose level that this\n    // subscriber will enable. Although implementing this method is not\n    // *required*, it permits additional optimizations when it is provided,\n    // allowing spans and events above the max level to be skipped\n    // more efficiently.\n    fn max_level_hint(&self) -> Option<LevelFilter> {\n        Some(self.max_level)\n    }\n\n    // Implement the rest of the subscriber...\n    fn new_span(&self, span: &span::Attributes<'_>) -> span::Id {\n        // ...\n        # drop(span); Id::from_u64(1)\n    }\n\n    fn event(&self, event: &Event<'_>) {\n        // ...\n        # drop(event);\n    }\n\n    // ...\n    # fn enter(&self, _: &Id) {}\n    # fn exit(&self, _: &Id) {}\n    # fn record(&self, _: &Id, _: &Record<'_>) {}\n    # fn record_follows_from(&self, _: &Id, _: &Id) {}\n}\n```\n\nIt is worth noting that the `tracing-subscriber` crate provides [additional\nAPIs][envfilter] for performing more sophisticated filtering, such as\nenabling different levels based on which module or crate a span or event is\nrecorded in.\n\n[`DEBUG`]: Level::DEBUG\n[`INFO`]: Level::INFO\n[`TRACE`]: Level::TRACE\n[`Subscriber::enabled`]: crate::subscriber::Subscriber::enabled\n[`Subscriber::max_level_hint`]: crate::subscriber::Subscriber::max_level_hint\n[`Subscriber`]: crate::subscriber::Subscriber\n[envfilter]: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        221,
+        1
+      ],
+      "end": [
+        221,
+        30
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "tuple": [
+            null
+          ]
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          715,
+          716,
+          717,
+          718,
+          719,
+          720,
+          721,
+          722,
+          723,
+          724,
+          725,
+          726,
+          727,
+          728,
+          729,
+          730,
+          731,
+          732,
+          733,
+          736,
+          738,
+          739,
+          741,
+          742,
+          744,
+          746,
+          750,
+          753,
+          755,
+          762,
+          764,
+          770,
+          772,
+          778
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Level::ERROR`": 707,
+      "`Level::TRACE`": 708,
+      "Level::INFO": 710,
+      "`LevelFilter::OFF`": 712,
+      "crate::subscriber::Subscriber": 112,
+      "crate::subscriber::Subscriber::enabled": 119,
+      "crate::subscriber::Subscriber::max_level_hint": 114,
+      "Level::TRACE": 708,
+      "`PartialOrd`": 705,
+      "`Ord`": 706,
+      "Level::DEBUG": 709,
+      "`LevelFilter`": 711
+    },
+    "link_paths": {
+      "`Level::ERROR`": "tracing_core::metadata::Level::ERROR",
+      "`Level::TRACE`": "tracing_core::metadata::Level::TRACE",
+      "Level::INFO": "tracing_core::metadata::Level::INFO",
+      "`LevelFilter::OFF`": "tracing_core::metadata::LevelFilter::OFF",
+      "crate::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "crate::subscriber::Subscriber::enabled": "tracing_core::subscriber::Subscriber::enabled",
+      "crate::subscriber::Subscriber::max_level_hint": "tracing_core::subscriber::Subscriber::max_level_hint",
+      "Level::TRACE": "tracing_core::metadata::Level::TRACE",
+      "`PartialOrd`": "core::cmp::PartialOrd",
+      "`Ord`": "core::cmp::Ord",
+      "Level::DEBUG": "tracing_core::metadata::Level::DEBUG",
+      "`LevelFilter`": "tracing_core::metadata::LevelFilter"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "641",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-f8804717be954252aadd54ff",
+    "aliases": [
+      "tracing::Level",
+      "tracing_core::Level"
+    ],
+    "resolved_doc_links": {
+      "`Level::ERROR`": "../operations/tracing_core.metadata.Level.md#op-ffc4ae1325d1d396681bf6c9",
+      "`Level::TRACE`": "../operations/tracing_core.metadata.Level.md#op-588e15fc4e6ffb3b405caa87",
+      "Level::INFO": "../operations/tracing_core.metadata.Level.md#op-c1c996cb5c1d8242fb1c2b62",
+      "`LevelFilter::OFF`": "../operations/tracing_core.metadata.LevelFilter.md#op-5db5fa767073360a607dce55",
+      "crate::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "crate::subscriber::Subscriber::enabled": "../operations/tracing_core.subscriber.Subscriber.md#op-df007f57ed0cab78f4b9e43b",
+      "crate::subscriber::Subscriber::max_level_hint": "../operations/tracing_core.subscriber.Subscriber.md#op-17a8b58b6971d63f15fa6763",
+      "Level::TRACE": "../operations/tracing_core.metadata.Level.md#op-588e15fc4e6ffb3b405caa87",
+      "Level::DEBUG": "../operations/tracing_core.metadata.Level.md#op-f283497330efd0bc67767fd8",
+      "`LevelFilter`": "../operations/tracing_core.metadata.LevelFilter.md#op-6d789785cc5ceea1e8c62c98"
+    }
+  },
+  {
+    "id": "f283497330efd0bc67767fd8",
+    "path": "tracing_core::metadata::Level::DEBUG",
+    "name": "DEBUG",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "assoc_const",
+    "signature": "DEBUG",
+    "docs": "The \"debug\" level.\n\nDesignates lower priority information.",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        525,
+        5
+      ],
+      "end": [
+        525,
+        55
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_const": {
+        "type": {
+          "resolved_path": {
+            "path": "Level",
+            "id": 641,
+            "args": null
+          }
+        },
+        "value": "_",
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          509,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "709",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-f283497330efd0bc67767fd8",
+    "aliases": [
+      "tracing::Level::DEBUG",
+      "tracing_core::Level::DEBUG"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ffc4ae1325d1d396681bf6c9",
+    "path": "tracing_core::metadata::Level::ERROR",
+    "name": "ERROR",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "assoc_const",
+    "signature": "ERROR",
+    "docs": "The \"error\" level.\n\nDesignates very serious errors.",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        513,
+        5
+      ],
+      "end": [
+        513,
+        55
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_const": {
+        "type": {
+          "resolved_path": {
+            "path": "Level",
+            "id": 641,
+            "args": null
+          }
+        },
+        "value": "_",
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          509,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "707",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-ffc4ae1325d1d396681bf6c9",
+    "aliases": [
+      "tracing::Level::ERROR",
+      "tracing_core::Level::ERROR"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "08212f80b2f980595c730489",
+    "path": "tracing_core::metadata::Level::Err",
+    "name": "Err",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "assoc_type",
+    "signature": "Err",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        562,
+        5
+      ],
+      "end": [
+        562,
+        32
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "ParseLevelError",
+            "id": 748,
+            "args": null
+          }
+        },
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "748": "tracing_core::metadata::ParseLevelError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FromStr",
+        "id": "core::str::traits::FromStr",
+        "args": null
+      },
+      "trait_path": "core::str::traits::FromStr",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          561,
+          1
+        ],
+        "end": [
+          583,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "747",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-08212f80b2f980595c730489",
+    "aliases": [
+      "tracing::Level::Err",
+      "tracing_core::Level::Err"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c1c996cb5c1d8242fb1c2b62",
+    "path": "tracing_core::metadata::Level::INFO",
+    "name": "INFO",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "assoc_const",
+    "signature": "INFO",
+    "docs": "The \"info\" level.\n\nDesignates useful information.",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        521,
+        5
+      ],
+      "end": [
+        521,
+        53
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_const": {
+        "type": {
+          "resolved_path": {
+            "path": "Level",
+            "id": 641,
+            "args": null
+          }
+        },
+        "value": "_",
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          509,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "710",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-c1c996cb5c1d8242fb1c2b62",
+    "aliases": [
+      "tracing::Level::INFO",
+      "tracing_core::Level::INFO"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "588e15fc4e6ffb3b405caa87",
+    "path": "tracing_core::metadata::Level::TRACE",
+    "name": "TRACE",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "assoc_const",
+    "signature": "TRACE",
+    "docs": "The \"trace\" level.\n\nDesignates very low priority, often extremely verbose, information.",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        529,
+        5
+      ],
+      "end": [
+        529,
+        55
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_const": {
+        "type": {
+          "resolved_path": {
+            "path": "Level",
+            "id": 641,
+            "args": null
+          }
+        },
+        "value": "_",
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          509,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "708",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-588e15fc4e6ffb3b405caa87",
+    "aliases": [
+      "tracing::Level::TRACE",
+      "tracing_core::Level::TRACE"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "71b850c1234ee19d8a90a7ae",
+    "path": "tracing_core::metadata::Level::WARN",
+    "name": "WARN",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "assoc_const",
+    "signature": "WARN",
+    "docs": "The \"warn\" level.\n\nDesignates hazardous situations.",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        517,
+        5
+      ],
+      "end": [
+        517,
+        53
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_const": {
+        "type": {
+          "resolved_path": {
+            "path": "Level",
+            "id": 641,
+            "args": null
+          }
+        },
+        "value": "_",
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          509,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "713",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-71b850c1234ee19d8a90a7ae",
+    "aliases": [
+      "tracing::Level::WARN",
+      "tracing_core::Level::WARN"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e1f5f11f1535f4344fcdabf6",
+    "path": "tracing_core::metadata::Level::as_str",
+    "name": "as_str",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn as_str(&self) -> &'static str",
+    "docs": "Returns the string representation of the `Level`.\n\nThis returns the same string as the `fmt::Display` implementation.",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        534,
+        5
+      ],
+      "end": [
+        542,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": "'static",
+              "is_mutable": false,
+              "type": {
+                "primitive": "str"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          509,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "714",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-e1f5f11f1535f4344fcdabf6",
+    "aliases": [
+      "tracing::Level::as_str",
+      "tracing_core::Level::as_str"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1b822c56ae9993f10ca07597",
+    "path": "tracing_core::metadata::Level::clone",
+    "name": "clone",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Level",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        220,
+        16
+      ],
+      "end": [
+        220,
+        21
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Level",
+              "id": 641,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          220,
+          16
+        ],
+        "end": [
+          220,
+          21
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "735",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-1b822c56ae9993f10ca07597",
+    "aliases": [
+      "tracing::Level::clone",
+      "tracing_core::Level::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "32cb1f9dd55e6b5eae52d178",
+    "path": "tracing_core::metadata::Level::cmp",
+    "name": "cmp",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn cmp(&self, other: &Self) -> cmp::Ordering",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        947,
+        5
+      ],
+      "end": [
+        949,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "cmp::Ordering",
+              "id": 757,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "757": "core::cmp::Ordering"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Ord",
+        "id": "core::cmp::Ord",
+        "args": null
+      },
+      "trait_path": "core::cmp::Ord",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          945,
+          1
+        ],
+        "end": [
+          950,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "763",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-32cb1f9dd55e6b5eae52d178",
+    "aliases": [
+      "tracing::Level::cmp",
+      "tracing_core::Level::cmp"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c592149ec30becdfaeb878e1",
+    "path": "tracing_core::metadata::Level::eq",
+    "name": "eq",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &Level) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        220,
+        30
+      ],
+      "end": [
+        220,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Level",
+                      "id": 641,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          220,
+          30
+        ],
+        "end": [
+          220,
+          39
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "740",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-c592149ec30becdfaeb878e1",
+    "aliases": [
+      "tracing::Level::eq",
+      "tracing_core::Level::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cb4219b4291c33a859ba91de",
+    "path": "tracing_core::metadata::Level::eq",
+    "name": "eq",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &LevelFilter) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        913,
+        5
+      ],
+      "end": [
+        915,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "LevelFilter",
+                      "id": 711,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "711": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "LevelFilter",
+                    "id": "tracing_core::metadata::LevelFilter",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          911,
+          1
+        ],
+        "end": [
+          916,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "754",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-cb4219b4291c33a859ba91de",
+    "aliases": [
+      "tracing::Level::eq",
+      "tracing_core::Level::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c6d79893d33e29023b79f5d3",
+    "path": "tracing_core::metadata::Level::fmt",
+    "name": "fmt",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        546,
+        5
+      ],
+      "end": [
+        554,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 79,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 80,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "79": "core::fmt::Formatter",
+      "80": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Display",
+        "id": "core::fmt::Display",
+        "args": null
+      },
+      "trait_path": "core::fmt::Display",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          545,
+          1
+        ],
+        "end": [
+          555,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "745",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-c6d79893d33e29023b79f5d3",
+    "aliases": [
+      "tracing::Level::fmt",
+      "tracing_core::Level::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c738dd20122f78015a9549b2",
+    "path": "tracing_core::metadata::Level::fmt",
+    "name": "fmt",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        220,
+        23
+      ],
+      "end": [
+        220,
+        28
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 79,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 80,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "79": "core::fmt::Formatter",
+      "80": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          220,
+          23
+        ],
+        "end": [
+          220,
+          28
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "737",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-c738dd20122f78015a9549b2",
+    "aliases": [
+      "tracing::Level::fmt",
+      "tracing_core::Level::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "45e2c182bb421e790d1f4c34",
+    "path": "tracing_core::metadata::Level::from_str",
+    "name": "from_str",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn from_str(s: &str) -> Result<Self, ParseLevelError>",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        563,
+        5
+      ],
+      "end": [
+        582,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "s",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 56,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ParseLevelError",
+                          "id": 748,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "56": "core::result::Result",
+      "748": "tracing_core::metadata::ParseLevelError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FromStr",
+        "id": "core::str::traits::FromStr",
+        "args": null
+      },
+      "trait_path": "core::str::traits::FromStr",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          561,
+          1
+        ],
+        "end": [
+          583,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "749",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-45e2c182bb421e790d1f4c34",
+    "aliases": [
+      "tracing::Level::from_str",
+      "tracing_core::Level::from_str"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "073eefccc2b001abca59964d",
+    "path": "tracing_core::metadata::Level::ge",
+    "name": "ge",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn ge(&self, other: &LevelFilter) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        974,
+        5
+      ],
+      "end": [
+        976,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "LevelFilter",
+                      "id": 711,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "711": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "LevelFilter",
+                    "id": "tracing_core::metadata::LevelFilter",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          952,
+          1
+        ],
+        "end": [
+          977,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "769",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-073eefccc2b001abca59964d",
+    "aliases": [
+      "tracing::Level::ge",
+      "tracing_core::Level::ge"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d2c4c0cddd2e4a5739679003",
+    "path": "tracing_core::metadata::Level::ge",
+    "name": "ge",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn ge(&self, other: &Level) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        940,
+        5
+      ],
+      "end": [
+        942,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Level",
+                      "id": 641,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          918,
+          1
+        ],
+        "end": [
+          943,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "761",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-d2c4c0cddd2e4a5739679003",
+    "aliases": [
+      "tracing::Level::ge",
+      "tracing_core::Level::ge"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1375a734e3a2b154c9d4d2cd",
+    "path": "tracing_core::metadata::Level::gt",
+    "name": "gt",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn gt(&self, other: &Level) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        935,
+        5
+      ],
+      "end": [
+        937,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Level",
+                      "id": 641,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          918,
+          1
+        ],
+        "end": [
+          943,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "760",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-1375a734e3a2b154c9d4d2cd",
+    "aliases": [
+      "tracing::Level::gt",
+      "tracing_core::Level::gt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "95fe96e369ecf31b328ee526",
+    "path": "tracing_core::metadata::Level::gt",
+    "name": "gt",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn gt(&self, other: &LevelFilter) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        969,
+        5
+      ],
+      "end": [
+        971,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "LevelFilter",
+                      "id": 711,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "711": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "LevelFilter",
+                    "id": "tracing_core::metadata::LevelFilter",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          952,
+          1
+        ],
+        "end": [
+          977,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "768",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-95fe96e369ecf31b328ee526",
+    "aliases": [
+      "tracing::Level::gt",
+      "tracing_core::Level::gt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a7d35b669cf3e0d7c664e605",
+    "path": "tracing_core::metadata::Level::hash",
+    "name": "hash",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn hash<__H: hash::Hasher>(&self, state: &mut __H)",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        220,
+        45
+      ],
+      "end": [
+        220,
+        49
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "state",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "__H"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "__H",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "$crate::hash::Hasher",
+                          "id": 84,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "84": "core::hash::Hasher"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Hash",
+        "id": "core::hash::Hash",
+        "args": null
+      },
+      "trait_path": "core::hash::Hash",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          220,
+          45
+        ],
+        "end": [
+          220,
+          49
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "743",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-a7d35b669cf3e0d7c664e605",
+    "aliases": [
+      "tracing::Level::hash",
+      "tracing_core::Level::hash"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ac4fced17108ab94b822e516",
+    "path": "tracing_core::metadata::Level::le",
+    "name": "le",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn le(&self, other: &Level) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        930,
+        5
+      ],
+      "end": [
+        932,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Level",
+                      "id": 641,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          918,
+          1
+        ],
+        "end": [
+          943,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "759",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-ac4fced17108ab94b822e516",
+    "aliases": [
+      "tracing::Level::le",
+      "tracing_core::Level::le"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b95eb13ace775e34d3e61c45",
+    "path": "tracing_core::metadata::Level::le",
+    "name": "le",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn le(&self, other: &LevelFilter) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        964,
+        5
+      ],
+      "end": [
+        966,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "LevelFilter",
+                      "id": 711,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "711": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "LevelFilter",
+                    "id": "tracing_core::metadata::LevelFilter",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          952,
+          1
+        ],
+        "end": [
+          977,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "767",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-b95eb13ace775e34d3e61c45",
+    "aliases": [
+      "tracing::Level::le",
+      "tracing_core::Level::le"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a2716cb968e2ee2132ccff67",
+    "path": "tracing_core::metadata::Level::lt",
+    "name": "lt",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn lt(&self, other: &LevelFilter) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        959,
+        5
+      ],
+      "end": [
+        961,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "LevelFilter",
+                      "id": 711,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "711": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "LevelFilter",
+                    "id": "tracing_core::metadata::LevelFilter",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          952,
+          1
+        ],
+        "end": [
+          977,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "766",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-a2716cb968e2ee2132ccff67",
+    "aliases": [
+      "tracing::Level::lt",
+      "tracing_core::Level::lt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a495979b5af78335942ed289",
+    "path": "tracing_core::metadata::Level::lt",
+    "name": "lt",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn lt(&self, other: &Level) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        925,
+        5
+      ],
+      "end": [
+        927,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Level",
+                      "id": 641,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          918,
+          1
+        ],
+        "end": [
+          943,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "758",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-a495979b5af78335942ed289",
+    "aliases": [
+      "tracing::Level::lt",
+      "tracing_core::Level::lt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "414c47d49a807ec12bb5cfc5",
+    "path": "tracing_core::metadata::Level::partial_cmp",
+    "name": "partial_cmp",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn partial_cmp(&self, other: &LevelFilter) -> Option<cmp::Ordering>",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        954,
+        5
+      ],
+      "end": [
+        956,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "LevelFilter",
+                      "id": 711,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 155,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "cmp::Ordering",
+                          "id": 757,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "711": "tracing_core::metadata::LevelFilter",
+      "155": "core::option::Option",
+      "757": "core::cmp::Ordering"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "LevelFilter",
+                    "id": "tracing_core::metadata::LevelFilter",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          952,
+          1
+        ],
+        "end": [
+          977,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "765",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-414c47d49a807ec12bb5cfc5",
+    "aliases": [
+      "tracing::Level::partial_cmp",
+      "tracing_core::Level::partial_cmp"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a04c39f8fb87c35b4741ef07",
+    "path": "tracing_core::metadata::Level::partial_cmp",
+    "name": "partial_cmp",
+    "owner": "tracing_core::metadata::Level",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn partial_cmp(&self, other: &Level) -> Option<cmp::Ordering>",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        920,
+        5
+      ],
+      "end": [
+        922,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Level",
+                      "id": 641,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 155,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "cmp::Ordering",
+                          "id": 757,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "641": "tracing_core::metadata::Level",
+      "155": "core::option::Option",
+      "757": "core::cmp::Ordering"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Level",
+          "id": "tracing_core::metadata::Level",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialOrd",
+        "id": "core::cmp::PartialOrd",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialOrd",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          918,
+          1
+        ],
+        "end": [
+          943,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "756",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Level.md",
+    "record_file": "operations/tracing_core.metadata.Level.json",
+    "anchor": "op-a04c39f8fb87c35b4741ef07",
+    "aliases": [
+      "tracing::Level::partial_cmp",
+      "tracing_core::Level::partial_cmp"
+    ],
+    "resolved_doc_links": {}
+  }
+]

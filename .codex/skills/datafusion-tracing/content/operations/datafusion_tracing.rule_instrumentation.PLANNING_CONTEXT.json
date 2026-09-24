@@ -1,0 +1,129 @@
+[
+  {
+    "id": "18bd3974dee1397bfeccf5b9",
+    "path": "datafusion_tracing::rule_instrumentation::PLANNING_CONTEXT",
+    "name": "PLANNING_CONTEXT",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "constant",
+    "signature": "const PLANNING_CONTEXT: thread::LocalKey<std::cell::RefCell<Option<PlanningContext>>> = _",
+    "docs": "The current planning context, if any phase is active.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        168,
+        1
+      ],
+      "end": [
+        173,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "constant": {
+        "type": {
+          "resolved_path": {
+            "path": "$crate::thread::LocalKey",
+            "id": 454,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "type": {
+                      "resolved_path": {
+                        "path": "std::cell::RefCell",
+                        "id": 455,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Option",
+                                    "id": 118,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "type": {
+                                              "resolved_path": {
+                                                "path": "PlanningContext",
+                                                "id": 404,
+                                                "args": null
+                                              }
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      }
+                    }
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        },
+        "const": {
+          "expr": "_",
+          "value": null,
+          "is_literal": false
+        }
+      }
+    },
+    "type_references": {
+      "454": "std::thread::local::LocalKey",
+      "455": "core::cell::RefCell",
+      "118": "core::option::Option",
+      "404": "datafusion_tracing::rule_instrumentation::PlanningContext"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "453",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PLANNING_CONTEXT.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PLANNING_CONTEXT.json",
+    "anchor": "op-18bd3974dee1397bfeccf5b9",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

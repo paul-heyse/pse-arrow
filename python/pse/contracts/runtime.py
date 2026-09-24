@@ -13,6 +13,78 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeArtifactDescriptorsFieldReleaseMembersItemSelectionRevision:
+    """Declared relation row or nested value."""
+
+    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeArtifactDescriptorsFieldReleaseMembersItemSelection:
+    """Declared relation row or nested value."""
+
+    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
+    revision: RuntimeArtifactDescriptorsFieldReleaseMembersItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldReleaseMembersItemSelectionRevision)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeArtifactDescriptorsFieldReleaseMembersItem:
+    """Declared relation row or nested value."""
+
+    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    selection: RuntimeArtifactDescriptorsFieldReleaseMembersItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldReleaseMembersItemSelection))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeArtifactDescriptorsFieldImplementation:
+    """Declared relation row or nested value."""
+
+    source: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    build: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    registry: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    algorithms: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeArtifactDescriptorsFieldValueAssumptionsItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    canonical_value: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 255), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeArtifactDescriptorsRow:
+    """Declared relation row or nested value."""
+
+    artifact_id: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    descriptor_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    profile: e.PublicationKind = attrs.field(validator=attrs.validators.instance_of(e.PublicationKind))
+    profile_contract: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    requested_relations: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    release_id: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    release_members: b.tuple[RuntimeArtifactDescriptorsFieldReleaseMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldReleaseMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    semantic_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    implementation: RuntimeArtifactDescriptorsFieldImplementation = attrs.field(validator=attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldImplementation))
+    target_contract: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    value_assumptions: b.tuple[RuntimeArtifactDescriptorsFieldValueAssumptionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldValueAssumptionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    reconstruction: e.ArtifactReconstruction = attrs.field(validator=attrs.validators.instance_of(e.ArtifactReconstruction))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeCacheEntryStatisticsRow:
     """Declared relation row or nested value."""
 
@@ -52,6 +124,18 @@ class RuntimeChangeEventsRow:
     kind: e.ChangeKind = attrs.field(validator=attrs.validators.instance_of(e.ChangeKind))
     row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     committed_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeComputationRunsRow:
+    """Declared relation row or nested value."""
+
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    profile_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    termination: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
 @attrs.frozen(kw_only=True)
@@ -100,17 +184,6 @@ class RuntimeDiagnosticsFindingsRow:
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeDualsRow:
-    """Declared relation row or nested value."""
-
-    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    equation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    dual: b.float = attrs.field(validator=v.finite_float)
-    bound_multiplier_lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    bound_multiplier_upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-
-
-@attrs.frozen(kw_only=True)
 class RuntimeExecutionStatisticsRow:
     """Declared relation row or nested value."""
 
@@ -119,106 +192,61 @@ class RuntimeExecutionStatisticsRow:
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeHostCapabilitiesFieldPythonEnvPyomoContribItem:
-    """Declared relation row or nested value."""
-
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeHostCapabilitiesFieldPythonEnv:
-    """Declared relation row or nested value."""
-
-    interpreter: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    pyomo: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    pint: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    pyarrow: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    numpy: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    scipy: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    idaes: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    pyomo_contrib: b.tuple[RuntimeHostCapabilitiesFieldPythonEnvPyomoContribItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeHostCapabilitiesFieldPythonEnvPyomoContribItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeHostCapabilitiesRow:
-    """Declared relation row or nested value."""
-
-    host: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    probed_at: datetime = attrs.field(validator=v.utc_timestamp)
-    ipopt_version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    linear_solvers: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    hsl_available: b.bool = attrs.field(validator=v.exact_type(b.bool))
-    petsc_version: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    python_env: RuntimeHostCapabilitiesFieldPythonEnv | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeHostCapabilitiesFieldPythonEnv)))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeIterationsRow:
+class RuntimeFitConstraintsRow:
     """Declared relation row or nested value."""
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    iteration: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    objective: b.float = attrs.field(validator=v.finite_float)
-    inf_pr: b.float = attrs.field(validator=v.finite_float)
-    inf_du: b.float = attrs.field(validator=v.finite_float)
-    mu: b.float = attrs.field(validator=v.finite_float)
-    step_size: b.float = attrs.field(validator=v.finite_float)
-    regularization: b.float = attrs.field(validator=v.finite_float)
-    restoration: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    row_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    tolerance: b.float = attrs.field(validator=v.finite_float)
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeJacobianCoordinatesRow:
+class RuntimeFitObservationsRow:
     """Declared relation row or nested value."""
 
-    program_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    residual: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    variable: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeKernelEvaluationOutcomesFieldResultFailure:
-    """Declared relation row or nested value."""
-
-    reason_code: e.KernelFailure = attrs.field(validator=attrs.validators.instance_of(e.KernelFailure))
-    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    observation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    included: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    prediction: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    residual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    standardized_residual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    objective_contribution: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeKernelEvaluationOutcomesFieldResult:
+class RuntimeFitParametersRow:
     """Declared relation row or nested value."""
 
-    kind: e.KernelOutcome = attrs.field(validator=attrs.validators.instance_of(e.KernelOutcome))
-    success: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
-    failure: RuntimeKernelEvaluationOutcomesFieldResultFailure | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeKernelEvaluationOutcomesFieldResultFailure)))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "domain_failure" and self.failure is not None and self.success is None) or (self.kind == "implementation_failure" and self.failure is not None and self.success is None) or (self.kind == "missing_input" and self.failure is not None and self.success is None) or (self.kind == "success" and self.failure is None and self.success is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameter_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    fixed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    scale: b.float = attrs.field(validator=v.finite_float)
+    at_bound: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeKernelEvaluationOutcomesRow:
+class RuntimeFitVariablesRow:
     """Declared relation row or nested value."""
 
-    evaluation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    output_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    result: RuntimeKernelEvaluationOutcomesFieldResult = attrs.field(validator=attrs.validators.instance_of(RuntimeKernelEvaluationOutcomesFieldResult))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeKernelEvaluationsRow:
-    """Declared relation row or nested value."""
-
-    evaluation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    kernel_binding_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    input_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    output_batch_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    fixed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
 
 
 @attrs.frozen(kw_only=True)
@@ -369,26 +397,21 @@ class RuntimeNativeDependenciesRow:
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeNumericalEvaluationsRow:
+class RuntimePhysicalChecksRow:
     """Declared relation row or nested value."""
 
-    program_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    scenario_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    residual_dimension: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    variable_dimension: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    jacobian_dimension: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    residuals: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
-    jacobian: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeNumericalProgramsRow:
-    """Declared relation row or nested value."""
-
-    program_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    residual_dimension: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    variable_columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)), v.collection(0, None, unique=True)))
-    jacobian_dimension: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    sample: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    balance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    closure: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    tolerance: b.float = attrs.field(validator=v.finite_float)
+    accepted: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
@@ -477,14 +500,113 @@ class RuntimePublicationsRow:
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeResidualsRow:
+class RuntimeReleaseCheckpointsFieldBaseMembersItemSelectionRevision:
+    """Declared relation row or nested value."""
+
+    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeReleaseCheckpointsFieldBaseMembersItemSelection:
+    """Declared relation row or nested value."""
+
+    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
+    revision: RuntimeReleaseCheckpointsFieldBaseMembersItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldBaseMembersItemSelectionRevision)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeReleaseCheckpointsFieldBaseMembersItem:
+    """Declared relation row or nested value."""
+
+    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    selection: RuntimeReleaseCheckpointsFieldBaseMembersItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldBaseMembersItemSelection))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeReleaseCheckpointsFieldTargetMembersItemSelectionRevision:
+    """Declared relation row or nested value."""
+
+    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeReleaseCheckpointsFieldTargetMembersItemSelection:
+    """Declared relation row or nested value."""
+
+    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
+    revision: RuntimeReleaseCheckpointsFieldTargetMembersItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldTargetMembersItemSelectionRevision)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeReleaseCheckpointsFieldTargetMembersItem:
+    """Declared relation row or nested value."""
+
+    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    selection: RuntimeReleaseCheckpointsFieldTargetMembersItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldTargetMembersItemSelection))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeReleaseCheckpointsFieldIntervalsItem:
+    """Declared relation row or nested value."""
+
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    from_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    through_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeReleaseCheckpointsRow:
+    """Declared relation row or nested value."""
+
+    consumer_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    interpretation_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    admission_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    base_release: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    target_release: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    base_members: b.tuple[RuntimeReleaseCheckpointsFieldBaseMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldBaseMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    target_members: b.tuple[RuntimeReleaseCheckpointsFieldTargetMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldTargetMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    intervals: b.tuple[RuntimeReleaseCheckpointsFieldIntervalsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldIntervalsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeResponseSensitivitiesRow:
     """Declared relation row or nested value."""
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    equation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    residual: b.float = attrs.field(validator=v.finite_float)
-    scaled_residual: b.float = attrs.field(validator=v.finite_float)
-    relative_residual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    sample: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    output_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameter_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    output_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameter_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: b.float = attrs.field(validator=v.finite_float)
 
 
 @attrs.frozen(kw_only=True)
@@ -498,94 +620,123 @@ class RuntimeRetainedVersionsRow:
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeRunsFieldResolvedOptionsItem:
-    """Declared relation row or nested value."""
-
-    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeRunsFieldEnvironment:
-    """Declared relation row or nested value."""
-
-    platform_version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    compiler_version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    solver_version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    kernel_digests: b.tuple[v.ContentHash, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.ContentHash), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    host: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeRunsRow:
+class RuntimeSimulationEventsRow:
     """Declared relation row or nested value."""
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    problem_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    case_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    model_revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    backend: e.Backend = attrs.field(validator=attrs.validators.instance_of(e.Backend))
-    solver_profile_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    plan_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    stage_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    parent_run_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    attempt: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    resolved_options: b.tuple[RuntimeRunsFieldResolvedOptionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeRunsFieldResolvedOptionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    started_at: datetime = attrs.field(validator=v.utc_timestamp)
-    finished_at: datetime = attrs.field(validator=v.utc_timestamp)
-    status: e.TerminationStatus = attrs.field(validator=attrs.validators.instance_of(e.TerminationStatus))
-    environment: RuntimeRunsFieldEnvironment = attrs.field(validator=attrs.validators.instance_of(RuntimeRunsFieldEnvironment))
-    wall_seconds: b.float = attrs.field(validator=v.finite_float)
-    iterations: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeSolutionsRow:
-    """Declared relation row or nested value."""
-
-    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    ordinal: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    event_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    time: b.float = attrs.field(validator=v.finite_float)
     symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    value: b.float = attrs.field(validator=v.finite_float)
+    before: b.float = attrs.field(validator=v.finite_float)
+    after: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSimulationSamplesRow:
+    """Declared relation row or nested value."""
+
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    sample: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    time: b.float = attrs.field(validator=v.finite_float)
+    symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    bound_status: e.BoundStatus = attrs.field(validator=attrs.validators.instance_of(e.BoundStatus))
+    value: b.float = attrs.field(validator=v.finite_float)
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeSolverOutcomesFieldDiagnostic:
+class RuntimeSolveConstraintsRow:
     """Declared relation row or nested value."""
 
-    code: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    row_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    equality_residual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    lower_violation: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    upper_violation: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    dual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    dual_qualification: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeSolverOutcomesFieldIterationsItem:
+class RuntimeSolveMetricsRow:
     """Declared relation row or nested value."""
 
-    iteration: b.int = attrs.field(validator=v.integer_range(0, 2147483647))
-    restoration: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    namespace: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: e.NativeMetricKind = attrs.field(validator=attrs.validators.instance_of(e.NativeMetricKind))
+    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    integer: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeSolveRunsRow:
+    """Declared relation row or nested value."""
+
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    model_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
+    case_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    backend: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    native_code: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    native_status: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    termination: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    assurance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    candidate_present: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    feasible: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     objective: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    primal_infeasibility: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    dual_infeasibility: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    barrier: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    step: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    objective_sense: e.NativeObjectiveSense | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeObjectiveSense)))
+    objective_quantity_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    validation_error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    transformation: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeSolverOutcomesRow:
+class RuntimeSolveVariablesRow:
     """Declared relation row or nested value."""
 
-    program_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    scenario_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    variable_columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)), v.collection(0, None, unique=True)))
-    constraint_dimension: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    ipopt_status: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
-    termination: e.SolverTermination = attrs.field(validator=attrs.validators.instance_of(e.SolverTermination))
-    objective: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    values: b.tuple[b.float | None, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.optional(v.finite_float), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    constraints: b.tuple[b.float | None, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.optional(v.finite_float), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    constraint_duals: b.tuple[b.float | None, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.optional(v.finite_float), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    lower_duals: b.tuple[b.float | None, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.optional(v.finite_float), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    upper_duals: b.tuple[b.float | None, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.optional(v.finite_float), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    diagnostic: RuntimeSolverOutcomesFieldDiagnostic | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeSolverOutcomesFieldDiagnostic)))
-    iterations: b.tuple[RuntimeSolverOutcomesFieldIterationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeSolverOutcomesFieldIterationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    fixed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    parameter: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    lower_violation: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    upper_violation: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    lower_dual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    upper_dual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    reduced_cost: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    stationarity: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    dual_qualification: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeValidationFindingsRow:
+    """Declared relation row or nested value."""
+
+    rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    code: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    relation_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    row: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    key_literals: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    field_json: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    observed_literal: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))

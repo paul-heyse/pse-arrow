@@ -1,0 +1,64 @@
+[
+  {
+    "id": "b7f4219caade2926581cc4e4",
+    "path": "opentelemetry_otlp::exporter::http::HttpConfig",
+    "name": "HttpConfig",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct HttpConfig",
+    "docs": "Configuration of the http transport",
+    "span": {
+      "filename": "src/exporter/http/mod.rs",
+      "begin": [
+        46,
+        1
+      ],
+      "end": [
+        55,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "6",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.http.HttpConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.http.HttpConfig.json",
+    "anchor": "op-b7f4219caade2926581cc4e4",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

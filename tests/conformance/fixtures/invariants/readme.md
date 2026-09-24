@@ -5,7 +5,7 @@ its exact expected violating keys. `valid.yaml` is valid for that invariant; it 
 claim that its isolated candidate is a publishable complete model. Other invariants may
 require additional facts. Inputs remain unpublished and advertise no key constraints.
 
-The files use the YAML 1.2 JSON subset and the schema's sole reversible tagged `Cell`
+The files use the YAML 1.2 JSON subset and the schema's field-directed tagged literal
 literal codec. Values, integer ranges, ordered tuples and floating-point bits are retained.
 Expected keys come from concrete fixture cases, never from evaluating the rule to generate
 its own oracle. The test compiles and executes each actual registered rule with force

@@ -14,8 +14,6 @@
 ///Generated namespace contracts.
 pub mod r#authored;
 ///Generated namespace contracts.
-pub mod r#compiled;
-///Generated namespace contracts.
 pub mod r#inferred;
 ///Generated namespace contracts.
 pub mod r#normalized;
@@ -25,6 +23,7 @@ pub mod r#provenance;
 pub mod r#reference;
 ///Generated namespace contracts.
 pub mod r#runtime;
+pub(crate) mod contracts;
 /// Declared string enumerations.
 pub mod enums;
 /// Composite extension storage values.
@@ -33,9 +32,9 @@ pub mod extension_values;
 pub mod algorithm_arguments;
 /// Registry identity; validity is established by admission.
 pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    33u8, 13u8, 205u8, 104u8, 176u8, 35u8, 172u8, 61u8, 129u8, 44u8, 105u8, 195u8, 7u8,
-    60u8, 116u8, 4u8, 54u8, 163u8, 9u8, 39u8, 147u8, 242u8, 167u8, 188u8, 136u8, 214u8,
-    82u8, 57u8, 195u8, 122u8, 248u8, 226u8,
+    100u8, 5u8, 117u8, 232u8, 237u8, 75u8, 185u8, 127u8, 32u8, 66u8, 66u8, 190u8, 137u8,
+    23u8, 134u8, 117u8, 195u8, 197u8, 65u8, 97u8, 222u8, 45u8, 235u8, 209u8, 161u8,
+    103u8, 239u8, 158u8, 65u8, 244u8, 154u8, 48u8,
 ]);
 /// Resolves an exact declaration from the current registry.
 /// # Errors
@@ -45,3 +44,6 @@ pub fn relation_by_id(
 ) -> Result<Option<&'static pse_schema::model::RelationSpec>, crate::RelationError> {
     Ok(pse_schema::registry()?.relation_by_id(id))
 }
+
+/// Generated typed relational handoff.
+pub mod facts;

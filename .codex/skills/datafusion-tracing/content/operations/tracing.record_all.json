@@ -1,0 +1,54 @@
+[
+  {
+    "id": "2ae0479bcba50b67c636b74f",
+    "path": "tracing::record_all",
+    "name": "record_all",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "macro",
+    "signature": "macro_rules! record_all",
+    "docs": "Records multiple values on a span in a single call. As with recording\nindividual values, all fields must be declared when the span is created.\n\nThis macro supports two optional sigils:\n- `%` uses the Display implementation.\n- `?` uses the Debug implementation.\n\nFor more details, see the [top-level documentation][lib].\n\n[lib]: tracing/#recording-fields\n\n# Examples\n\n```\n# use tracing::{field, info_span, record_all};\nlet span = info_span!(\"my span\", field1 = field::Empty, field2 = field::Empty, field3 = field::Empty).entered();\nrecord_all!(span, field1 = ?\"1\", field2 = %\"2\", field3 = 3);\n```",
+    "span": {
+      "filename": "src/macros.rs",
+      "begin": [
+        152,
+        1
+      ],
+      "end": [
+        161,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! record_all {\n    ($span:expr, $($fields:tt)*) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "387",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.record_all.md",
+    "record_file": "operations/tracing.record_all.json",
+    "anchor": "op-2ae0479bcba50b67c636b74f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

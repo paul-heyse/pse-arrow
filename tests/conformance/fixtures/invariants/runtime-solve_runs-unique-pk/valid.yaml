@@ -1,0 +1,28 @@
+{
+  "invariant": "runtime.solve_runs:unique:pk",
+  "rows": {
+    "runtime.solve_runs": [
+      {
+        "assurance": "[\"text\",\"value-1\"]",
+        "backend": "[\"text\",\"value-1\"]",
+        "candidate_present": "[\"bool\",true]",
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "error": "[\"text\",\"value-1\"]",
+        "feasible": "[\"bool\",true]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "native_code": "[\"i64\",1]",
+        "native_status": "[\"text\",\"value-1\"]",
+        "objective": "[\"f64\",\"3ff0000000000000\"]",
+        "objective_quantity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "objective_sense": "[\"enum\",\"minimize\"]",
+        "revision": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "step": "[\"i64\",1]",
+        "termination": "[\"text\",\"value-1\"]",
+        "transformation": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "validation_error": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,984 @@
+[
+  {
+    "id": "6d053f6f706f9b40e3ded0c2",
+    "path": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+    "name": "ChronoLocal",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct ChronoLocal",
+    "docs": "Formats [local time]s and [UTC time]s with `FormatTime` implementations\nthat use the [`chrono` crate].\n\n[local time]: [`chrono::offset::Local`]\n[UTC time]: [`chrono::offset::Utc`]\n[`chrono` crate]: [`chrono`]\nFormats the current [local time] using a [formatter] from the [`chrono`] crate.\n\n[local time]: chrono::Local::now()\n[formatter]: chrono::format",
+    "span": {
+      "filename": "src/fmt/time/chrono_crate.rs",
+      "begin": [
+        19,
+        1
+      ],
+      "end": [
+        21,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"chrono\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2423,
+          2424,
+          2425,
+          2426,
+          2427,
+          2428,
+          2429,
+          2430,
+          2431,
+          2432,
+          2433,
+          2434,
+          2435,
+          2436,
+          2437,
+          2438,
+          2439,
+          2440,
+          2441,
+          2443,
+          2445,
+          2446,
+          2447,
+          2449,
+          2451,
+          2453
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`chrono`": 2418,
+      "chrono::format": 2417
+    },
+    "link_paths": {
+      "`chrono`": "chrono",
+      "chrono::format": "chrono::format"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2419",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.json",
+    "anchor": "op-6d053f6f706f9b40e3ded0c2",
+    "aliases": [
+      "tracing_subscriber::fmt::time::ChronoLocal"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "73babfcb42a402fe6601a4a3",
+    "path": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal::clone",
+    "name": "clone",
+    "owner": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn clone(&self) -> ChronoLocal",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/time/chrono_crate.rs",
+      "begin": [
+        18,
+        17
+      ],
+      "end": [
+        18,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ChronoLocal",
+              "id": 2419,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2419": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ChronoLocal",
+          "id": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/chrono_crate.rs",
+        "begin": [
+          18,
+          17
+        ],
+        "end": [
+          18,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2444",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.json",
+    "anchor": "op-73babfcb42a402fe6601a4a3",
+    "aliases": [
+      "tracing_subscriber::fmt::time::ChronoLocal::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3e26b899dcc168ef47558b18",
+    "path": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal::default",
+    "name": "default",
+    "owner": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn default() -> ChronoLocal",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/time/chrono_crate.rs",
+      "begin": [
+        18,
+        39
+      ],
+      "end": [
+        18,
+        46
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "ChronoLocal",
+              "id": 2419,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2419": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ChronoLocal",
+          "id": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/chrono_crate.rs",
+        "begin": [
+          18,
+          39
+        ],
+        "end": [
+          18,
+          46
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2450",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.json",
+    "anchor": "op-3e26b899dcc168ef47558b18",
+    "aliases": [
+      "tracing_subscriber::fmt::time::ChronoLocal::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f44a08028cbd5ff9ca3a172a",
+    "path": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal::eq",
+    "name": "eq",
+    "owner": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &ChronoLocal) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/time/chrono_crate.rs",
+      "begin": [
+        18,
+        28
+      ],
+      "end": [
+        18,
+        37
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "ChronoLocal",
+                      "id": 2419,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2419": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ChronoLocal",
+          "id": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/chrono_crate.rs",
+        "begin": [
+          18,
+          28
+        ],
+        "end": [
+          18,
+          37
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2448",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.json",
+    "anchor": "op-f44a08028cbd5ff9ca3a172a",
+    "aliases": [
+      "tracing_subscriber::fmt::time::ChronoLocal::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "054e9411219b2c3b7b580734",
+    "path": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/time/chrono_crate.rs",
+      "begin": [
+        18,
+        10
+      ],
+      "end": [
+        18,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ChronoLocal",
+          "id": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/chrono_crate.rs",
+        "begin": [
+          18,
+          10
+        ],
+        "end": [
+          18,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2442",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.json",
+    "anchor": "op-054e9411219b2c3b7b580734",
+    "aliases": [
+      "tracing_subscriber::fmt::time::ChronoLocal::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7b1d82c220fb1f12cdfafbd5",
+    "path": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal::format_time",
+    "name": "format_time",
+    "owner": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn format_time(&self, w: &mut Writer<'_>) -> alloc::fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/time/chrono_crate.rs",
+      "begin": [
+        46,
+        5
+      ],
+      "end": [
+        61,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "w",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Writer",
+                      "id": 218,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "alloc::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "218": "tracing_subscriber::fmt::format::Writer",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ChronoLocal",
+          "id": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FormatTime",
+        "id": "tracing_subscriber::fmt::time::FormatTime",
+        "args": null
+      },
+      "trait_path": "tracing_subscriber::fmt::time::FormatTime",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/chrono_crate.rs",
+        "begin": [
+          45,
+          1
+        ],
+        "end": [
+          62,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2452",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.json",
+    "anchor": "op-7b1d82c220fb1f12cdfafbd5",
+    "aliases": [
+      "tracing_subscriber::fmt::time::ChronoLocal::format_time"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "df627a9f740b9f8d3941893d",
+    "path": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal::new",
+    "name": "new",
+    "owner": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn new(format_string: String) -> Self",
+    "docs": "Format the time using the given format string.\n\nSee [`chrono::format::strftime`] for details on the supported syntax.",
+    "span": {
+      "filename": "src/fmt/time/chrono_crate.rs",
+      "begin": [
+        38,
+        5
+      ],
+      "end": [
+        42,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "format_string",
+              {
+                "resolved_path": {
+                  "path": "String",
+                  "id": 440,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "440": "alloc::string::String"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ChronoLocal",
+          "id": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/chrono_crate.rs",
+        "begin": [
+          23,
+          1
+        ],
+        "end": [
+          43,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`chrono::format::strftime`": 2421
+    },
+    "link_paths": {
+      "`chrono::format::strftime`": "chrono::format::strftime"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2422",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.json",
+    "anchor": "op-df627a9f740b9f8d3941893d",
+    "aliases": [
+      "tracing_subscriber::fmt::time::ChronoLocal::new"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dce3bd735f77902a7f91067e",
+    "path": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal::rfc_3339",
+    "name": "rfc_3339",
+    "owner": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn rfc_3339() -> Self",
+    "docs": "Format the time using the [`RFC 3339`] format\n(a subset of [`ISO 8601`]).\n\n[`RFC 3339`]: https://tools.ietf.org/html/rfc3339\n[`ISO 8601`]: https://en.wikipedia.org/wiki/ISO_8601",
+    "span": {
+      "filename": "src/fmt/time/chrono_crate.rs",
+      "begin": [
+        29,
+        5
+      ],
+      "end": [
+        33,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ChronoLocal",
+          "id": "tracing_subscriber::fmt::time::chrono_crate::ChronoLocal",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/chrono_crate.rs",
+        "begin": [
+          23,
+          1
+        ],
+        "end": [
+          43,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2420",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.chrono_crate.ChronoLocal.json",
+    "anchor": "op-dce3bd735f77902a7f91067e",
+    "aliases": [
+      "tracing_subscriber::fmt::time::ChronoLocal::rfc_3339"
+    ],
+    "resolved_doc_links": {}
+  }
+]

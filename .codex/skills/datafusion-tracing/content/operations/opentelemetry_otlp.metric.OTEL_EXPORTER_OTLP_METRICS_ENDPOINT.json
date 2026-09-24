@@ -1,0 +1,69 @@
+[
+  {
+    "id": "8edbc60dca511a4d006992b5",
+    "path": "opentelemetry_otlp::metric::OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+    "name": "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "constant",
+    "signature": "const OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: &str = \"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT\"",
+    "docs": "Target to which the exporter is going to send metrics, defaults to https://localhost:4317/v1/metrics.\nLearn about the relationship between this constant and default/spans/logs at\n<https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#endpoint-urls-for-otlphttp>",
+    "span": {
+      "filename": "src/metric.rs",
+      "begin": [
+        29,
+        1
+      ],
+      "end": [
+        29,
+        93
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "constant": {
+        "type": {
+          "borrowed_ref": {
+            "lifetime": null,
+            "is_mutable": false,
+            "type": {
+              "primitive": "str"
+            }
+          }
+        },
+        "const": {
+          "expr": "\"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT\"",
+          "value": null,
+          "is_literal": true
+        }
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "493",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.metric.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT.md",
+    "record_file": "operations/opentelemetry_otlp.metric.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT.json",
+    "anchor": "op-8edbc60dca511a4d006992b5",
+    "aliases": [
+      "opentelemetry_otlp::OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+    ],
+    "resolved_doc_links": {}
+  }
+]

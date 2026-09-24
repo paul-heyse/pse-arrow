@@ -1,0 +1,143 @@
+{
+  "id": "tracing.execution",
+  "title": "Instrument physical query execution",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "trace physical operators",
+    "query execution spans",
+    "optimizer rule registration last",
+    "later plan rewrite"
+  ],
+  "crates": [
+    "datafusion-tracing"
+  ],
+  "input": [
+    "InstrumentationOptions",
+    "physical plan"
+  ],
+  "output": [
+    "PhysicalOptimizerRule",
+    "execution spans"
+  ],
+  "properties": [
+    "execution",
+    "registration",
+    "plan-rewrite"
+  ],
+  "operations": [
+    "datafusion_tracing::instrument_with_info_spans",
+    "datafusion_tracing::options::InstrumentationOptions"
+  ],
+  "brief": "Execution macros construct an optimizer rule that wraps the physical plan it receives. Later plan rewrites can change which work is represented.",
+  "choices": [
+    {
+      "candidate": "execution rule",
+      "choose_when": "Physical operators need spans",
+      "tradeoff": "Register at the point where the plan to observe is established."
+    },
+    {
+      "candidate": "planning macros",
+      "choose_when": "Planning phases or optimizer rules need observation",
+      "tradeoff": "These wrap session state and describe different work."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.execution.1",
+      "aspect": "Inputs and output",
+      "kind": "source_observation",
+      "statement": "The INFO macro accepts a default or explicit target, required options, and optional declared fields and yields an Arc<dyn PhysicalOptimizerRule>.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.execution.2",
+      "aspect": "Registration",
+      "kind": "source_observation",
+      "statement": "The rule recursively wraps nodes. A later rule may preserve, replace or add nodes; blanket claims that every later rule loses spans are too strong.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.execution.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "A controlled optimizer adds GlobalLimitExec before or after instrumentation. Both return three rows; the added node has a completed span only when instrumentation sees it.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Build options and declare custom keys at the macro invocation.",
+    "Add the returned rule to SessionStateBuilder. Execute and consume the resulting query; plan construction alone does not prove execution spans."
+  ],
+  "unknowns": [
+    "No universal query-overhead bound; actual later rewrites need their own observation."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "later_rewrite_changes_observed_node_coverage"
+      ],
+      "scope": "A controlled optimizer adds GlobalLimitExec before or after instrumentation. Both return three rows; the added node has a completed span only when instrumentation sees it."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ],
+  "resolved_operations": [
+    {
+      "path": "datafusion_tracing::instrument_with_info_spans",
+      "id": "8596983b2e498bf8b81a1b42",
+      "kind": "macro",
+      "crate": "datafusion-tracing",
+      "record": "operations/datafusion_tracing.instrument_with_info_spans.json",
+      "page": "operations/datafusion_tracing.instrument_with_info_spans.md#op-8596983b2e498bf8b81a1b42",
+      "signature": "macro_rules! instrument_with_info_spans"
+    },
+    {
+      "path": "datafusion_tracing::instrument_with_info_spans",
+      "id": "c802d29699964499eb5192a3",
+      "kind": "macro",
+      "crate": "datafusion-tracing",
+      "record": "operations/datafusion_tracing.instrument_with_info_spans.json",
+      "page": "operations/datafusion_tracing.instrument_with_info_spans.md#op-c802d29699964499eb5192a3",
+      "signature": "macro_rules! instrument_with_info_spans"
+    },
+    {
+      "path": "datafusion_tracing::options::InstrumentationOptions",
+      "id": "07a1777b923d8d00bd1e5318",
+      "kind": "struct",
+      "crate": "datafusion-tracing",
+      "record": "operations/datafusion_tracing.options.InstrumentationOptions.json",
+      "page": "operations/datafusion_tracing.options.InstrumentationOptions.md#op-07a1777b923d8d00bd1e5318",
+      "signature": "struct InstrumentationOptions"
+    },
+    {
+      "path": "datafusion_tracing::options::InstrumentationOptions",
+      "id": "e8a1e87352fc8239e55d0d93",
+      "kind": "struct",
+      "crate": "datafusion-tracing",
+      "record": "operations/datafusion_tracing.options.InstrumentationOptions.json",
+      "page": "operations/datafusion_tracing.options.InstrumentationOptions.md#op-e8a1e87352fc8239e55d0d93",
+      "signature": "struct InstrumentationOptions"
+    }
+  ],
+  "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+  "source": "authoring/capabilities/tracing.execution.json"
+}

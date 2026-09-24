@@ -218,7 +218,7 @@ class PseEnum(_PseExtensionType):
     _extension_name = "pse.enum"
     _metadata_version = 1
     _binding_key = "enum_id"
-    _prototype_binding = "e2fce5f9cac7fb7aa000b274ed712fd0"
+    _prototype_binding = "f73e3da2e57a117f5057bc33778be6e9"
 
     @classmethod
     def _declared_storage(cls) -> pa.DataType:

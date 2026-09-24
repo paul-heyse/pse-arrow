@@ -1,0 +1,90 @@
+[
+  {
+    "id": "c31431ad2735294fd6efacbd",
+    "path": "opentelemetry_sdk",
+    "name": "opentelemetry_sdk",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod opentelemetry_sdk",
+    "docs": "Implements the [`SDK`] component of [OpenTelemetry].\n\n*[Supported Rust Versions](#supported-rust-versions)*\n\n[`SDK`]: https://opentelemetry.io/docs/specs/otel/overview/#sdk\n[OpenTelemetry]: https://opentelemetry.io/docs/what-is-opentelemetry/\n[msrv]: #supported-rust-versions\n\n# Getting Started\n\n```no_run\n# #[cfg(feature = \"trace\")]\n# {\nuse opentelemetry::{global, trace::{Tracer, TracerProvider}};\nuse opentelemetry_sdk::trace::SdkTracerProvider;\n\nfn main() {\n    // Choose an exporter like `opentelemetry_stdout::SpanExporter`\n    # fn example<T: opentelemetry_sdk::trace::SpanExporter + 'static>(new_exporter: impl Fn() -> T) {\n    let exporter = new_exporter();\n\n    // Create a new trace pipeline that prints to stdout\n    let provider = SdkTracerProvider::builder()\n        .with_simple_exporter(exporter)\n        .build();\n    let tracer = provider.tracer(\"readme_example\");\n\n    tracer.in_span(\"doing_work\", |cx| {\n        // Traced app logic here...\n    });\n\n    // Shutdown trace pipeline\n    provider.shutdown().expect(\"TracerProvider should shutdown successfully\")\n    # }\n}\n# }\n```\n\nSee the [examples] directory for different integration patterns.\n\nSee the API [`trace`] module docs for more information on creating and managing\nspans.\n\n[examples]: https://github.com/open-telemetry/opentelemetry-rust/tree/main/examples\n[`trace`]: https://docs.rs/opentelemetry/latest/opentelemetry/trace/index.html\n\n# Metrics\n\n### Creating instruments and recording measurements\n\n```\n# #[cfg(feature = \"metrics\")]\n# {\nuse opentelemetry::{global, KeyValue};\n\n// get a meter from a provider\nlet meter = global::meter(\"my_service\");\n\n// create an instrument\nlet counter = meter.u64_counter(\"my_counter\").build();\n\n// record a measurement\ncounter.add(1, &[KeyValue::new(\"http.client_ip\", \"83.164.160.102\")]);\n# }\n```\n\nSee the [examples] directory for different integration patterns.\n\nSee the API [`metrics`] module docs for more information on creating and\nmanaging instruments.\n\n[examples]: https://github.com/open-telemetry/opentelemetry-rust/tree/main/examples\n[`metrics`]: https://docs.rs/opentelemetry/latest/opentelemetry/metrics/index.html\n\n## Crate Feature Flags\n\nThe following feature flags can used to control the telemetry signals to use:\n\n* `trace`: Includes the trace SDK (enabled by default).\n* `metrics`: Includes the metrics SDK.\n* `logs`: Includes the logs SDK.\n\nFor `trace` the following feature flags are available:\n\n* `jaeger_remote_sampler`: Enables the [Jaeger remote sampler](https://www.jaegertracing.io/docs/1.53/sampling/).\n\nFor `logs` the following feature flags are available:\n\n* `spec_unstable_logs_enabled`: control the log level\n\nSupport for recording and exporting telemetry asynchronously and perform\nmetrics aggregation can be added via the following flags:\n\n* `experimental_async_runtime`: Enables the experimental `Runtime` trait and related functionality.\n* `rt-tokio`: Spawn telemetry tasks using [tokio]'s multi-thread runtime.\n* `rt-tokio-current-thread`: Spawn telemetry tasks on a separate runtime so that the main runtime won't be blocked.\n\n[tokio]: https://crates.io/crates/tokio",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        169,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[warn(future_incompatible, missing_debug_implementations, missing_docs,\nnonstandard_style, rust_2018_idioms, unreachable_pub, unused)]"
+      },
+      {
+        "other": "#[allow(clippy::needless_doctest_main)]"
+      },
+      {
+        "other": "#[<cfg_attr>(docsrs, feature(doc_cfg, doc_auto_cfg),\ndeny(rustdoc::broken_intra_doc_links))]"
+      },
+      {
+        "other": "#[feature(doc_cfg, doc_auto_cfg)]"
+      },
+      {
+        "other": "#[deny(rustdoc::broken_intra_doc_links)]"
+      },
+      {
+        "other": "#[doc(html_logo_url =\n\"https://raw.githubusercontent.com/open-telemetry/opentelemetry-rust/main/assets/logo.svg\")]"
+      },
+      {
+        "other": "#[<cfg_attr>(test, deny(warnings))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          710,
+          1632,
+          1958,
+          2149,
+          1730,
+          2309,
+          3226,
+          3261,
+          3262,
+          3263,
+          495
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3293",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry_sdk.md",
+    "record_file": "modules/opentelemetry_sdk.json",
+    "anchor": "op-c31431ad2735294fd6efacbd",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

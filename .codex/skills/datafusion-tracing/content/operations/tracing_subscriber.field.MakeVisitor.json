@@ -1,0 +1,263 @@
+[
+  {
+    "id": "ee298e39fc8a5785910ade4f",
+    "path": "tracing_subscriber::field::MakeVisitor",
+    "name": "MakeVisitor",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait MakeVisitor<T>",
+    "docs": "Creates new [visitors].\n\nA type implementing `MakeVisitor` represents a composable factory for types\nimplementing the [`Visit` trait][visitors]. The `MakeVisitor` trait defines\na single function, `make_visitor`, which takes in a `T`-typed `target` and\nreturns a type implementing `Visit` configured for that target. A target may\nbe a string, output stream, or data structure that the visitor will record\ndata to, configuration variables that determine the visitor's behavior, or\n`()` when no input is required to produce a visitor.\n\n[visitors]: tracing_core::field::Visit",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        26,
+        1
+      ],
+      "end": [
+        32,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          209,
+          210
+        ],
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          73,
+          126,
+          193,
+          213,
+          219,
+          224,
+          229
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "tracing_core::field::Visit": 82
+    },
+    "link_paths": {
+      "tracing_core::field::Visit": "tracing_core::field::Visit"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "20",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.MakeVisitor.md",
+    "record_file": "operations/tracing_subscriber.field.MakeVisitor.json",
+    "anchor": "op-ee298e39fc8a5785910ade4f",
+    "aliases": [],
+    "resolved_doc_links": {
+      "tracing_core::field::Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b"
+    }
+  },
+  {
+    "id": "aee9042600a2edad0e1d5755",
+    "path": "tracing_subscriber::field::MakeVisitor::Visitor",
+    "name": "Visitor",
+    "owner": "tracing_subscriber::field::MakeVisitor",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "assoc_type",
+    "signature": "Visitor",
+    "docs": "The visitor type produced by this `MakeVisitor`.",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        28,
+        5
+      ],
+      "end": [
+        28,
+        25
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Visit",
+                "id": 82,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "type": null
+      }
+    },
+    "type_references": {
+      "82": "tracing_core::field::Visit"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "209",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.MakeVisitor.md",
+    "record_file": "operations/tracing_subscriber.field.MakeVisitor.json",
+    "anchor": "op-aee9042600a2edad0e1d5755",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "43792274165df35e55da65c1",
+    "path": "tracing_subscriber::field::MakeVisitor::make_visitor",
+    "name": "make_visitor",
+    "owner": "tracing_subscriber::field::MakeVisitor",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn make_visitor(&self, target: T) -> Self::Visitor",
+    "docs": "Make a new visitor for the provided `target`.",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        31,
+        5
+      ],
+      "end": [
+        31,
+        56
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "target",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Visitor",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 20,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "20": "tracing_subscriber::field::MakeVisitor"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "210",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.MakeVisitor.md",
+    "record_file": "operations/tracing_subscriber.field.MakeVisitor.json",
+    "anchor": "op-43792274165df35e55da65c1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

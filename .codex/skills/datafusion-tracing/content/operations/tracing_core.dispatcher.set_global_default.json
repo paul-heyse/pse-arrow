@@ -1,0 +1,125 @@
+[
+  {
+    "id": "d78540acfa7df1f4405da536",
+    "path": "tracing_core::dispatcher::set_global_default",
+    "name": "set_global_default",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn set_global_default(dispatcher: Dispatch) -> Result<(), SetGlobalDefaultError>",
+    "docs": "Sets this dispatch as the global default for the duration of the entire program.\nWill be used as a fallback if no thread-local dispatch has been set in a thread\n(using `with_default`.)\n\nCan only be set once; subsequent attempts to set the global default will fail.\nReturns `Err` if the global default has already been set.\n\n<div class=\"example-wrap\" style=\"display:inline-block\"><pre class=\"compile_fail\" style=\"white-space:normal;font:inherit;\">\n    <strong>Warning</strong>: In general, libraries should <em>not</em> call\n    <code>set_global_default()</code>! Doing so will cause conflicts when\n    executables that depend on the library try to set the default later.\n</pre></div>\n\n[span]: super::span\n[`Subscriber`]: super::subscriber::Subscriber\n[`Event`]: super::event::Event",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        299,
+        1
+      ],
+      "end": [
+        332,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "dispatcher",
+              {
+                "resolved_path": {
+                  "path": "Dispatch",
+                  "id": 120,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 56,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "tuple": []
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "SetGlobalDefaultError",
+                          "id": 233,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "120": "tracing_core::dispatcher::Dispatch",
+      "56": "core::result::Result",
+      "233": "tracing_core::dispatcher::SetGlobalDefaultError"
+    },
+    "impl_context": null,
+    "links": {
+      "super::subscriber::Subscriber": 112,
+      "super::span": 228,
+      "super::event::Event": 138
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::span": "tracing_core::span",
+      "super::event::Event": "tracing_core::event::Event"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "231",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.set_global_default.md",
+    "record_file": "operations/tracing_core.dispatcher.set_global_default.json",
+    "anchor": "op-d78540acfa7df1f4405da536",
+    "aliases": [
+      "tracing::dispatcher::set_global_default"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::span": "../modules/tracing_core.span.md#op-88b35a40e3f6d669d17c6260",
+      "super::event::Event": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039"
+    }
+  }
+]

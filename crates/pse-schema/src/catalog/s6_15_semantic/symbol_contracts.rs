@@ -3,29 +3,10 @@
 
 //! Explicit numerical and semantic contracts of realized symbol declarations.
 
-use super::{N, RegistryBuilder, S, T, column, derived, index, relation};
+use super::{N, RegistryBuilder, S, T, column, relation};
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
-    derived(
-        builder,
-        N::Compiled,
-        "method_parameter_bindings",
-        &["method_instance_id", "symbol_decl_id", "index"],
-        vec![
-            column("method_instance_id", T::id()),
-            column("symbol_decl_id", T::id())
-                .with_fk("authored.template_symbols", "symbol_decl_id"),
-            column("index", index()),
-            column("source_owner", T::id()),
-            column("parameter_kind", T::native(arrow_schema::DataType::Utf8)),
-            column("source_index", index()),
-            column("value", T::native(arrow_schema::DataType::Float64)),
-            column("unit_id", T::id()).with_fk("reference.units", "unit_id"),
-            column("quantity_type_id", T::id())
-                .with_fk("reference.quantity_types", "quantity_type_id"),
-        ],
-        "Exact source coefficient and physical contract for a selected method's parameter symbol; initial guesses are not parameter bindings.",
-    );
+
 
     relation(
         builder,

@@ -1,7 +1,12 @@
 # Simulator acceptance contract
 
+**Historical proposed scope.** [Plan 14](../plans/14-library-owned-process-simulator.md)
+now defines the library-owned native simulator target and its acceptance. The
+Pyomo/NL routes and unscheduled capabilities below are not current commitments;
+individual physical oracles may be reused only when justified by the new target.
+
 Plan 07 UD00 / ADR-0068. **Proposed oracles; runtime qualification remains open.**
-The former `simulator-acceptance` command has been deleted. Plan 08 uses the
+The former `simulator-acceptance` command has been deleted. The current Plan 10 uses the
 [current-function architecture campaign](architecture-acceptance.md). The future
 Plan 07 simulator scope below remains unscheduled. Missing targets, missing
 solvers, unavailable backends and incomplete outcomes fail; P10 inspection is not a

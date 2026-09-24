@@ -8,7 +8,7 @@ use crate::{
     SubjectRule,
 };
 /// A conversion applied once to the named operand before rule matching.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InputConversion {
     /// Zero-based operand position.
     pub operand: u16,
@@ -16,7 +16,7 @@ pub struct InputConversion {
     pub conversion: ConversionId,
 }
 /// Data declaring a physical composition; no dimension-only fallback is implied.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QuantityOperation {
     /// Registry identity.
     pub id: OperationId,

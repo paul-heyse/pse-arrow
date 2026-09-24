@@ -1,0 +1,76 @@
+[
+  {
+    "id": "272a635e7276598ba263dc7b",
+    "path": "tracing_subscriber::sealed::Sealed",
+    "name": "Sealed",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait Sealed<A = ()>",
+    "docs": "",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        255,
+        5
+      ],
+      "end": [
+        255,
+        32
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [],
+        "generics": {
+          "params": [
+            {
+              "name": "A",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": {
+                    "tuple": []
+                  },
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "21",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.sealed.Sealed.md",
+    "record_file": "operations/tracing_subscriber.sealed.Sealed.json",
+    "anchor": "op-272a635e7276598ba263dc7b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 //! Actual Arrow inputs and shared native execution resources.
 #![allow(dead_code, clippy::expect_used, reason = "shared integration fixtures")]
-use pse_catalog::{ExecutionSettings, ThreadBudget};
-use pse_ids::CancellationToken;
+use pse_columnar::CancellationToken;
+use pse_engine::{ExecutionSettings, ThreadBudget};
 use pse_schema::{
     Registry, RegistryBuilder,
-    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
+    model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 pub(crate) fn registry() -> Arc<Registry> {
@@ -40,19 +40,24 @@ pub(crate) fn registry() -> Arc<Registry> {
 pub(crate) fn batch(registry: &Registry, count: u64, offset: u64) -> pse_relations::RecordBatch {
     let spec = registry.relation("authored.samples").expect("relation");
     let rows = (0..count)
-        .map(|id| vec![Cell::U64(id), Cell::U64(count - id + offset)])
+        .map(|id| {
+            vec![
+                serde_json::json!(["u64", id]),
+                serde_json::json!(["u64", count - id + offset]),
+            ]
+        })
         .collect::<Vec<_>>();
-    pse_relations::cells::batch_from_cells(registry, spec, &rows).expect("typed rows")
+    pse_relations::testing::batch_from_literals(registry, spec, &rows).expect("typed rows")
 }
 pub(crate) fn session(
     runtime: &pse_runtime::SharedRuntime,
     registry: Arc<Registry>,
     count: u64,
-) -> pse_catalog::session::SnapshotSession {
+) -> pse_engine::session::EngineSession {
     let values = batch(&registry, count, 0);
     let key = registry.relation("authored.samples").expect("relation").key;
     runtime
-        .session_factory(pse_catalog::session::native_engine_profile())
+        .session_factory(pse_engine::session::native_engine_profile())
         .expect("factory")
         .candidate(
             BTreeMap::from([(key, values)]),
@@ -76,8 +81,10 @@ pub(crate) fn runtime(
             target_partitions: one,
         },
         execution: ExecutionSettings::default(),
-        cache: pse_runtime::CacheBudget::disabled(1),
+        cache: pse_runtime::DeltaCacheBudget::disabled(1),
+        math: Default::default(),
         hashing_may_use_pool: false,
+
     })
     .expect("runtime")
 }

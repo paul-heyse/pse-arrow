@@ -1,0 +1,238 @@
+[
+  {
+    "id": "0350fe07950fac7bea247a51",
+    "path": "tracing_subscriber::filter::filter_fn::dynamic_filter_fn",
+    "name": "dynamic_filter_fn",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn dynamic_filter_fn<S, F>(f: F) -> DynFilterFn<S, F> where F: Fn(&tracing_core::Metadata<'_>, &layer::Context<'_, S>) -> bool",
+    "docs": "Constructs a [`DynFilterFn`] from a function or closure that returns `true`\nif a span or event should be enabled within a particular [span context][`Context`].\n\nThis is equivalent to calling [`DynFilterFn::new`].\n\nUnlike [`filter_fn`], this function takes a closure or function pointer\ntaking the [`Metadata`] for a span or event *and* the current [`Context`].\nThis means that a [`DynFilterFn`] can choose whether to enable spans or\nevents based on information about the _current_ span (or its parents).\n\nIf this is *not* necessary, use [`filter_fn`] instead.\n\nThe returned [`DynFilterFn`] can be used for both [per-layer filtering][plf]\n(using its [`Filter`] implementation) and [global filtering][global] (using\nits  [`Layer`] implementation).\n\nSee the [documentation on filtering with layers][filtering] for details.\n\n# Examples\n\n```\nuse tracing_subscriber::{\n    layer::{Layer, SubscriberExt},\n    filter,\n    util::SubscriberInitExt,\n};\n\n// Only enable spans or events within a span named \"interesting_span\".\nlet my_filter = filter::dynamic_filter_fn(|metadata, cx| {\n    // If this *is* \"interesting_span\", make sure to enable it.\n    if metadata.is_span() && metadata.name() == \"interesting_span\" {\n        return true;\n    }\n\n    // Otherwise, are we in an interesting span?\n    if let Some(current_span) = cx.lookup_current() {\n        return current_span.name() == \"interesting_span\";\n    }\n\n    false\n});\n\nlet my_layer = tracing_subscriber::fmt::layer();\n\ntracing_subscriber::registry()\n    .with(my_layer.with_filter(my_filter))\n    .init();\n\n// This event will not be enabled.\ntracing::info!(\"something happened\");\n\ntracing::info_span!(\"interesting_span\").in_scope(|| {\n    // This event will be enabled.\n    tracing::debug!(\"something else happened\");\n});\n```\n\n[`Filter`]: crate::layer::Filter\n[`Layer`]: crate::layer::Layer\n[plf]: crate::layer#per-layer-filtering\n[global]: crate::layer#global-filtering\n[filtering]: crate::layer#filtering-with-layers\n[`Context`]: crate::layer::Context\n[`Metadata`]: tracing_core::Metadata",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        175,
+        1
+      ],
+      "end": [
+        180,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "f",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "DynFilterFn",
+              "id": 283,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "F"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "F"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Fn",
+                        "id": 214,
+                        "args": {
+                          "parenthesized": {
+                            "inputs": [
+                              {
+                                "borrowed_ref": {
+                                  "lifetime": null,
+                                  "is_mutable": false,
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "tracing_core::Metadata",
+                                      "id": 278,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'_"
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "borrowed_ref": {
+                                  "lifetime": null,
+                                  "is_mutable": false,
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "crate::layer::Context",
+                                      "id": 313,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'_"
+                                            },
+                                            {
+                                              "type": {
+                                                "generic": "S"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "output": {
+                              "primitive": "bool"
+                            }
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "283": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+      "214": "core::ops::function::Fn",
+      "278": "tracing_core::metadata::Metadata",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::layer#global-filtering": 279,
+      "tracing_core::Metadata": 278,
+      "crate::layer::Context": 313,
+      "crate::layer#per-layer-filtering": 279,
+      "crate::layer::Filter": 280,
+      "`filter_fn`": 370,
+      "`DynFilterFn`": 283,
+      "`DynFilterFn::new`": 331,
+      "crate::layer::Layer": 281,
+      "crate::layer#filtering-with-layers": 279
+    },
+    "link_paths": {
+      "crate::layer#global-filtering": "tracing_subscriber::layer",
+      "tracing_core::Metadata": "tracing_core::metadata::Metadata",
+      "crate::layer::Context": "tracing_subscriber::layer::context::Context",
+      "crate::layer#per-layer-filtering": "tracing_subscriber::layer",
+      "crate::layer::Filter": "tracing_subscriber::layer::Filter",
+      "`filter_fn`": "tracing_subscriber::filter::filter_fn::filter_fn",
+      "`DynFilterFn`": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+      "`DynFilterFn::new`": null,
+      "crate::layer::Layer": "tracing_subscriber::layer::Layer",
+      "crate::layer#filtering-with-layers": "tracing_subscriber::layer"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "371",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.dynamic_filter_fn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.dynamic_filter_fn.json",
+    "anchor": "op-0350fe07950fac7bea247a51",
+    "aliases": [
+      "tracing_subscriber::filter::dynamic_filter_fn"
+    ],
+    "resolved_doc_links": {
+      "crate::layer#global-filtering": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "tracing_core::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "crate::layer::Context": "../operations/tracing_subscriber.layer.context.Context.md#op-0acb651e530d235188552e7d",
+      "crate::layer#per-layer-filtering": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "crate::layer::Filter": "../operations/tracing_subscriber.layer.Filter.md#op-fd31ac1a2cd1ed4f447625f3",
+      "`filter_fn`": "../operations/tracing_subscriber.filter.filter_fn.filter_fn.md#op-d60a8bd9283e60182f495969",
+      "`DynFilterFn`": "../operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md#op-f7f87b3a5d579fb3147cc3bf",
+      "`DynFilterFn::new`": "../operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md#op-36aee896474297987eea8c44",
+      "crate::layer::Layer": "../operations/tracing_subscriber.layer.Layer.md#op-4c1ba1a6be909c9a1b91bff8",
+      "crate::layer#filtering-with-layers": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d"
+    }
+  }
+]

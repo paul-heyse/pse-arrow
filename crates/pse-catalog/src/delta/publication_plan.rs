@@ -277,7 +277,7 @@ fn control_batch(row: publications::Row) -> Result<datafusion::arrow::array::Rec
     Ok(builder.finish().map_err(external)?.into_batch())
 }
 fn external(error: pse_relations::RelationError) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
+    pse_columnar::external(error)
 }
 fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(reason.to_owned())

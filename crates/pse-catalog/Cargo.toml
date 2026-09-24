@@ -17,15 +17,10 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-pse-buildinfo.workspace = true
+pse-columnar.workspace = true
+pse-engine.workspace = true
+pse-diagnostics.workspace = true
 datafusion.workspace = true
-datafusion-catalog.workspace = true
-datafusion-common.workspace = true
-datafusion-execution.workspace = true
-datafusion-physical-plan.workspace = true
-datafusion-expr.workspace = true
-datafusion-physical-expr.workspace = true
-datafusion-optimizer.workspace = true
 datafusion-proto.workspace = true
 deltalake.workspace = true
 async-trait.workspace = true
@@ -34,6 +29,7 @@ uuid.workspace = true
 futures-util.workspace = true
 object_store.workspace = true
 bytes.workspace = true
+chrono.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 serde.workspace = true
@@ -41,9 +37,12 @@ serde_json.workspace = true
 pse-relations.workspace = true
 pse-ids.workspace = true
 pse-schema.workspace = true
+pse-model.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 
 [dev-dependencies]
-futures-core.workspace = true
+datafusion-catalog.workspace = true
+pse-testkit.workspace = true
+pse-relations = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true

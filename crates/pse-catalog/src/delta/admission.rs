@@ -5,15 +5,14 @@
 #[cfg(test)]
 mod tests;
 use datafusion::{
-    common::{Column, DataFusionError, Result, TableReference},
+    common::{DataFusionError, Result, TableReference},
     execution::{context::SessionContext, session_state::SessionState},
-    functions_aggregate::expr_fn::count,
-    logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, lit},
+    logical_expr::LogicalPlan,
     physical_plan::execute_stream,
 };
 use futures_util::TryStreamExt;
 use pse_relations::generated::runtime::publications;
-use pse_schema::{Registry, model::RelationSpec};
+use pse_schema::Registry;
 use std::sync::Arc;
 
 /// Native violation queries for the exact candidate selection. No constraints are
@@ -26,133 +25,65 @@ pub async fn violation_plans(
     state: &SessionState,
 ) -> Result<Vec<LogicalPlan>> {
     let context = SessionContext::new_with_state(state.clone());
-    let mut checks = vec![];
+    let mut catalogs = std::collections::BTreeSet::new();
+    let mut checks = Vec::new();
     for member in &record.members {
-        let spec = registry
-            .relation_by_id(member.relation_id)
-            .ok_or_else(|| invalid("unknown candidate relation"))?;
-        let reference = TableReference::full(
-            member.catalog_name.clone(),
-            member.schema_name.clone(),
-            member.table_name.clone(),
-        );
-        let input = context.table(reference).await?.into_unoptimized_plan();
-        checks.push(
-            local_values(&registry, spec, input.clone(), state).map_err(|error| {
-                error.context(format!("local values for {}", spec.qualified_name()))
-            })?,
-        );
-        let documents = if let Some(documents) = registry.relation("authored.documents") {
-            selected_table(record, documents.id, &member.catalog_name, &context).await?
-        } else {
-            None
-        };
+        catalogs.insert(member.catalog_name.clone());
+    }
+    for catalog in catalogs {
+        let mut inputs = pse_relations::validate::obligations::RelationInputs::new();
+        for member in record
+            .members
+            .iter()
+            .filter(|member| member.catalog_name == catalog)
+        {
+            if inputs.contains_key(&member.relation_id) {
+                continue;
+            }
+            let input = selected_table(record, member.relation_id, &catalog, &context)
+                .await?
+                .ok_or_else(|| invalid("selected member disappeared"))?;
+            inputs.insert(member.relation_id, input);
+        }
+        let mut local = std::collections::BTreeSet::new();
+        for member in record
+            .members
+            .iter()
+            .filter(|member| member.catalog_name == catalog)
+        {
+            if super::write_evidence::establishes(state, &registry, record, member)? {
+                local.insert(member.relation_id);
+            }
+        }
         checks.extend(
-            super::source_spans::plans(&input, documents.as_ref()).map_err(|error| {
-                error.context(format!("source spans for {}", spec.qualified_name()))
-            })?,
-        );
-        checks.extend(
-            super::quantities::plans(&input, record, &registry, &member.catalog_name, &context)
-                .await
-                .map_err(|error| {
-                    error.context(format!("quantities for {}", spec.qualified_name()))
-                })?,
-        );
-        // Empty declared keys deliberately mean a singleton relation.
-        let keys: Vec<_> = spec.primary_key.iter().map(|name| column(name)).collect();
-        let duplicates = LogicalPlanBuilder::from(input.clone())
-            .aggregate(keys, vec![count(lit(1i64)).alias("pse_key_count")])?
-            .filter(column("pse_key_count").gt(lit(1i64)))?
-            .build()?;
-        checks.push(violation(duplicates, spec, "duplicate primary key")?);
-        checks.push(key_consistency(input.clone(), spec)?);
-        checks.extend(
-            super::references::plans(
-                &input,
-                spec,
-                record,
-                &registry,
-                &member.catalog_name,
-                &context,
-            )
-            .await
-            .map_err(|error| error.context(format!("references for {}", spec.qualified_name())))?,
-        );
-        checks.extend(
-            super::numerical::plans(
-                &input,
-                spec,
-                record,
-                &registry,
-                &member.catalog_name,
-                &context,
-            )
-            .await
-            .map_err(|error| {
-                error.context(format!("numerical contract for {}", spec.qualified_name()))
-            })?,
+            pse_relations::validate::obligations::ObligationTemplates::new(&registry)
+                .bind_required(
+                    &inputs,
+                    &pse_engine::validation::NativeValidation(state.clone()),
+                    |relation, kind| {
+                        kind != pse_relations::validate::obligations::ObligationKind::LocalValues
+                            || !local.contains(&relation)
+                    },
+                )?
+                .into_iter()
+                .map(|check| check.plan),
         );
     }
     Ok(checks)
 }
+
 /// Validate a complete artifact's declared inventory before reading member values.
 /// Empty relations remain required; a partial checkpoint uses the `relations` kind.
 pub(super) fn admit_profile(record: &publications::Row, registry: &Registry) -> Result<()> {
-    let required = registry
-        .artifact_profile(record.kind.as_str())
-        .ok_or_else(|| invalid("publication kind has no declared completeness profile"))?;
-    let present: std::collections::BTreeSet<_> = record
+    let present = record
         .members
         .iter()
         .map(|member| member.relation_id)
         .collect();
-    if !required.is_subset(&present) {
-        let missing = required
-            .difference(&present)
-            .filter_map(|id| registry.relation_by_id(*id))
-            .map(RelationSpec::qualified_name)
-            .collect::<Vec<_>>();
-        return Err(invalid(&format!(
-            "incomplete {} artifact: {}",
-            record.kind.as_str(),
-            missing.join(", ")
-        )));
-    }
-    Ok(())
+    pse_relations::validate::obligations::ObligationTemplates::new(registry)
+        .require_profile(record.kind.as_str(), &present)
 }
 
-fn key_consistency(input: LogicalPlan, spec: &RelationSpec) -> Result<LogicalPlan> {
-    let token = crate::session::scalar::key(
-        spec.id,
-        spec.primary_key
-            .iter()
-            .map(|name| (*name, column(name)))
-            .collect(),
-    );
-    key_collisions(input, spec, token)
-}
-
-fn key_collisions(input: LogicalPlan, spec: &RelationSpec, token: Expr) -> Result<LogicalPlan> {
-    // Compare actual distinct tuples. A token collision cannot merge different keys
-    // into a published identity, even though ordinary key uniqueness holds.
-    let mut projection = spec
-        .primary_key
-        .iter()
-        .map(|name| column(name))
-        .collect::<Vec<_>>();
-    projection.push(token.alias("__pse_row_token"));
-    let collisions = LogicalPlanBuilder::from(input)
-        .project(projection)?
-        .distinct()?
-        .aggregate(
-            vec![column("__pse_row_token")],
-            vec![count(lit(1_i64)).alias("__pse_distinct_keys")],
-        )?
-        .filter(column("__pse_distinct_keys").gt(lit(1_i64)))?
-        .build()?;
-    violation(collisions, spec, "distinct primary keys share a row token")
-}
 pub(super) async fn selected_table(
     record: &publications::Row,
     relation: pse_ids::SemanticId,
@@ -184,39 +115,6 @@ pub(super) async fn selected_table(
             .into_unoptimized_plan(),
     ))
 }
-fn local_values(
-    registry: &Registry,
-    spec: &RelationSpec,
-    input: LogicalPlan,
-    state: &SessionState,
-) -> Result<LogicalPlan> {
-    let schema = pse_schema::arrow::relation_schema(registry, spec).map_err(external)?;
-    let mut predicates = crate::contract::row_checks::bind(&schema, state)?
-        .into_values()
-        .collect::<Vec<_>>();
-    predicates.push(super::predicates::relation(registry, &schema)?);
-    let predicate = super::predicates::combine(predicates);
-    violation(
-        LogicalPlanBuilder::from(input)
-            .filter(predicate.is_not_true())?
-            .build()?,
-        spec,
-        "local values",
-    )
-}
-
-/// Shared native local-field checks for owned intermediate Arrow arguments.
-/// This establishes neither cross-relation references nor declared keys.
-pub(crate) fn local_field_violations(
-    registry: &Registry,
-    input: LogicalPlan,
-) -> Result<LogicalPlan> {
-    let predicate = super::predicates::relation(registry, input.schema().as_arrow())?;
-    LogicalPlanBuilder::from(input)
-        .filter(predicate.is_not_true())?
-        .limit(0, Some(1))?
-        .build()
-}
 pub(super) async fn admit(
     record: &publications::Row,
     registry: Arc<Registry>,
@@ -241,7 +139,7 @@ pub(super) async fn admit(
         })? {
             if batch.num_rows() != 0 {
                 return Err(DataFusionError::External(Box::new(
-                    crate::CatalogError::Admission {
+                    crate::EngineError::Admission {
                         path: "publication.members".into(),
                         reason: format!(
                             "candidate violates its relation contract: {}",
@@ -254,25 +152,6 @@ pub(super) async fn admit(
     }
     Ok(())
 }
-pub(super) fn violation(
-    input: LogicalPlan,
-    spec: &RelationSpec,
-    reason: &str,
-) -> Result<LogicalPlan> {
-    LogicalPlanBuilder::from(input)
-        .project(vec![
-            lit(format!("{}: {reason}", spec.qualified_name())).alias("violation"),
-        ])?
-        .limit(0, Some(1))?
-        .build()
-}
-fn column(name: &str) -> Expr {
-    Expr::Column(Column::from_name(name))
-}
-
 fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(reason.into())
-}
-fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
 }

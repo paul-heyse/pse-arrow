@@ -1,0 +1,1290 @@
+[
+  {
+    "id": "0b43e4d9637e605ccf00e66e",
+    "path": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt",
+    "name": "OpenTelemetrySpanExt",
+    "owner": null,
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "trait",
+    "signature": "trait OpenTelemetrySpanExt",
+    "docs": "Utility functions to allow tracing [`Span`]s to accept and return\n[OpenTelemetry] [`Context`]s.\n\n[`Span`]: tracing::Span\n[OpenTelemetry]: https://opentelemetry.io\n[`Context`]: opentelemetry::Context",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        17,
+        1
+      ],
+      "end": [
+        227,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          135,
+          138,
+          139,
+          142,
+          143,
+          146,
+          148,
+          150
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          161
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "opentelemetry::Context": 134,
+      "tracing::Span": 120
+    },
+    "link_paths": {
+      "opentelemetry::Context": "opentelemetry::context::Context",
+      "tracing::Span": "tracing::span::Span"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "152",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.json",
+    "anchor": "op-0b43e4d9637e605ccf00e66e",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetrySpanExt"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1",
+      "tracing::Span": "../operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6"
+    }
+  },
+  {
+    "id": "71a6f14002acf5aef837264a",
+    "path": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt::add_event",
+    "name": "add_event",
+    "owner": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn add_event(&self, name: impl Into<Cow<'static, str>>, attributes: Vec<KeyValue>)",
+    "docs": "Adds an OpenTelemetry event directly to this span, bypassing `tracing::event!`.\nThis allows for adding events with dynamic attribute keys, similar to `set_attribute` for span attributes.\nEvents are added with the current timestamp.\n\n# Examples\n\n```rust\nuse opentelemetry::{KeyValue};\nuse tracing_opentelemetry::OpenTelemetrySpanExt;\nuse tracing::Span;\n\nlet app_root = tracing::span!(tracing::Level::INFO, \"processing_request\");\n\nlet dynamic_attrs = vec![\n    KeyValue::new(\"job_id\", \"job-123\"),\n    KeyValue::new(\"user.id\", \"user-xyz\"),\n];\n\n// Add event using the extension method\napp_root.add_event(\"job_started\".to_string(), dynamic_attrs);\n\n// ... perform work ...\n\napp_root.add_event(\"job_completed\", vec![KeyValue::new(\"status\", \"success\")]);\n```",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        199,
+        5
+      ],
+      "end": [
+        199,
+        88
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 30,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 149,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ],
+            [
+              "attributes",
+              {
+                "resolved_path": {
+                  "path": "Vec",
+                  "id": 140,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "KeyValue",
+                              "id": 141,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 30,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 149,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "30": "core::convert::Into",
+      "149": "alloc::borrow::Cow",
+      "140": "alloc::vec::Vec",
+      "141": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "148",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.json",
+    "anchor": "op-71a6f14002acf5aef837264a",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetrySpanExt::add_event"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "512c21d5a86c168fcc1e076e",
+    "path": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt::add_event_with_timestamp",
+    "name": "add_event_with_timestamp",
+    "owner": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn add_event_with_timestamp(&self, name: impl Into<Cow<'static, str>>, timestamp: SystemTime, attributes: Vec<KeyValue>)",
+    "docs": "Adds an OpenTelemetry event with a specific timestamp directly to this span.\nSimilar to `add_event`, but allows overriding the event timestamp.\n\n# Examples\n\n```rust\nuse opentelemetry::{KeyValue};\nuse tracing_opentelemetry::OpenTelemetrySpanExt;\nuse tracing::Span;\nuse std::time::{Duration, SystemTime};\nuse std::borrow::Cow;\n\nlet app_root = tracing::span!(tracing::Level::INFO, \"historical_event_processing\");\n\nlet event_time = SystemTime::now() - Duration::from_secs(60);\nlet event_attrs = vec![KeyValue::new(\"record_id\", \"rec-456\")];\nlet event_name: Cow<'static, str> = \"event_from_past\".into();\n\napp_root.add_event_with_timestamp(event_name, event_time, event_attrs);\n```",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        221,
+        5
+      ],
+      "end": [
+        226,
+        7
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 30,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 149,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ],
+            [
+              "timestamp",
+              {
+                "resolved_path": {
+                  "path": "SystemTime",
+                  "id": 151,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "attributes",
+              {
+                "resolved_path": {
+                  "path": "Vec",
+                  "id": 140,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "KeyValue",
+                              "id": 141,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 30,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 149,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "30": "core::convert::Into",
+      "149": "alloc::borrow::Cow",
+      "151": "std::time::SystemTime",
+      "140": "alloc::vec::Vec",
+      "141": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "150",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.json",
+    "anchor": "op-512c21d5a86c168fcc1e076e",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetrySpanExt::add_event_with_timestamp"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "266ccbf4eefdf92d340f1de9",
+    "path": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt::add_link",
+    "name": "add_link",
+    "owner": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn add_link(&self, cx: SpanContext)",
+    "docs": "Associates `self` with a given OpenTelemetry trace, using the provided\nfollowed span [`SpanContext`].\n\n[`SpanContext`]: opentelemetry::trace::SpanContext\n\n# Examples\n\n```rust\nuse opentelemetry::{propagation::TextMapPropagator, trace::TraceContextExt};\nuse opentelemetry_sdk::propagation::TraceContextPropagator;\nuse tracing_opentelemetry::OpenTelemetrySpanExt;\nuse std::collections::HashMap;\nuse tracing::Span;\n\n// Example carrier, could be a framework header map that impls otel's `Extractor`.\nlet mut carrier = HashMap::new();\n\n// Propagator can be swapped with b3 propagator, jaeger propagator, etc.\nlet propagator = TraceContextPropagator::new();\n\n// Extract otel context of linked span via the chosen propagator\nlet linked_span_otel_context = propagator.extract(&carrier);\n\n// Extract the linked span context from the otel context\nlet linked_span_context = linked_span_otel_context.span().span_context().clone();\n\n// Generate a tracing span as usual\nlet app_root = tracing::span!(tracing::Level::INFO, \"app_start\");\n\n// Assign linked trace from external context\napp_root.add_link(linked_span_context);\n\n// Or if the current span has been created elsewhere:\nlet linked_span_context = linked_span_otel_context.span().span_context().clone();\nSpan::current().add_link(linked_span_context);\n```",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        99,
+        5
+      ],
+      "end": [
+        99,
+        41
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "resolved_path": {
+                  "path": "SpanContext",
+                  "id": 137,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "137": "opentelemetry::trace::span_context::SpanContext"
+    },
+    "impl_context": null,
+    "links": {
+      "opentelemetry::trace::SpanContext": 137
+    },
+    "link_paths": {
+      "opentelemetry::trace::SpanContext": "opentelemetry::trace::span_context::SpanContext"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "138",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.json",
+    "anchor": "op-266ccbf4eefdf92d340f1de9",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetrySpanExt::add_link"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::trace::SpanContext": "../operations/opentelemetry.trace.span_context.SpanContext.md#op-f21a0f1d9f45c44092215518"
+    }
+  },
+  {
+    "id": "760f9bfe4eda9c3451079166",
+    "path": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt::add_link_with_attributes",
+    "name": "add_link_with_attributes",
+    "owner": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn add_link_with_attributes(&self, cx: SpanContext, attributes: Vec<KeyValue>)",
+    "docs": "Associates `self` with a given OpenTelemetry trace, using the provided\nfollowed span [`SpanContext`] and attributes.\n\n[`SpanContext`]: opentelemetry::trace::SpanContext",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        105,
+        5
+      ],
+      "end": [
+        105,
+        84
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "resolved_path": {
+                  "path": "SpanContext",
+                  "id": 137,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "attributes",
+              {
+                "resolved_path": {
+                  "path": "Vec",
+                  "id": 140,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "KeyValue",
+                              "id": 141,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "137": "opentelemetry::trace::span_context::SpanContext",
+      "140": "alloc::vec::Vec",
+      "141": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": null,
+    "links": {
+      "opentelemetry::trace::SpanContext": 137
+    },
+    "link_paths": {
+      "opentelemetry::trace::SpanContext": "opentelemetry::trace::span_context::SpanContext"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "139",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.json",
+    "anchor": "op-760f9bfe4eda9c3451079166",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetrySpanExt::add_link_with_attributes"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::trace::SpanContext": "../operations/opentelemetry.trace.span_context.SpanContext.md#op-f21a0f1d9f45c44092215518"
+    }
+  },
+  {
+    "id": "c26a88b60df82a3795be8466",
+    "path": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt::context",
+    "name": "context",
+    "owner": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn context(&self) -> Context",
+    "docs": "Extracts an OpenTelemetry [`Context`] from `self`.\n\n[`Context`]: opentelemetry::Context\n\n# Examples\n\n```rust\nuse opentelemetry::Context;\nuse tracing_opentelemetry::OpenTelemetrySpanExt;\nuse tracing::Span;\n\nfn make_request(cx: Context) {\n    // perform external request after injecting context\n    // e.g. if the request's headers impl `opentelemetry::propagation::Injector`\n    // then `propagator.inject_context(cx, request.headers_mut())`\n}\n\n// Generate a tracing span as usual\nlet app_root = tracing::span!(tracing::Level::INFO, \"app_start\");\n\n// To include tracing context in client requests from _this_ app,\n// extract the current OpenTelemetry context.\nmake_request(app_root.context());\n\n// Or if the current span has been created elsewhere:\nmake_request(Span::current().context())\n```",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        134,
+        5
+      ],
+      "end": [
+        134,
+        34
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Context",
+              "id": 134,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "134": "opentelemetry::context::Context"
+    },
+    "impl_context": null,
+    "links": {
+      "opentelemetry::Context": 134
+    },
+    "link_paths": {
+      "opentelemetry::Context": "opentelemetry::context::Context"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "142",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.json",
+    "anchor": "op-c26a88b60df82a3795be8466",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetrySpanExt::context"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1"
+    }
+  },
+  {
+    "id": "68c7c385aa30042cebe748d0",
+    "path": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt::set_attribute",
+    "name": "set_attribute",
+    "owner": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn set_attribute(&self, key: impl Into<Key>, value: impl Into<Value>)",
+    "docs": "Sets an OpenTelemetry attribute directly for this span, bypassing `tracing`.\nIf fields set here conflict with `tracing` fields, the `tracing` fields will supersede fields set with `set_attribute`.\nThis allows for more than 32 fields.\n\n# Examples\n\n```rust\nuse opentelemetry::Context;\nuse tracing_opentelemetry::OpenTelemetrySpanExt;\nuse tracing::Span;\n\n// Generate a tracing span as usual\nlet app_root = tracing::span!(tracing::Level::INFO, \"app_start\");\n\n// Set the `http.request.header.x_forwarded_for` attribute to `example`.\napp_root.set_attribute(\"http.request.header.x_forwarded_for\", \"example\");\n```",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        153,
+        5
+      ],
+      "end": [
+        153,
+        75
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "key",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 30,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Key",
+                                    "id": 144,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ],
+            [
+              "value",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 30,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Value",
+                                    "id": 145,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Key>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 30,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Key",
+                                      "id": 144,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            },
+            {
+              "name": "impl Into<Value>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 30,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Value",
+                                      "id": 145,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "30": "core::convert::Into",
+      "144": "opentelemetry::common::Key",
+      "145": "opentelemetry::common::Value"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "143",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.json",
+    "anchor": "op-68c7c385aa30042cebe748d0",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetrySpanExt::set_attribute"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5cabc5950fe9bbd7a9d2a2bf",
+    "path": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt::set_parent",
+    "name": "set_parent",
+    "owner": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn set_parent(&self, cx: Context) -> Result<(), SetParentError>",
+    "docs": "Associates `self` with a given OpenTelemetry trace, using the provided\nparent [`Context`].\n\nThis method exists primarily to make it possible to inject a _distributed_ incoming\ncontext, e.g. span IDs, etc.\n\nA span's parent should only be set _once_, for the purpose described above.\nAdditionally, once a span has been fully built - and the SpanBuilder has been\nconsumed - the parent _cannot_ be mutated.\n\nThis method provides error handling for cases where the span context\ncannot be set, such as when the OpenTelemetry layer is not present\nor when the span has already been started.\n\n[`Context`]: opentelemetry::Context\n\n# Examples\n\n```rust\nuse opentelemetry::{propagation::TextMapPropagator, trace::TraceContextExt};\nuse opentelemetry_sdk::propagation::TraceContextPropagator;\nuse tracing_opentelemetry::OpenTelemetrySpanExt;\nuse std::collections::HashMap;\nuse tracing::Span;\n\n// Example carrier, could be a framework header map that impls otel's `Extractor`.\nlet mut carrier = HashMap::new();\n\n// Propagator can be swapped with b3 propagator, jaeger propagator, etc.\nlet propagator = TraceContextPropagator::new();\n\n// Extract otel parent context via the chosen propagator\nlet parent_context = propagator.extract(&carrier);\n\n// Generate a tracing span as usual\nlet app_root = tracing::span!(tracing::Level::INFO, \"app_start\");\n\n// Assign parent trace from external context\nlet _ = app_root.set_parent(parent_context.clone());\n\n// Or if the current span has been created elsewhere:\nlet _ = Span::current().set_parent(parent_context);\n```",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        61,
+        5
+      ],
+      "end": [
+        61,
+        69
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 134,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 36,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "tuple": []
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "SetParentError",
+                          "id": 136,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "134": "opentelemetry::context::Context",
+      "36": "core::result::Result",
+      "136": "tracing_opentelemetry::span_ext::SetParentError"
+    },
+    "impl_context": null,
+    "links": {
+      "opentelemetry::Context": 134
+    },
+    "link_paths": {
+      "opentelemetry::Context": "opentelemetry::context::Context"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "135",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.json",
+    "anchor": "op-5cabc5950fe9bbd7a9d2a2bf",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetrySpanExt::set_parent"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1"
+    }
+  },
+  {
+    "id": "b2331a746389a9cac01f771b",
+    "path": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt::set_status",
+    "name": "set_status",
+    "owner": "tracing_opentelemetry::span_ext::OpenTelemetrySpanExt",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn set_status(&self, status: Status)",
+    "docs": "Sets an OpenTelemetry status for this span.\nThis is useful for setting the status of a span that was created by a library that does not declare\nthe otel.status_code field of the span in advance.\n\n# Examples\n\n```rust\nuse opentelemetry::trace::Status;\nuse tracing_opentelemetry::OpenTelemetrySpanExt;\nuse tracing::Span;\n\n/// // Generate a tracing span as usual\nlet app_root = tracing::span!(tracing::Level::INFO, \"app_start\");\n\n// Set the Status of the span to `Status::Ok`.\napp_root.set_status(Status::Ok);\n```            ",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        172,
+        5
+      ],
+      "end": [
+        172,
+        42
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "status",
+              {
+                "resolved_path": {
+                  "path": "Status",
+                  "id": 147,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "147": "opentelemetry::trace::span::Status"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "146",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.OpenTelemetrySpanExt.json",
+    "anchor": "op-b2331a746389a9cac01f771b",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetrySpanExt::set_status"
+    ],
+    "resolved_doc_links": {}
+  }
+]

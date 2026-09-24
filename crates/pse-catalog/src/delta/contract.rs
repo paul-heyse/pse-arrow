@@ -18,7 +18,10 @@ use deltalake::{
     },
 };
 use pse_schema::Registry;
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
 const EXPRESSION_ENCODING: &str = "datafusion-proto-55.1.0";
 
@@ -26,18 +29,40 @@ const EXPRESSION_ENCODING: &str = "datafusion-proto-55.1.0";
 #[derive(Debug, Clone)]
 pub struct DeclaredCheck {
     layout: DurableLayout,
-    properties: BTreeMap<String, String>,
-    nested: Vec<super::nested_check::NestedCheck>,
+    properties: Arc<BTreeMap<String, String>>,
+    adapters: Arc<[super::field_check::FieldCheck]>,
 }
+#[derive(Default)]
+struct Contracts(Mutex<BTreeMap<pse_ids::SemanticId, DeclaredCheck>>);
 impl DeclaredCheck {
+    pub(super) fn same_declaration(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.properties, &other.properties)
+    }
+
     /// Derive portable predicates from actual fields, including nested value domains.
     /// Relational keys/references remain publication-wide checks.
     /// # Errors
     /// The declaration, durable mapping or native SQL expression is unsupported.
     pub fn new(registry: &Registry, relation_id: pse_ids::SemanticId) -> Result<Self> {
+        let declarations = registry
+            .derived_implementation(|| Ok(Contracts::default()))
+            .map_err(external)?;
+        let mut declarations = declarations
+            .0
+            .lock()
+            .map_err(|_| invalid("Delta contract cache poisoned"))?;
+        if let Some(contract) = declarations.get(&relation_id) {
+            return Ok(contract.clone());
+        }
+        let contract = Self::derive(registry, relation_id)?;
+        declarations.insert(relation_id, contract.clone());
+        Ok(contract)
+    }
+    fn derive(registry: &Registry, relation_id: pse_ids::SemanticId) -> Result<Self> {
         let spec = registry
             .relation_by_id(relation_id)
             .ok_or_else(|| invalid("unknown durable relation"))?;
+        registry.contract(spec).map_err(external)?;
         let schema = pse_schema::arrow::relation_schema(registry, spec).map_err(external)?;
         let layout = DurableLayout::new(Arc::new(schema.clone()))?;
         let mut properties: BTreeMap<_, _> = schema
@@ -45,42 +70,51 @@ impl DeclaredCheck {
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
-        let mut nested = vec![];
+        let mut adapters = vec![];
         let mut checks = vec![];
         for (index, field) in schema.fields().iter().enumerate() {
             let column = Expr::Column(datafusion::common::Column::from_name(field.name()));
-            let predicate = super::predicates::field_value(registry, field, column.clone(), 0)?;
-            if super::nested_check::contains_collection(field) {
+            let predicate = pse_relations::validate::predicates::field_value(
+                registry,
+                field,
+                column.clone(),
+                0,
+            )?;
+            if needs_adapter(field, layout.storage_schema().field(index)) {
                 properties.insert(
                     expression_property(field.name()),
-                    serde_json::to_string(predicate.to_bytes()?.as_ref()).map_err(external)?,
+                    serde_json::to_string(predicate.to_bytes()?.as_ref())
+                        .map_err(|error| DataFusionError::External(Box::new(error)))?,
                 );
-                let adapter = super::nested_check::NestedCheck::new(
-                    format!("pse_nested_{}_{index}", spec.fingerprint),
+                let adapter = super::field_check::FieldCheck::new(
+                    format!("pse_field_{}_{index}", spec.fingerprint),
                     layout.storage_schema().field(index).clone(),
+                    field.as_ref().clone(),
                     predicate,
                 )?;
                 checks.push(adapter.function().call(vec![column]));
-                nested.push(adapter);
+                adapters.push(adapter);
             } else {
                 checks.push(predicate);
             }
         }
-        if !nested.is_empty() {
+        if !adapters.is_empty() {
             properties.insert(
-                "pse.check.nested.encoding".into(),
+                "pse.check.field.encoding".into(),
                 EXPRESSION_ENCODING.into(),
             );
         }
-        let sql = datafusion::sql::unparser::expr_to_sql(&super::predicates::combine(checks))?
-            .to_string();
+        let sql = datafusion::sql::unparser::expr_to_sql(
+            &pse_relations::validate::predicates::combine(checks),
+        )?
+        .to_string();
         properties.insert("delta.constraints.pse_contract".into(), sql);
         properties.extend(crate::contract::row_checks::properties(&schema)?);
         properties.extend(pse_schema::arrow::delta_properties(&schema).map_err(external)?);
         Ok(Self {
             layout,
-            properties,
-            nested,
+            properties: Arc::new(properties),
+            adapters: adapters.into(),
         })
     }
     /// Reconstruct the recorded fields and native predicates without a registry.
@@ -98,17 +132,6 @@ impl DeclaredCheck {
         let execution = pse_schema::delta::execution_schema(&stored).map_err(external)?;
         let layout = DurableLayout::new(Arc::new(execution))?;
         let configuration = snapshot.metadata().configuration();
-        if configuration
-            .get(pse_schema::arrow::KEY_CONTRACT_ID)
-            .is_some_and(|id| {
-                id == &pse_relations::generated::runtime::publications::RELATION_ID.to_string()
-            })
-            && configuration.contains_key("delta.setTransactionRetentionDuration")
-        {
-            return Err(invalid(
-                "publication transaction identities must survive control log cleanup",
-            ));
-        }
         let get = |key: &str| {
             configuration
                 .get(key)
@@ -125,24 +148,26 @@ impl DeclaredCheck {
             .get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT)
             .ok_or_else(|| invalid("missing durable contract fingerprint"))?
             .clone();
-        let mut nested = vec![];
+        let mut adapters = vec![];
         for (index, field) in layout.execution_schema().fields().iter().enumerate() {
-            if !super::nested_check::contains_collection(field) {
+            if !needs_adapter(field, layout.storage_schema().field(index)) {
                 continue;
             }
-            let encoding = get("pse.check.nested.encoding")?;
+            let encoding = get("pse.check.field.encoding")?;
             if encoding != EXPRESSION_ENCODING {
-                return Err(invalid("unknown nested CHECK encoding"));
+                return Err(invalid("unknown field CHECK encoding"));
             }
-            properties.insert("pse.check.nested.encoding".into(), encoding);
+            properties.insert("pse.check.field.encoding".into(), encoding);
             let key = expression_property(field.name());
             let encoded = get(&key)?;
             let stored_field = stored.field(index).clone();
-            let bytes: Vec<u8> = serde_json::from_str(&encoded).map_err(external)?;
+            let bytes: Vec<u8> = serde_json::from_str(&encoded)
+                .map_err(|error| DataFusionError::External(Box::new(error)))?;
             let predicate = Expr::from_bytes_with_ctx(&bytes, &state.task_ctx())?;
-            nested.push(super::nested_check::NestedCheck::new(
-                format!("pse_nested_{fingerprint}_{index}"),
+            adapters.push(super::field_check::FieldCheck::new(
+                format!("pse_field_{fingerprint}_{index}"),
                 stored_field,
+                field.as_ref().clone(),
                 predicate,
             )?);
             properties.insert(key, encoded);
@@ -159,8 +184,8 @@ impl DeclaredCheck {
         );
         let contract = Self {
             layout,
-            properties,
-            nested,
+            properties: Arc::new(properties),
+            adapters: adapters.into(),
         };
         contract.verify(table)?;
         // Fail at open if this caller cannot execute the recorded native contract.
@@ -173,31 +198,32 @@ impl DeclaredCheck {
         bound.create_physical_expr(predicate, &schema)?;
         Ok(contract)
     }
-    /// Bind only the collection expressions the pinned Delta parser cannot express.
+    /// Bind field expressions requiring lambdas or execution/storage restoration.
     /// Caller configuration, planner, runtime and existing functions remain intact.
     /// # Errors
     /// Native compilation or a conflicting function binding refuses the contract.
     pub fn bind(&self, state: &SessionState) -> Result<SessionState> {
         let mut state = state.clone();
-        for nested in &self.nested {
+        for adapter in self.adapters.iter() {
             let function = Arc::new(
-                nested
+                adapter
                     .bind(&state)
-                    .map_err(|error| error.context("bind durable collection CHECK"))?,
+                    .map_err(|error| error.context("bind durable field CHECK"))?,
             );
             if let Ok(existing) = state.udf(function.name())
                 && existing != function
             {
                 return Err(invalid(
-                    "nested CHECK function conflicts with caller binding",
+                    "field CHECK function conflicts with caller binding",
                 ));
             }
             state.register_udf(function)?;
         }
         let schema = DFSchema::try_from(self.layout.storage_schema().as_ref().clone())?;
-        for (name, expression) in
-            crate::contract::row_checks::bind(self.layout.storage_schema(), &state)?
-        {
+        for (name, expression) in pse_relations::validate::row_checks::bind(
+            self.layout.storage_schema(),
+            &pse_engine::validation::NativeValidation(state.clone()),
+        )? {
             state
                 .create_physical_expr(expression, &schema)
                 .map_err(|error| error.context(format!("bind durable row CHECK {name}")))?;
@@ -237,7 +263,10 @@ impl DeclaredCheck {
             .with_columns(schema.fields().cloned())
             .with_configuration(properties)
             .with_raise_if_key_not_exists(false)
-            .with_commit_properties(commit)
+            .with_commit_properties(super::operation::commit_policy(
+                commit,
+                super::operation::CommitKind::Data,
+            ))
             .await
             .map_err(external)
     }
@@ -273,7 +302,7 @@ impl DeclaredCheck {
                 "Delta CHECK {name} is outside the declared contract"
             )));
         }
-        for (key, value) in &self.properties {
+        for (key, value) in self.properties.iter() {
             if configuration.get(key) != Some(value) {
                 return Err(invalid(&format!(
                     "Delta table property {key} differs from the declared contract"
@@ -283,15 +312,23 @@ impl DeclaredCheck {
         Ok(())
     }
 }
+fn needs_adapter(
+    field: &datafusion::arrow::datatypes::Field,
+    storage: &datafusion::arrow::datatypes::Field,
+) -> bool {
+    super::field_check::contains_collection(field)
+        || !field.data_type().equals_datatype(storage.data_type())
+}
+
 fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(reason.to_owned())
 }
 fn expression_property(field: &str) -> String {
     // Field names occupy their own property namespace, including a field named encoding.
-    format!("pse.check.nested.expression.{field}")
+    format!("pse.check.field.expression.{field}")
 }
-fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
+fn external(error: impl Into<DataFusionError>) -> DataFusionError {
+    error.into()
 }
 
 #[cfg(test)]
@@ -305,7 +342,7 @@ mod tests {
             datasource::{MemTable, provider_as_source},
             logical_expr::LogicalPlanBuilder,
         };
-        let registry = pse_schema::registry().unwrap();
+        let registry = pse_engine::validation::registry().unwrap();
         let state = datafusion::execution::session_state::SessionStateBuilder::new()
             .with_default_features()
             .build();
@@ -332,7 +369,7 @@ mod tests {
 
     #[test]
     fn all_registry_durable_checks_bind_to_their_actual_storage_fields() {
-        let registry = pse_schema::registry().unwrap();
+        let registry = pse_engine::validation::registry().unwrap();
         let state = datafusion::execution::session_state::SessionStateBuilder::new()
             .with_default_features()
             .build();

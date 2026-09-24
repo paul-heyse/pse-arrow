@@ -1,0 +1,163 @@
+[
+  {
+    "id": "b0082125b9054a261f267f3c",
+    "path": "opentelemetry_sdk::resource::ResourceDetector",
+    "name": "ResourceDetector",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait ResourceDetector",
+    "docs": "ResourceDetector detects OpenTelemetry resource information\n\nImplementations of this trait can be passed to\nthe [`ResourceBuilder::with_detectors`] function to generate a Resource from the merged information.",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        258,
+        1
+      ],
+      "end": [
+        266,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          2118
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          1985,
+          2012,
+          2037
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`ResourceBuilder::with_detectors`": 2119
+    },
+    "link_paths": {
+      "`ResourceBuilder::with_detectors`": null
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1986",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceDetector.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceDetector.json",
+    "anchor": "op-b0082125b9054a261f267f3c",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`ResourceBuilder::with_detectors`": "../operations/opentelemetry_sdk.resource.ResourceBuilder.md#op-61042f593a630f40ef2305fc"
+    }
+  },
+  {
+    "id": "040436f9a1da1672f2062614",
+    "path": "opentelemetry_sdk::resource::ResourceDetector::detect",
+    "name": "detect",
+    "owner": "opentelemetry_sdk::resource::ResourceDetector",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn detect(&self) -> Resource",
+    "docs": "detect returns an initialized Resource based on gathered information.\n\nIf source information to construct a Resource is inaccessible, an empty Resource should be returned\n\nIf source information to construct a Resource is invalid, for example,\nmissing required values. an empty Resource should be returned.",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        265,
+        5
+      ],
+      "end": [
+        265,
+        34
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Resource",
+              "id": 81,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "81": "opentelemetry_sdk::resource::Resource"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2118",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceDetector.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceDetector.json",
+    "anchor": "op-040436f9a1da1672f2062614",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

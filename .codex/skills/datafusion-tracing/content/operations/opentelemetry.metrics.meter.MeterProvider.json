@@ -1,0 +1,289 @@
+[
+  {
+    "id": "8ef66c51648972f9d178f50b",
+    "path": "opentelemetry::metrics::meter::MeterProvider",
+    "name": "MeterProvider",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait MeterProvider",
+    "docs": "Provides access to named [Meter] instances, for instrumenting an application\nor crate.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        15,
+        1
+      ],
+      "end": [
+        63,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          1282,
+          1283
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "Meter": 2
+    },
+    "link_paths": {
+      "Meter": "opentelemetry::metrics::meter::Meter"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.MeterProvider.md",
+    "record_file": "operations/opentelemetry.metrics.meter.MeterProvider.json",
+    "anchor": "op-8ef66c51648972f9d178f50b",
+    "aliases": [
+      "opentelemetry::metrics::MeterProvider"
+    ],
+    "resolved_doc_links": {
+      "Meter": "../operations/opentelemetry.metrics.meter.Meter.md#op-5e48a510d8c00731cf60cb7a"
+    }
+  },
+  {
+    "id": "cbd9b6cb05d16873221d7b1d",
+    "path": "opentelemetry::metrics::meter::MeterProvider::meter",
+    "name": "meter",
+    "owner": "opentelemetry::metrics::meter::MeterProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn meter(&self, name: &'static str) -> Meter",
+    "docs": "Returns a new [Meter] with the provided name and default configuration.\n\nA [Meter] should be scoped at most to a single application or crate. The\nname needs to be unique so it does not collide with other names used by\nan application, nor other applications.\n\n\n# Examples\n\n```\nuse opentelemetry::{global, metrics::MeterProvider};\nuse opentelemetry::KeyValue;\n\nlet provider = global::meter_provider();\n\n// meter used in applications\nlet meter = provider.meter(\"my_app\");\n```",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        34,
+        5
+      ],
+      "end": [
+        37,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Meter",
+              "id": 2,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2": "opentelemetry::metrics::meter::Meter"
+    },
+    "impl_context": null,
+    "links": {
+      "Meter": 2
+    },
+    "link_paths": {
+      "Meter": "opentelemetry::metrics::meter::Meter"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1282",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.MeterProvider.md",
+    "record_file": "operations/opentelemetry.metrics.meter.MeterProvider.json",
+    "anchor": "op-cbd9b6cb05d16873221d7b1d",
+    "aliases": [
+      "opentelemetry::metrics::MeterProvider::meter"
+    ],
+    "resolved_doc_links": {
+      "Meter": "../operations/opentelemetry.metrics.meter.Meter.md#op-5e48a510d8c00731cf60cb7a"
+    }
+  },
+  {
+    "id": "1eafb16e855754cf70e00322",
+    "path": "opentelemetry::metrics::meter::MeterProvider::meter_with_scope",
+    "name": "meter_with_scope",
+    "owner": "opentelemetry::metrics::meter::MeterProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn meter_with_scope(&self, scope: InstrumentationScope) -> Meter",
+    "docs": "Returns a new [Meter] with the given instrumentation scope.\n\n# Examples\n\n```\nuse std::sync::Arc;\nuse opentelemetry::InstrumentationScope;\nuse opentelemetry::metrics::MeterProvider;\nuse opentelemetry_sdk::metrics::SdkMeterProvider;\n\nlet provider = SdkMeterProvider::default();\n\n// meter used in applications/binaries\nlet meter = provider.meter(\"my_app\");\n\n// meter used in libraries/crates that optionally includes version and schema url\nlet scope = InstrumentationScope::builder(env!(\"CARGO_PKG_NAME\"))\n    .with_version(env!(\"CARGO_PKG_VERSION\"))\n    .with_schema_url(\"https://opentelemetry.io/schema/1.0.0\")\n    .build();\n\nlet meter = provider.meter_with_scope(scope);\n```",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        62,
+        5
+      ],
+      "end": [
+        62,
+        70
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "scope",
+              {
+                "resolved_path": {
+                  "path": "InstrumentationScope",
+                  "id": 10,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Meter",
+              "id": 2,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "10": "opentelemetry::common::InstrumentationScope",
+      "2": "opentelemetry::metrics::meter::Meter"
+    },
+    "impl_context": null,
+    "links": {
+      "Meter": 2
+    },
+    "link_paths": {
+      "Meter": "opentelemetry::metrics::meter::Meter"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1283",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.MeterProvider.md",
+    "record_file": "operations/opentelemetry.metrics.meter.MeterProvider.json",
+    "anchor": "op-1eafb16e855754cf70e00322",
+    "aliases": [
+      "opentelemetry::metrics::MeterProvider::meter_with_scope"
+    ],
+    "resolved_doc_links": {
+      "Meter": "../operations/opentelemetry.metrics.meter.Meter.md#op-5e48a510d8c00731cf60cb7a"
+    }
+  }
+]

@@ -1,0 +1,706 @@
+[
+  {
+    "id": "d354c01a6b0b4f29c191ace7",
+    "path": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+    "name": "SpanProcessor",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait SpanProcessor: Send + Sync + std::fmt::Debug",
+    "docs": "`SpanProcessor` is an interface which allows hooks for span start and end\nmethod invocations. The span processors are invoked only when is_recording\nis true.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        77,
+        1
+      ],
+      "end": [
+        100,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          2864,
+          2865,
+          2866,
+          2867,
+          2868,
+          2869
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Send",
+                "id": 16,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Sync",
+                "id": 18,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "std::fmt::Debug",
+                "id": 72,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          2875,
+          2881,
+          2887
+        ]
+      }
+    },
+    "type_references": {
+      "16": "core::marker::Send",
+      "18": "core::marker::Sync",
+      "72": "core::fmt::Debug"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2623",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.json",
+    "anchor": "op-d354c01a6b0b4f29c191ace7",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanProcessor"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "20c8fd82fdef68c4bc4da36d",
+    "path": "opentelemetry_sdk::trace::span_processor::SpanProcessor::force_flush",
+    "name": "force_flush",
+    "owner": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn force_flush(&self) -> OTelSdkResult",
+    "docs": "Force the spans lying in the cache to be exported.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        88,
+        5
+      ],
+      "end": [
+        88,
+        44
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2866",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.json",
+    "anchor": "op-20c8fd82fdef68c4bc4da36d",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanProcessor::force_flush"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4574a6d9421820a53c4d0f16",
+    "path": "opentelemetry_sdk::trace::span_processor::SpanProcessor::on_end",
+    "name": "on_end",
+    "owner": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn on_end(&self, span: SpanData)",
+    "docs": "`on_end` is called after a `Span` is ended (i.e., the end timestamp is\nalready set). This method is called synchronously within the `Span::end`\nAPI, therefore it should not block or throw an exception.\nTODO - This method should take reference to `SpanData`",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        86,
+        5
+      ],
+      "end": [
+        86,
+        38
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "resolved_path": {
+                  "path": "SpanData",
+                  "id": 2438,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "2438": "opentelemetry_sdk::trace::export::SpanData"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2865",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.json",
+    "anchor": "op-4574a6d9421820a53c4d0f16",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanProcessor::on_end"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "304207c3cb4fc365f20aa9ad",
+    "path": "opentelemetry_sdk::trace::span_processor::SpanProcessor::on_start",
+    "name": "on_start",
+    "owner": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn on_start(&self, span: &mut Span, cx: &Context)",
+    "docs": "`on_start` is called when a `Span` is started.  This method is called\nsynchronously on the thread that started the span, therefore it should\nnot block or throw exceptions.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        81,
+        5
+      ],
+      "end": [
+        81,
+        55
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Span",
+                      "id": 2782,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 1911,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "2782": "opentelemetry_sdk::trace::span::Span",
+      "1911": "opentelemetry::context::Context"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2864",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.json",
+    "anchor": "op-304207c3cb4fc365f20aa9ad",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanProcessor::on_start"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c2347cbcf5d1678f88abc52e",
+    "path": "opentelemetry_sdk::trace::span_processor::SpanProcessor::set_resource",
+    "name": "set_resource",
+    "owner": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn set_resource(&mut self, _resource: &Resource)",
+    "docs": "Set the resource for the span processor.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        99,
+        5
+      ],
+      "end": [
+        99,
+        56
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_resource",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Resource",
+                      "id": 81,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "81": "opentelemetry_sdk::resource::Resource"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2869",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.json",
+    "anchor": "op-c2347cbcf5d1678f88abc52e",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanProcessor::set_resource"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9d9a704438507456507a3a28",
+    "path": "opentelemetry_sdk::trace::span_processor::SpanProcessor::shutdown",
+    "name": "shutdown",
+    "owner": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown(&self) -> OTelSdkResult",
+    "docs": "shutdown the processor with a default timeout.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        95,
+        5
+      ],
+      "end": [
+        97,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2868",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.json",
+    "anchor": "op-9d9a704438507456507a3a28",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanProcessor::shutdown"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "231b288de4942f09c27d1e65",
+    "path": "opentelemetry_sdk::trace::span_processor::SpanProcessor::shutdown_with_timeout",
+    "name": "shutdown_with_timeout",
+    "owner": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown_with_timeout(&self, timeout: Duration) -> OTelSdkResult",
+    "docs": "Shuts down the processor. Called when SDK is shut down. This is an\nopportunity for processors to do any cleanup required.\n\nImplementation should make sure shutdown can be called multiple times.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        93,
+        5
+      ],
+      "end": [
+        93,
+        73
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "timeout",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration",
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2867",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.SpanProcessor.json",
+    "anchor": "op-231b288de4942f09c27d1e65",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanProcessor::shutdown_with_timeout"
+    ],
+    "resolved_doc_links": {}
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "path": "datafusion_tracing::options::InstrumentationOptions::preview_fn",
+    "version": "55.0.0",
+    "kind": "source_observation",
+    "text": "None selects the default formatter when preview_limit is positive. Preview assembly spans available partitions; see the reviewed preview contract.",
+    "evidence": "../capabilities/tracing.preview.md"
+  }
+]

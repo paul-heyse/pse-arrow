@@ -23,6 +23,7 @@ Stdlib and pytest only: this file has to work before the project's own package
 is importable.
 """
 
+import os
 import shutil
 import subprocess
 import sys
@@ -173,6 +174,22 @@ def pytest_collection_modifyitems(
     return result
 
 
+def pytest_collection_finish(session: pytest.Session) -> None:
+    """Persist selected identities before execution when an assessment requests it.
+
+    Args:
+        session: The collected test session.
+    """
+    path = os.environ.get("PSE_TEST_ENUMERATION")
+    if path:
+        for item in session.items:
+            item.user_properties.append(("nodeid", item.nodeid))
+        # Node IDs cannot contain newlines; collection is a line-oriented inventory.
+        temporary = Path(path).with_suffix(f".{os.getpid()}.tmp")
+        temporary.write_text("\n".join(item.nodeid for item in session.items) + "\n")
+        temporary.replace(path)
+
+
 def pytest_report_collectionfinish(config: pytest.Config) -> list[str]:
     """Say, in one line, that parity items were left out.
 
@@ -204,7 +221,7 @@ def _parity_environment_problems() -> list[str]:
         problems.append(
             f"python {platform_version()} is >= {wanted}: idaes-pse "
             f"{PARITY_IDAES_VERSION} does not support it. Use "
-            "`UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --extra pyomo "
+            "`UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked "
             "--group parity --python 3.13`."
         )
     try:

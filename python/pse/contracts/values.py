@@ -11,6 +11,12 @@ from typing import Never, Self
 
 import attrs
 
+from pse._build import (
+    content_hash_from_prefixed,
+    content_hash_to_prefixed,
+    semantic_id_from_hex,
+    semantic_id_to_hex,
+)
 from pse.contracts import enums as e
 
 # Exact source field spelling for attributes escaped by the Python generator.
@@ -31,9 +37,10 @@ class SemanticId(bytes):
 
     @classmethod
     def from_hex(cls, value: str) -> Self:
-        if len(value) != 32 or any(char not in "0123456789abcdef" for char in value):
-            _reject("semantic identity requires 32 lowercase hexadecimal characters")
-        return cls(bytes.fromhex(value))
+        return cls(semantic_id_from_hex(value))
+
+    def to_hex(self) -> str:
+        return semantic_id_to_hex(self)
 
 
 class ContentHash(bytes):
@@ -46,15 +53,10 @@ class ContentHash(bytes):
 
     @classmethod
     def from_prefixed(cls, value: str) -> Self:
-        if not value.startswith("blake3:") or len(value) != 71:
-            _reject("content digest requires blake3: and 64 hexadecimal characters")
-        digits = value[7:]
-        if any(char not in "0123456789abcdef" for char in digits):
-            _reject("content digest requires lowercase hexadecimal characters")
-        return cls(bytes.fromhex(digits))
+        return cls(content_hash_from_prefixed(value))
 
     def to_prefixed(self) -> str:
-        return f"blake3:{self.hex()}"
+        return content_hash_to_prefixed(self)
 
 
 # These validators inspect only the value. Accept the unused callback context as

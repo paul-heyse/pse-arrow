@@ -15,12 +15,11 @@
 use pse_ids::SemanticId;
 
 /// Every failure of the material model (blueprint §6.4, §23.2).
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum MaterialError {
     /// An identity does not resolve in the material system.
     #[error("unknown {kind} `{id}`")]
-    #[diagnostic(code(validation::invariant))]
     UnknownId {
         /// What kind of identity it was meant to be (`species`, `phase`, `element`, …).
         kind: &'static str,
@@ -30,7 +29,6 @@ pub enum MaterialError {
 
     /// A material-system invariant was violated.
     #[error("material rule `{rule}` rejected `{subject}`: {detail}")]
-    #[diagnostic(code(validation::invariant))]
     Invariant {
         /// The invariant that refused, named as `closure:species_has_phase` is in §9.1.
         rule: &'static str,
@@ -41,18 +39,28 @@ pub enum MaterialError {
     },
 }
 
+pse_diagnostics::impl_diagnostic! {
+    MaterialError,
+    code(this) { match this {
+            Self::UnknownId { .. } | Self::Invariant { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
+
+            _ => None,
+        } },
+    forward(_this) { None },
+    help(_this) { None },
+    related(_this) { None },
+    source(_this) { None }
+}
+
 #[cfg(test)]
 mod tests {
-    use miette::Diagnostic as _;
+    use pse_diagnostics::TypedDiagnostic;
     use pse_ids::SemanticId;
 
     use super::MaterialError;
 
-    fn code_of(error: &MaterialError) -> String {
-        error
-            .code()
-            .map(|code| code.to_string())
-            .unwrap_or_default()
+    fn code_of(error: &MaterialError) -> Option<pse_diagnostics::DiagnosticCode> {
+        error.diagnostic_code()
     }
 
     #[test]
@@ -62,7 +70,7 @@ mod tests {
                 kind: "species",
                 id: SemanticId::NIL,
             }),
-            "validation::invariant"
+            Some(pse_diagnostics::DiagnosticCode::ValidationInvariant)
         );
         assert_eq!(
             code_of(&MaterialError::Invariant {
@@ -70,7 +78,7 @@ mod tests {
                 subject: SemanticId::NIL,
                 detail: "no phase admits it".to_owned(),
             }),
-            "validation::invariant"
+            Some(pse_diagnostics::DiagnosticCode::ValidationInvariant)
         );
     }
 

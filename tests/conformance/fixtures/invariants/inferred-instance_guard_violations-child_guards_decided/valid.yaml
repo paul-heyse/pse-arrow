@@ -1,7 +1,0 @@
-{
-  "invariant": "inferred.instance_guard_violations:child_guards_decided",
-  "rows": {
-    "inferred.instance_guard_violations": []
-  },
-  "expected_keys": []
-}

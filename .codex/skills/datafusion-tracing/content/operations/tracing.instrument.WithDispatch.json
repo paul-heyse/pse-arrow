@@ -1,0 +1,1714 @@
+[
+  {
+    "id": "f37fe528a1c49c9d37012bbc",
+    "path": "tracing::instrument::WithDispatch",
+    "name": "WithDispatch",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "struct",
+    "signature": "struct WithDispatch<T>",
+    "docs": "A [`Future`] that has been instrumented with a `tracing` [`Subscriber`].\n\nThis type is returned by the [`WithSubscriber`] extension trait. See that\ntrait's documentation for details.\n\n[`Future`]: std::future::Future\n[`Subscriber`]: crate::Subscriber",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        236,
+        1
+      ],
+      "end": [
+        252,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgAttrTrace([NameValue { name: \"docsrs\", value: None, span: src/instrument.rs:246:16: 246:22 (#0) }])]"
+      },
+      {
+        "must_use": {
+          "reason": "futures do nothing unless you `.await` or poll them"
+        }
+      },
+      {
+        "other": "#[doc(cfg(feature = \"std\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          74,
+          75,
+          77,
+          79,
+          81,
+          83,
+          85,
+          87,
+          88,
+          90,
+          93,
+          96,
+          101,
+          103,
+          108,
+          112,
+          115,
+          121,
+          125,
+          128,
+          132,
+          133,
+          141
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::Subscriber": 17,
+      "std::future::Future": 48,
+      "`WithSubscriber`": 63
+    },
+    "link_paths": {
+      "crate::Subscriber": "tracing_core::subscriber::Subscriber",
+      "std::future::Future": "core::future::future::Future",
+      "`WithSubscriber`": "tracing::instrument::WithSubscriber"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "59",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-f37fe528a1c49c9d37012bbc",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "`WithSubscriber`": "../operations/tracing.instrument.WithSubscriber.md#op-4bd50093c9a272555ebecf03"
+    }
+  },
+  {
+    "id": "4074d10f482452a39ddba013",
+    "path": "tracing::instrument::WithDispatch::Output",
+    "name": "Output",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "assoc_type",
+    "signature": "Output",
+    "docs": "",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        381,
+        5
+      ],
+      "end": [
+        381,
+        29
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "qualified_path": {
+            "name": "Output",
+            "args": null,
+            "self_type": {
+              "generic": "T"
+            },
+            "trait": {
+              "path": "Future",
+              "id": 48,
+              "args": null
+            }
+          }
+        },
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "48": "core::future::future::Future"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Future",
+        "id": "core::future::future::Future",
+        "args": null
+      },
+      "trait_path": "core::future::future::Future",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Future",
+                        "id": "core::future::future::Future",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          380,
+          1
+        ],
+        "end": [
+          390,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "137",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-4074d10f482452a39ddba013",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2c14f4c4fb87d791347fb528",
+    "path": "tracing::instrument::WithDispatch::clone",
+    "name": "clone",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn clone(&self) -> WithDispatch<T>",
+    "docs": "",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        244,
+        14
+      ],
+      "end": [
+        244,
+        19
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WithDispatch",
+              "id": 59,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "T"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "59": "tracing::instrument::WithDispatch"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::clone::Clone",
+                        "id": "core::clone::Clone",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          244,
+          14
+        ],
+        "end": [
+          244,
+          19
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "127",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-2c14f4c4fb87d791347fb528",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "46083a3b16b4a74c21e04056",
+    "path": "tracing::instrument::WithDispatch::dispatcher",
+    "name": "dispatcher",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn dispatcher(&self) -> &Dispatch",
+    "docs": "Borrows the [`Dispatch`] that is entered when this type is polled.",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        399,
+        5
+      ],
+      "end": [
+        401,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "resolved_path": {
+                  "path": "Dispatch",
+                  "id": 12,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "12": "tracing_core::dispatcher::Dispatch"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          397,
+          1
+        ],
+        "end": [
+          429,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Dispatch`": 12
+    },
+    "link_paths": {
+      "`Dispatch`": "tracing_core::dispatcher::Dispatch"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "67",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-46083a3b16b4a74c21e04056",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`Dispatch`": "../operations/tracing_core.dispatcher.Dispatch.md#op-bdcb8c4598cc406ba313069c"
+    }
+  },
+  {
+    "id": "86ea87a427dce53f3bd2035b",
+    "path": "tracing::instrument::WithDispatch::fmt",
+    "name": "fmt",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        244,
+        21
+      ],
+      "end": [
+        244,
+        26
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 130,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 131,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "130": "core::fmt::Formatter",
+      "131": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          244,
+          21
+        ],
+        "end": [
+          244,
+          26
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "129",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-86ea87a427dce53f3bd2035b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c94a4f4c61114d770d6ca3b9",
+    "path": "tracing::instrument::WithDispatch::inner",
+    "name": "inner",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn inner(&self) -> &T",
+    "docs": "Borrows the wrapped type.",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        404,
+        5
+      ],
+      "end": [
+        406,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "generic": "T"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          397,
+          1
+        ],
+        "end": [
+          429,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "68",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-c94a4f4c61114d770d6ca3b9",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "65ee1814c90a38e9ebeac329",
+    "path": "tracing::instrument::WithDispatch::inner_mut",
+    "name": "inner_mut",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn inner_mut(&mut self) -> &mut T",
+    "docs": "Mutably borrows the wrapped type.",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        409,
+        5
+      ],
+      "end": [
+        411,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "generic": "T"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          397,
+          1
+        ],
+        "end": [
+          429,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "69",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-65ee1814c90a38e9ebeac329",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3a5ed69fe92278a302af7dc1",
+    "path": "tracing::instrument::WithDispatch::inner_pin_mut",
+    "name": "inner_pin_mut",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn inner_pin_mut(Pin<&mut self>) -> Pin<&mut T>",
+    "docs": "Get a pinned mutable reference to the wrapped type.",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        419,
+        5
+      ],
+      "end": [
+        421,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 71,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": true,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Pin",
+              "id": 71,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": null,
+                          "is_mutable": true,
+                          "type": {
+                            "generic": "T"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "71": "core::pin::Pin"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          397,
+          1
+        ],
+        "end": [
+          429,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "72",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-3a5ed69fe92278a302af7dc1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "573a74eec0c669100ace77e0",
+    "path": "tracing::instrument::WithDispatch::inner_pin_ref",
+    "name": "inner_pin_ref",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn inner_pin_ref(Pin<&self>) -> Pin<&T>",
+    "docs": "Get a pinned reference to the wrapped type.",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        414,
+        5
+      ],
+      "end": [
+        416,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 71,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": false,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Pin",
+              "id": 71,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": null,
+                          "is_mutable": false,
+                          "type": {
+                            "generic": "T"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "71": "core::pin::Pin"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          397,
+          1
+        ],
+        "end": [
+          429,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "70",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-573a74eec0c669100ace77e0",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6d3e385aaecdaa17dcd55015",
+    "path": "tracing::instrument::WithDispatch::into_inner",
+    "name": "into_inner",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn into_inner(self) -> T",
+    "docs": "Consumes the `Instrumented`, returning the wrapped type.\n\nNote that this drops the span.",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        426,
+        5
+      ],
+      "end": [
+        428,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "T"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          397,
+          1
+        ],
+        "end": [
+          429,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "73",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-6d3e385aaecdaa17dcd55015",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "afa9a5fc9aec0c34f12f75db",
+    "path": "tracing::instrument::WithDispatch::poll",
+    "name": "poll",
+    "owner": "tracing::instrument::WithDispatch",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn poll(Pin<&mut self>, cx: &mut Context<'_>) -> Poll<Self::Output>",
+    "docs": "",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        383,
+        5
+      ],
+      "end": [
+        389,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 71,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": true,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 139,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Poll",
+              "id": 140,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Output",
+                          "args": null,
+                          "self_type": {
+                            "generic": "Self"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 48,
+                            "args": null
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "71": "core::pin::Pin",
+      "139": "core::task::wake::Context",
+      "140": "core::task::poll::Poll",
+      "48": "core::future::future::Future"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithDispatch",
+          "id": "tracing::instrument::WithDispatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Future",
+        "id": "core::future::future::Future",
+        "args": null
+      },
+      "trait_path": "core::future::future::Future",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Future",
+                        "id": "core::future::future::Future",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/instrument.rs",
+        "begin": [
+          380,
+          1
+        ],
+        "end": [
+          390,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "138",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithDispatch.md",
+    "record_file": "operations/tracing.instrument.WithDispatch.json",
+    "anchor": "op-afa9a5fc9aec0c34f12f75db",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

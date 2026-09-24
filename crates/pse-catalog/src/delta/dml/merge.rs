@@ -2,13 +2,14 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Translate native, resolved MERGE clauses to the pinned Delta builder.
-use super::execution::{Command, count, invalid, unresolved};
+use super::super::settlement::unresolved;
+use super::execution::{Command, count, invalid};
 use datafusion::{
     common::{
         Column, DFSchemaRef, Result,
         tree_node::{Transformed, TreeNode},
     },
-    execution::{context::SessionContext, session_state::SessionState},
+    execution::context::SessionContext,
     logical_expr::{
         Expr, LogicalPlan,
         dml::{MergeIntoAction, MergeIntoClause, MergeIntoClauseKind},
@@ -16,11 +17,8 @@ use datafusion::{
 };
 use deltalake::{
     DeltaTable,
-    delta_datafusion::SessionFallbackPolicy,
-    kernel::transaction::CommitProperties,
     operations::merge::{DeleteBuilder, InsertBuilder, UpdateBuilder},
 };
-use std::sync::Arc;
 
 pub(super) fn bind(
     schema: &DFSchemaRef,
@@ -94,29 +92,16 @@ pub(super) fn bind(
 
 pub(super) async fn execute(
     table: DeltaTable,
-    state: Arc<SessionState>,
-    commit: CommitProperties,
+    context: &super::super::operation::DeltaOperationContext,
     input: LogicalPlan,
     on: Expr,
     clauses: Vec<MergeIntoClause>,
 ) -> Result<u64> {
+    let state = &context.state;
     let source = SessionContext::new_with_state(state.as_ref().clone())
         .execute_logical_plan(input)
         .await?;
-    let mut builder = table
-        .merge(source, on)
-        .with_source_alias("source")
-        .with_target_alias("target")
-        .with_session_state(state)
-        .with_session_fallback_policy(SessionFallbackPolicy::RequireSessionState)
-        // The native physical child is an invocation stream. Delta's non-streaming
-        // mode executes it once for source statistics and again for the merge;
-        // DataFusion scan/receiver plans need not be replayable. Native streaming
-        // mode retains residual/join semantics without consuming a statistics pass.
-        .with_streaming(true)
-        .with_merge_schema(false)
-        .with_safe_cast(false)
-        .with_commit_properties(commit);
+    let mut builder = context.merge(table, source, on);
     for clause in clauses {
         let predicate = clause.predicate;
         builder = match (clause.kind, clause.action) {
@@ -138,15 +123,16 @@ pub(super) async fn execute(
             ) => builder.when_not_matched_insert(|b| insert(b, predicate, columns, values)),
             _ => return Err(invalid("invalid MERGE clause kind/action combination")),
         }
-        .map_err(unresolved)?;
+        .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))?;
     }
-    let (_, metrics) = builder.await.map_err(unresolved)?;
+    let (after, metrics) = builder.await.map_err(unresolved)?;
+    super::super::provider::committed(&after, state).await;
     let affected = metrics
         .num_target_rows_inserted
         .checked_add(metrics.num_target_rows_updated)
         .and_then(|n| n.checked_add(metrics.num_target_rows_deleted))
-        .ok_or_else(|| invalid("MERGE affected count overflow"))?;
-    count(affected)
+        .ok_or_else(|| invalid("MERGE affected count overflow"));
+    super::super::settlement::observed(after.version(), affected.and_then(count))
 }
 fn update(
     mut builder: UpdateBuilder,

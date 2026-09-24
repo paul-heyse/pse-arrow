@@ -34,7 +34,7 @@ pub(super) async fn measure(root: &url::Url) {
         .0;
     for enabled in [false, true] {
         let env = Environment::new(enabled, 0, 1, 16);
-        let state = env.caches.bind_state(root, &env.state).unwrap();
+        let state = env.caches.native().bind_state(root, &env.state).unwrap();
         let selected = pse_catalog::delta::provider::table_builder(root.clone(), &state)
             .unwrap()
             .with_version(table.version().unwrap())

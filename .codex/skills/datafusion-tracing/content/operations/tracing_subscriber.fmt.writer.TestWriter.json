@@ -1,0 +1,1097 @@
+[
+  {
+    "id": "b8e9c667384dce2df0d37142",
+    "path": "tracing_subscriber::fmt::writer::TestWriter",
+    "name": "TestWriter",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct TestWriter",
+    "docs": "A writer intended to support [`libtest`'s output capturing][capturing] for use in unit tests.\n\n`TestWriter` is used by [`fmt::Subscriber`] or [`fmt::Layer`] to enable capturing support.\n\n`cargo test` can only capture output from the standard library's [`print!`] and [`eprint!`]\nmacros. See [`libtest`'s output capturing][capturing] and\n[rust-lang/rust#90785](https://github.com/rust-lang/rust/issues/90785) for more details about\noutput capturing.\n\nWriting to [`io::stdout`] and [`io::stderr`] produces the same results as using\n[`libtest`'s `--nocapture` option][nocapture] which may make the results look unreadable.\n\n[`fmt::Subscriber`]: super::Subscriber\n[`fmt::Layer`]: super::Layer\n[capturing]: https://doc.rust-lang.org/book/ch11-02-running-tests.html#showing-function-output\n[nocapture]: https://doc.rust-lang.org/cargo/commands/cargo-test.html\n[`io::stdout`]: std::io::stdout\n[`io::stderr`]: std::io::stderr\n[`print!`]: std::print!",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        516,
+        1
+      ],
+      "end": [
+        520,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2641,
+          2642,
+          2643,
+          2644,
+          2645,
+          2646,
+          2647,
+          2648,
+          2649,
+          2650,
+          2651,
+          2652,
+          2653,
+          2654,
+          2655,
+          2656,
+          2657,
+          2658,
+          2660,
+          2662,
+          2666,
+          2591
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "super::Layer": 1147,
+      "super::Subscriber": 1151,
+      "`eprint!`": 2638,
+      "std::print!": 2637,
+      "std::io::stderr": 2577,
+      "std::io::stdout": 2576
+    },
+    "link_paths": {
+      "super::Layer": "tracing_subscriber::fmt::fmt_layer::Layer",
+      "super::Subscriber": "tracing_subscriber::fmt::Subscriber",
+      "`eprint!`": "std::eprint",
+      "std::print!": "std::print",
+      "std::io::stderr": "std::io::stdio::stderr",
+      "std::io::stdout": "std::io::stdio::stdout"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1665",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.TestWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.TestWriter.json",
+    "anchor": "op-b8e9c667384dce2df0d37142",
+    "aliases": [
+      "tracing_subscriber::fmt::TestWriter"
+    ],
+    "resolved_doc_links": {
+      "super::Layer": "../operations/tracing_subscriber.fmt.fmt_layer.Layer.md#op-fa1a59e4f05bcd8ea89adaa4",
+      "super::Subscriber": "../operations/tracing_subscriber.fmt.Subscriber.md#op-7360e26773e1081257bf258e"
+    }
+  },
+  {
+    "id": "2772cc0fec23c34439e56728",
+    "path": "tracing_subscriber::fmt::writer::TestWriter::Writer",
+    "name": "Writer",
+    "owner": "tracing_subscriber::fmt::writer::TestWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "assoc_type",
+    "signature": "Writer",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        742,
+        5
+      ],
+      "end": [
+        742,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "TestWriter",
+            "id": 1665,
+            "args": null
+          }
+        }
+      }
+    },
+    "type_references": {
+      "1665": "tracing_subscriber::fmt::writer::TestWriter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TestWriter",
+          "id": "tracing_subscriber::fmt::writer::TestWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MakeWriter",
+        "id": "tracing_subscriber::fmt::writer::MakeWriter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::writer::MakeWriter",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          741,
+          1
+        ],
+        "end": [
+          747,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2589",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.TestWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.TestWriter.json",
+    "anchor": "op-2772cc0fec23c34439e56728",
+    "aliases": [
+      "tracing_subscriber::fmt::TestWriter::Writer"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "059eead30a905c51461bc184",
+    "path": "tracing_subscriber::fmt::writer::TestWriter::default",
+    "name": "default",
+    "owner": "tracing_subscriber::fmt::writer::TestWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn default() -> TestWriter",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        515,
+        10
+      ],
+      "end": [
+        515,
+        17
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "TestWriter",
+              "id": 1665,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1665": "tracing_subscriber::fmt::writer::TestWriter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TestWriter",
+          "id": "tracing_subscriber::fmt::writer::TestWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          515,
+          10
+        ],
+        "end": [
+          515,
+          17
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2659",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.TestWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.TestWriter.json",
+    "anchor": "op-059eead30a905c51461bc184",
+    "aliases": [
+      "tracing_subscriber::fmt::TestWriter::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7c38d89de5d6cae7698da253",
+    "path": "tracing_subscriber::fmt::writer::TestWriter::flush",
+    "name": "flush",
+    "owner": "tracing_subscriber::fmt::writer::TestWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn flush(&mut self) -> io::Result<()>",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        736,
+        5
+      ],
+      "end": [
+        738,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "io::Result",
+              "id": 2664,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "tuple": []
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2664": "std::io::error::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TestWriter",
+          "id": "tracing_subscriber::fmt::writer::TestWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Write",
+        "id": "std::io::Write",
+        "args": null
+      },
+      "trait_path": "std::io::Write",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          725,
+          1
+        ],
+        "end": [
+          739,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2665",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.TestWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.TestWriter.json",
+    "anchor": "op-7c38d89de5d6cae7698da253",
+    "aliases": [
+      "tracing_subscriber::fmt::TestWriter::flush"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "aa2ca38a1611b74947142a5d",
+    "path": "tracing_subscriber::fmt::writer::TestWriter::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::writer::TestWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        515,
+        19
+      ],
+      "end": [
+        515,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TestWriter",
+          "id": "tracing_subscriber::fmt::writer::TestWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          515,
+          19
+        ],
+        "end": [
+          515,
+          24
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2661",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.TestWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.TestWriter.json",
+    "anchor": "op-aa2ca38a1611b74947142a5d",
+    "aliases": [
+      "tracing_subscriber::fmt::TestWriter::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a99969bd1079aa453d24ff66",
+    "path": "tracing_subscriber::fmt::writer::TestWriter::make_writer",
+    "name": "make_writer",
+    "owner": "tracing_subscriber::fmt::writer::TestWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn make_writer(&'a self) -> Self::Writer",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        744,
+        5
+      ],
+      "end": [
+        746,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Writer",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1443,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TestWriter",
+          "id": "tracing_subscriber::fmt::writer::TestWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MakeWriter",
+        "id": "tracing_subscriber::fmt::writer::MakeWriter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::writer::MakeWriter",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          741,
+          1
+        ],
+        "end": [
+          747,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2590",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.TestWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.TestWriter.json",
+    "anchor": "op-a99969bd1079aa453d24ff66",
+    "aliases": [
+      "tracing_subscriber::fmt::TestWriter::make_writer"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d82e8c0d56856f1f57ed883f",
+    "path": "tracing_subscriber::fmt::writer::TestWriter::new",
+    "name": "new",
+    "owner": "tracing_subscriber::fmt::writer::TestWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn new() -> Self",
+    "docs": "Returns a new `TestWriter` with the default configuration.",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        715,
+        5
+      ],
+      "end": [
+        717,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TestWriter",
+          "id": "tracing_subscriber::fmt::writer::TestWriter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          713,
+          1
+        ],
+        "end": [
+          723,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2639",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.TestWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.TestWriter.json",
+    "anchor": "op-d82e8c0d56856f1f57ed883f",
+    "aliases": [
+      "tracing_subscriber::fmt::TestWriter::new"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "324adf0b72d74be8bef314af",
+    "path": "tracing_subscriber::fmt::writer::TestWriter::with_stderr",
+    "name": "with_stderr",
+    "owner": "tracing_subscriber::fmt::writer::TestWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_stderr() -> Self",
+    "docs": "Returns a new `TestWriter` that writes to `stderr` instead of `stdout`.",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        720,
+        5
+      ],
+      "end": [
+        722,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TestWriter",
+          "id": "tracing_subscriber::fmt::writer::TestWriter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          713,
+          1
+        ],
+        "end": [
+          723,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2640",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.TestWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.TestWriter.json",
+    "anchor": "op-324adf0b72d74be8bef314af",
+    "aliases": [
+      "tracing_subscriber::fmt::TestWriter::with_stderr"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ca566752e3a0ee3143337c0e",
+    "path": "tracing_subscriber::fmt::writer::TestWriter::write",
+    "name": "write",
+    "owner": "tracing_subscriber::fmt::writer::TestWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn write(&mut self, buf: &[u8]) -> io::Result<usize>",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        726,
+        5
+      ],
+      "end": [
+        734,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "buf",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "slice": {
+                      "primitive": "u8"
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "io::Result",
+              "id": 2664,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "usize"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2664": "std::io::error::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TestWriter",
+          "id": "tracing_subscriber::fmt::writer::TestWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Write",
+        "id": "std::io::Write",
+        "args": null
+      },
+      "trait_path": "std::io::Write",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          725,
+          1
+        ],
+        "end": [
+          739,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2663",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.TestWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.TestWriter.json",
+    "anchor": "op-ca566752e3a0ee3143337c0e",
+    "aliases": [
+      "tracing_subscriber::fmt::TestWriter::write"
+    ],
+    "resolved_doc_links": {}
+  }
+]

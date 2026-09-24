@@ -1,0 +1,205 @@
+[
+  {
+    "id": "1bd1c68868a8de75cd448ec5",
+    "path": "tracing_subscriber::field::VisitFmt",
+    "name": "VisitFmt",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait VisitFmt: VisitOutput<fmt::Result>",
+    "docs": "Extension trait implemented by visitors to indicate that they write to a\n`fmt::Write` instance, and allow access to that writer.",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        124,
+        1
+      ],
+      "end": [
+        127,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          261
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "VisitOutput",
+                "id": 85,
+                "args": {
+                  "angle_bracketed": {
+                    "args": [
+                      {
+                        "type": {
+                          "resolved_path": {
+                            "path": "fmt::Result",
+                            "id": 66,
+                            "args": null
+                          }
+                        }
+                      }
+                    ],
+                    "constraints": []
+                  }
+                }
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          92,
+          162,
+          206,
+          263,
+          265,
+          267,
+          269
+        ]
+      }
+    },
+    "type_references": {
+      "85": "tracing_subscriber::field::VisitOutput",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "93",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.VisitFmt.md",
+    "record_file": "operations/tracing_subscriber.field.VisitFmt.json",
+    "anchor": "op-1bd1c68868a8de75cd448ec5",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "412c76487f3008990053ebc5",
+    "path": "tracing_subscriber::field::VisitFmt::writer",
+    "name": "writer",
+    "owner": "tracing_subscriber::field::VisitFmt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn writer(&mut self) -> &mut dyn fmt::Write",
+    "docs": "Returns the formatter that this visitor writes to.",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        126,
+        5
+      ],
+      "end": [
+        126,
+        49
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "dyn_trait": {
+                  "traits": [
+                    {
+                      "trait": {
+                        "path": "fmt::Write",
+                        "id": 91,
+                        "args": null
+                      },
+                      "generic_params": []
+                    }
+                  ],
+                  "lifetime": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "91": "core::fmt::Write"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "261",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.VisitFmt.md",
+    "record_file": "operations/tracing_subscriber.field.VisitFmt.json",
+    "anchor": "op-412c76487f3008990053ebc5",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

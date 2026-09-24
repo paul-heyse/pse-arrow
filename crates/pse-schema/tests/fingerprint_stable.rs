@@ -49,7 +49,7 @@ fn the_memoized_registry_agrees_with_a_fresh_assembly() {
 
 #[test]
 fn the_frame_version_is_the_frozen_one() {
-    assert_eq!(fingerprint::FRAME_VERSION, "pse.schema.fingerprint.v1");
+    assert_eq!(fingerprint::FRAME_VERSION, "pse.schema.fingerprint.v2");
 }
 
 #[test]

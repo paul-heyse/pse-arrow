@@ -1,174 +1,110 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! P0 resolves the actual exact-version package dependency graph before identity reuse.
-
+//! Exact package resolution over a complete typed dependency inventory.
 use crate::AuthoringError;
 use pse_ids::SemanticId;
-use pse_relations::generated::{authored, normalized};
-use std::collections::BTreeMap;
+use pse_model::generated::{authored, normalized};
+use pse_structural::projection::{Dependency, GraphLimits, Projection, Scope};
+use std::collections::{BTreeMap, BTreeSet};
 
-/// Resolve complete generated headers using native duplicate/missing/version joins,
-/// followed by the named dependency-depth algorithm over the selected typed graph.
+/// Resolve selected package values without planning or executing a relation.
 /// # Errors
-/// Non-exact versions, missing/duplicate packages or dependencies, cycles or resources.
-pub async fn resolve(
-    packages: &pse_relations::columnar::FieldCheckedBatch,
-    session: &pse_catalog::session::SnapshotSession,
-    cancel: &pse_ids::CancellationToken,
-) -> Result<pse_relations::columnar::FieldCheckedBatch, AuthoringError> {
-    use datafusion::common::Column;
-    use datafusion::logical_expr::{JoinType, LogicalPlanBuilder, col, lit};
-    let registry = session.registry();
-    let mut work = session.reserver().open("authoring:package-graph");
-    work.try_grow(pse_ids::validation_extent(packages.batch())?)?;
-    let headers = authored::packages::View::from_checked(packages)?.rows()?;
-    for header in &headers {
+/// Invalid exact versions, duplicate/missing packages or dependencies, cycles or bounds.
+pub fn resolve_rows(
+    headers: &[authored::packages::Row],
+    limits: GraphLimits,
+) -> Result<Vec<normalized::package_graph::Row>, AuthoringError> {
+    let edge_count = headers.iter().try_fold(0usize, |sum, row| {
+        sum.checked_add(row.dependencies.len())
+            .ok_or_else(|| contract("package dependency extent overflow"))
+    })?;
+    limits
+        .check(headers.len(), edge_count)
+        .map_err(|error| graph_error(&error))?;
+    let mut packages = BTreeMap::new();
+    for header in headers {
         version(&header.version)?;
-        for dependency in &header.dependencies {
-            version(
-                dependency
-                    .version_req
-                    .strip_prefix('=')
-                    .unwrap_or(&dependency.version_req),
-            )?;
+        if packages.insert(header.package_id, header).is_some() {
+            return Err(contract("duplicate package identity"));
         }
     }
-    let bound = session.with_checked_role_inputs(
-        BTreeMap::from([("package_dependency_headers".to_owned(), packages.clone())]),
-        cancel,
-    )?;
-    let spec = registry
-        .relation_by_id(authored::packages::RELATION_ID)
-        .ok_or_else(|| contract("package declaration missing"))?;
-    crate::native_relations::unique(&bound, "package_dependency_headers", spec, cancel).await?;
-    let edges = dependency_edges(bound.scan_role("package_dependency_headers")?)?;
-    let duplicate = LogicalPlanBuilder::from(edges.clone())
-        .aggregate(
-            vec![col("owner_id"), col("dependency_id")],
-            vec![datafusion::functions_aggregate::expr_fn::count(lit(1_i64)).alias("__count")],
-        )
-        .and_then(|plan| plan.filter(col("__count").gt(lit(1_i64))))
-        .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::native_relations::plans::engine)?;
-    refuse_rows(&bound, duplicate, "duplicate package dependency", cancel).await?;
-    let targets = LogicalPlanBuilder::from(bound.scan_role("package_dependency_headers")?)
-        .project(vec![col("package_id"), col("version")])
-        .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::native_relations::plans::engine)?;
-    let missing = LogicalPlanBuilder::from(edges.clone())
-        .join(
-            targets.clone(),
-            JoinType::LeftAnti,
-            (
-                vec![Column::from_name("dependency_id")],
-                vec![Column::from_name("package_id")],
-            ),
-            None,
-        )
-        .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::native_relations::plans::engine)?;
-    refuse_rows(&bound, missing, "package dependency target absent", cancel).await?;
-    let mismatch = LogicalPlanBuilder::from(edges)
-        .join(
-            targets,
-            JoinType::Inner,
-            (
-                vec![Column::from_name("dependency_id")],
-                vec![Column::from_name("package_id")],
-            ),
-            None,
-        )
-        .and_then(|plan| plan.filter(col("required_version").not_eq(col("version"))))
-        .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::native_relations::plans::engine)?;
-    refuse_rows(
-        &bound,
-        mismatch,
-        "package exact version requirement differs",
-        cancel,
-    )
-    .await?;
-    let values = headers
-        .iter()
-        .map(|header| (header.package_id, header))
-        .collect::<BTreeMap<_, _>>();
-    let depth = depths(&values)?;
-    let mut output = normalized::package_graph::Builder::with_registry(registry, headers.len())?;
-    for package in headers {
-        let mut dependencies = package
-            .dependencies
-            .into_iter()
-            .map(|dependency| dependency.package_id)
-            .collect::<Vec<_>>();
-        dependencies.sort_unstable();
-        output.push(normalized::package_graph::Row {
-            package_id: package.package_id,
-            version: package.version,
-            content_hash: package.content_hash,
-            depth: i64::from(depth[&package.package_id]),
-            dependency_package_ids: dependencies,
-            derivation_id: pse_ids::named_id(package.package_id, "pass:P0@1:package_graph"),
-        })?;
-    }
-    Ok(output.finish()?)
-}
-async fn refuse_rows(
-    session: &pse_catalog::session::SnapshotSession,
-    plan: datafusion::logical_expr::LogicalPlan,
-    reason: &str,
-    cancel: &pse_ids::CancellationToken,
-) -> Result<(), AuthoringError> {
-    let plan = datafusion::logical_expr::LogicalPlanBuilder::from(plan)
-        .limit(0, Some(1))
-        .and_then(datafusion::logical_expr::LogicalPlanBuilder::build)
-        .map_err(crate::native_relations::plans::engine)?;
-    if crate::native_relations::plans::execute(session, plan, cancel)
-        .await?
-        .iter()
-        .any(|batch| batch.num_rows() != 0)
-    {
-        return Err(contract(reason));
-    }
-    Ok(())
-}
-
-fn depths(
-    packages: &BTreeMap<SemanticId, &authored::packages::Row>,
-) -> Result<BTreeMap<SemanticId, u16>, AuthoringError> {
-    let mut depths = BTreeMap::new();
-    while depths.len() < packages.len() {
-        let before = depths.len();
-        for (id, package) in packages {
-            if depths.contains_key(id) {
-                continue;
+    let mut edges = Vec::with_capacity(edge_count);
+    for header in headers {
+        let mut seen = BTreeSet::new();
+        for dependency in &header.dependencies {
+            if !seen.insert(dependency.package_id) {
+                return Err(contract("duplicate package dependency"));
             }
-            let parents = package
+            let required = dependency
+                .version_req
+                .strip_prefix('=')
+                .unwrap_or(&dependency.version_req);
+            version(required)?;
+            let target = packages
+                .get(&dependency.package_id)
+                .ok_or_else(|| contract("package dependency target absent"))?;
+            if required != target.version {
+                return Err(contract("package exact version requirement differs"));
+            }
+            let mut hash = pse_ids::FramedHasher::new("pse:package-edge:v1");
+            hash.id(&dependency.package_id)
+                .id(&header.package_id)
+                .str("");
+            edges.push(Dependency {
+                id: hash.finish_id(),
+                from: dependency.package_id,
+                to: header.package_id,
+            });
+        }
+    }
+    let graph = Projection::admit(
+        Scope::Whole(SemanticId::NIL),
+        packages.keys().copied().collect(),
+        edges,
+        limits,
+    )
+    .map_err(|error| graph_error(&error))?;
+    let mut depths = BTreeMap::<SemanticId, u16>::new();
+    for id in graph.order().map_err(|error| graph_error(&error))? {
+        let depth = packages[&id]
+            .dependencies
+            .iter()
+            .map(|dependency| depths[&dependency.package_id])
+            .max()
+            .map(|depth| {
+                depth
+                    .checked_add(1)
+                    .ok_or_else(|| contract("package dependency depth exceeds UInt16"))
+            })
+            .transpose()?
+            .unwrap_or(0);
+        depths.insert(id, depth);
+    }
+    Ok(packages
+        .into_values()
+        .map(|package| {
+            let mut dependencies = package
                 .dependencies
                 .iter()
-                .map(|dependency| depths.get(&dependency.package_id).copied())
-                .collect::<Option<Vec<u16>>>();
-            if let Some(parents) = parents {
-                let depth = parents
-                    .into_iter()
-                    .max()
-                    .map(|depth| {
-                        depth
-                            .checked_add(1)
-                            .ok_or_else(|| contract("package dependency depth exceeds UInt16"))
-                    })
-                    .transpose()?
-                    .unwrap_or(0);
-                depths.insert(*id, depth);
+                .map(|dependency| dependency.package_id)
+                .collect::<Vec<_>>();
+            dependencies.sort_unstable();
+            normalized::package_graph::Row {
+                package_id: package.package_id,
+                version: package.version.clone(),
+                content_hash: package.content_hash,
+                depth: i64::from(depths[&package.package_id]),
+                dependency_package_ids: dependencies,
+                derivation_id: pse_ids::named_id(package.package_id, "pass:P0@1:package_graph"),
             }
-        }
-        if depths.len() == before {
-            return Err(contract("cyclic package dependency"));
-        }
-    }
-    Ok(depths)
+        })
+        .collect())
 }
 
+fn graph_error(error: &pse_structural::projection::ProjectionError) -> AuthoringError {
+    contract(&error.to_string())
+}
 fn version(text: &str) -> Result<semver::Version, AuthoringError> {
     semver::Version::parse(text)
         .map_err(|error| contract(&format!("exact semantic version required: {error}")))
@@ -180,31 +116,64 @@ fn contract(reason: &str) -> AuthoringError {
     }
 }
 
-fn dependency_edges(
-    packages: datafusion::logical_expr::LogicalPlan,
-) -> Result<datafusion::logical_expr::LogicalPlan, AuthoringError> {
-    use datafusion::logical_expr::{LogicalPlanBuilder, col, lit};
-    let get = datafusion::functions::core::expr_fn::get_field;
-    let edges = LogicalPlanBuilder::from(packages)
-        .project(vec![
-            col("package_id").alias("owner_id"),
-            col("dependencies"),
-        ])
-        .and_then(|plan| plan.unnest_column("dependencies"))
-        .and_then(|plan| {
-            plan.project(vec![
-                col("owner_id"),
-                get(col("dependencies"), "package_id").alias("dependency_id"),
-                datafusion::functions::regex::expr_fn::regexp_replace(
-                    get(col("dependencies"), "version_req"),
-                    lit("^="),
-                    lit(""),
-                    None,
+#[cfg(test)]
+mod computation_unit {
+    use super::*;
+    fn id(n: u8) -> SemanticId {
+        SemanticId::from_bytes([n; 16])
+    }
+    fn package(n: u8, dependencies: &[u8]) -> authored::packages::Row {
+        authored::packages::Row {
+            package_id: id(n),
+            name: format!("p{n}"),
+            version: "1.0.0".into(),
+            kind: "library".parse().unwrap(),
+            id_policy: "explicit".parse().unwrap(),
+            dependencies: dependencies
+                .iter()
+                .map(
+                    |n| authored::packages::AuthoredPackagesFieldDependenciesItem {
+                        package_id: id(*n),
+                        version_req: "=1.0.0".into(),
+                    },
                 )
-                .alias("required_version"),
-            ])
-        })
-        .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::native_relations::plans::engine)?;
-    Ok(edges)
+                .collect(),
+            content_hash: pse_ids::ContentHash::from_bytes([n; 32]),
+            doc: String::new(),
+        }
+    }
+    #[test]
+    fn exact_packages_diamond_isolate_and_invalid_inventory() {
+        let limits = GraphLimits {
+            nodes: 100,
+            edges: 100,
+        };
+        let rows = vec![
+            package(1, &[]),
+            package(2, &[1]),
+            package(3, &[1]),
+            package(4, &[2, 3]),
+            package(5, &[]),
+        ];
+        let expected = resolve_rows(&rows, limits).unwrap();
+        assert_eq!(
+            expected.iter().map(|row| row.depth).collect::<Vec<_>>(),
+            [0, 1, 1, 2, 0]
+        );
+        let mut reversed = rows.clone();
+        reversed.reverse();
+        assert_eq!(resolve_rows(&reversed, limits).unwrap(), expected);
+        for rows in [
+            vec![package(1, &[2])],
+            vec![package(1, &[1])],
+            vec![package(1, &[]), package(1, &[])],
+            vec![package(1, &[]), package(2, &[1, 1])],
+            vec![package(1, &[2]), package(2, &[1])],
+        ] {
+            assert!(resolve_rows(&rows, limits).is_err());
+        }
+        let mut invalid = package(2, &[1]);
+        invalid.dependencies[0].version_req = "^1.0".into();
+        assert!(resolve_rows(&[package(1, &[]), invalid], limits).is_err());
+    }
 }

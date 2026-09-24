@@ -1,0 +1,76 @@
+[
+  {
+    "id": "89d6dfa13daa4d0f17356ce0",
+    "path": "opentelemetry::common::Array::String::0",
+    "name": "0",
+    "owner": "opentelemetry::common::Array::String",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "0: Vec<StringValue>",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        165,
+        12
+      ],
+      "end": [
+        165,
+        28
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Vec",
+          "id": 21,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "StringValue",
+                      "id": 193,
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "21": "alloc::vec::Vec",
+      "193": "opentelemetry::common::StringValue"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "711",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.Array.String.md",
+    "record_file": "operations/opentelemetry.common.Array.String.json",
+    "anchor": "op-89d6dfa13daa4d0f17356ce0",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

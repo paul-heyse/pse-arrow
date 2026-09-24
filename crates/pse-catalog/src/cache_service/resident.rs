@@ -3,8 +3,7 @@
 
 //! Lazy decoded exact selections, owned by the same native cache service as files
 //! and snapshots. Idle entries contain only Arrow values and allocation owners.
-use super::NativeCacheService;
-use crate::session::cache::Cached;
+use super::DeltaCacheService;
 use datafusion::{
     arrow::datatypes::SchemaRef,
     catalog::{Session, TableProvider},
@@ -25,31 +24,123 @@ use datafusion::{
     },
 };
 use futures_util::TryStreamExt;
+use pse_engine::session::cache::Cached;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
 };
 
+#[cfg(test)]
+mod improvement_unit;
+
 /// Actual frozen engine and policy assembly, retained through native scopes.
-#[derive(Debug, Clone)]
-pub(crate) struct CacheIdentity {
-    pub(crate) generation: pse_ids::SemanticId,
-    pub(crate) policies: Arc<Vec<pse_schema::model::provider::ProviderPolicy>>,
-}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Key {
     store: usize,
-    latest: u64,
-    selection: String,
+    maintenance: crate::delta::lease::Generation,
+    selection: Arc<MemberSelection>,
     schema: SchemaRef,
-    settings: pse_ids::ContentHash,
+    interpretation: Arc<Interpretation>,
+}
+#[derive(Debug, PartialEq, Eq)]
+struct Interpretation {
+    settings: Arc<std::collections::BTreeMap<String, Option<String>>>,
     implementation: pse_ids::SemanticId,
-    policies: String,
+    policies: Arc<Vec<pse_schema::model::provider::ProviderPolicy>>,
+}
+#[derive(Clone, Debug, PartialEq)]
+struct MemberSelection(
+    pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
+);
+// The generated member consists only of strings, integer/identity fields and a
+// typed optional revision. Its equality is reflexive; no floats participate.
+impl Eq for MemberSelection {}
+impl std::hash::Hash for MemberSelection {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let member = &self.0;
+        (
+            &member.catalog_name,
+            &member.schema_name,
+            &member.table_name,
+            member.relation_id,
+            member.relation_version,
+            member.contract_fingerprint,
+            &member.table_uri,
+            member.delta_version,
+        )
+            .hash(state);
+        member.selection.kind.as_str().hash(state);
+        member
+            .selection
+            .revision
+            .as_ref()
+            .map(|revision| (&revision.column, revision.revision_id))
+            .hash(state);
+    }
+}
+impl MemberSelection {
+    fn size(&self) -> usize {
+        size_of::<Self>()
+            + [
+                &self.0.catalog_name,
+                &self.0.schema_name,
+                &self.0.table_name,
+                &self.0.table_uri,
+            ]
+            .into_iter()
+            .map(String::capacity)
+            .sum::<usize>()
+            + self
+                .0
+                .selection
+                .revision
+                .as_ref()
+                .map_or(0, |revision| revision.column.capacity())
+    }
+}
+impl std::hash::Hash for Interpretation {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // Hashing selects a bucket; full typed policy equality proves a hit.
+        self.implementation.hash(state);
+        self.settings.hash(state);
+    }
 }
 impl CacheKey for Key {
     fn size(&self) -> usize {
-        512 + self.selection.len() * 2
-            + self.policies.len() * 2
+        512 + self.selection.size()
+            + self
+                .interpretation
+                .policies
+                .iter()
+                .map(|policy| {
+                    512 + policy
+                        .defaults
+                        .iter()
+                        .chain(&policy.required_settings)
+                        .map(|(key, value)| key.capacity() + value.capacity() + 128)
+                        .sum::<usize>()
+                        + policy.requirements.len() * 128
+                        + match &policy.scope {
+                            pse_schema::model::provider::ProviderScope::Catalog(a) => a.capacity(),
+                            pse_schema::model::provider::ProviderScope::Schema(a, b) => {
+                                a.capacity() + b.capacity()
+                            }
+                            pse_schema::model::provider::ProviderScope::Table(a, b, c) => {
+                                a.capacity() + b.capacity() + c.capacity()
+                            }
+                            _ => 0,
+                        }
+                })
+                .sum::<usize>()
+            + self
+                .interpretation
+                .settings
+                .iter()
+                .map(|(key, value)| {
+                    key.capacity() + value.as_ref().map_or(0, String::capacity) + 64
+                })
+                .sum::<usize>()
             + self.schema.fields().size()
             + self
                 .schema
@@ -71,8 +162,11 @@ impl CacheValue for Value {
 }
 pub(super) struct ResidentCache {
     entries: DefaultCache<Key, Value>,
-    flights: super::flight::Flights<Key, Cached>,
-    loading: super::load::LoadCounters,
+    flights: pse_engine::cache_service::flight::Flights<
+        (pse_engine::session::execution::AttemptScope, Key),
+        Cached,
+    >,
+    loading: AtomicUsize,
     epoch: AtomicUsize,
     admission: Mutex<()>,
     live: Arc<AtomicUsize>,
@@ -94,11 +188,13 @@ impl ResidentCache {
         self.loads.load(Ordering::Relaxed)
     }
 
-    pub(super) fn new(policy: &super::CacheBudget) -> Self {
+    pub(super) fn new(policy: &super::DeltaCacheBudget) -> Self {
         Self {
             entries: DefaultCache::new(policy.resident_bytes).with_name("pse.cache.resident"),
-            flights: super::flight::Flights::new(policy.concurrent_loads.get()),
-            loading: super::load::LoadCounters::default(),
+            flights: pse_engine::cache_service::flight::Flights::new(
+                policy.native.concurrent_loads.get(),
+            ),
+            loading: AtomicUsize::new(0),
             live: Arc::new(AtomicUsize::new(0)),
             pinned: Arc::new(AtomicUsize::new(0)),
             epoch: AtomicUsize::new(0),
@@ -125,7 +221,11 @@ impl ResidentCache {
             .admission
             .lock()
             .map_err(|_| DataFusionError::Internal("cache admission lock poisoned".into()))?;
-        super::details::reserve_inventory(owner, self.entries.memory_used(), budget)?;
+        pse_engine::cache_service::details::reserve_inventory(
+            owner,
+            self.entries.memory_used(),
+            budget,
+        )?;
         for (key, value) in self.entries.list_entries() {
             if rows.len() == limit {
                 break;
@@ -143,8 +243,9 @@ impl ResidentCache {
         super::CacheReport {
             name: self.entries.name(),
             capacity_bytes: 0,
-            inflight_bytes: Some(self.loading.bytes.load(Ordering::Acquire)),
-            active_loads: Some(self.loading.active.load(Ordering::Acquire)),
+            // Decoded batches charge the shared query pool as they arrive.
+            inflight_bytes: None,
+            active_loads: Some(self.loading.load(Ordering::Acquire)),
             policy_limit_bytes: self.entries.cache_limit(),
             live_bytes: Some(self.live.load(Ordering::Acquire)),
             pinned_bytes: Some(self.pinned.load(Ordering::Acquire)),
@@ -160,11 +261,11 @@ impl ResidentCache {
 #[derive(Debug)]
 struct SelectedTable {
     inner: Arc<dyn TableProvider>,
-    service: Arc<NativeCacheService>,
+    service: Arc<DeltaCacheService>,
     state: Arc<SessionState>,
     location: url::Url,
-    selection: String,
-    identity: Arc<CacheIdentity>,
+    selection: Arc<MemberSelection>,
+    interpretation: Arc<Interpretation>,
 }
 /// Wrap the full decoded selection, below query projection/filtering. The outer
 /// common execution contract still re-admits policy and requirements on every read.
@@ -173,10 +274,13 @@ pub(crate) fn selected(
     member: &pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
     state: &Arc<SessionState>,
 ) -> Result<Arc<dyn TableProvider>> {
-    let Some(service) = state.config().get_extension::<NativeCacheService>() else {
+    let Some(service) = state.config().get_extension::<DeltaCacheService>() else {
         return Ok(inner);
     };
-    let Some(identity) = state.config().get_extension::<CacheIdentity>() else {
+    let Some(identity) = state
+        .config()
+        .get_extension::<pse_engine::session::assembly::AssemblyIdentity>()
+    else {
         return Ok(inner);
     };
     if service.policy.resident_bytes == 0 {
@@ -186,9 +290,22 @@ pub(crate) fn selected(
         inner,
         service,
         state: state.clone(),
-        location: url::Url::parse(&member.table_uri).map_err(external)?,
-        selection: serde_json::to_string(member).map_err(external)?,
-        identity,
+        location: url::Url::parse(&member.table_uri)
+            .map_err(|error| DataFusionError::External(Box::new(error)))?,
+        selection: Arc::new(MemberSelection(member.clone())),
+        interpretation: Arc::new(Interpretation {
+            settings: match &identity.settings {
+                Some(settings) => settings.clone(),
+                None => Arc::new(
+                    pse_engine::session::config::semantic_settings(
+                        &pse_engine::session::config::inventory(state),
+                    )
+                    .map_err(external)?,
+                ),
+            },
+            implementation: identity.generation,
+            policies: identity.policies.clone(),
+        }),
     }))
 }
 #[async_trait::async_trait]
@@ -199,53 +316,94 @@ impl TableProvider for SelectedTable {
     fn table_type(&self) -> TableType {
         self.inner.table_type()
     }
+    fn supports_filters_pushdown(
+        &self,
+        filters: &[&Expr],
+    ) -> Result<Vec<datafusion::logical_expr::TableProviderFilterPushDown>> {
+        // Both cache hits and misses retain native residual evaluation. Unsupported
+        // inner filters still reach this wrapper so they cannot trigger a full fill.
+        Ok(vec![datafusion::logical_expr::TableProviderFilterPushDown::Inexact; filters.len()])
+    }
     async fn scan(
         &self,
         session: &dyn Session,
         projection: Option<&Vec<usize>>,
         filters: &[Expr],
-        _: Option<usize>,
+        limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        if !filters.is_empty() {
-            return Err(DataFusionError::Plan(
-                "resident selection does not consume pushed filters".into(),
+        let supported = self
+            .inner
+            .supports_filters_pushdown(&filters.iter().collect::<Vec<_>>())?;
+        if supported.len() != filters.len() {
+            return Err(DataFusionError::Internal(
+                "provider filter capability arity changed".into(),
             ));
         }
-        // Plan construction is pure. No lookup, read, collection or cache population.
-        let input = self.inner.scan(session, None, &[], None).await?;
+        let pruning: Vec<_> = filters
+            .iter()
+            .zip(supported)
+            .filter_map(|(filter, support)| {
+                (support != datafusion::logical_expr::TableProviderFilterPushDown::Unsupported)
+                    .then(|| filter.clone())
+            })
+            .collect();
+        let limit = filters.is_empty().then_some(limit).flatten();
+        let full_schema = self.schema();
+        let populate = filters.is_empty()
+            && limit.is_none()
+            && projection
+                .is_none_or(|columns| columns.iter().copied().eq(0..full_schema.fields().len()));
+        // Plan construction does not inspect the cache or execute input rows.
+        let input = self
+            .inner
+            .scan(session, projection, &pruning, limit)
+            .await?;
         if !matches!(input.properties().boundedness, Boundedness::Bounded) {
             return Err(DataFusionError::Plan(
                 "resident selection must be finite".into(),
             ));
         }
-        let plan: Arc<dyn ExecutionPlan> = Arc::new(SelectedExec {
+        Ok(Arc::new(SelectedExec {
+            properties: Arc::new(PlanProperties::new(
+                EquivalenceProperties::new(input.schema()),
+                Partitioning::UnknownPartitioning(1),
+                if populate {
+                    EmissionType::Final
+                } else {
+                    EmissionType::Incremental
+                },
+                Boundedness::Bounded,
+            )),
             input,
+            full_schema,
+            projection: projection.cloned(),
+            limit,
+            populate,
             service: self.service.clone(),
             state: self.state.clone(),
             location: self.location.clone(),
             selection: self.selection.clone(),
-            identity: self.identity.clone(),
-            properties: Arc::new(PlanProperties::new(
-                EquivalenceProperties::new(self.schema()),
-                Partitioning::UnknownPartitioning(1),
-                EmissionType::Final,
-                Boundedness::Bounded,
-            )),
+            interpretation: self.interpretation.clone(),
+            reuse: true,
             metrics: ExecutionPlanMetricsSet::new(),
-        });
-        crate::session::physical_input::PhysicalInput::native(plan)
-            .scan(session, projection, &[], None)
-            .await
+        }))
     }
 }
+
 #[derive(Debug)]
 struct SelectedExec {
     input: Arc<dyn ExecutionPlan>,
-    service: Arc<NativeCacheService>,
+    full_schema: SchemaRef,
+    projection: Option<Vec<usize>>,
+    limit: Option<usize>,
+    populate: bool,
+    service: Arc<DeltaCacheService>,
     state: Arc<SessionState>,
     location: url::Url,
-    selection: String,
-    identity: Arc<CacheIdentity>,
+    selection: Arc<MemberSelection>,
+    interpretation: Arc<Interpretation>,
+    // An arbitrary physical rewrite is not evidence for the original exact source.
+    reuse: bool,
     properties: Arc<PlanProperties>,
     metrics: ExecutionPlanMetricsSet,
 }
@@ -275,13 +433,20 @@ impl ExecutionPlan for SelectedExec {
             .pop()
             .filter(|_| children.is_empty())
             .ok_or_else(|| DataFusionError::Plan("resident cache needs one input".into()))?;
+        let reuse =
+            self.reuse && pse_engine::operation::ports::same_physical_input(&input, &self.input);
         Ok(Arc::new(Self {
             input,
+            full_schema: self.full_schema.clone(),
+            projection: self.projection.clone(),
+            limit: self.limit,
+            populate: self.populate,
             service: self.service.clone(),
             state: self.state.clone(),
             location: self.location.clone(),
             selection: self.selection.clone(),
-            identity: self.identity.clone(),
+            interpretation: self.interpretation.clone(),
+            reuse,
             properties: self.properties.clone(),
             metrics: ExecutionPlanMetricsSet::new(),
         }))
@@ -311,51 +476,66 @@ impl ExecutionPlan for SelectedExec {
         let location = self.location.clone();
         let state = self.state.clone();
         let selection = self.selection.clone();
-        let identity = self.identity.clone();
+        let interpretation = self.interpretation.clone();
+        let reuse = self.reuse;
         let input = self.input.clone();
         let metrics = self.metrics.clone();
         let schema = self.schema();
+        let full_schema = self.full_schema.clone();
+        let projection = self.projection.clone();
+        let limit = self.limit;
+        let populate = self.populate;
         let stream = futures_util::stream::once(async move {
             let cancel = context
                 .session_config()
-                .get_extension::<crate::session::execution::NativeExecutionContext>()
-                .map_or_else(pse_ids::CancellationToken::new, |owner| {
+                .get_extension::<pse_engine::session::execution::NativeExecutionContext>()
+                .map_or_else(pse_columnar::CancellationToken::new, |owner| {
                     owner.cancellation().clone()
                 });
             let lease = crate::delta::lease::read(&location, &cancel).await?;
-            let table = crate::delta::provider::table_builder(location.clone(), &state)?
-                .build()
-                .map_err(external)?;
-            let log = table.log_store();
-            let latest = log.get_latest_version(0).await.map_err(external)?;
             let store = state
                 .runtime_env()
                 .object_store_registry
                 .get_store(&location)?;
-            let generation = service.generation(&location, store);
-            let settings = crate::session::config::semantic_settings(
-                &crate::session::config::inventory(&state),
-            )
-            .map_err(external)?;
-            let policies = identity
-                .policies
-                .iter()
-                .map(crate::session::config::semantic_policy)
-                .collect::<Vec<_>>();
-            let policies = serde_json::to_string(&policies).map_err(external)?;
-            let key = generation.map(|store| Key {
-                store,
-                latest,
-                selection,
-                schema: input.schema(),
-                settings: crate::session::config::settings_hash(&settings),
-                implementation: identity.generation,
-                policies,
-            });
-            let cached = service
-                .resident_value(key, input, context, &metrics, log)
+            let generation = service.native().generation(&location, store);
+            let key = generation
+                .zip(lease.as_ref())
+                .filter(|_| reuse)
+                .map(|(store, lease)| Key {
+                    store,
+                    maintenance: lease.generation.clone(),
+                    selection,
+                    schema: full_schema,
+                    interpretation,
+                });
+            let source = if populate {
+                service
+                    .resident_value(key, input, context, &metrics)
+                    .await?
+                    .stream()?
+            } else if let Some(value) = key
+                .as_ref()
+                .and_then(|key| service.resident.entries.get(key))
+            {
+                service.resident.hits.fetch_add(1, Ordering::Relaxed);
+                let mut plan = pse_engine::session::physical_input::PhysicalInput::native(
+                    value.0.reader_plan()?,
+                )
+                .scan(state.as_ref(), projection.as_ref(), &[], None)
                 .await?;
-            let source = cached.stream()?;
+                if let Some(limit) = limit {
+                    plan = Arc::new(datafusion::physical_plan::limit::GlobalLimitExec::new(
+                        plan,
+                        0,
+                        Some(limit),
+                    ));
+                }
+                datafusion::physical_plan::execute_stream(plan, context)?
+            } else {
+                service.resident.misses.fetch_add(1, Ordering::Relaxed);
+                service.resident.bypasses.fetch_add(1, Ordering::Relaxed);
+                datafusion::physical_plan::execute_stream(input, context)?
+            };
             let stream: SendableRecordBatchStream = Box::pin(RecordBatchStreamAdapter::new(
                 source.schema(),
                 source.map_ok(move |batch| {
@@ -369,14 +549,13 @@ impl ExecutionPlan for SelectedExec {
         Ok(Box::pin(RecordBatchStreamAdapter::new(schema, stream)))
     }
 }
-impl NativeCacheService {
+impl DeltaCacheService {
     async fn resident_value(
         self: &Arc<Self>,
         key: Option<Key>,
         input: Arc<dyn ExecutionPlan>,
         context: Arc<TaskContext>,
         metrics: &ExecutionPlanMetricsSet,
-        log: deltalake::logstore::LogStoreRef,
     ) -> Result<Arc<Cached>> {
         let metrics = metrics.clone();
         let cached = if let Some(key) = key {
@@ -388,11 +567,13 @@ impl NativeCacheService {
                 let owner = self.clone();
                 let epoch = owner.resident.epoch.load(Ordering::Acquire);
                 let population_key = key.clone();
-                let latest = key.latest;
                 self.resident
                     .flights
-                    .load(key, || async move {
-                        let _load = owner.admit_load(&owner.resident.loading).await?;
+                    .load((context.session_config().get_extension::<pse_engine::session::execution::NativeExecutionContext>()
+                    .map(|services| services.attempt_scope()).or_else(|| context.session_config().get_extension::<pse_engine::session::execution::AttemptScope>().map(|scope| scope.as_ref().clone())).unwrap_or_default(), key), move || async move {
+                        // The outer query owns admission. Do not hold a replay
+                        // permit while its children may need that same load gate.
+                        let _active = ActiveDecode::new(&owner.resident.loading);
                         owner.resident.loads.fetch_add(1, Ordering::Relaxed);
                         let value = Cached::collect_bounded(
                             input,
@@ -410,9 +591,7 @@ impl NativeCacheService {
                                 owner.resident.live.clone(),
                                 owner.resident.pinned.clone(),
                             ));
-                        let current = log.get_latest_version(0).await.map_err(external)?;
-                        if current == latest
-                            && accounted_key
+                        if accounted_key
                             && value.resident()
                             && let Ok(_guard) = owner.resident.admission.lock()
                             && owner.resident.epoch.load(Ordering::Acquire) == epoch
@@ -430,7 +609,8 @@ impl NativeCacheService {
             }
         } else {
             self.resident.bypasses.fetch_add(1, Ordering::Relaxed);
-            let _load = self.admit_load(&self.resident.loading).await?;
+
+            let _active = ActiveDecode::new(&self.resident.loading);
             self.resident.loads.fetch_add(1, Ordering::Relaxed);
             Arc::new(
                 Cached::collect_bounded(input, context, &metrics, self.policy.resident_bytes)
@@ -440,6 +620,19 @@ impl NativeCacheService {
         Ok(cached)
     }
 }
-fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
+fn external(error: impl Into<DataFusionError>) -> DataFusionError {
+    error.into()
+}
+
+struct ActiveDecode<'a>(&'a AtomicUsize);
+impl<'a> ActiveDecode<'a> {
+    fn new(counter: &'a AtomicUsize) -> Self {
+        counter.fetch_add(1, Ordering::AcqRel);
+        Self(counter)
+    }
+}
+impl Drop for ActiveDecode<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
 }

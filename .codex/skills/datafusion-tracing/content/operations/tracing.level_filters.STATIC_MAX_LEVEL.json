@@ -1,0 +1,73 @@
+[
+  {
+    "id": "c693e208df2ae5728297fcde",
+    "path": "tracing::level_filters::STATIC_MAX_LEVEL",
+    "name": "STATIC_MAX_LEVEL",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "constant",
+    "signature": "const STATIC_MAX_LEVEL: LevelFilter = _",
+    "docs": "The statically configured maximum trace level.\n\nSee the [module-level documentation] for information on how to configure\nthis.\n\nThis value is checked by the `event!` and `span!` macros. Code that\nmanually constructs events or spans via the `Event::record` function or\n`Span` constructors should compare the level against this value to\ndetermine if those spans or events are enabled.\n\n[module-level documentation]: self#compile-time-filters",
+    "span": {
+      "filename": "src/level_filters.rs",
+      "begin": [
+        66,
+        1
+      ],
+      "end": [
+        66,
+        65
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "constant": {
+        "type": {
+          "resolved_path": {
+            "path": "LevelFilter",
+            "id": 186,
+            "args": null
+          }
+        },
+        "const": {
+          "expr": "_",
+          "value": null,
+          "is_literal": false
+        }
+      }
+    },
+    "type_references": {
+      "186": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": null,
+    "links": {
+      "self#compile-time-filters": 187
+    },
+    "link_paths": {
+      "self#compile-time-filters": "tracing::level_filters"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "188",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.level_filters.STATIC_MAX_LEVEL.md",
+    "record_file": "operations/tracing.level_filters.STATIC_MAX_LEVEL.json",
+    "anchor": "op-c693e208df2ae5728297fcde",
+    "aliases": [],
+    "resolved_doc_links": {
+      "self#compile-time-filters": "../modules/tracing.level_filters.md#op-86d380268e337fa07a8343e4"
+    }
+  }
+]

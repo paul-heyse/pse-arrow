@@ -1,0 +1,3875 @@
+[
+  {
+    "id": "1283b08586edf8ae3649f1c6",
+    "path": "tracing::span::Span",
+    "name": "Span",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "struct",
+    "signature": "struct Span",
+    "docs": "A handle representing a span, with the capability to enter the span if it\nexists.\n\nIf the span was rejected by the current `Subscriber`'s filter, entering the\nspan will silently do nothing. Thus, the handle can be used in the same\nmanner regardless of whether or not the trace is currently being collected.",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        349,
+        1
+      ],
+      "end": [
+        359,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          226,
+          227,
+          228,
+          229,
+          230,
+          231,
+          232,
+          233,
+          234,
+          235,
+          236,
+          237,
+          238,
+          239,
+          240,
+          241,
+          242,
+          243,
+          244,
+          246,
+          248,
+          252,
+          255,
+          257,
+          259,
+          261,
+          263
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "46",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-1283b08586edf8ae3649f1c6",
+    "aliases": [
+      "tracing::Span"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ddde89c4c339d12feb840262",
+    "path": "tracing::span::Span::child_of",
+    "name": "child_of",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn child_of(parent: impl Into<Option<Id>>, meta: &'static Metadata<'static>, values: &field::ValueSet<'_>) -> Span",
+    "docs": "Constructs a new `Span` as child of the given parent span, with the\ngiven [metadata] and set of [field values].\n\nAfter the span is constructed, [field values] and/or [`follows_from`]\nannotations may be added to it.\n\n[metadata]: super::Metadata\n[field values]: super::field::ValueSet\n[`follows_from`]: super::Span::follows_from",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        485,
+        5
+      ],
+      "end": [
+        494,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "parent",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 61,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Option",
+                                    "id": 21,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "type": {
+                                              "resolved_path": {
+                                                "path": "Id",
+                                                "id": 191,
+                                                "args": null
+                                              }
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ],
+            [
+              "meta",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 20,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "values",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "field::ValueSet",
+                      "id": 197,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Span",
+              "id": 46,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Option<Id>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 61,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Option",
+                                      "id": 21,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "type": {
+                                                "resolved_path": {
+                                                  "path": "Id",
+                                                  "id": 191,
+                                                  "args": null
+                                                }
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "61": "core::convert::Into",
+      "21": "core::option::Option",
+      "191": "tracing_core::span::Id",
+      "20": "tracing_core::metadata::Metadata",
+      "197": "tracing_core::field::ValueSet",
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::Metadata": 20,
+      "super::field::ValueSet": 197,
+      "super::Span::follows_from": 198
+    },
+    "link_paths": {
+      "super::Metadata": "tracing_core::metadata::Metadata",
+      "super::field::ValueSet": "tracing_core::field::ValueSet",
+      "super::Span::follows_from": "tracing::span::Span::follows_from"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "201",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-ddde89c4c339d12feb840262",
+    "aliases": [
+      "tracing::Span::child_of"
+    ],
+    "resolved_doc_links": {
+      "super::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "super::field::ValueSet": "../operations/tracing_core.field.ValueSet.md#op-81b1992dfc73d64b6f31eb3a",
+      "super::Span::follows_from": "../operations/tracing.span.Span.md#op-4131e6dfcbea0091271fd03d"
+    }
+  },
+  {
+    "id": "0914279e535e914ecdd40061",
+    "path": "tracing::span::Span::clone",
+    "name": "clone",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Span",
+    "docs": "",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        348,
+        10
+      ],
+      "end": [
+        348,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Span",
+              "id": 46,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          348,
+          10
+        ],
+        "end": [
+          348,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "245",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-0914279e535e914ecdd40061",
+    "aliases": [
+      "tracing::Span::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a38eacf50c34633dd1945d08",
+    "path": "tracing::span::Span::current",
+    "name": "current",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn current() -> Span",
+    "docs": "Returns a handle to the span [considered by the `Subscriber`] to be the\ncurrent span.\n\nIf the subscriber indicates that it does not track the current span, or\nthat the thread from which this function is called is not currently\ninside a span, the returned span will be disabled.\n\n[considered by the `Subscriber`]:\n    super::subscriber::Subscriber::current_span",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        550,
+        5
+      ],
+      "end": [
+        562,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "Span",
+              "id": 46,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::subscriber::Subscriber::current_span": 204
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::current_span": "tracing_core::subscriber::Subscriber::current_span"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "51",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-a38eacf50c34633dd1945d08",
+    "aliases": [
+      "tracing::Span::current"
+    ],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::current_span": "../operations/tracing_core.subscriber.Subscriber.md#op-b822e2619731be50b1f79f07"
+    }
+  },
+  {
+    "id": "58f3bd4aaae0fcfd7eabf1ba",
+    "path": "tracing::span::Span::drop",
+    "name": "drop",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn drop(&mut self)",
+    "docs": "",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1457,
+        5
+      ],
+      "end": [
+        1475,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Drop",
+        "id": "core::ops::drop::Drop",
+        "args": null
+      },
+      "trait_path": "core::ops::drop::Drop",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          1455,
+          1
+        ],
+        "end": [
+          1476,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "262",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-58f3bd4aaae0fcfd7eabf1ba",
+    "aliases": [
+      "tracing::Span::drop"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0ac1698dc0d740afb9e61b4b",
+    "path": "tracing::span::Span::enter",
+    "name": "enter",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn enter(&self) -> Entered<'_>",
+    "docs": "Enters this span, returning a guard that will exit the span when dropped.\n\nIf this span is enabled by the current subscriber, then this function will\ncall [`Subscriber::enter`] with the span's [`Id`], and dropping the guard\nwill call [`Subscriber::exit`]. If the span is disabled, this does\nnothing.\n\n# In Asynchronous Code\n\n**Warning**: in asynchronous code that uses [async/await syntax][syntax],\n`Span::enter` should be used very carefully or avoided entirely. Holding\nthe drop guard returned by `Span::enter` across `.await` points will\nresult in incorrect traces. For example,\n\n```\n# use tracing::info_span;\n# async fn some_other_async_function() {}\nasync fn my_async_function() {\n    let span = info_span!(\"my_async_function\");\n\n    // WARNING: This span will remain entered until this\n    // guard is dropped...\n    let _enter = span.enter();\n    // ...but the `await` keyword may yield, causing the\n    // runtime to switch to another task, while remaining in\n    // this span!\n    some_other_async_function().await\n\n    // ...\n}\n```\n\nThe drop guard returned by `Span::enter` exits the span when it is\ndropped. When an async function or async block yields at an `.await`\npoint, the current scope is _exited_, but values in that scope are\n**not** dropped (because the async block will eventually resume\nexecution from that await point). This means that _another_ task will\nbegin executing while _remaining_ in the entered span. This results in\nan incorrect trace.\n\nInstead of using `Span::enter` in asynchronous code, prefer the\nfollowing:\n\n* To enter a span for a synchronous section of code within an async\n  block or function, prefer [`Span::in_scope`]. Since `in_scope` takes a\n  synchronous closure and exits the span when the closure returns, the\n  span will always be exited before the next await point. For example:\n  ```\n  # use tracing::info_span;\n  # async fn some_other_async_function(_: ()) {}\n  async fn my_async_function() {\n      let span = info_span!(\"my_async_function\");\n\n      let some_value = span.in_scope(|| {\n          // run some synchronous code inside the span...\n      });\n\n      // This is okay! The span has already been exited before we reach\n      // the await point.\n      some_other_async_function(some_value).await;\n\n      // ...\n  }\n  ```\n* For instrumenting asynchronous code, `tracing` provides the\n  [`Future::instrument` combinator][instrument] for\n  attaching a span to a future (async function or block). This will\n  enter the span _every_ time the future is polled, and exit it whenever\n  the future yields.\n\n  `Instrument` can be used with an async block inside an async function:\n  ```ignore\n  # use tracing::info_span;\n  use tracing::Instrument;\n\n  # async fn some_other_async_function() {}\n  async fn my_async_function() {\n      let span = info_span!(\"my_async_function\");\n      async move {\n         // This is correct! If we yield here, the span will be exited,\n         // and re-entered when we resume.\n         some_other_async_function().await;\n\n         //more asynchronous code inside the span...\n\n      }\n        // instrument the async block with the span...\n        .instrument(span)\n        // ...and await it.\n        .await\n  }\n  ```\n\n  It can also be used to instrument calls to async functions at the\n  callsite:\n  ```ignore\n  # use tracing::debug_span;\n  use tracing::Instrument;\n\n  # async fn some_other_async_function() {}\n  async fn my_async_function() {\n      let some_value = some_other_async_function()\n         .instrument(debug_span!(\"some_other_async_function\"))\n         .await;\n\n      // ...\n  }\n  ```\n\n* The [`#[instrument]` attribute macro][attr] can automatically generate\n  correct code when used on an async function:\n\n  ```ignore\n  # async fn some_other_async_function() {}\n  #[tracing::instrument(level = \"info\")]\n  async fn my_async_function() {\n\n      // This is correct! If we yield here, the span will be exited,\n      // and re-entered when we resume.\n      some_other_async_function().await;\n\n      // ...\n\n  }\n  ```\n\n[syntax]: https://rust-lang.github.io/async-book/01_getting_started/04_async_await_primer.html\n[`Span::in_scope`]: Span::in_scope()\n[instrument]: crate::Instrument\n[attr]: macro@crate::instrument\n\n# Examples\n\n```\n# use tracing::{span, Level};\nlet span = span!(Level::INFO, \"my_span\");\nlet guard = span.enter();\n\n// code here is within the span\n\ndrop(guard);\n\n// code here is no longer within the span\n\n```\n\nGuards need not be explicitly dropped:\n\n```\n# use tracing::trace_span;\nfn my_function() -> String {\n    // enter a span for the duration of this function.\n    let span = trace_span!(\"my_function\");\n    let _enter = span.enter();\n\n    // anything happening in functions we call is still inside the span...\n    my_other_function();\n\n    // returning from the function drops the guard, exiting the span.\n    return \"Hello world\".to_owned();\n}\n\nfn my_other_function() {\n    // ...\n}\n```\n\nSub-scopes may be created to limit the duration for which the span is\nentered:\n\n```\n# use tracing::{info, info_span};\nlet span = info_span!(\"my_great_span\");\n\n{\n    let _enter = span.enter();\n\n    // this event occurs inside the span.\n    info!(\"i'm in the span!\");\n\n    // exiting the scope drops the guard, exiting the span.\n}\n\n// this event is not inside the span.\ninfo!(\"i'm outside the span!\")\n```\n\n[`Subscriber::enter`]: super::subscriber::Subscriber::enter()\n[`Subscriber::exit`]: super::subscriber::Subscriber::exit()\n[`Id`]: super::Id",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        786,
+        5
+      ],
+      "end": [
+        789,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Entered",
+              "id": 209,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "209": "tracing::span::Entered"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "macro@crate::instrument": 208,
+      "crate::Instrument": 56,
+      "super::subscriber::Subscriber::exit()": 206,
+      "super::Id": 191,
+      "super::subscriber::Subscriber::enter()": 205,
+      "Span::in_scope()": 207
+    },
+    "link_paths": {
+      "macro@crate::instrument": "tracing_attributes::instrument",
+      "crate::Instrument": "tracing::instrument::Instrument",
+      "super::subscriber::Subscriber::exit()": "tracing_core::subscriber::Subscriber::exit",
+      "super::Id": "tracing_core::span::Id",
+      "super::subscriber::Subscriber::enter()": "tracing_core::subscriber::Subscriber::enter",
+      "Span::in_scope()": "tracing::span::Span::in_scope"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "47",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-0ac1698dc0d740afb9e61b4b",
+    "aliases": [
+      "tracing::Span::enter"
+    ],
+    "resolved_doc_links": {
+      "macro@crate::instrument": "../operations/tracing_attributes.instrument.md#op-500c292d24d29b3397643254",
+      "crate::Instrument": "../operations/tracing.instrument.Instrument.md#op-f3255b14b518b17fdbec7041",
+      "super::subscriber::Subscriber::exit()": "../operations/tracing_core.subscriber.Subscriber.md#op-0b5bdf535b6a65a9bad07b05",
+      "super::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "super::subscriber::Subscriber::enter()": "../operations/tracing_core.subscriber.Subscriber.md#op-95e34b84088cd585fdd63d02",
+      "Span::in_scope()": "../operations/tracing.span.Span.md#op-96f56929d165d5874027ae91"
+    }
+  },
+  {
+    "id": "3b2f568eb51a6612d5b15c47",
+    "path": "tracing::span::Span::entered",
+    "name": "entered",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn entered(self) -> EnteredSpan",
+    "docs": "Enters this span, consuming it and returning a [guard][`EnteredSpan`]\nthat will exit the span when dropped.\n\n<pre class=\"compile_fail\" style=\"white-space:normal;font:inherit;\">\n    <strong>Warning</strong>: In asynchronous code that uses async/await syntax,\n    <code>Span::entered</code> may produce incorrect traces if the returned drop\n    guard is held across an await point. See <a href=\"#in-asynchronous-code\">the\n    <code>Span::enter</code> documentation</a> for details.\n</pre>\n\n\nIf this span is enabled by the current subscriber, then this function will\ncall [`Subscriber::enter`] with the span's [`Id`], and dropping the guard\nwill call [`Subscriber::exit`]. If the span is disabled, this does\nnothing.\n\nThis is similar to the [`Span::enter`] method, except that it moves the\nspan by value into the returned guard, rather than borrowing it.\nTherefore, this method can be used to create and enter a span in a\nsingle expression, without requiring a `let`-binding. For example:\n\n```\n# use tracing::info_span;\nlet _span = info_span!(\"something_interesting\").entered();\n```\nrather than:\n```\n# use tracing::info_span;\nlet span = info_span!(\"something_interesting\");\nlet _e = span.enter();\n```\n\nFurthermore, `entered` may be used when the span must be stored in some\nother struct or be passed to a function while remaining entered.\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: The returned <a href=\"../struct.EnteredSpan.html\">\n    <code>EnteredSpan</code></a> guard does not implement <code>Send</code>.\n    Dropping the guard will exit <em>this</em> span, and if the guard is sent\n    to another thread and dropped there, that thread may never have entered\n    this span. Thus, <code>EnteredSpan</code>s should not be sent between threads.\n</pre>\n\n[syntax]: https://rust-lang.github.io/async-book/01_getting_started/04_async_await_primer.html\n\n# Examples\n\nThe returned guard can be [explicitly exited][EnteredSpan::exit],\nreturning the un-entered span:\n\n```\n# use tracing::{Level, span};\nlet span = span!(Level::INFO, \"doing_something\").entered();\n\n// code here is within the span\n\n// explicitly exit the span, returning it\nlet span = span.exit();\n\n// code here is no longer within the span\n\n// enter the span again\nlet span = span.entered();\n\n// now we are inside the span once again\n```\n\nGuards need not be explicitly dropped:\n\n```\n# use tracing::trace_span;\nfn my_function() -> String {\n    // enter a span for the duration of this function.\n    let span = trace_span!(\"my_function\").entered();\n\n    // anything happening in functions we call is still inside the span...\n    my_other_function();\n\n    // returning from the function drops the guard, exiting the span.\n    return \"Hello world\".to_owned();\n}\n\nfn my_other_function() {\n    // ...\n}\n```\n\nSince the [`EnteredSpan`] guard can dereference to the [`Span`] itself,\nthe span may still be accessed while entered. For example:\n\n```rust\n# use tracing::info_span;\nuse tracing::field;\n\n// create the span with an empty field, and enter it.\nlet span = info_span!(\"my_span\", some_field = field::Empty).entered();\n\n// we can still record a value for the field while the span is entered.\nspan.record(\"some_field\", &\"hello world!\");\n```\n\n[`Subscriber::enter`]: super::subscriber::Subscriber::enter()\n[`Subscriber::exit`]: super::subscriber::Subscriber::exit()\n[`Id`]: super::Id",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        896,
+        5
+      ],
+      "end": [
+        902,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "EnteredSpan",
+              "id": 210,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "210": "tracing::span::EnteredSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Span::enter`": 47,
+      "`Span`": 46,
+      "super::Id": 191,
+      "super::subscriber::Subscriber::exit()": 206,
+      "EnteredSpan::exit": 211,
+      "`EnteredSpan`": 210,
+      "super::subscriber::Subscriber::enter()": 205
+    },
+    "link_paths": {
+      "`Span::enter`": "tracing::span::Span::enter",
+      "`Span`": "tracing::span::Span",
+      "super::Id": "tracing_core::span::Id",
+      "super::subscriber::Subscriber::exit()": "tracing_core::subscriber::Subscriber::exit",
+      "EnteredSpan::exit": "tracing::span::EnteredSpan::exit",
+      "`EnteredSpan`": "tracing::span::EnteredSpan",
+      "super::subscriber::Subscriber::enter()": "tracing_core::subscriber::Subscriber::enter"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "212",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-3b2f568eb51a6612d5b15c47",
+    "aliases": [
+      "tracing::Span::entered"
+    ],
+    "resolved_doc_links": {
+      "`Span::enter`": "../operations/tracing.span.Span.md#op-0ac1698dc0d740afb9e61b4b",
+      "`Span`": "../operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6",
+      "super::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "super::subscriber::Subscriber::exit()": "../operations/tracing_core.subscriber.Subscriber.md#op-0b5bdf535b6a65a9bad07b05",
+      "EnteredSpan::exit": "../operations/tracing.span.EnteredSpan.md#op-5f56e68c59421619aa82395f",
+      "`EnteredSpan`": "../operations/tracing.span.EnteredSpan.md#op-563d7a0c7d3b4e05b06837d6",
+      "super::subscriber::Subscriber::enter()": "../operations/tracing_core.subscriber.Subscriber.md#op-95e34b84088cd585fdd63d02"
+    }
+  },
+  {
+    "id": "e261a0921b06a75b41e03365",
+    "path": "tracing::span::Span::eq",
+    "name": "eq",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &Self) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1376,
+        5
+      ],
+      "end": [
+        1383,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          1375,
+          1
+        ],
+        "end": [
+          1384,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "247",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-e261a0921b06a75b41e03365",
+    "aliases": [
+      "tracing::Span::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9e6385656562ff5bc6a265bf",
+    "path": "tracing::span::Span::field",
+    "name": "field",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn field<Q: field::AsField + ?Sized>(&self, field: &Q) -> Option<field::Field>",
+    "docs": "Returns a [`Field`][super::field::Field] for the field with the\ngiven `name`, if one exists,",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1107,
+        5
+      ],
+      "end": [
+        1109,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Q"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 21,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "field::Field",
+                          "id": 22,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "Q",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "field::AsField",
+                          "id": 23,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Sized",
+                          "id": 57,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "maybe"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "21": "core::option::Option",
+      "22": "tracing_core::field::Field",
+      "23": "tracing::field::AsField",
+      "57": "core::marker::Sized"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::field::Field": 22
+    },
+    "link_paths": {
+      "super::field::Field": "tracing_core::field::Field"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "218",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-9e6385656562ff5bc6a265bf",
+    "aliases": [
+      "tracing::Span::field"
+    ],
+    "resolved_doc_links": {
+      "super::field::Field": "../operations/tracing_core.field.Field.md#op-d16f69bd65cdad5606214c7c"
+    }
+  },
+  {
+    "id": "79c2a4440b5cec8c01f46886",
+    "path": "tracing::span::Span::fmt",
+    "name": "fmt",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1393,
+        5
+      ],
+      "end": [
+        1422,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 130,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 131,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "130": "core::fmt::Formatter",
+      "131": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          1392,
+          1
+        ],
+        "end": [
+          1423,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "254",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-79c2a4440b5cec8c01f46886",
+    "aliases": [
+      "tracing::Span::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4131e6dfcbea0091271fd03d",
+    "path": "tracing::span::Span::follows_from",
+    "name": "follows_from",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn follows_from(&self, from: impl Into<Option<Id>>) -> &Self",
+    "docs": "Indicates that the span with the given ID has an indirect causal\nrelationship with this span.\n\nThis relationship differs somewhat from the parent-child relationship: a\nspan may have any number of prior spans, rather than a single one; and\nspans are not considered to be executing _inside_ of the spans they\nfollow from. This means that a span may close even if subsequent spans\nthat follow from it are still open, and time spent inside of a\nsubsequent span should not be included in the time its precedents were\nexecuting. This is used to model causal relationships such as when a\nsingle future spawns several related background tasks, et cetera.\n\nIf this span is disabled, or the resulting follows-from relationship\nwould be invalid, this function will do nothing.\n\n# Examples\n\nSetting a `follows_from` relationship with a `Span`:\n```\n# use tracing::{span, Id, Level, Span};\nlet span1 = span!(Level::INFO, \"span_1\");\nlet span2 = span!(Level::DEBUG, \"span_2\");\nspan2.follows_from(span1);\n```\n\nSetting a `follows_from` relationship with the current span:\n```\n# use tracing::{span, Id, Level, Span};\nlet span = span!(Level::INFO, \"hello!\");\nspan.follows_from(Span::current());\n```\n\nSetting a `follows_from` relationship with a `Span` reference:\n```\n# use tracing::{span, Id, Level, Span};\nlet span = span!(Level::INFO, \"hello!\");\nlet curr = Span::current();\nspan.follows_from(&curr);\n```\n\nSetting a `follows_from` relationship with an `Id`:\n```\n# use tracing::{span, Id, Level, Span};\nlet span = span!(Level::INFO, \"hello!\");\nlet id = span.id();\nspan.follows_from(id);\n```",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1310,
+        5
+      ],
+      "end": [
+        1317,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "from",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 61,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Option",
+                                    "id": 21,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "type": {
+                                              "resolved_path": {
+                                                "path": "Id",
+                                                "id": 191,
+                                                "args": null
+                                              }
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "generic": "Self"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Option<Id>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 61,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Option",
+                                      "id": 21,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "type": {
+                                                "resolved_path": {
+                                                  "path": "Id",
+                                                  "id": 191,
+                                                  "args": null
+                                                }
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "61": "core::convert::Into",
+      "21": "core::option::Option",
+      "191": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "198",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-4131e6dfcbea0091271fd03d",
+    "aliases": [
+      "tracing::Span::follows_from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fc38e7b0ad7f86056288e673",
+    "path": "tracing::span::Span::has_field",
+    "name": "has_field",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn has_field<Q: field::AsField + ?Sized>(&self, field: &Q) -> bool",
+    "docs": "Returns true if this `Span` has a field for the given\n[`Field`][super::field::Field] or field name.",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1114,
+        5
+      ],
+      "end": [
+        1116,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Q"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "Q",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "field::AsField",
+                          "id": 23,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Sized",
+                          "id": 57,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "maybe"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "23": "tracing::field::AsField",
+      "57": "core::marker::Sized"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::field::Field": 22
+    },
+    "link_paths": {
+      "super::field::Field": "tracing_core::field::Field"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "219",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-fc38e7b0ad7f86056288e673",
+    "aliases": [
+      "tracing::Span::has_field"
+    ],
+    "resolved_doc_links": {
+      "super::field::Field": "../operations/tracing_core.field.Field.md#op-d16f69bd65cdad5606214c7c"
+    }
+  },
+  {
+    "id": "53478449ec04f28cba72968d",
+    "path": "tracing::span::Span::hash",
+    "name": "hash",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn hash<H: Hasher>(&self, hasher: &mut H)",
+    "docs": "",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1387,
+        5
+      ],
+      "end": [
+        1389,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "hasher",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "H"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "H",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Hasher",
+                          "id": 251,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "251": "core::hash::Hasher"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Hash",
+        "id": "core::hash::Hash",
+        "args": null
+      },
+      "trait_path": "core::hash::Hash",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          1386,
+          1
+        ],
+        "end": [
+          1390,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "250",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-53478449ec04f28cba72968d",
+    "aliases": [
+      "tracing::Span::hash"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f7738942de7d77f627a30a9f",
+    "path": "tracing::span::Span::id",
+    "name": "id",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn id(&self) -> Option<Id>",
+    "docs": "Returns this span's `Id`, if it is enabled.",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1320,
+        5
+      ],
+      "end": [
+        1322,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 21,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Id",
+                          "id": 191,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "21": "core::option::Option",
+      "191": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "223",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-f7738942de7d77f627a30a9f",
+    "aliases": [
+      "tracing::Span::id"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "96f56929d165d5874027ae91",
+    "path": "tracing::span::Span::in_scope",
+    "name": "in_scope",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn in_scope<F: FnOnce() -> T, T>(&self, f: F) -> T",
+    "docs": "Executes the given function in the context of this span.\n\nIf this span is enabled, then this function enters the span, invokes `f`\nand then exits the span. If the span is disabled, `f` will still be\ninvoked, but in the context of the currently-executing span (if there is\none).\n\nReturns the result of evaluating `f`.\n\n# Examples\n\n```\n# use tracing::{trace, span, Level};\nlet my_span = span!(Level::TRACE, \"my_span\");\n\nmy_span.in_scope(|| {\n    // this event occurs within the span.\n    trace!(\"i'm in the span!\");\n});\n\n// this event occurs outside the span.\ntrace!(\"i'm not in the span!\");\n```\n\nCalling a function and returning the result:\n```\n# use tracing::{info_span, Level};\nfn hello_world() -> String {\n    \"Hello world!\".to_owned()\n}\n\nlet span = info_span!(\"hello_world\");\n// the span will be entered for the duration of the call to\n// `hello_world`.\nlet a_string = span.in_scope(hello_world);\n",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1100,
+        5
+      ],
+      "end": [
+        1103,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "T"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "FnOnce",
+                          "id": 217,
+                          "args": {
+                            "parenthesized": {
+                              "inputs": [],
+                              "output": {
+                                "generic": "T"
+                              }
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "217": "core::ops::function::FnOnce"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "207",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-96f56929d165d5874027ae91",
+    "aliases": [
+      "tracing::Span::in_scope"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "562dba444b98d218f7bd07a8",
+    "path": "tracing::span::Span::is_disabled",
+    "name": "is_disabled",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn is_disabled(&self) -> bool",
+    "docs": "Returns `true` if this span was disabled by the subscriber and does not\nexist.\n\nSee also [`is_none`].\n\n[`is_none`]: Span::is_none()",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1244,
+        5
+      ],
+      "end": [
+        1246,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "Span::is_none()": 222
+    },
+    "link_paths": {
+      "Span::is_none()": "tracing::span::Span::is_none"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "52",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-562dba444b98d218f7bd07a8",
+    "aliases": [
+      "tracing::Span::is_disabled"
+    ],
+    "resolved_doc_links": {
+      "Span::is_none()": "../operations/tracing.span.Span.md#op-0d58e59112ed960045175ec9"
+    }
+  },
+  {
+    "id": "0d58e59112ed960045175ec9",
+    "path": "tracing::span::Span::is_none",
+    "name": "is_none",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn is_none(&self) -> bool",
+    "docs": "Returns `true` if this span was constructed by [`Span::none`] and is\nempty.\n\nIf `is_none` returns `true` for a given span, then [`is_disabled`] will\nalso return `true`. However, when a span is disabled by the subscriber\nrather than constructed by `Span::none`, this method will return\n`false`, while `is_disabled` will return `true`.\n\n[`Span::none`]: Span::none()\n[`is_disabled`]: Span::is_disabled()",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1259,
+        5
+      ],
+      "end": [
+        1261,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "Span::is_disabled()": 52,
+      "Span::none()": 203
+    },
+    "link_paths": {
+      "Span::is_disabled()": "tracing::span::Span::is_disabled",
+      "Span::none()": "tracing::span::Span::none"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "222",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-0d58e59112ed960045175ec9",
+    "aliases": [
+      "tracing::Span::is_none"
+    ],
+    "resolved_doc_links": {
+      "Span::is_disabled()": "../operations/tracing.span.Span.md#op-562dba444b98d218f7bd07a8",
+      "Span::none()": "../operations/tracing.span.Span.md#op-d2a38b5da6d9cc92450ac854"
+    }
+  },
+  {
+    "id": "0ee8a2028c796bb80d7a2d91",
+    "path": "tracing::span::Span::metadata",
+    "name": "metadata",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn metadata(&self) -> Option<&'static Metadata<'static>>",
+    "docs": "Returns this span's `Metadata`, if it is enabled.",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1325,
+        5
+      ],
+      "end": [
+        1327,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 21,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": "'static",
+                          "is_mutable": false,
+                          "type": {
+                            "resolved_path": {
+                              "path": "Metadata",
+                              "id": 20,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "lifetime": "'static"
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "21": "core::option::Option",
+      "20": "tracing_core::metadata::Metadata"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "224",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-0ee8a2028c796bb80d7a2d91",
+    "aliases": [
+      "tracing::Span::metadata"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0d5488c6cac5389394c6ac61",
+    "path": "tracing::span::Span::new",
+    "name": "new",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn new(meta: &'static Metadata<'static>, values: &field::ValueSet<'_>) -> Span",
+    "docs": "Constructs a new `Span` with the given [metadata] and set of\n[field values].\n\nThe new span will be constructed by the currently-active [`Subscriber`],\nwith the current span as its parent (if one exists).\n\nAfter the span is constructed, [field values] and/or [`follows_from`]\nannotations may be added to it.\n\n[metadata]: super::Metadata\n[`Subscriber`]: super::subscriber::Subscriber\n[field values]: super::field::ValueSet\n[`follows_from`]: super::Span::follows_from",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        437,
+        5
+      ],
+      "end": [
+        439,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "meta",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 20,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "values",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "field::ValueSet",
+                      "id": 197,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Span",
+              "id": 46,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "20": "tracing_core::metadata::Metadata",
+      "197": "tracing_core::field::ValueSet",
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::Span::follows_from": 198,
+      "super::subscriber::Subscriber": 17,
+      "super::Metadata": 20,
+      "super::field::ValueSet": 197
+    },
+    "link_paths": {
+      "super::Span::follows_from": "tracing::span::Span::follows_from",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::Metadata": "tracing_core::metadata::Metadata",
+      "super::field::ValueSet": "tracing_core::field::ValueSet"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "199",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-0d5488c6cac5389394c6ac61",
+    "aliases": [
+      "tracing::Span::new"
+    ],
+    "resolved_doc_links": {
+      "super::Span::follows_from": "../operations/tracing.span.Span.md#op-4131e6dfcbea0091271fd03d",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "super::field::ValueSet": "../operations/tracing_core.field.ValueSet.md#op-81b1992dfc73d64b6f31eb3a"
+    }
+  },
+  {
+    "id": "fecbdc2dbe7f9587e5547f78",
+    "path": "tracing::span::Span::new_disabled",
+    "name": "new_disabled",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn new_disabled(meta: &'static Metadata<'static>) -> Span",
+    "docs": "Constructs a new disabled span with the given `Metadata`.\n\nThis should be used when a span is constructed from a known callsite,\nbut the subscriber indicates that it is disabled.\n\nEntering, exiting, and recording values on this span will not notify the\n`Subscriber` but _may_ record log messages if the `log` feature flag is\nenabled.",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        520,
+        5
+      ],
+      "end": [
+        525,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "meta",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 20,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Span",
+              "id": 46,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "20": "tracing_core::metadata::Metadata",
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "202",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-fecbdc2dbe7f9587e5547f78",
+    "aliases": [
+      "tracing::Span::new_disabled"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "31019ffc84555b07ad61e6dd",
+    "path": "tracing::span::Span::new_root",
+    "name": "new_root",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn new_root(meta: &'static Metadata<'static>, values: &field::ValueSet<'_>) -> Span",
+    "docs": "Constructs a new `Span` as the root of its own trace tree, with the\ngiven [metadata] and set of [field values].\n\nAfter the span is constructed, [field values] and/or [`follows_from`]\nannotations may be added to it.\n\n[metadata]: super::Metadata\n[field values]: super::field::ValueSet\n[`follows_from`]: super::Span::follows_from",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        461,
+        5
+      ],
+      "end": [
+        463,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "meta",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 20,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "values",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "field::ValueSet",
+                      "id": 197,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Span",
+              "id": 46,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "20": "tracing_core::metadata::Metadata",
+      "197": "tracing_core::field::ValueSet",
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::Metadata": 20,
+      "super::field::ValueSet": 197,
+      "super::Span::follows_from": 198
+    },
+    "link_paths": {
+      "super::Metadata": "tracing_core::metadata::Metadata",
+      "super::field::ValueSet": "tracing_core::field::ValueSet",
+      "super::Span::follows_from": "tracing::span::Span::follows_from"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "200",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-31019ffc84555b07ad61e6dd",
+    "aliases": [
+      "tracing::Span::new_root"
+    ],
+    "resolved_doc_links": {
+      "super::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "super::field::ValueSet": "../operations/tracing_core.field.ValueSet.md#op-81b1992dfc73d64b6f31eb3a",
+      "super::Span::follows_from": "../operations/tracing.span.Span.md#op-4131e6dfcbea0091271fd03d"
+    }
+  },
+  {
+    "id": "d2a38b5da6d9cc92450ac854",
+    "path": "tracing::span::Span::none",
+    "name": "none",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "const fn none() -> Span",
+    "docs": "Constructs a new span that is *completely disabled*.\n\nThis can be used rather than `Option<Span>` to represent cases where a\nspan is not present.\n\nEntering, exiting, and recording values on this span will do nothing.",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        534,
+        5
+      ],
+      "end": [
+        539,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "Span",
+              "id": 46,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": true,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "203",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-d2a38b5da6d9cc92450ac854",
+    "aliases": [
+      "tracing::Span::none"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e09c60244cda76a108832e96",
+    "path": "tracing::span::Span::or_current",
+    "name": "or_current",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn or_current(self) -> Self",
+    "docs": "Returns this span, if it was [enabled] by the current [`Subscriber`], or\nthe [current span] (whose lexical distance may be further than expected),\n if this span [is disabled].\n\nThis method can be useful when propagating spans to spawned threads or\n[async tasks]. Consider the following:\n\n```\nlet _parent_span = tracing::info_span!(\"parent\").entered();\n\n// ...\n\nlet child_span = tracing::debug_span!(\"child\");\n\nstd::thread::spawn(move || {\n    let _entered = child_span.entered();\n\n    tracing::info!(\"spawned a thread!\");\n\n    // ...\n});\n```\n\nIf the current [`Subscriber`] enables the [`DEBUG`] level, then both\nthe \"parent\" and \"child\" spans will be enabled. Thus, when the \"spawned\na thread!\" event occurs, it will be inside of the \"child\" span. Because\n\"parent\" is the parent of \"child\", the event will _also_ be inside of\n\"parent\".\n\nHowever, if the [`Subscriber`] only enables the [`INFO`] level, the \"child\"\nspan will be disabled. When the thread is spawned, the\n`child_span.entered()` call will do nothing, since \"child\" is not\nenabled. In this case, the \"spawned a thread!\" event occurs outside of\n*any* span, since the \"child\" span was responsible for propagating its\nparent to the spawned thread.\n\nIf this is not the desired behavior, `Span::or_current` can be used to\nensure that the \"parent\" span is propagated in both cases, either as a\nparent of \"child\" _or_ directly. For example:\n\n```\nlet _parent_span = tracing::info_span!(\"parent\").entered();\n\n// ...\n\n// If DEBUG is enabled, then \"child\" will be enabled, and `or_current`\n// returns \"child\". Otherwise, if DEBUG is not enabled, \"child\" will be\n// disabled, and `or_current` returns \"parent\".\nlet child_span = tracing::debug_span!(\"child\").or_current();\n\nstd::thread::spawn(move || {\n    let _entered = child_span.entered();\n\n    tracing::info!(\"spawned a thread!\");\n\n    // ...\n});\n```\n\nWhen spawning [asynchronous tasks][async tasks], `Span::or_current` can\nbe used similarly, in combination with [`instrument`]:\n\n```\nuse tracing::Instrument;\n# // lol\n# mod tokio {\n#     pub(super) fn spawn(_: impl std::future::Future) {}\n# }\n\nlet _parent_span = tracing::info_span!(\"parent\").entered();\n\n// ...\n\nlet child_span = tracing::debug_span!(\"child\");\n\ntokio::spawn(\n    async {\n        tracing::info!(\"spawned a task!\");\n\n        // ...\n\n    }.instrument(child_span.or_current())\n);\n```\n\nIn general, `or_current` should be preferred over nesting an\n[`instrument`]  call inside of an [`in_current_span`] call, as using\n`or_current` will be more efficient.\n\n```\nuse tracing::Instrument;\n# // lol\n# mod tokio {\n#     pub(super) fn spawn(_: impl std::future::Future) {}\n# }\nasync fn my_async_fn() {\n    // ...\n}\n\nlet _parent_span = tracing::info_span!(\"parent\").entered();\n\n// Do this:\ntokio::spawn(\n    my_async_fn().instrument(tracing::debug_span!(\"child\").or_current())\n);\n\n// ...rather than this:\ntokio::spawn(\n    my_async_fn()\n        .instrument(tracing::debug_span!(\"child\"))\n        .in_current_span()\n);\n```\n\n[enabled]: crate::Subscriber::enabled\n[`Subscriber`]: crate::Subscriber\n[current span]: Span::current\n[is disabled]: Span::is_disabled\n[`INFO`]: crate::Level::INFO\n[`DEBUG`]: crate::Level::DEBUG\n[async tasks]: std::task\n[`instrument`]: crate::instrument::Instrument::instrument\n[`in_current_span`]: crate::instrument::Instrument::in_current_span",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1027,
+        5
+      ],
+      "end": [
+        1032,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::Subscriber::enabled": 213,
+      "Span::current": 51,
+      "crate::Level::INFO": 216,
+      "crate::Level::DEBUG": 215,
+      "crate::instrument::Instrument::instrument": 53,
+      "Span::is_disabled": 52,
+      "std::task": 214,
+      "crate::Subscriber": 17,
+      "crate::instrument::Instrument::in_current_span": 55
+    },
+    "link_paths": {
+      "crate::Subscriber::enabled": "tracing_core::subscriber::Subscriber::enabled",
+      "Span::current": "tracing::span::Span::current",
+      "crate::Level::INFO": "tracing_core::metadata::Level::INFO",
+      "crate::Level::DEBUG": "tracing_core::metadata::Level::DEBUG",
+      "crate::instrument::Instrument::instrument": "tracing::instrument::Instrument::instrument",
+      "Span::is_disabled": "tracing::span::Span::is_disabled",
+      "std::task": "std::task",
+      "crate::Subscriber": "tracing_core::subscriber::Subscriber",
+      "crate::instrument::Instrument::in_current_span": "tracing::instrument::Instrument::in_current_span"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "50",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-e09c60244cda76a108832e96",
+    "aliases": [
+      "tracing::Span::or_current"
+    ],
+    "resolved_doc_links": {
+      "crate::Subscriber::enabled": "../operations/tracing_core.subscriber.Subscriber.md#op-df007f57ed0cab78f4b9e43b",
+      "Span::current": "../operations/tracing.span.Span.md#op-a38eacf50c34633dd1945d08",
+      "crate::instrument::Instrument::instrument": "../operations/tracing.instrument.Instrument.md#op-07b9b2ea22c2f17a5b513497",
+      "Span::is_disabled": "../operations/tracing.span.Span.md#op-562dba444b98d218f7bd07a8",
+      "crate::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "crate::instrument::Instrument::in_current_span": "../operations/tracing.instrument.Instrument.md#op-6c17bae75c8707a1c5840700"
+    }
+  },
+  {
+    "id": "a63172a469e416ffb397e1f6",
+    "path": "tracing::span::Span::record",
+    "name": "record",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn record<Q: field::AsField + ?Sized, V: field::Value>(&self, field: &Q, value: V) -> &Self",
+    "docs": "Records that the field described by `field` has the value `value`.\n\nThis may be used with [`field::Empty`] to declare fields whose values\nare not known when the span is created, and record them later:\n```\nuse tracing::{trace_span, field};\n\n// Create a span with two fields: `greeting`, with the value \"hello world\", and\n// `parting`, without a value.\nlet span = trace_span!(\"my_span\", greeting = \"hello world\", parting = field::Empty);\n\n// ...\n\n// Now, record a value for parting as well.\n// (note that the field name is passed as a string slice)\nspan.record(\"parting\", \"goodbye world!\");\n```\nHowever, it may also be used to record a _new_ value for a field whose\nvalue was already recorded:\n```\nuse tracing::info_span;\n# fn do_something() -> Result<(), ()> { Err(()) }\n\n// Initially, let's assume that our attempt to do something is going okay...\nlet span = info_span!(\"doing_something\", is_okay = true);\nlet _e = span.enter();\n\nmatch do_something() {\n    Ok(something) => {\n        // ...\n    }\n    Err(_) => {\n        // Things are no longer okay!\n        span.record(\"is_okay\", false);\n    }\n}\n```\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: The fields associated with a span are part\n    of its <a href=\"../struct.Metadata.html\"><code>Metadata</code></a>.\n    The <a href=\"../struct.Metadata.html\"><code>Metadata</code></a>\n    describing a particular span is constructed statically when the span\n    is created and cannot be extended later to add new fields. Therefore,\n    you cannot record a value for a field that was not specified when the\n    span was created:\n</pre>\n\n```\nuse tracing::{trace_span, field};\n\n// Create a span with two fields: `greeting`, with the value \"hello world\", and\n// `parting`, without a value.\nlet span = trace_span!(\"my_span\", greeting = \"hello world\", parting = field::Empty);\n\n// ...\n\n// Now, you try to record a value for a new field, `new_field`, which was not\n// declared as `Empty` or populated when you created `span`.\n// You won't get any error, but the assignment will have no effect!\nspan.record(\"new_field\", \"interesting_value_you_really_need\");\n\n// Instead, all fields that may be recorded after span creation should be declared up front,\n// using field::Empty when a value is not known, as we did for `parting`.\n// This `record` call will indeed replace field::Empty with \"you will be remembered\".\nspan.record(\"parting\", \"you will be remembered\");\n```\n\n<div class=\"example-wrap\" style=\"display:inline-block\">\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n**Note**: To record several values in just one call, see the [`record_all!`](crate::record_all!) macro.\n</pre></div>\n\n[`field::Empty`]: super::field::Empty\n[`Metadata`]: super::Metadata",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1193,
+        5
+      ],
+      "end": [
+        1209,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Q"
+                  }
+                }
+              }
+            ],
+            [
+              "value",
+              {
+                "generic": "V"
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "generic": "Self"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "Q",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "field::AsField",
+                          "id": 23,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Sized",
+                          "id": 57,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "maybe"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "V",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "field::Value",
+                          "id": 33,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "23": "tracing::field::AsField",
+      "57": "core::marker::Sized",
+      "33": "tracing_core::field::Value"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::field::Empty": 220,
+      "super::Metadata": 20
+    },
+    "link_paths": {
+      "super::field::Empty": "tracing_core::field::Empty",
+      "super::Metadata": "tracing_core::metadata::Metadata"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "221",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-a63172a469e416ffb397e1f6",
+    "aliases": [
+      "tracing::Span::record"
+    ],
+    "resolved_doc_links": {
+      "super::field::Empty": "../operations/tracing_core.field.Empty.md#op-24d94f12e1960bb94e3251ba",
+      "super::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c"
+    }
+  },
+  {
+    "id": "b45dc1b41cfbdfa0eda26cdb",
+    "path": "tracing::span::Span::with_subscriber",
+    "name": "with_subscriber",
+    "owner": "tracing::span::Span",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn with_subscriber<T>(&self, f: impl FnOnce((&Id, &Dispatch)) -> T) -> Option<T>",
+    "docs": "Invokes a function with a reference to this span's ID and subscriber.\n\nif this span is enabled, the provided function is called, and the result is returned.\nIf the span is disabled, the function is not called, and this method returns `None`\ninstead.",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1368,
+        5
+      ],
+      "end": [
+        1372,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "FnOnce",
+                        "id": 217,
+                        "args": {
+                          "parenthesized": {
+                            "inputs": [
+                              {
+                                "tuple": [
+                                  {
+                                    "borrowed_ref": {
+                                      "lifetime": null,
+                                      "is_mutable": false,
+                                      "type": {
+                                        "resolved_path": {
+                                          "path": "Id",
+                                          "id": 191,
+                                          "args": null
+                                        }
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "borrowed_ref": {
+                                      "lifetime": null,
+                                      "is_mutable": false,
+                                      "type": {
+                                        "resolved_path": {
+                                          "path": "Dispatch",
+                                          "id": 12,
+                                          "args": null
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            ],
+                            "output": {
+                              "generic": "T"
+                            }
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 21,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "T"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "impl FnOnce((&Id, &Dispatch)) -> T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "FnOnce",
+                          "id": 217,
+                          "args": {
+                            "parenthesized": {
+                              "inputs": [
+                                {
+                                  "tuple": [
+                                    {
+                                      "borrowed_ref": {
+                                        "lifetime": null,
+                                        "is_mutable": false,
+                                        "type": {
+                                          "resolved_path": {
+                                            "path": "Id",
+                                            "id": 191,
+                                            "args": null
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "borrowed_ref": {
+                                        "lifetime": null,
+                                        "is_mutable": false,
+                                        "type": {
+                                          "resolved_path": {
+                                            "path": "Dispatch",
+                                            "id": 12,
+                                            "args": null
+                                          }
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ],
+                              "output": {
+                                "generic": "T"
+                              }
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "217": "core::ops::function::FnOnce",
+      "191": "tracing_core::span::Id",
+      "12": "tracing_core::dispatcher::Dispatch",
+      "21": "core::option::Option"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Span",
+          "id": "tracing::span::Span",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          423,
+          1
+        ],
+        "end": [
+          1373,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "225",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.Span.md",
+    "record_file": "operations/tracing.span.Span.json",
+    "anchor": "op-b45dc1b41cfbdfa0eda26cdb",
+    "aliases": [
+      "tracing::Span::with_subscriber"
+    ],
+    "resolved_doc_links": {}
+  }
+]

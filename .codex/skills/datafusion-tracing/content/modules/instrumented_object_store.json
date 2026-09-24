@@ -1,0 +1,124 @@
+[
+  {
+    "id": "e5ef45ac41ed038d1aebb1db",
+    "path": "instrumented_object_store",
+    "name": "instrumented_object_store",
+    "owner": null,
+    "crate": "instrumented-object-store",
+    "version": "55.0.0",
+    "kind": "module",
+    "signature": "mod instrumented_object_store",
+    "docs": "# Instrumented Object Store\n\nAdds tracing instrumentation to any [Object Store](https://docs.rs/object_store/) implementation.\n\n# Features\n\n- Automatically captures spans for all storage operations (get, put, list, etc.)\n- Records metadata like file paths and content sizes\n- Captures error details when operations fail\n- Works with OpenTelemetry for distributed tracing\n\n# Getting Started\n\n```rust\n# use object_store::{path::Path, ObjectStore, ObjectStoreExt};\n# use std::sync::Arc;\n# use instrumented_object_store::instrument_object_store;\n# use datafusion::execution::context::SessionContext;\n# use url::Url;\n# use object_store::Result;\n\n# async fn example() -> Result<()> {\n// Create your object store\nlet store = Arc::new(object_store::local::LocalFileSystem::new());\n\n// Wrap it with instrumentation (prefix for span names)\nlet instrumented_store = instrument_object_store(store, \"local_fs\");\n\n// Use directly for file operations\nlet result = instrumented_store.get(&Path::from(\"path/to/file\")).await?;\n\n// Or integrate with DataFusion\nlet ctx = SessionContext::new();\nctx.register_object_store(&Url::parse(\"file://\").unwrap(), instrumented_store);\n# Ok(())\n# }\n```\n\nWhen combined with the [`datafusion-tracing`](https://github.com/datafusion-contrib/datafusion-tracing/tree/main/datafusion-tracing)\ncrate, this provides end-to-end visibility from query execution to storage operations.",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        63,
+        60
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          4
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32952a4e841380024c83ab2ddc8315ac461470850dec973e08af62c662439a95",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "5",
+      "origin": "https://docs.rs/crate/instrumented-object-store/55.0.0/json",
+      "compressed_sha256": "a18fa7e49ec98db0c84d41f5f3c29c8752d0438d3e7cd92c2c1f4a89d7585df9",
+      "local_file": "build/acquired/rustdoc/instrumented-object-store@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/instrumented_object_store.md",
+    "record_file": "modules/instrumented_object_store.json",
+    "anchor": "op-e5ef45ac41ed038d1aebb1db",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1f92e763b8d19ef832d9691a",
+    "path": "instrumented_object_store",
+    "name": "instrumented_object_store",
+    "owner": null,
+    "crate": "instrumented-object-store",
+    "version": "55.0.0",
+    "kind": "module",
+    "signature": "mod instrumented_object_store",
+    "docs": "# Instrumented Object Store\n\nAdds tracing instrumentation to any [Object Store](https://docs.rs/object_store/) implementation.\n\n# Features\n\n- Automatically captures spans for all storage operations (get, put, list, etc.)\n- Records metadata like file paths and content sizes\n- Captures error details when operations fail\n- Works with OpenTelemetry for distributed tracing\n\n# Getting Started\n\n```rust\n# use object_store::{path::Path, ObjectStore, ObjectStoreExt};\n# use std::sync::Arc;\n# use instrumented_object_store::instrument_object_store;\n# use datafusion::execution::context::SessionContext;\n# use url::Url;\n# use object_store::Result;\n\n# async fn example() -> Result<()> {\n// Create your object store\nlet store = Arc::new(object_store::local::LocalFileSystem::new());\n\n// Wrap it with instrumentation (prefix for span names)\nlet instrumented_store = instrument_object_store(store, \"local_fs\");\n\n// Use directly for file operations\nlet result = instrumented_store.get(&Path::from(\"path/to/file\")).await?;\n\n// Or integrate with DataFusion\nlet ctx = SessionContext::new();\nctx.register_object_store(&Url::parse(\"file://\").unwrap(), instrumented_store);\n# Ok(())\n# }\n```\n\nWhen combined with the [`datafusion-tracing`](https://github.com/datafusion-contrib/datafusion-tracing/tree/main/datafusion-tracing)\ncrate, this provides end-to-end visibility from query execution to storage operations.",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        63,
+        60
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          4,
+          174
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "d4e00139e3a8b1fe6a5b9e35f66ec6b93cc801c613eb053f7427694a9afd71d7",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "175",
+      "origin": "../../build/acquired/rustdoc/instrumented-object-store@55.0.0.private.json.zst",
+      "compressed_sha256": "7bde671818e0da59b2b3ab8203ffad736a840ccb3f9eeeda821758a103115061",
+      "local_file": "build/acquired/rustdoc/instrumented-object-store@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/instrumented_object_store.md",
+    "record_file": "modules/instrumented_object_store.json",
+    "anchor": "op-1f92e763b8d19ef832d9691a",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

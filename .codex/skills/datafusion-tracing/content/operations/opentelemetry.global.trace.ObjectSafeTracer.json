@@ -1,0 +1,238 @@
+[
+  {
+    "id": "ebd532b1879e2214fa3aa6af",
+    "path": "opentelemetry::global::trace::ObjectSafeTracer",
+    "name": "ObjectSafeTracer",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait ObjectSafeTracer",
+    "docs": "Allows a specific [`Tracer`] to be used generically by [`BoxedTracer`]\ninstances by mirroring the interface and boxing the return types.\n\n[`Tracer`]: crate::trace::Tracer",
+    "span": {
+      "filename": "src/global/trace.rs",
+      "begin": [
+        272,
+        1
+      ],
+      "end": [
+        280,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          138
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          139
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`BoxedTracer`": 47,
+      "crate::trace::Tracer": 108
+    },
+    "link_paths": {
+      "`BoxedTracer`": "opentelemetry::global::trace::BoxedTracer",
+      "crate::trace::Tracer": "opentelemetry::trace::tracer::Tracer"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "111",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.trace.ObjectSafeTracer.md",
+    "record_file": "operations/opentelemetry.global.trace.ObjectSafeTracer.json",
+    "anchor": "op-ebd532b1879e2214fa3aa6af",
+    "aliases": [
+      "opentelemetry::global::ObjectSafeTracer"
+    ],
+    "resolved_doc_links": {
+      "`BoxedTracer`": "../operations/opentelemetry.global.trace.BoxedTracer.md#op-716a226937c40d7602b7e516",
+      "crate::trace::Tracer": "../operations/opentelemetry.trace.tracer.Tracer.md#op-a87fa61076cf2b7384423932"
+    }
+  },
+  {
+    "id": "405ec0f989ce9f2d0083cb77",
+    "path": "opentelemetry::global::trace::ObjectSafeTracer::build_with_context_boxed",
+    "name": "build_with_context_boxed",
+    "owner": "opentelemetry::global::trace::ObjectSafeTracer",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build_with_context_boxed(&self, builder: trace::SpanBuilder, parent_cx: &Context) -> Box<dyn ObjectSafeSpan + Send + Sync>",
+    "docs": "Returns a trait object so the underlying implementation can be swapped\nout at runtime.",
+    "span": {
+      "filename": "src/global/trace.rs",
+      "begin": [
+        275,
+        5
+      ],
+      "end": [
+        279,
+        48
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "builder",
+              {
+                "resolved_path": {
+                  "path": "trace::SpanBuilder",
+                  "id": 120,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "parent_cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 121,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Box",
+              "id": 110,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "dyn_trait": {
+                          "traits": [
+                            {
+                              "trait": {
+                                "path": "ObjectSafeSpan",
+                                "id": 36,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Send",
+                                "id": 6,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Sync",
+                                "id": 7,
+                                "args": null
+                              },
+                              "generic_params": []
+                            }
+                          ],
+                          "lifetime": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "120": "opentelemetry::trace::tracer::SpanBuilder",
+      "121": "opentelemetry::context::Context",
+      "110": "alloc::boxed::Box",
+      "36": "opentelemetry::global::trace::ObjectSafeSpan",
+      "6": "core::marker::Send",
+      "7": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "138",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.trace.ObjectSafeTracer.md",
+    "record_file": "operations/opentelemetry.global.trace.ObjectSafeTracer.json",
+    "anchor": "op-405ec0f989ce9f2d0083cb77",
+    "aliases": [
+      "opentelemetry::global::ObjectSafeTracer::build_with_context_boxed"
+    ],
+    "resolved_doc_links": {}
+  }
+]

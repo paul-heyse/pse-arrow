@@ -1,0 +1,1108 @@
+[
+  {
+    "id": "ae28e473e5d34d7697a88a62",
+    "path": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+    "name": "ManualReader",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct ManualReader",
+    "docs": "A simple [MetricReader] that allows an application to read metrics on demand.\n\nSee [ManualReaderBuilder] for configuration options.\n\n# Example\n\n```\nuse opentelemetry_sdk::metrics::ManualReader;\n\n// can specify additional reader configuration\nlet reader = ManualReader::builder().build();\n# drop(reader)\n```",
+    "span": {
+      "filename": "src/metrics/manual_reader.rs",
+      "begin": [
+        32,
+        1
+      ],
+      "end": [
+        35,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1494,
+          1495,
+          1496,
+          1497,
+          1498,
+          1499,
+          1500,
+          1501,
+          1502,
+          1503,
+          1504,
+          1505,
+          1506,
+          1507,
+          1508,
+          1509,
+          1510,
+          1511,
+          1512,
+          1513,
+          1515,
+          1517,
+          1525
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "MetricReader": 1490,
+      "ManualReaderBuilder": 1491
+    },
+    "link_paths": {
+      "MetricReader": "opentelemetry_sdk::metrics::reader::MetricReader",
+      "ManualReaderBuilder": "opentelemetry_sdk::metrics::manual_reader::ManualReaderBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1492",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.json",
+    "anchor": "op-ae28e473e5d34d7697a88a62",
+    "aliases": [
+      "opentelemetry_sdk::metrics::ManualReader"
+    ],
+    "resolved_doc_links": {
+      "MetricReader": "../operations/opentelemetry_sdk.metrics.reader.MetricReader.md#op-50fae5ec1b547de01d0084a6",
+      "ManualReaderBuilder": "../operations/opentelemetry_sdk.metrics.manual_reader.ManualReaderBuilder.md#op-1b8c0287afffa50251e104db"
+    }
+  },
+  {
+    "id": "81246f7279425a3cf65f1967",
+    "path": "opentelemetry_sdk::metrics::manual_reader::ManualReader::builder",
+    "name": "builder",
+    "owner": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn builder() -> ManualReaderBuilder",
+    "docs": "Configuration for this reader",
+    "span": {
+      "filename": "src/metrics/manual_reader.rs",
+      "begin": [
+        57,
+        5
+      ],
+      "end": [
+        59,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "ManualReaderBuilder",
+              "id": 1491,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1491": "opentelemetry_sdk::metrics::manual_reader::ManualReaderBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ManualReader",
+          "id": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/manual_reader.rs",
+        "begin": [
+          55,
+          1
+        ],
+        "end": [
+          71,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1493",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.json",
+    "anchor": "op-81246f7279425a3cf65f1967",
+    "aliases": [
+      "opentelemetry_sdk::metrics::ManualReader::builder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6a5021d0c8e77c2ce7584ba4",
+    "path": "opentelemetry_sdk::metrics::manual_reader::ManualReader::collect",
+    "name": "collect",
+    "owner": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn collect(&self, rm: &mut ResourceMetrics) -> OTelSdkResult",
+    "docs": "Gathers all metrics from the SDK, calling any\ncallbacks necessary and returning the results.\n\nReturns an error if called after shutdown.",
+    "span": {
+      "filename": "src/metrics/manual_reader.rs",
+      "begin": [
+        93,
+        5
+      ],
+      "end": [
+        109,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "rm",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "ResourceMetrics",
+                      "id": 762,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "762": "opentelemetry_sdk::metrics::data::ResourceMetrics",
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ManualReader",
+          "id": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MetricReader",
+        "id": "opentelemetry_sdk::metrics::reader::MetricReader",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::metrics::reader::MetricReader",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/manual_reader.rs",
+        "begin": [
+          73,
+          1
+        ],
+        "end": [
+          133,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1521",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.json",
+    "anchor": "op-6a5021d0c8e77c2ce7584ba4",
+    "aliases": [
+      "opentelemetry_sdk::metrics::ManualReader::collect"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dec90a71ebfd7ec9b8740865",
+    "path": "opentelemetry_sdk::metrics::manual_reader::ManualReader::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/manual_reader.rs",
+      "begin": [
+        38,
+        5
+      ],
+      "end": [
+        40,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ManualReader",
+          "id": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/manual_reader.rs",
+        "begin": [
+          37,
+          1
+        ],
+        "end": [
+          41,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1514",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.json",
+    "anchor": "op-dec90a71ebfd7ec9b8740865",
+    "aliases": [
+      "opentelemetry_sdk::metrics::ManualReader::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "be64c78fa62f4c6f9f754c81",
+    "path": "opentelemetry_sdk::metrics::manual_reader::ManualReader::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/manual_reader.rs",
+      "begin": [
+        44,
+        5
+      ],
+      "end": [
+        46,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ManualReader",
+          "id": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/manual_reader.rs",
+        "begin": [
+          43,
+          1
+        ],
+        "end": [
+          47,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1516",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.json",
+    "anchor": "op-be64c78fa62f4c6f9f754c81",
+    "aliases": [
+      "opentelemetry_sdk::metrics::ManualReader::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e02d5c3b81b7c68dc462db10",
+    "path": "opentelemetry_sdk::metrics::manual_reader::ManualReader::force_flush",
+    "name": "force_flush",
+    "owner": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn force_flush(&self) -> OTelSdkResult",
+    "docs": "ForceFlush is a no-op, it always returns nil.",
+    "span": {
+      "filename": "src/metrics/manual_reader.rs",
+      "begin": [
+        112,
+        5
+      ],
+      "end": [
+        114,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ManualReader",
+          "id": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MetricReader",
+        "id": "opentelemetry_sdk::metrics::reader::MetricReader",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::metrics::reader::MetricReader",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/manual_reader.rs",
+        "begin": [
+          73,
+          1
+        ],
+        "end": [
+          133,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1522",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.json",
+    "anchor": "op-e02d5c3b81b7c68dc462db10",
+    "aliases": [
+      "opentelemetry_sdk::metrics::ManualReader::force_flush"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0f14ade8458f4441b2599cf0",
+    "path": "opentelemetry_sdk::metrics::manual_reader::ManualReader::register_pipeline",
+    "name": "register_pipeline",
+    "owner": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn register_pipeline(&self, pipeline: Weak<Pipeline>)",
+    "docs": "Register a pipeline which enables the caller to read metrics from the SDK\non demand.",
+    "span": {
+      "filename": "src/metrics/manual_reader.rs",
+      "begin": [
+        76,
+        5
+      ],
+      "end": [
+        87,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "pipeline",
+              {
+                "resolved_path": {
+                  "path": "Weak",
+                  "id": 1519,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "Pipeline",
+                              "id": 1520,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1519": "alloc::sync::Weak",
+      "1520": null
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ManualReader",
+          "id": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MetricReader",
+        "id": "opentelemetry_sdk::metrics::reader::MetricReader",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::metrics::reader::MetricReader",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/manual_reader.rs",
+        "begin": [
+          73,
+          1
+        ],
+        "end": [
+          133,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1518",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.json",
+    "anchor": "op-0f14ade8458f4441b2599cf0",
+    "aliases": [
+      "opentelemetry_sdk::metrics::ManualReader::register_pipeline"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b12ba785d16db8aceb20d241",
+    "path": "opentelemetry_sdk::metrics::manual_reader::ManualReader::shutdown_with_timeout",
+    "name": "shutdown_with_timeout",
+    "owner": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown_with_timeout(&self, _timeout: Duration) -> OTelSdkResult",
+    "docs": "Closes any connections and frees any resources used by the reader.",
+    "span": {
+      "filename": "src/metrics/manual_reader.rs",
+      "begin": [
+        117,
+        5
+      ],
+      "end": [
+        128,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_timeout",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration",
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ManualReader",
+          "id": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MetricReader",
+        "id": "opentelemetry_sdk::metrics::reader::MetricReader",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::metrics::reader::MetricReader",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/manual_reader.rs",
+        "begin": [
+          73,
+          1
+        ],
+        "end": [
+          133,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1523",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.json",
+    "anchor": "op-b12ba785d16db8aceb20d241",
+    "aliases": [
+      "opentelemetry_sdk::metrics::ManualReader::shutdown_with_timeout"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "748633a9f40b7b9b047e54b4",
+    "path": "opentelemetry_sdk::metrics::manual_reader::ManualReader::temporality",
+    "name": "temporality",
+    "owner": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn temporality(&self, kind: super::InstrumentKind) -> Temporality",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/manual_reader.rs",
+      "begin": [
+        130,
+        5
+      ],
+      "end": [
+        132,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "kind",
+              {
+                "resolved_path": {
+                  "path": "super::InstrumentKind",
+                  "id": 1334,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Temporality",
+              "id": 1043,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1334": "opentelemetry_sdk::metrics::instrument::InstrumentKind",
+      "1043": "opentelemetry_sdk::metrics::Temporality"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ManualReader",
+          "id": "opentelemetry_sdk::metrics::manual_reader::ManualReader",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MetricReader",
+        "id": "opentelemetry_sdk::metrics::reader::MetricReader",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::metrics::reader::MetricReader",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/manual_reader.rs",
+        "begin": [
+          73,
+          1
+        ],
+        "end": [
+          133,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1524",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.manual_reader.ManualReader.json",
+    "anchor": "op-748633a9f40b7b9b047e54b4",
+    "aliases": [
+      "opentelemetry_sdk::metrics::ManualReader::temporality"
+    ],
+    "resolved_doc_links": {}
+  }
+]

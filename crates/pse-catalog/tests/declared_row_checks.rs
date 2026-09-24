@@ -7,8 +7,10 @@
     reason = "independent native row-check assertions"
 )]
 
-#[path = "support/native_execution.rs"]
-mod native_execution;
+#[path = "../../../tests/support/catalog_context.rs"]
+mod catalog_context;
+use catalog_context::context;
+use pse_testkit::execution as native_execution;
 
 use datafusion::{
     arrow::{
@@ -16,7 +18,6 @@ use datafusion::{
         datatypes::{Int64Type, SchemaRef},
     },
     common::TableReference,
-    execution::{context::SessionContext, session_state::SessionStateBuilder},
     physical_plan::collect,
 };
 use deltalake::{
@@ -25,17 +26,12 @@ use deltalake::{
     kernel::{engine::arrow_conversion::TryIntoArrow, transaction::CommitProperties},
     protocol::SaveMode,
 };
-use pse_catalog::{
-    delta::{admission::violation_plans, contract::DeclaredCheck, write::DeltaWrite},
-    session::planner::UnifiedPlanner,
-};
+use pse_catalog::delta::{admission::violation_plans, contract::DeclaredCheck, write::DeltaWrite};
 use pse_ids::SemanticId;
 use pse_relations::generated::{enums::PublicationKind, runtime::publications};
 use pse_schema::{Registry, RegistryBuilder, model::*};
 use std::{collections::BTreeMap, sync::Arc};
 
-#[path = "support/source_syntax.rs"]
-mod source_syntax;
 
 fn registry() -> Arc<Registry> {
     let mut builder = RegistryBuilder::new();
@@ -66,14 +62,6 @@ fn registry() -> Arc<Registry> {
         ])),
     );
     Arc::new(builder.build().unwrap())
-}
-fn context() -> SessionContext {
-    SessionContext::new_with_state(
-        SessionStateBuilder::new()
-            .with_default_features()
-            .with_query_planner(Arc::new(UnifiedPlanner::default()))
-            .build(),
-    )
 }
 fn batch(schema: &SchemaRef, left: &[i64], right: &[i64], approved: Option<bool>) -> RecordBatch {
     let list = |index: usize, values: &[i64]| {
@@ -284,19 +272,3 @@ async fn assert_complete_constraint_set(
     );
 }
 
-#[test]
-fn implicit_system_cardinality_is_a_declared_native_check() {
-    let registry = pse_schema::registry().unwrap();
-    for name in [
-        "compiled.math_implicit_systems",
-        "inferred.math_implicit_systems",
-    ] {
-        let spec = registry.relation(name).unwrap();
-        let contract = DeclaredCheck::new(registry, spec.id).unwrap();
-        assert_eq!(
-            contract.properties()["delta.constraints.pse_declared_implicit_cardinality"],
-            "(array_length(unknown_symbol_ids) = array_length(equation_ids)) IS TRUE"
-        );
-        contract.bind(&context().state()).unwrap();
-    }
-}

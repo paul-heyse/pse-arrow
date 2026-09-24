@@ -1,0 +1,104 @@
+{
+  "id": "tracing.targets",
+  "title": "Match macro targets and levels",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "empty trace EnvFilter",
+    "default caller target",
+    "explicit target",
+    "INFO DEBUG missing spans"
+  ],
+  "crates": [
+    "datafusion-tracing",
+    "tracing",
+    "tracing-subscriber"
+  ],
+  "input": [
+    "macro invocation",
+    "filter"
+  ],
+  "output": [
+    "selected spans"
+  ],
+  "properties": [
+    "target",
+    "level",
+    "filter"
+  ],
+  "operations": [
+    "datafusion_tracing::instrument_with_info_spans",
+    "tracing_subscriber::filter::env::EnvFilter"
+  ],
+  "brief": "The default macro target comes from module_path!() at the call site; explicit target and macro level change filter selection.",
+  "choices": [
+    {
+      "candidate": "default target",
+      "choose_when": "Call-site module identity is useful",
+      "tradeoff": "A datafusion_tracing-only directive need not select it."
+    },
+    {
+      "candidate": "explicit target",
+      "choose_when": "A stable chosen target is useful",
+      "tradeoff": "Filter that exact target and an enabled level."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.targets.1",
+      "aspect": "Target",
+      "kind": "source_observation",
+      "statement": "Macro arms forward an explicit target or module_path!() to tracing span construction.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.targets.2",
+      "aspect": "Level",
+      "kind": "source_observation",
+      "statement": "INFO/DEBUG and other macro families choose their emission level. A layer can exclude spans at that level.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.targets.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "A matching explicit-target filter captures execution spans; a nonmatching filter captures none. The call-site target contracts is separately observed under its matching filter.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Inspect the actual invocation and installed filter scope.",
+    "Object-store spans use their own source target; test that branch separately."
+  ],
+  "unknowns": [
+    "A missing capture alone cannot distinguish filtering from work that did not run."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "explicit_target_and_filter_control"
+      ],
+      "scope": "A matching explicit-target filter captures execution spans; a nonmatching filter captures none. The call-site target contracts is separately observed under its matching filter."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ]
+}

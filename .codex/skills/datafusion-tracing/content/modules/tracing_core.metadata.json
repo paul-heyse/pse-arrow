@@ -1,0 +1,63 @@
+[
+  {
+    "id": "3ec54b87cbb71f6371c05108",
+    "path": "tracing_core::metadata",
+    "name": "metadata",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "module",
+    "signature": "mod metadata",
+    "docs": "Metadata describing trace data.",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        1122,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          13,
+          649,
+          641,
+          711,
+          824,
+          748
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "881",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_core.metadata.md",
+    "record_file": "modules/tracing_core.metadata.json",
+    "anchor": "op-3ec54b87cbb71f6371c05108",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -4,7 +4,8 @@
 //! The sole registry projection for canonical ordering and identity construction.
 
 use crate::RelationError;
-use pse_ids::{CanonicalContract, FieldPath, SchemaVersion};
+use pse_columnar::{CanonicalContract, FieldPath};
+use pse_ids::SchemaVersion;
 use pse_schema::{
     Registry,
     model::{FieldContract, RelationSpec},

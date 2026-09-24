@@ -28,7 +28,7 @@ Wave 1 P10 fixture.
 
 Amend blueprint §6.15.4–§6.15.6 with consumed template, contribution, law,
 connection and method realization contracts. Activate R-30 for instance equations,
-tear candidates and production P4–P10 ports. P11–P16 and final closure remain deferred.
+and production P4–P10 ports (tear candidates withdrawn by ADR-0075). P11–P16 and final closure remain deferred.
 
 ## Drivers
 
@@ -57,8 +57,8 @@ relation and a realized symbol-to-root correspondence; they are not fabricated
 equations. Actual quantity and dependency-cycle checks precede canonical acceptance.
 Instance-owned equations have an explicit source-owner alternative. Indexed
 connection equations keep their domain product at P8; concrete scalar provenance
-is created only with P12 expansion. Tear selection is a deterministic heuristic
-whose actual removals must make the graph acyclic, without an optimality claim.
+is created only with P12 expansion. Tear selection is not a compiler output: it is a
+run-time result of the Pyomo adapter's `select_tears` (ADR-0075).
 
 ### Consequences
 
@@ -203,3 +203,4 @@ ADR-0047, ADR-0054 and ADR-0062.
 ## Status history
 
 - 2026-09-14 — proposed before implementation; formal decision PR pending.
+- 2026-09-23 — tear-selection sentence and the R-30 tear-candidate activation replaced by ADR-0075, while still proposed.

@@ -1,0 +1,103 @@
+[
+  {
+    "id": "bb4f2cd9b7edb5db2a6d422c",
+    "path": "tracing_subscriber::fmt::format::json",
+    "name": "json",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn json() -> Format<Json>",
+    "docs": "Returns the default configuration for a JSON event formatter.",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        280,
+        1
+      ],
+      "end": [
+        282,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"json\"), span: src/fmt/format/mod.rs:278:7: 278:23 (#0) }])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"json\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "Format",
+              "id": 1648,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Json",
+                          "id": 1692,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1648": "tracing_subscriber::fmt::format::Format",
+      "1692": "tracing_subscriber::fmt::format::json::Json"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1999",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.json.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.json.json",
+    "anchor": "op-bb4f2cd9b7edb5db2a6d422c",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

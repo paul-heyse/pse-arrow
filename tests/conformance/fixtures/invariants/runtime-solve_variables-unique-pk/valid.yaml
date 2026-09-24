@@ -1,0 +1,28 @@
+{
+  "invariant": "runtime.solve_variables:unique:pk",
+  "rows": {
+    "runtime.solve_variables": [
+      {
+        "dual_qualification": "[\"text\",\"value-1\"]",
+        "fixed": "[\"bool\",true]",
+        "lower": "[\"f64\",\"3ff0000000000000\"]",
+        "lower_dual": "[\"f64\",\"3ff0000000000000\"]",
+        "lower_violation": "[\"f64\",\"3ff0000000000000\"]",
+        "parameter": "[\"bool\",true]",
+        "quantity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reduced_cost": "[\"f64\",\"3ff0000000000000\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "stationarity": "[\"f64\",\"3ff0000000000000\"]",
+        "step": "[\"i64\",1]",
+        "symbol_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "upper": "[\"f64\",\"3ff0000000000000\"]",
+        "upper_dual": "[\"f64\",\"3ff0000000000000\"]",
+        "upper_violation": "[\"f64\",\"3ff0000000000000\"]",
+        "value": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,122 @@
+{
+  "id": "tracing.preview",
+  "title": "Preview rows and choose formatting",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "preview a few rows",
+    "positive limit omitted formatter",
+    "default preview",
+    "multiple batches partitions preview",
+    "custom formatter error"
+  ],
+  "crates": [
+    "datafusion-tracing"
+  ],
+  "input": [
+    "preview_limit",
+    "optional formatter",
+    "batch streams"
+  ],
+  "output": [
+    "datafusion.preview string"
+  ],
+  "properties": [
+    "preview",
+    "completion",
+    "retention",
+    "errors"
+  ],
+  "operations": [
+    "datafusion_tracing::options::InstrumentationOptions::preview_fn",
+    "datafusion_tracing::options::InstrumentationOptionsBuilder::preview_limit",
+    "datafusion_tracing::preview_utils::pretty_format_compact_batch"
+  ],
+  "brief": "A positive preview limit enables the recorder. An omitted formatter selects the default pretty formatter; a custom callback changes presentation.",
+  "choices": [
+    {
+      "candidate": "limit zero",
+      "choose_when": "No row preview is needed",
+      "tradeoff": "Recorder disabled."
+    },
+    {
+      "candidate": "positive limit with None formatter",
+      "choose_when": "Default table rendering is sufficient",
+      "tradeoff": "No custom callback required."
+    },
+    {
+      "candidate": "custom formatter",
+      "choose_when": "A different rendering is needed",
+      "tradeoff": "Formatting can fail and adds work to completion."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.preview.1",
+      "aspect": "Accumulation",
+      "kind": "source_observation",
+      "statement": "Each partition stream retains slices up to its limit. On recorder drop, available partition previews are concatenated and the final batch is capped before formatting.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.preview.2",
+      "aspect": "Failure",
+      "kind": "source_observation",
+      "statement": "Formatter Err emits a warning; preview concatenation failure in the final recorder omits output. Concatenation in poll_next can return an error through the stream.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.preview.3",
+      "aspect": "Resource scope",
+      "kind": "source_observation",
+      "statement": "A displayed row cap is not a byte or peak-memory bound: partitions, concatenation, and shared sliced buffers matter.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.preview.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "Positive limit with no callback produces default formatted rows, limited to the requested display count; a callback changes formatting, zero disables preview, and a formatter error emits a warning without failing the query.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Set preview_limit; optionally supply Arc<dyn Fn(&RecordBatch) -> Result<String, ArrowError> + Send + Sync> through inference.",
+    "Relate recording to recorder/stream lifetime and inspect the declared preview field."
+  ],
+  "unknowns": [
+    "Preview is neither a complete result nor a random sample.",
+    "No measured allocation/overhead bound across arbitrary schemas or partition counts."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/source/datafusion-tracing/preview.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "preview_default_custom_disabled_and_error",
+        "partition_preview_cap_and_live_stream_lifetime"
+      ],
+      "scope": "Positive limit with no callback produces default formatted rows, limited to the requested display count; a callback changes formatting, zero disables preview, and a formatter error emits a warning without failing the query."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ]
+}

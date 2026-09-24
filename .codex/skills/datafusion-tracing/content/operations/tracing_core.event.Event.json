@@ -1,0 +1,2055 @@
+[
+  {
+    "id": "7ee85389e31294d1a098f039",
+    "path": "tracing_core::event::Event",
+    "name": "Event",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "struct",
+    "signature": "struct Event<'a>",
+    "docs": "`Event`s represent single points in time where something occurred during the\nexecution of a program.\n\nAn `Event` can be compared to a log record in unstructured logging, but with\ntwo key differences:\n- `Event`s exist _within the context of a [span]_. Unlike log lines, they\n  may be located within the trace tree, allowing visibility into the\n  _temporal_ context in which the event occurred, as well as the source\n  code location.\n- Like spans, `Event`s have structured key-value data known as _[fields]_,\n  which may include textual message. In general, a majority of the data\n  associated with an event should be in the event's fields rather than in\n  the textual message, as the fields are more structured.\n\n[span]: super::span\n[fields]: super::field",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        23,
+        1
+      ],
+      "end": [
+        27,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          280,
+          281,
+          282,
+          283,
+          284,
+          285,
+          286,
+          287,
+          288,
+          289,
+          290,
+          291,
+          292,
+          293,
+          294,
+          296
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "super::span": 228,
+      "super::field": 266
+    },
+    "link_paths": {
+      "super::span": "tracing_core::span",
+      "super::field": "tracing_core::field"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "138",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-7ee85389e31294d1a098f039",
+    "aliases": [
+      "tracing::Event",
+      "tracing::event::Event",
+      "tracing_core::Event"
+    ],
+    "resolved_doc_links": {
+      "super::span": "../modules/tracing_core.span.md#op-88b35a40e3f6d669d17c6260",
+      "super::field": "../modules/tracing_core.field.md#op-477f165c4ba5dcf863f23dd0"
+    }
+  },
+  {
+    "id": "6d486d1dfda509afc97538e6",
+    "path": "tracing_core::event::Event::child_of",
+    "name": "child_of",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn child_of(parent: impl Into<Option<Id>>, metadata: &'static Metadata<'static>, fields: &'a field::ValueSet<'_>)",
+    "docs": "Constructs a new `Event` with the specified metadata and set of values,\nand observes it with the current subscriber and an explicit parent.",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        71,
+        5
+      ],
+      "end": [
+        80,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "parent",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 50,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Option",
+                                    "id": 155,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "type": {
+                                              "resolved_path": {
+                                                "path": "Id",
+                                                "id": 128,
+                                                "args": null
+                                              }
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 13,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "fields",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "field::ValueSet",
+                      "id": 268,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Option<Id>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 50,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Option",
+                                      "id": 155,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "type": {
+                                                "resolved_path": {
+                                                  "path": "Id",
+                                                  "id": 128,
+                                                  "args": null
+                                                }
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "50": "core::convert::Into",
+      "155": "core::option::Option",
+      "128": "tracing_core::span::Id",
+      "13": "tracing_core::metadata::Metadata",
+      "268": "tracing_core::field::ValueSet"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "271",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-6d486d1dfda509afc97538e6",
+    "aliases": [
+      "tracing::Event::child_of",
+      "tracing::event::Event::child_of",
+      "tracing_core::Event::child_of"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5854759cd1f3049abd3f422d",
+    "path": "tracing_core::event::Event::dispatch",
+    "name": "dispatch",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn dispatch(metadata: &'static Metadata<'static>, fields: &'a field::ValueSet<'_>)",
+    "docs": "Constructs a new `Event` with the specified metadata and set of values,\nand observes it with the current subscriber.",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        32,
+        5
+      ],
+      "end": [
+        37,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 13,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "fields",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "field::ValueSet",
+                      "id": 268,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "13": "tracing_core::metadata::Metadata",
+      "268": "tracing_core::field::ValueSet"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "267",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-5854759cd1f3049abd3f422d",
+    "aliases": [
+      "tracing::Event::dispatch",
+      "tracing::event::Event::dispatch",
+      "tracing_core::Event::dispatch"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "35646a228129603a89dfe595",
+    "path": "tracing_core::event::Event::fields",
+    "name": "fields",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fields(&self) -> field::Iter",
+    "docs": "Returns an iterator over the set of values on this `Event`.",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        91,
+        5
+      ],
+      "end": [
+        93,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "field::Iter",
+              "id": 275,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "275": "tracing_core::field::Iter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "274",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-35646a228129603a89dfe595",
+    "aliases": [
+      "tracing::Event::fields",
+      "tracing::event::Event::fields",
+      "tracing_core::Event::fields"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "319b55080af047558b3c0e5b",
+    "path": "tracing_core::event::Event::fmt",
+    "name": "fmt",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        22,
+        10
+      ],
+      "end": [
+        22,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 79,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 80,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "79": "core::fmt::Formatter",
+      "80": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          22,
+          10
+        ],
+        "end": [
+          22,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "295",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-319b55080af047558b3c0e5b",
+    "aliases": [
+      "tracing::Event::fmt",
+      "tracing::event::Event::fmt",
+      "tracing_core::Event::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "382440546744f7d6837287b0",
+    "path": "tracing_core::event::Event::is_contextual",
+    "name": "is_contextual",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is_contextual(&self) -> bool",
+    "docs": "Returns true if the new event's parent should be determined based on the\ncurrent context.\n\nIf this is true and the current thread is currently inside a span, then\nthat span should be the new event's parent. Otherwise, if the current\nthread is _not_ inside a span, then the new event will be the root of its\nown trace tree.",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        114,
+        5
+      ],
+      "end": [
+        116,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "278",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-382440546744f7d6837287b0",
+    "aliases": [
+      "tracing::Event::is_contextual",
+      "tracing::event::Event::is_contextual",
+      "tracing_core::Event::is_contextual"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a33b9348d28a3cef563bb35b",
+    "path": "tracing_core::event::Event::is_root",
+    "name": "is_root",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is_root(&self) -> bool",
+    "docs": "Returns true if the new event should be a root.",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        103,
+        5
+      ],
+      "end": [
+        105,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "277",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-a33b9348d28a3cef563bb35b",
+    "aliases": [
+      "tracing::Event::is_root",
+      "tracing::event::Event::is_root",
+      "tracing_core::Event::is_root"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "37942f1084ef33b05f3a321b",
+    "path": "tracing_core::event::Event::metadata",
+    "name": "metadata",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn metadata(&self) -> &'static Metadata<'static>",
+    "docs": "Returns [metadata] describing this `Event`.\n\n[metadata]: super::Metadata",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        98,
+        5
+      ],
+      "end": [
+        100,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": "'static",
+              "is_mutable": false,
+              "type": {
+                "resolved_path": {
+                  "path": "Metadata",
+                  "id": 13,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'static"
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "13": "tracing_core::metadata::Metadata"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::Metadata": 13
+    },
+    "link_paths": {
+      "super::Metadata": "tracing_core::metadata::Metadata"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "276",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-37942f1084ef33b05f3a321b",
+    "aliases": [
+      "tracing::Event::metadata",
+      "tracing::event::Event::metadata",
+      "tracing_core::Event::metadata"
+    ],
+    "resolved_doc_links": {
+      "super::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c"
+    }
+  },
+  {
+    "id": "376336ce82e043f4eb339ba8",
+    "path": "tracing_core::event::Event::new",
+    "name": "new",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn new(metadata: &'static Metadata<'static>, fields: &'a field::ValueSet<'a>) -> Self",
+    "docs": "Returns a new `Event` in the current span, with the specified metadata\nand set of values.",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        42,
+        5
+      ],
+      "end": [
+        48,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 13,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "fields",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "field::ValueSet",
+                      "id": 268,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'a"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "13": "tracing_core::metadata::Metadata",
+      "268": "tracing_core::field::ValueSet"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "269",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-376336ce82e043f4eb339ba8",
+    "aliases": [
+      "tracing::Event::new",
+      "tracing::event::Event::new",
+      "tracing_core::Event::new"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9b97015673515379cb3a39b8",
+    "path": "tracing_core::event::Event::new_child_of",
+    "name": "new_child_of",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn new_child_of(parent: impl Into<Option<Id>>, metadata: &'static Metadata<'static>, fields: &'a field::ValueSet<'a>) -> Self",
+    "docs": "Returns a new `Event` as a child of the specified span, with the\nprovided metadata and set of values.",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        53,
+        5
+      ],
+      "end": [
+        67,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "parent",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 50,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Option",
+                                    "id": 155,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "type": {
+                                              "resolved_path": {
+                                                "path": "Id",
+                                                "id": 128,
+                                                "args": null
+                                              }
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 13,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "fields",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "field::ValueSet",
+                      "id": 268,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'a"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Option<Id>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 50,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Option",
+                                      "id": 155,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "type": {
+                                                "resolved_path": {
+                                                  "path": "Id",
+                                                  "id": 128,
+                                                  "args": null
+                                                }
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "50": "core::convert::Into",
+      "155": "core::option::Option",
+      "128": "tracing_core::span::Id",
+      "13": "tracing_core::metadata::Metadata",
+      "268": "tracing_core::field::ValueSet"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "270",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-9b97015673515379cb3a39b8",
+    "aliases": [
+      "tracing::Event::new_child_of",
+      "tracing::event::Event::new_child_of",
+      "tracing_core::Event::new_child_of"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ecedf8104c897ba8f36d53ac",
+    "path": "tracing_core::event::Event::parent",
+    "name": "parent",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn parent(&self) -> Option<&Id>",
+    "docs": "Returns the new event's explicitly-specified parent, if there is one.\n\nOtherwise (if the new event is a root or is a child of the current span),\nreturns `None`.",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        122,
+        5
+      ],
+      "end": [
+        127,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 155,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": null,
+                          "is_mutable": false,
+                          "type": {
+                            "resolved_path": {
+                              "path": "Id",
+                              "id": 128,
+                              "args": null
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "155": "core::option::Option",
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "279",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-ecedf8104c897ba8f36d53ac",
+    "aliases": [
+      "tracing::Event::parent",
+      "tracing::event::Event::parent",
+      "tracing_core::Event::parent"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9ae6965577fc1a5e4175cfa1",
+    "path": "tracing_core::event::Event::record",
+    "name": "record",
+    "owner": "tracing_core::event::Event",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn record(&self, visitor: &mut dyn field::Visit)",
+    "docs": "Visits all the fields on this `Event` with the specified [visitor].\n\n[visitor]: super::field::Visit",
+    "span": {
+      "filename": "src/event.rs",
+      "begin": [
+        86,
+        5
+      ],
+      "end": [
+        88,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "visitor",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "field::Visit",
+                            "id": 272,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "272": "tracing_core::field::Visit"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Event",
+          "id": "tracing_core::event::Event",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/event.rs",
+        "begin": [
+          29,
+          1
+        ],
+        "end": [
+          128,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::field::Visit": 272
+    },
+    "link_paths": {
+      "super::field::Visit": "tracing_core::field::Visit"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "273",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.event.Event.md",
+    "record_file": "operations/tracing_core.event.Event.json",
+    "anchor": "op-9ae6965577fc1a5e4175cfa1",
+    "aliases": [
+      "tracing::Event::record",
+      "tracing::event::Event::record",
+      "tracing_core::Event::record"
+    ],
+    "resolved_doc_links": {
+      "super::field::Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b"
+    }
+  }
+]

@@ -1,0 +1,154 @@
+[
+  {
+    "id": "790aee9983a988cb21acbadc",
+    "path": "datafusion_tracing::preview::PreviewFn",
+    "name": "PreviewFn",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "type_alias",
+    "signature": "type PreviewFn = dyn Fn(&datafusion::arrow::record_batch::RecordBatch) -> Result<String, datafusion::arrow::error::ArrowError> + Send + Sync",
+    "docs": "",
+    "span": {
+      "filename": "src/preview.rs",
+      "begin": [
+        36,
+        1
+      ],
+      "end": [
+        36,
+        87
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "type_alias": {
+        "type": {
+          "dyn_trait": {
+            "traits": [
+              {
+                "trait": {
+                  "path": "Fn",
+                  "id": 3,
+                  "args": {
+                    "parenthesized": {
+                      "inputs": [
+                        {
+                          "borrowed_ref": {
+                            "lifetime": null,
+                            "is_mutable": false,
+                            "type": {
+                              "resolved_path": {
+                                "path": "datafusion::arrow::record_batch::RecordBatch",
+                                "id": 119,
+                                "args": null
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "output": {
+                        "resolved_path": {
+                          "path": "Result",
+                          "id": 41,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "String",
+                                      "id": 120,
+                                      "args": null
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "datafusion::arrow::error::ArrowError",
+                                      "id": 121,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "generic_params": []
+              },
+              {
+                "trait": {
+                  "path": "Send",
+                  "id": 5,
+                  "args": null
+                },
+                "generic_params": []
+              },
+              {
+                "trait": {
+                  "path": "Sync",
+                  "id": 6,
+                  "args": null
+                },
+                "generic_params": []
+              }
+            ],
+            "lifetime": null
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        }
+      }
+    },
+    "type_references": {
+      "3": "core::ops::function::Fn",
+      "119": "arrow_array::record_batch::RecordBatch",
+      "41": "core::result::Result",
+      "120": "alloc::string::String",
+      "121": "arrow_schema::error::ArrowError",
+      "5": "core::marker::Send",
+      "6": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1015",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.preview.PreviewFn.md",
+    "record_file": "operations/datafusion_tracing.preview.PreviewFn.json",
+    "anchor": "op-790aee9983a988cb21acbadc",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -1,0 +1,496 @@
+[
+  {
+    "id": "f433cc26744e85b74bee1072",
+    "path": "opentelemetry::logs::logger::Logger",
+    "name": "Logger",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait Logger",
+    "docs": "The interface for emitting [`LogRecord`]s.",
+    "span": {
+      "filename": "src/logs/logger.rs",
+      "begin": [
+        9,
+        1
+      ],
+      "end": [
+        25,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          1988,
+          1990,
+          1992,
+          1993
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`LogRecord`": 1989
+    },
+    "link_paths": {
+      "`LogRecord`": "opentelemetry::logs::record::LogRecord"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1991",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.logger.Logger.md",
+    "record_file": "operations/opentelemetry.logs.logger.Logger.json",
+    "anchor": "op-f433cc26744e85b74bee1072",
+    "aliases": [
+      "opentelemetry::logs::Logger"
+    ],
+    "resolved_doc_links": {
+      "`LogRecord`": "../operations/opentelemetry.logs.record.LogRecord.md#op-ed315ba3d46385b5b2839847"
+    }
+  },
+  {
+    "id": "b07d3d1dcfd2552a12896a2e",
+    "path": "opentelemetry::logs::logger::Logger::LogRecord",
+    "name": "LogRecord",
+    "owner": "opentelemetry::logs::logger::Logger",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "LogRecord",
+    "docs": "Specifies the `LogRecord` type associated with this logger.",
+    "span": {
+      "filename": "src/logs/logger.rs",
+      "begin": [
+        11,
+        5
+      ],
+      "end": [
+        11,
+        31
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "LogRecord",
+                "id": 1989,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "type": null
+      }
+    },
+    "type_references": {
+      "1989": "opentelemetry::logs::record::LogRecord"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1988",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.logger.Logger.md",
+    "record_file": "operations/opentelemetry.logs.logger.Logger.json",
+    "anchor": "op-b07d3d1dcfd2552a12896a2e",
+    "aliases": [
+      "opentelemetry::logs::Logger::LogRecord"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5e394ad90231ac88b07cb3b6",
+    "path": "opentelemetry::logs::logger::Logger::create_log_record",
+    "name": "create_log_record",
+    "owner": "opentelemetry::logs::logger::Logger",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn create_log_record(&self) -> Self::LogRecord",
+    "docs": "Creates a new log record builder.",
+    "span": {
+      "filename": "src/logs/logger.rs",
+      "begin": [
+        14,
+        5
+      ],
+      "end": [
+        14,
+        52
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "LogRecord",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1991,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "1991": "opentelemetry::logs::logger::Logger"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1990",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.logger.Logger.md",
+    "record_file": "operations/opentelemetry.logs.logger.Logger.json",
+    "anchor": "op-5e394ad90231ac88b07cb3b6",
+    "aliases": [
+      "opentelemetry::logs::Logger::create_log_record"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9097ebee40c4f48e7306dc29",
+    "path": "opentelemetry::logs::logger::Logger::emit",
+    "name": "emit",
+    "owner": "opentelemetry::logs::logger::Logger",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn emit(&self, record: Self::LogRecord)",
+    "docs": "Emit a [`LogRecord`]. If there is active current thread's [`Context`],\n the logger will set the record's `TraceContext` to the active trace context,\n\n[`Context`]: crate::Context",
+    "span": {
+      "filename": "src/logs/logger.rs",
+      "begin": [
+        20,
+        5
+      ],
+      "end": [
+        20,
+        45
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "record",
+              {
+                "qualified_path": {
+                  "name": "LogRecord",
+                  "args": null,
+                  "self_type": {
+                    "generic": "Self"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": 1991,
+                    "args": null
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "1991": "opentelemetry::logs::logger::Logger"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::Context": 121,
+      "`LogRecord`": 1989
+    },
+    "link_paths": {
+      "crate::Context": "opentelemetry::context::Context",
+      "`LogRecord`": "opentelemetry::logs::record::LogRecord"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1992",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.logger.Logger.md",
+    "record_file": "operations/opentelemetry.logs.logger.Logger.json",
+    "anchor": "op-9097ebee40c4f48e7306dc29",
+    "aliases": [
+      "opentelemetry::logs::Logger::emit"
+    ],
+    "resolved_doc_links": {
+      "crate::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1",
+      "`LogRecord`": "../operations/opentelemetry.logs.record.LogRecord.md#op-ed315ba3d46385b5b2839847"
+    }
+  },
+  {
+    "id": "da3472c3a2bb9f8347883625",
+    "path": "opentelemetry::logs::logger::Logger::event_enabled",
+    "name": "event_enabled",
+    "owner": "opentelemetry::logs::logger::Logger",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn event_enabled(&self, level: Severity, target: &str, name: Option<&str>) -> bool",
+    "docs": "Check if the given log level is enabled.",
+    "span": {
+      "filename": "src/logs/logger.rs",
+      "begin": [
+        24,
+        5
+      ],
+      "end": [
+        24,
+        88
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"spec_unstable_logs_enabled\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "level",
+              {
+                "resolved_path": {
+                  "path": "Severity",
+                  "id": 1994,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "target",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "resolved_path": {
+                  "path": "Option",
+                  "id": 192,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": false,
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "1994": "opentelemetry::logs::record::Severity",
+      "192": "core::option::Option"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1993",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.logger.Logger.md",
+    "record_file": "operations/opentelemetry.logs.logger.Logger.json",
+    "anchor": "op-da3472c3a2bb9f8347883625",
+    "aliases": [
+      "opentelemetry::logs::Logger::event_enabled"
+    ],
+    "resolved_doc_links": {}
+  }
+]

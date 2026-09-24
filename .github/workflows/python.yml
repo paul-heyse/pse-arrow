@@ -108,7 +108,7 @@ jobs:
         # uv installs the project editably; pyproject.toml selects the dev profile.
         # Distribution/release compilation belongs to the manual wheels workflow.
         run: |
-          uv sync --locked --extra pyomo --group test --no-default-groups \
+          uv sync --locked --group test --no-default-groups \
             --reinstall-package pse-arrow \
             --python "${{ matrix.python-version }}"
       - name: verify the development build profile
@@ -164,7 +164,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: sync the editable development build and parity environment
         run: |
-          uv sync --locked --extra pyomo --group parity --python 3.13 \
+          uv sync --locked --group parity --python 3.13 \
             --reinstall-package pse-arrow
       - name: verify the development build profile
         run: uv run --no-sync python -c 'import pse; assert pse.build_info().profile == "debug", pse.build_info()'

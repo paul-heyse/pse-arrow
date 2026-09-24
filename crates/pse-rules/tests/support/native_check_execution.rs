@@ -7,14 +7,13 @@
     reason = "independent native-check fixtures and expected results"
 )]
 
-use super::{budget, session};
+use super::session;
 use datafusion::arrow::{
-    array::{BooleanArray, Int64Array, RecordBatch},
+    array::{Array, BooleanArray, Int64Array, RecordBatch},
     datatypes::DataType,
 };
-use datafusion::execution::runtime_env::RuntimeEnv;
-use pse_catalog::session::{ExecutionSettings, SessionFactory, native_engine_profile};
-use pse_ids::{CancellationToken, FixedBudget, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_ids::SemanticId;
 use pse_rules::invariants::{InvariantScope, RegistryRequirementPlanner, run_invariants};
 use pse_schema::{
     Registry, RegistryBuilder,
@@ -49,7 +48,9 @@ fn registry() -> Arc<Registry> {
         ])
         .checks(BTreeMap::from([("approved".into(), "approved".into())])),
     );
-    Arc::new(builder.build().unwrap())
+    let registry = Arc::new(builder.build().unwrap());
+    pse_engine::validation::bind_defaults(&registry).unwrap();
+    registry
 }
 fn rows(registry: &Registry, values: Vec<Option<bool>>) -> BTreeMap<RelationKey, RecordBatch> {
     let spec = registry.relation("authored.native_checked").unwrap();
@@ -82,9 +83,44 @@ async fn native_predicates_report_exact_false_and_unknown_keys_without_a_rule_de
             .any(|declaration| declaration.id == check)
     );
     let input = rows(&registry, vec![Some(true), Some(false), None]);
+    let report = pse_relations::validate::ValidationContext::for_registry(&registry)
+        .unwrap()
+        .relation(&registry, spec)
+        .unwrap()
+        .evaluate(&input[&spec.key], 10, &CancellationToken::new())
+        .unwrap();
+    assert_eq!(report.violations, 2);
+    assert_eq!(
+        report.valid_rows.values().iter().collect::<Vec<_>>(),
+        [true, false, false]
+    );
+    let findings = &report.findings;
+    let keys = findings
+        .column_by_name("key_literals")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<datafusion::arrow::array::StringArray>()
+        .unwrap();
+    let rules = findings
+        .column_by_name("rule")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<datafusion::arrow::array::StringArray>()
+        .unwrap();
+    for (row, invalid) in [1, 2].into_iter().enumerate() {
+        assert_eq!(rules.value(row), "check:approved");
+        let observed: BTreeMap<String, String> = serde_json::from_str(keys.value(row)).unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&observed["id"]).unwrap(),
+            serde_json::json!(["i64", invalid])
+        );
+    }
+    // Provider execution sees admitted inputs; the same declared check still runs
+    // when explicitly required, even for a query with no scan.
+    let input = rows(&registry, vec![Some(true)]);
     let bound = session(&registry, &input);
     let selected = BTreeSet::from([check]);
-    let report = run_invariants(
+    let checked = run_invariants(
         &input,
         &bound,
         &registry,
@@ -93,43 +129,8 @@ async fn native_predicates_report_exact_false_and_unknown_keys_without_a_rule_de
     )
     .await
     .unwrap();
-    assert_eq!(report.check_count(), 1);
-    assert_eq!(report.error_count(), 2);
-    let mut keys = BTreeSet::new();
-    for batch in report.findings() {
-        let view =
-            pse_relations::generated::runtime::diagnostics_findings::View::from_checked(batch)
-                .unwrap();
-        for ordinal in 0..batch.batch().num_rows() {
-            let finding = view.row(ordinal).unwrap();
-            assert_eq!(finding.check_id, check);
-            assert_eq!(finding.evidence.row.as_ref().unwrap().relation_id, spec.id);
-            keys.insert(finding.evidence.row.unwrap().row_key);
-        }
-    }
-    let field = spec.column("id").unwrap();
-    for invalid in [1, 2] {
-        assert!(
-            keys.contains(
-                &super::row_key::values(
-                    &registry,
-                    spec.id,
-                    &[field],
-                    &[pse_schema::model::Cell::I64(invalid)]
-                )
-                .await
-            )
-        );
-    }
-    let plan = report
-        .completion()
-        .unwrap()
-        .prepared()
-        .optimized_plan()
-        .display_indent()
-        .to_string();
-    assert!(plan.contains("IS NOT TRUE"));
-    assert!(!plan.contains("RulePlan"));
+    assert_eq!(checked.check_count(), 1);
+    assert_eq!(checked.error_count(), 0);
     let affected = run_invariants(
         &input,
         &bound,
@@ -150,15 +151,10 @@ async fn native_check_provider_policy_applies_to_no_scan_execution_and_refuses_a
         .unwrap()
         .row_check_id("approved")
         .unwrap();
-    let factory = SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
-        ExecutionSettings::default(),
-        budget(),
-        native_engine_profile(),
-    )
-    .unwrap()
-    .with_requirement_planner(Arc::new(RegistryRequirementPlanner));
+    let factory = pse_testkit::NativeFixture::new(std::num::NonZeroUsize::new(64 << 20).unwrap())
+        .unwrap()
+        .into_factory()
+        .with_requirement_planner(Arc::new(RegistryRequirementPlanner));
     for (values, valid) in [
         (vec![], true),
         (vec![Some(true)], true),
@@ -168,13 +164,17 @@ async fn native_check_provider_policy_applies_to_no_scan_execution_and_refuses_a
         let cancel = CancellationToken::new();
         let mut policy = ProviderPolicy::new(SemanticId::from_bytes([8; 16]), ProviderScope::Root);
         policy.requirements.insert(required);
-        let bound = factory
-            .candidate(rows(&registry, values), Arc::clone(&registry), &cancel)
-            .unwrap()
-            .with_policy(policy)
-            .unwrap();
+        let candidate = factory.candidate(rows(&registry, values), Arc::clone(&registry), &cancel);
+        if !valid {
+            assert!(
+                candidate.is_err(),
+                "invalid rows must refuse before provider binding"
+            );
+            continue;
+        }
+        let bound = candidate.unwrap().with_policy(policy).unwrap();
         let prepared = bound.prepare_sql("SELECT 42", &cancel).await.unwrap();
-        assert_eq!(prepared.execute(&cancel).await.is_ok(), valid);
+        assert!(prepared.execute(&cancel).await.is_ok());
     }
     let mut policy = ProviderPolicy::new(SemanticId::from_bytes([8; 16]), ProviderScope::Root);
     policy.requirements.insert(required);
@@ -195,35 +195,51 @@ async fn native_check_provider_policy_applies_to_no_scan_execution_and_refuses_a
     );
 }
 
-pub(super) fn violations(
-    session: &pse_catalog::session::SnapshotSession,
+pub(super) fn invalid_keys(
+    registry: &Registry,
     spec: &pse_schema::model::RelationSpec,
-    name: &str,
-) -> datafusion::logical_expr::LogicalPlan {
-    use datafusion::logical_expr::{LogicalPlanBuilder, col};
-    let predicate = session
-        .row_check_expressions(spec.key)
+    rows: &[Vec<serde_json::Value>],
+    check: &str,
+    key: &str,
+) -> Vec<Vec<u8>> {
+    let input =
+        pse_relations::testing::untrusted_batch_from_literals(registry, spec, rows).unwrap();
+    pse_engine::validation::bind_defaults(registry).unwrap();
+    let report = pse_relations::validate::ValidationContext::for_registry(registry)
         .unwrap()
-        .remove(name)
+        .relation(registry, spec)
+        .unwrap()
+        .evaluate(&input, rows.len(), &CancellationToken::new())
         .unwrap();
-    LogicalPlanBuilder::scan(
-        session.table_reference(&spec.key).unwrap(),
-        session.table_source(&spec.key).unwrap(),
-        None,
-    )
-    .unwrap()
-    .filter(predicate.is_not_true())
-    .unwrap()
-    .project(spec.primary_key.iter().map(|name| col(*name).alias(*name)))
-    .unwrap()
-    .build()
-    .unwrap()
+    assert!(!report.truncated);
+    let rules = report
+        .findings
+        .column_by_name("rule")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<datafusion::arrow::array::StringArray>()
+        .unwrap();
+    assert!((0..rules.len()).all(|row| rules.value(row) == format!("check:{check}")));
+    let keys = input
+        .column_by_name(key)
+        .unwrap()
+        .as_any()
+        .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+        .unwrap();
+    report
+        .valid_rows
+        .values()
+        .iter()
+        .enumerate()
+        .filter(|(_, valid)| !valid)
+        .map(|(row, _)| keys.value(row).to_vec())
+        .collect()
 }
 
 async fn assert_predicate(
     relation: &str,
     name: &str,
-    columns: Vec<(&str, Arc<dyn datafusion::arrow::array::Array>)>,
+    columns: Vec<(&str, Arc<dyn Array>)>,
     expected: &[bool],
 ) {
     use datafusion::{
@@ -231,7 +247,7 @@ async fn assert_predicate(
         common::DFSchema,
         execution::context::SessionContext,
     };
-    let registry = pse_schema::registry().unwrap();
+    let registry = pse_engine::validation::registry().unwrap();
     let sql = &registry.relation(relation).unwrap().checks[name];
     let schema = Arc::new(Schema::new(
         columns
@@ -273,167 +289,6 @@ async fn assert_predicate(
 }
 
 #[tokio::test]
-async fn normalized_domain_checks_require_nonempty_template_names() {
-    use pse_relations::{
-        generated::normalized::{expression_index_bindings as i, predicate_nodes as p},
-        typed::CellCodec,
-    };
-    let registry = pse_schema::registry().unwrap();
-    let actual = p::NormalizedPredicateNodesFieldValueInDomain::from_actual(
-        p::NormalizedPredicateNodesFieldValueInDomainActual {
-            domain_id: SemanticId::NIL,
-        },
-    );
-    let template = |name: &str| {
-        p::NormalizedPredicateNodesFieldValueInDomain::from_template(
-            p::NormalizedPredicateNodesFieldValueInDomainTemplate {
-                template_id: SemanticId::NIL,
-                name: name.into(),
-            },
-        )
-    };
-    let domains = [actual, template("species"), template("")];
-    let schema = i::schema().unwrap();
-    let domain_array = pse_relations::cells::array_from_cells(
-        registry,
-        schema.field_with_name("domain").unwrap(),
-        &domains
-            .iter()
-            .cloned()
-            .map(CellCodec::into_cell)
-            .collect::<Vec<_>>(),
-    )
-    .unwrap();
-    assert_predicate(
-        "normalized.expression_index_bindings",
-        "domain_name",
-        vec![("domain", domain_array)],
-        &[true, true, false],
-    )
-    .await;
-    let mut values = domains
-        .into_iter()
-        .map(|domain| {
-            p::NormalizedPredicateNodesFieldValue::from_in(
-                p::NormalizedPredicateNodesFieldValueIn {
-                    expression: 0,
-                    domain,
-                },
-            )
-            .into_cell()
-        })
-        .collect::<Vec<_>>();
-    values.push(p::NormalizedPredicateNodesFieldValue::from_null().into_cell());
-    let schema = p::schema().unwrap();
-    let array = pse_relations::cells::array_from_cells(
-        registry,
-        schema.field_with_name("value").unwrap(),
-        &values,
-    )
-    .unwrap();
-    assert_predicate(
-        "normalized.predicate_nodes",
-        "domain_name",
-        vec![("value", array)],
-        &[true, true, false, true],
-    )
-    .await;
-}
-
-#[tokio::test]
-async fn native_participation_predicates_refuse_incomplete_alternatives() {
-    use datafusion::arrow::{
-        array::{BinaryArray, StringArray, StructArray, new_null_array},
-        buffer::NullBuffer,
-    };
-    use datafusion::common::DFSchema;
-    use datafusion::prelude::SessionContext;
-    let registry = pse_schema::registry().unwrap();
-    let spec = registry.relation("compiled.law_participation").unwrap();
-    let contract = pse_catalog::delta::contract::DeclaredCheck::new(registry, spec.id).unwrap();
-    let schema = contract.layout().storage_schema().clone();
-    let DataType::Struct(decision_fields) = schema.field_with_name("decision").unwrap().data_type()
-    else {
-        panic!("typed decision")
-    };
-    let DataType::Struct(included_fields) = decision_fields[1].data_type() else {
-        panic!("included arm")
-    };
-    let DataType::Struct(excluded_fields) = decision_fields[2].data_type() else {
-        panic!("excluded arm")
-    };
-    let included = Arc::new(StructArray::new(
-        included_fields.clone(),
-        vec![
-            Arc::new(StringArray::from(vec![
-                "negative", "positive", "invalid", "positive", "positive", "positive",
-            ])),
-            new_null_array(included_fields[1].data_type(), 6),
-        ],
-        Some(NullBuffer::from(vec![true, true, true, false, false, true])),
-    ));
-    let excluded = Arc::new(StructArray::new(
-        excluded_fields.clone(),
-        vec![Arc::new(StringArray::from(vec![
-            "family_mismatch",
-            "family_mismatch",
-            "family_mismatch",
-            "family_mismatch",
-            "invalid",
-            "family_mismatch",
-        ]))],
-        Some(NullBuffer::from(vec![
-            false, false, false, true, true, true,
-        ])),
-    ));
-    let decision = Arc::new(StructArray::new(
-        decision_fields.clone(),
-        vec![
-            Arc::new(StringArray::from(vec![
-                "included", "included", "included", "excluded", "excluded", "excluded",
-            ])),
-            included,
-            excluded,
-        ],
-        None,
-    ));
-    let id: Arc<dyn datafusion::arrow::array::Array> =
-        Arc::new(BinaryArray::from_vec(vec![&[0_u8; 16]; 6]));
-    let batch =
-        RecordBatch::try_new(schema.clone(), vec![id.clone(), id.clone(), decision, id]).unwrap();
-    let state = contract.bind(&SessionContext::new().state()).unwrap();
-    let context = SessionContext::new_with_state(state);
-    let predicate = context
-        .state()
-        .create_logical_expr(
-            &contract.properties()["delta.constraints.pse_contract"],
-            &DFSchema::try_from(schema.as_ref().clone()).unwrap(),
-        )
-        .unwrap();
-    let result = context
-        .read_batch(batch)
-        .unwrap()
-        .select(vec![predicate.is_true()])
-        .unwrap()
-        .collect()
-        .await
-        .unwrap();
-    let actual = result
-        .iter()
-        .flat_map(|batch| {
-            batch
-                .column(0)
-                .as_any()
-                .downcast_ref::<BooleanArray>()
-                .unwrap()
-                .values()
-                .iter()
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(actual, [true, true, false, true, false, false]);
-}
-
-#[tokio::test]
 async fn native_physical_predicates_keep_positive_optional_and_ordered_bound_rules() {
     use datafusion::arrow::array::Float64Array;
     for (relation, name, column, expected) in [
@@ -448,12 +303,6 @@ async fn native_physical_predicates_keep_positive_optional_and_ordered_bound_rul
             "positive_nominal",
             "nominal_magnitude",
             [true, false, false, true],
-        ),
-        (
-            "inferred.tear_candidates",
-            "nonnegative_cost",
-            "cost",
-            [true, true, false, false],
         ),
     ] {
         assert_predicate(

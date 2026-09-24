@@ -1,0 +1,1514 @@
+[
+  {
+    "id": "d5dafcecbea21ff9be6e083a",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+    "name": "JaegerRemoteSamplerBuilder",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct JaegerRemoteSamplerBuilder<C, S, R> where R: RuntimeChannel, C: HttpClient + 'static, S: ShouldSample + 'static",
+    "docs": "Builder for [`JaegerRemoteSampler`].\nSee [Sampler::jaeger_remote] for details.",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        33,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "C",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "R",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "R"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "RuntimeChannel",
+                        "id": 242,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "C"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "HttpClient",
+                        "id": 2672,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "ShouldSample",
+                        "id": 2311,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "impls": [
+          2678,
+          2679,
+          2680,
+          2681,
+          2682,
+          2683,
+          2684,
+          2685,
+          2686,
+          2687,
+          2688,
+          2689,
+          2690,
+          2691,
+          2692,
+          2693,
+          2694,
+          2695,
+          2696,
+          2697,
+          2699
+        ]
+      }
+    },
+    "type_references": {
+      "242": "opentelemetry_sdk::runtime::RuntimeChannel",
+      "2672": "opentelemetry_http::HttpClient",
+      "2311": "opentelemetry_sdk::trace::sampler::ShouldSample"
+    },
+    "impl_context": null,
+    "links": {
+      "Sampler::jaeger_remote": 2670,
+      "`JaegerRemoteSampler`": 2669
+    },
+    "link_paths": {
+      "Sampler::jaeger_remote": null,
+      "`JaegerRemoteSampler`": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2671",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.json",
+    "anchor": "op-d5dafcecbea21ff9be6e083a",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSamplerBuilder"
+    ],
+    "resolved_doc_links": {
+      "Sampler::jaeger_remote": "../operations/opentelemetry_sdk.trace.sampler.Sampler.md#op-d65429cc175ff395f3d1ab43",
+      "`JaegerRemoteSampler`": "../operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.md#op-d91f91c2c3c8c806b9db2a4c"
+    }
+  },
+  {
+    "id": "2af6da87f6a3725dcc617889",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Result<Sampler, TraceError>",
+    "docs": "Build a [JaegerRemoteSampler] using provided configuration.\n\nReturn errors if:\n\n- the endpoint provided is empty.\n- the service name provided is empty.",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        103,
+        5
+      ],
+      "end": [
+        115,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 43,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Sampler",
+                          "id": 2677,
+                          "args": null
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "TraceError",
+                          "id": 2343,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "43": "core::result::Result",
+      "2677": "opentelemetry_sdk::trace::sampler::Sampler",
+      "2343": "opentelemetry_sdk::trace::error::TraceError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "JaegerRemoteSamplerBuilder",
+          "id": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "C"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "C",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "C"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "HttpClient",
+                      "id": "opentelemetry_http::HttpClient",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "ShouldSample",
+                      "id": "opentelemetry_sdk::trace::sampler::ShouldSample",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "RuntimeChannel",
+                      "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+        "begin": [
+          35,
+          1
+        ],
+        "end": [
+          130,
+          2
+        ]
+      }
+    },
+    "links": {
+      "JaegerRemoteSampler": 2669
+    },
+    "link_paths": {
+      "JaegerRemoteSampler": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2676",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.json",
+    "anchor": "op-2af6da87f6a3725dcc617889",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSamplerBuilder::build"
+    ],
+    "resolved_doc_links": {
+      "JaegerRemoteSampler": "../operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.md#op-d91f91c2c3c8c806b9db2a4c"
+    }
+  },
+  {
+    "id": "e33abb6a3cee436ca00b2ac4",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        19,
+        10
+      ],
+      "end": [
+        19,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "JaegerRemoteSamplerBuilder",
+          "id": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "C"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "C",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "RuntimeChannel",
+                      "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "$crate::fmt::Debug",
+                      "id": "core::fmt::Debug",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "C"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "HttpClient",
+                      "id": "opentelemetry_http::HttpClient",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "$crate::fmt::Debug",
+                      "id": "core::fmt::Debug",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "ShouldSample",
+                      "id": "opentelemetry_sdk::trace::sampler::ShouldSample",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "$crate::fmt::Debug",
+                      "id": "core::fmt::Debug",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+        "begin": [
+          19,
+          10
+        ],
+        "end": [
+          19,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2698",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.json",
+    "anchor": "op-e33abb6a3cee436ca00b2ac4",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSamplerBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5bf902a743781eaf535c1d17",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder::with_endpoint",
+    "name": "with_endpoint",
+    "owner": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_endpoint<Str: Into<String>>(self, endpoint: Str) -> Self",
+    "docs": "The endpoint of remote servers.\n\nBy default it's `http://localhost:5778/sampling`.\n\nIf service name is provided as part of the endpoint, it will be ignored.",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        78,
+        5
+      ],
+      "end": [
+        83,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "endpoint",
+              {
+                "generic": "Str"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "Str",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 37,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "String",
+                                      "id": 739,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "37": "core::convert::Into",
+      "739": "alloc::string::String"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "JaegerRemoteSamplerBuilder",
+          "id": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "C"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "C",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "C"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "HttpClient",
+                      "id": "opentelemetry_http::HttpClient",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "ShouldSample",
+                      "id": "opentelemetry_sdk::trace::sampler::ShouldSample",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "RuntimeChannel",
+                      "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+        "begin": [
+          35,
+          1
+        ],
+        "end": [
+          130,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2674",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.json",
+    "anchor": "op-5bf902a743781eaf535c1d17",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSamplerBuilder::with_endpoint"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e75ea1258e711325ac6322af",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder::with_leaky_bucket_size",
+    "name": "with_leaky_bucket_size",
+    "owner": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_leaky_bucket_size(self, size: f64) -> Self",
+    "docs": "The size of the leaky bucket.\n\nBy default the size is 100.\n\nIt's used when sampling strategy is rate limiting.",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        90,
+        5
+      ],
+      "end": [
+        95,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "size",
+              {
+                "primitive": "f64"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "JaegerRemoteSamplerBuilder",
+          "id": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "C"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "C",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "C"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "HttpClient",
+                      "id": "opentelemetry_http::HttpClient",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "ShouldSample",
+                      "id": "opentelemetry_sdk::trace::sampler::ShouldSample",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "RuntimeChannel",
+                      "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+        "begin": [
+          35,
+          1
+        ],
+        "end": [
+          130,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2675",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.json",
+    "anchor": "op-e75ea1258e711325ac6322af",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSamplerBuilder::with_leaky_bucket_size"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f56f7e3194ffede1bb71ad11",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder::with_update_interval",
+    "name": "with_update_interval",
+    "owner": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_update_interval(self, interval: Duration) -> Self",
+    "docs": "Change how often the SDK should fetch the sampling strategy from remote servers\n\nBy default it fetches every 5 minutes.\n\nA shorter interval have a performance overhead and should be avoid.",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        66,
+        5
+      ],
+      "end": [
+        71,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "interval",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "JaegerRemoteSamplerBuilder",
+          "id": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "C"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "C",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "C"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "HttpClient",
+                      "id": "opentelemetry_http::HttpClient",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "ShouldSample",
+                      "id": "opentelemetry_sdk::trace::sampler::ShouldSample",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "RuntimeChannel",
+                      "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+        "begin": [
+          35,
+          1
+        ],
+        "end": [
+          130,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2673",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.json",
+    "anchor": "op-f56f7e3194ffede1bb71ad11",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSamplerBuilder::with_update_interval"
+    ],
+    "resolved_doc_links": {}
+  }
+]

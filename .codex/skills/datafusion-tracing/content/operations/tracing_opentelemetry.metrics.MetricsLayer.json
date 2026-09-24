@@ -1,0 +1,3246 @@
+[
+  {
+    "id": "89f067ec31171359b3c6376e",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer",
+    "name": "MetricsLayer",
+    "owner": null,
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "struct",
+    "signature": "struct MetricsLayer<S, M>",
+    "docs": "A layer that publishes metrics via the OpenTelemetry SDK.\n\n# Usage\n\nNo configuration is needed for this Layer, as it's only responsible for\npushing data out to the `opentelemetry` family of crates. For example, when\nusing `opentelemetry-otlp`, that crate will provide its own set of\nconfiguration options for setting up the duration metrics will be collected\nbefore exporting to the OpenTelemetry Collector, aggregation of data points,\netc.\n\n```no_run\nuse tracing_opentelemetry::MetricsLayer;\nuse tracing_subscriber::layer::SubscriberExt;\nuse tracing_subscriber::Registry;\n# use opentelemetry_sdk::metrics::SdkMeterProvider;\n\n// Constructing a MeterProvider is out-of-scope for the docs here, but there\n// are examples in the opentelemetry repository. See:\n// https://github.com/open-telemetry/opentelemetry-rust/blob/dfeac078ff7853e7dc814778524b93470dfa5c9c/examples/metrics-basic/src/main.rs#L7\n# let meter_provider: SdkMeterProvider = unimplemented!();\n\nlet opentelemetry_metrics =  MetricsLayer::new(meter_provider);\nlet subscriber = Registry::default().with(opentelemetry_metrics);\ntracing::subscriber::set_global_default(subscriber).unwrap();\n```\n\nTo publish a new metric, add a key-value pair to your `tracing::Event` that\ncontains following prefixes:\n- `monotonic_counter.` (non-negative numbers): Used when the counter should\n  only ever increase\n- `counter.`: Used when the counter can go up or down\n- `histogram.`: Used to report arbitrary values that are likely to be statistically meaningful\n- `gauge.`: Used to report instantaneous values that can go up or down\n\nExamples:\n```\n# use tracing::info;\ninfo!(monotonic_counter.foo = 1);\ninfo!(monotonic_counter.bar = 1.1);\n\ninfo!(counter.baz = 1);\ninfo!(counter.baz = -1);\ninfo!(counter.xyz = 1.1);\n\ninfo!(histogram.qux = 1);\ninfo!(histogram.abc = -1);\ninfo!(histogram.def = 1.1);\n\ninfo!(gauge.foo = 1);\ninfo!(gauge.bar = 1.1);\n```\n\n# Mixing data types\n\n## Floating-point numbers\n\nDo not mix floating point and non-floating point numbers for the same\nmetric. If a floating point number will be used for a given metric, be sure\nto cast any other usages of that metric to a floating point number.\n\nDo this:\n```\n# use tracing::info;\ninfo!(monotonic_counter.foo = 1_f64);\ninfo!(monotonic_counter.foo = 1.1);\n```\n\nThis is because all data published for a given metric name must be the same\nnumeric type.\n\n## Integers\n\nPositive and negative integers can be mixed freely. The instrumentation\nprovided by `tracing` assumes that all integers are `i64` unless explicitly\ncast to something else. In the case that an integer *is* cast to `u64`, this\nsubscriber will handle the conversion internally.\n\nFor example:\n```\n# use tracing::info;\n// The subscriber receives an i64\ninfo!(counter.baz = 1);\n\n// The subscriber receives an i64\ninfo!(counter.baz = -1);\n\n// The subscriber receives a u64, but casts it to i64 internally\ninfo!(counter.baz = 1_u64);\n\n// The subscriber receives a u64, but cannot cast it to i64 because of\n// overflow. An error is printed to stderr, and the metric is dropped.\ninfo!(counter.baz = (i64::MAX as u64) + 1)\n```\n\n# Attributes\n\nWhen `MetricsLayer` outputs metrics, it converts key-value pairs into [Attributes] and associates them with metrics.\n\n[Attributes]: https://opentelemetry.io/docs/specs/otel/common/#attribute\n\nFor example:\n```\n# use tracing::info;\n// adds attributes bar=\"baz\" and qux=2 to the `foo` counter.\ninfo!(monotonic_counter.foo = 1, bar = \"baz\", qux = 2);\n```\n\n# Implementation Details\n\n`MetricsLayer` holds a set of maps, with each map corresponding to a\ntype of metric supported by OpenTelemetry. These maps are populated lazily.\nThe first time that a metric is emitted by the instrumentation, a `Metric`\ninstance will be created and added to the corresponding map. This means that\nany time a metric is emitted by the instrumentation, one map lookup has to\nbe performed.\n\nIn the future, this can be improved by associating each `Metric` instance to\nits callsite, eliminating the need for any maps.",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        372,
+        1
+      ],
+      "end": [
+        376,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg_attr>(docsrs, doc(cfg(feature = \"metrics\")))]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"metrics\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "M",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          5,
+          8,
+          10,
+          12,
+          14,
+          16,
+          18,
+          21,
+          25,
+          29,
+          32,
+          37,
+          42,
+          45,
+          47,
+          49,
+          51,
+          71
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-89f067ec31171359b3c6376e",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2d232cde6a05a2b5aafeaace",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::enabled",
+    "name": "enabled",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn enabled(&self, metadata: &Metadata<'_>, ctx: Context<'_, S>) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        484,
+        5
+      ],
+      "end": [
+        486,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 55,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "55": "tracing_core::metadata::Metadata",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "57",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-2d232cde6a05a2b5aafeaace",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::enabled"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f554c9b4499957aa19106c54",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::new",
+    "name": "new",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn new(meter_provider: M) -> MetricsLayer<S, M> where M: MeterProvider",
+    "docs": "Create a new instance of MetricsLayer.",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        383,
+        5
+      ],
+      "end": [
+        402,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "meter_provider",
+              {
+                "generic": "M"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "MetricsLayer",
+              "id": 2,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "M"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "M"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "MeterProvider",
+                        "id": 4,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2": "tracing_opentelemetry::metrics::MetricsLayer",
+      "4": "opentelemetry::metrics::meter::MeterProvider"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          378,
+          1
+        ],
+        "end": [
+          403,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-f554c9b4499957aa19106c54",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::new"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9136ff2a9803c14edd446e23",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::on_close",
+    "name": "on_close",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_close(&self, id: tracing_core::span::Id, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        531,
+        5
+      ],
+      "end": [
+        533,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "resolved_path": {
+                  "path": "tracing_core::span::Id",
+                  "id": 61,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "69",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-9136ff2a9803c14edd446e23",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::on_close"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8a3c0ce517d198c24b7afcb7",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::on_enter",
+    "name": "on_enter",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_enter(&self, id: &tracing_core::span::Id, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        523,
+        5
+      ],
+      "end": [
+        525,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "67",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-8a3c0ce517d198c24b7afcb7",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::on_enter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "db4b6e308fa0bff88e525f40",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::on_event",
+    "name": "on_event",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_event(&self, event: &tracing_core::Event<'_>, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        519,
+        5
+      ],
+      "end": [
+        521,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::Event",
+                      "id": 66,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "66": "tracing_core::event::Event",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "65",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-db4b6e308fa0bff88e525f40",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::on_event"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "38dfeaf22146f7305fead540",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::on_exit",
+    "name": "on_exit",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_exit(&self, id: &tracing_core::span::Id, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        527,
+        5
+      ],
+      "end": [
+        529,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "68",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-38dfeaf22146f7305fead540",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::on_exit"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "90a3a48e73a1fa65d7ba105b",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::on_follows_from",
+    "name": "on_follows_from",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_follows_from(&self, span: &tracing_core::span::Id, follows: &tracing_core::span::Id, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        510,
+        5
+      ],
+      "end": [
+        517,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "follows",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "64",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-90a3a48e73a1fa65d7ba105b",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::on_follows_from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7d3376218dd1ddbcfa5b3c36",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::on_id_change",
+    "name": "on_id_change",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_id_change(&self, old: &tracing_core::span::Id, new: &tracing_core::span::Id, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        535,
+        5
+      ],
+      "end": [
+        542,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "old",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "new",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "70",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-7d3376218dd1ddbcfa5b3c36",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::on_id_change"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4dee6b2a7a214e394e93fbf0",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::on_layer",
+    "name": "on_layer",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_layer(&mut self, subscriber: &mut S)",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        476,
+        5
+      ],
+      "end": [
+        478,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "subscriber",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "53",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-4dee6b2a7a214e394e93fbf0",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::on_layer"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "74ecc1d55ef38a7de3f2cc90",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::on_new_span",
+    "name": "on_new_span",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_new_span(&self, attrs: &tracing_core::span::Attributes<'_>, id: &tracing_core::span::Id, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        488,
+        5
+      ],
+      "end": [
+        495,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "attrs",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Attributes",
+                      "id": 60,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "60": "tracing_core::span::Attributes",
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "59",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-74ecc1d55ef38a7de3f2cc90",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::on_new_span"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e56cfeb973028c6e44d43477",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::on_record",
+    "name": "on_record",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_record(&self, span: &tracing_core::span::Id, values: &tracing_core::span::Record<'_>, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        501,
+        5
+      ],
+      "end": [
+        508,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "values",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing_core::span::Record",
+                      "id": 63,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "63": "tracing_core::span::Record",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "62",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-e56cfeb973028c6e44d43477",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::on_record"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ecbdf2f2a03eae97984b919c",
+    "path": "tracing_opentelemetry::metrics::MetricsLayer::register_callsite",
+    "name": "register_callsite",
+    "owner": "tracing_opentelemetry::metrics::MetricsLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn register_callsite(&self, metadata: &'static Metadata<'static>) -> Interest",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        480,
+        5
+      ],
+      "end": [
+        482,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 55,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Interest",
+              "id": 56,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "55": "tracing_core::metadata::Metadata",
+      "56": "tracing_core::subscriber::Interest"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsLayer",
+          "id": "tracing_opentelemetry::metrics::MetricsLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          472,
+          1
+        ],
+        "end": [
+          543,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "54",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.metrics.MetricsLayer.md",
+    "record_file": "operations/tracing_opentelemetry.metrics.MetricsLayer.json",
+    "anchor": "op-ecbdf2f2a03eae97984b919c",
+    "aliases": [
+      "tracing_opentelemetry::MetricsLayer::register_callsite"
+    ],
+    "resolved_doc_links": {}
+  }
+]

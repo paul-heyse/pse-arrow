@@ -1,0 +1,18 @@
+{
+  "invariant": "runtime.validation_findings:unique:pk",
+  "rows": {
+    "runtime.validation_findings": [
+      {
+        "code": "[\"text\",\"value-1\"]",
+        "field_json": "[\"text\",\"value-1\"]",
+        "key_literals": "[\"text\",\"value-1\"]",
+        "observed_literal": "[\"text\",\"value-1\"]",
+        "path": "[\"text\",\"value-1\"]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "row": "[\"u64\",1]",
+        "rule": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

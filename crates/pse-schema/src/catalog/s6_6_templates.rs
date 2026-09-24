@@ -9,6 +9,7 @@ use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §6.6 template contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
+    super::declarations::enumeration(builder, "Sense", ["eq", "le", "ge", "definition", "range"]);
     declare_authored_templates(builder);
     declare_authored_template_params(builder);
     declare_authored_template_features(builder);
@@ -233,8 +234,6 @@ fn declare_authored_template_equations(builder: &mut RegistryBuilder) {
                 T::extended(crate::model::ExtensionUse::ExprDsl),
             ),
             column("sense", T::enumeration("Sense")),
-            column("family_hint", T::enumeration("EquationFamily")).optional(),
-            column("role_hint", T::enumeration("EquationRole")).optional(),
             column("guard_id", T::id()).optional(),
             column("idaes_name", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("doc", T::native(arrow_schema::DataType::Utf8)),

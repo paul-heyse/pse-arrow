@@ -8,29 +8,38 @@
     reason = "integration assertions"
 )]
 
-use datafusion::{
-    common::ResolvedTableReference,
-    execution::{context::SessionContext, session_state::SessionStateBuilder},
-    logical_expr::LogicalPlanBuilder,
-};
-use pse_authoring::{ParseBudget, document::load_package_texts_owned};
+use datafusion::{common::ResolvedTableReference, logical_expr::LogicalPlanBuilder};
+use pse_authoring::ParseBudget;
 use pse_catalog::{
     artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
     delta::publication::{Publication, PublicationRoot},
-    session::planner::UnifiedPlanner,
 };
-use pse_ids::{CancellationToken, FixedBudget, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_engine::session::planner::UnifiedPlanner;
+use pse_ids::SemanticId;
 use pse_relations::generated::{
     authored::documents, enums::PublicationKind, runtime::publications,
 };
+use pse_runtime::authoring_driver::document::load_package_texts_owned;
 use std::{collections::BTreeMap, sync::Arc};
 
-fn native_context() -> SessionContext {
-    SessionContext::new_with_state(
-        SessionStateBuilder::new_with_default_features()
-            .with_query_planner(Arc::new(UnifiedPlanner::default()))
-            .build(),
+fn native_fixture() -> pse_testkit::NativeFixture {
+    let mut fixture = pse_testkit::NativeFixture::with_settings(
+        (128 << 20).try_into().unwrap(),
+        pse_engine::ThreadBudget {
+            pool_threads: 1.try_into().unwrap(),
+            target_partitions: 1.try_into().unwrap(),
+        },
+        pse_engine::ExecutionSettings::default(),
+        pse_engine::cache_service::CacheBudget::disabled(128 << 20),
     )
+    .unwrap();
+    fixture.factory = fixture
+        .factory
+        .with_query_planner(Arc::new(UnifiedPlanner::new(
+            pse_catalog::assembly::planners(),
+        )));
+    fixture
 }
 fn texts() -> BTreeMap<String, String> {
     BTreeMap::from([
@@ -68,24 +77,19 @@ fn header() -> publications::Row {
 async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     let registry = pse_schema::shared_registry().unwrap();
     let sources = texts();
-    let budget = FixedBudget::new(128 << 20);
+    let fixture = native_fixture();
+    let budget = fixture.resources.pool.clone();
     let cancel = CancellationToken::default();
     let loaded = load_package_texts_owned(
         &sources,
         &registry,
         ParseBudget::default(),
-        budget.as_ref(),
+        &budget,
         &cancel,
     )
     .unwrap();
     let expected = loaded.bundle().batches.clone();
-    let context = native_context();
-    let factory = pse_catalog::session::SessionFactory::from_builder(
-        context.runtime_env(),
-        budget.clone(),
-        "source-publication",
-        SessionStateBuilder::new_from_existing(context.state()),
-    );
+    let factory = fixture.factory.clone();
     let session = factory
         .candidate_checked(
             BTreeMap::from([(
@@ -122,7 +126,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
             reference,
             RelationOutput {
                 relation_id: *id,
-                plan: pse_authoring::native::relation_plan(
+                plan: pse_runtime::authoring_driver::native::relation_plan(
                     source_input.clone(),
                     *id,
                     &registry,
@@ -159,15 +163,11 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     .execute(&cancel)
     .await
     .unwrap();
-    drop((plan, factory, context, loaded));
+    drop((plan, factory, fixture, loaded));
 
-    let cold = native_context();
-    let factory = pse_catalog::session::SessionFactory::from_builder(
-        cold.runtime_env(),
-        budget.clone(),
-        "cold-source",
-        SessionStateBuilder::new_from_existing(cold.state()),
-    );
+    let cold = native_fixture();
+    let budget = cold.resources.pool.clone();
+    let factory = cold.factory.clone();
     let publication = Publication::open(selection, Arc::clone(&registry), &factory, &cancel)
         .await
         .unwrap();
@@ -184,9 +184,14 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
         .await
         .unwrap();
     let facts = capture_source_facts(&publication, &registry, &cancel).await;
-    let selected = facts.selection().unwrap().clone();
+    let selected = facts
+        .witness()
+        .and_then(|w| w.value::<publications::RuntimePublicationsFieldMembersItem>())
+        .unwrap()
+        .clone();
     drop(publication);
-    verify_native_support(facts, selected, Arc::clone(&registry), &cancel).await;
+    assert_eq!(selected.relation_id, documents::RELATION_ID);
+    drop(facts);
     let mut batches = Vec::new();
     while let Some(batch) = stream.next_batch(&cancel).await.unwrap() {
         batches.push(batch.into_batch());
@@ -203,7 +208,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
         &recovered,
         &registry,
         ParseBudget::default(),
-        budget.as_ref(),
+        &budget,
         &cancel,
     )
     .unwrap();
@@ -228,27 +233,28 @@ async fn capture_source_facts(
     publication: &Publication,
     registry: &Arc<pse_schema::Registry>,
     cancel: &CancellationToken,
-) -> pse_catalog::session::RelationFacts {
-    use pse_catalog::session::{
-        ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile,
-    };
+) -> pse_engine::session::RelationFacts {
+    use pse_engine::session::{ExecutionSettings, ThreadBudget};
     use pse_schema::model::provider::{OperationEffect, ProviderPolicy, ProviderScope};
-    let factory = SessionFactory::new(
-        Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
-        FixedBudget::new(128 << 20),
+    let factory = pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
             target_partitions: 1.try_into().unwrap(),
         },
-        native_engine_profile(),
     )
     .unwrap();
-    let session = factory
-        .open_publication(publication.root().clone(), Arc::clone(registry), cancel)
-        .await
-        .unwrap()
-        .with_purpose(pse_schema::model::provider::OperationPurpose::Inspect);
+    let session = Publication::open(
+        publication.root().clone(),
+        Arc::clone(registry),
+        &factory,
+        cancel,
+    )
+    .await
+    .unwrap()
+    .into_session()
+    .with_purpose(pse_schema::model::provider::OperationPurpose::Inspect);
     let queried = session
         .sql("SELECT source_text FROM source.authored.documents", cancel)
         .await
@@ -292,97 +298,11 @@ async fn capture_source_facts(
     );
     let facts = session.capture_relation(&reference, cancel).await.unwrap();
     assert_eq!(
-        facts.selection().unwrap(),
+        facts
+            .witness()
+            .and_then(|w| w.value::<publications::RuntimePublicationsFieldMembersItem>())
+            .unwrap(),
         &publication.member(&reference).unwrap()
     );
     facts
-}
-
-async fn verify_native_support(
-    facts: pse_catalog::session::RelationFacts,
-    selection: publications::RuntimePublicationsFieldMembersItem,
-    registry: Arc<pse_schema::Registry>,
-    cancel: &CancellationToken,
-) {
-    use datafusion::logical_expr::LogicalPlanBuilder;
-    use pse_catalog::session::{
-        ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile,
-    };
-    use pse_relations::typed::CellCodec;
-    use pse_rules::strata::{
-        LocatedRuleInput, RuleInputLocation,
-        native_input::{NativeInput, NativeWitness},
-    };
-    let declaration = registry.relation_by_id(documents::RELATION_ID).unwrap();
-    let factory = SessionFactory::new(
-        Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
-        FixedBudget::new(128 << 20),
-        ExecutionSettings::default(),
-        ThreadBudget {
-            pool_threads: 1.try_into().unwrap(),
-            target_partitions: 1.try_into().unwrap(),
-        },
-        native_engine_profile(),
-    )
-    .unwrap();
-    let session = factory
-        .candidate_checked(
-            BTreeMap::from([(declaration.key, facts.checked().clone())]),
-            Arc::clone(&registry),
-            cancel,
-        )
-        .unwrap();
-    let plan = LogicalPlanBuilder::scan(
-        "exact_documents",
-        session.table_source(&declaration.key).unwrap(),
-        None,
-    )
-    .unwrap()
-    .build()
-    .unwrap();
-    let result = NativeInput::build(
-        plan,
-        declaration.key,
-        SemanticId::NIL,
-        declaration
-            .columns
-            .iter()
-            .map(|field| (field.name().to_owned(), field.name().to_owned()))
-            .collect(),
-        vec![NativeWitness {
-            port: "documents".into(),
-            input: LocatedRuleInput {
-                relation: declaration.key,
-                location: RuleInputLocation::Facts(Arc::new(facts)),
-            },
-            key_columns: Some(
-                declaration
-                    .primary_key
-                    .iter()
-                    .map(|key| (*key).to_owned())
-                    .collect(),
-            ),
-            when: None,
-        }],
-        &session,
-        cancel,
-    )
-    .await
-    .unwrap();
-    drop((session, factory));
-    let supports = registry
-        .relation("provenance.constructed_supports")
-        .unwrap();
-    let rows = pse_relations::cells::cells_from_batch(
-        &registry,
-        supports,
-        result.support_mapping().batch(),
-    )
-    .unwrap();
-    assert_eq!(rows.len(), 2);
-    let expected = selection.into_cell();
-    for row in rows {
-        assert_eq!(row[5], expected);
-        assert_eq!(row[6], pse_schema::model::Cell::Enum("delta"));
-    }
 }

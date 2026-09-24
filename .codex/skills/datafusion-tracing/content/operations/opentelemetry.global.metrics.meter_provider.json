@@ -1,0 +1,127 @@
+[
+  {
+    "id": "99ee8b41c51ae0b81e26e55f",
+    "path": "opentelemetry::global::metrics::meter_provider",
+    "name": "meter_provider",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn meter_provider() -> std::sync::Arc<dyn MeterProvider + Send + Sync>",
+    "docs": "Returns an instance of the currently configured global [`MeterProvider`].",
+    "span": {
+      "filename": "src/global/metrics.rs",
+      "begin": [
+        36,
+        1
+      ],
+      "end": [
+        45,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "std::sync::Arc",
+              "id": 9,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "dyn_trait": {
+                          "traits": [
+                            {
+                              "trait": {
+                                "path": "MeterProvider",
+                                "id": 1,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Send",
+                                "id": 6,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Sync",
+                                "id": 7,
+                                "args": null
+                              },
+                              "generic_params": []
+                            }
+                          ],
+                          "lifetime": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "9": "alloc::sync::Arc",
+      "1": "opentelemetry::metrics::meter::MeterProvider",
+      "6": "core::marker::Send",
+      "7": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {
+      "`MeterProvider`": 1
+    },
+    "link_paths": {
+      "`MeterProvider`": "opentelemetry::metrics::meter::MeterProvider"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "8",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.metrics.meter_provider.md",
+    "record_file": "operations/opentelemetry.global.metrics.meter_provider.json",
+    "anchor": "op-99ee8b41c51ae0b81e26e55f",
+    "aliases": [
+      "opentelemetry::global::meter_provider"
+    ],
+    "resolved_doc_links": {
+      "`MeterProvider`": "../operations/opentelemetry.metrics.meter.MeterProvider.md#op-8ef66c51648972f9d178f50b"
+    }
+  }
+]

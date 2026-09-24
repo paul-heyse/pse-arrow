@@ -1,0 +1,1185 @@
+[
+  {
+    "id": "7d1adb70014ae0baf523ed6b",
+    "path": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+    "name": "InstrumentedOptimizerRule",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct InstrumentedOptimizerRule",
+    "docs": "A wrapper for an `OptimizerRule` that adds tracing instrumentation.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        720,
+        1
+      ],
+      "end": [
+        724,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              702,
+              703,
+              704
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          708,
+          709,
+          710,
+          711,
+          712,
+          713,
+          714,
+          715,
+          716,
+          717,
+          718,
+          719,
+          720,
+          721,
+          722,
+          723,
+          724,
+          725,
+          726,
+          727,
+          728,
+          730,
+          735
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "705",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.json",
+    "anchor": "op-7d1adb70014ae0baf523ed6b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "99de00f2c77f2750b9ebac61",
+    "path": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule::apply_order",
+    "name": "apply_order",
+    "owner": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn apply_order(&self) -> Option<ApplyOrder>",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        780,
+        5
+      ],
+      "end": [
+        785,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 118,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ApplyOrder",
+                          "id": 516,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "118": "core::option::Option",
+      "516": "datafusion_optimizer::optimizer::ApplyOrder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentedOptimizerRule",
+          "id": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "OptimizerRule",
+        "id": "datafusion_optimizer::optimizer::OptimizerRule",
+        "args": null
+      },
+      "trait_path": "datafusion_optimizer::optimizer::OptimizerRule",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          775,
+          1
+        ],
+        "end": [
+          847,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "732",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.json",
+    "anchor": "op-99de00f2c77f2750b9ebac61",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b1790a24aa1d9c680b5aca7d",
+    "path": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule::fmt",
+    "name": "fmt",
+    "owner": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        727,
+        5
+      ],
+      "end": [
+        732,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::fmt::Formatter",
+                      "id": 66,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "std::fmt::Result",
+              "id": 67,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "66": "core::fmt::Formatter",
+      "67": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentedOptimizerRule",
+          "id": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          726,
+          1
+        ],
+        "end": [
+          733,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "729",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.json",
+    "anchor": "op-b1790a24aa1d9c680b5aca7d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "572fd1f43cc1ef1869bf70fe",
+    "path": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule::inner",
+    "name": "inner",
+    "owner": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "inner: std::sync::Arc<dyn OptimizerRule + Send + Sync>",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        721,
+        5
+      ],
+      "end": [
+        721,
+        48
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::sync::Arc",
+          "id": 2,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "OptimizerRule",
+                            "id": 522,
+                            "args": null
+                          },
+                          "generic_params": []
+                        },
+                        {
+                          "trait": {
+                            "path": "Send",
+                            "id": 5,
+                            "args": null
+                          },
+                          "generic_params": []
+                        },
+                        {
+                          "trait": {
+                            "path": "Sync",
+                            "id": 6,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "2": "alloc::sync::Arc",
+      "522": "datafusion_optimizer::optimizer::OptimizerRule",
+      "5": "core::marker::Send",
+      "6": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "702",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.json",
+    "anchor": "op-572fd1f43cc1ef1869bf70fe",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "415b0a539a20a92b462a739f",
+    "path": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule::name",
+    "name": "name",
+    "owner": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn name(&self) -> &str",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        776,
+        5
+      ],
+      "end": [
+        778,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "primitive": "str"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentedOptimizerRule",
+          "id": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "OptimizerRule",
+        "id": "datafusion_optimizer::optimizer::OptimizerRule",
+        "args": null
+      },
+      "trait_path": "datafusion_optimizer::optimizer::OptimizerRule",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          775,
+          1
+        ],
+        "end": [
+          847,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "731",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.json",
+    "anchor": "op-415b0a539a20a92b462a739f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "51a53f336406f03c03f2b82b",
+    "path": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule::options",
+    "name": "options",
+    "owner": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "options: rule_options::RuleInstrumentationOptions",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        722,
+        5
+      ],
+      "end": [
+        722,
+        40
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "crate::rule_options::RuleInstrumentationOptions",
+          "id": 672,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "672": "datafusion_tracing::rule_options::RuleInstrumentationOptions"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "703",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.json",
+    "anchor": "op-51a53f336406f03c03f2b82b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8faa51c74641253c9e8b508e",
+    "path": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule::rewrite",
+    "name": "rewrite",
+    "owner": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn rewrite(&self, plan: LogicalPlan, config: &dyn OptimizerConfig) -> Result<Transformed<LogicalPlan>, DataFusionError>",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        792,
+        5
+      ],
+      "end": [
+        846,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "plan",
+              {
+                "resolved_path": {
+                  "path": "LogicalPlan",
+                  "id": 336,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "config",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "OptimizerConfig",
+                            "id": 519,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 73,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Transformed",
+                          "id": 520,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "LogicalPlan",
+                                      "id": 336,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "DataFusionError",
+                          "id": 317,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "336": "datafusion_expr::logical_plan::plan::LogicalPlan",
+      "519": "datafusion_optimizer::optimizer::OptimizerConfig",
+      "73": "datafusion_common::error::Result",
+      "520": "datafusion_common::tree_node::Transformed",
+      "317": "datafusion_common::error::DataFusionError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentedOptimizerRule",
+          "id": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "OptimizerRule",
+        "id": "datafusion_optimizer::optimizer::OptimizerRule",
+        "args": null
+      },
+      "trait_path": "datafusion_optimizer::optimizer::OptimizerRule",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          775,
+          1
+        ],
+        "end": [
+          847,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "734",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.json",
+    "anchor": "op-8faa51c74641253c9e8b508e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "46497090c77189213e9a2feb",
+    "path": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule::span_create_fn",
+    "name": "span_create_fn",
+    "owner": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "span_create_fn: std::sync::Arc<dyn Fn(&str) -> tracing::Span + Send + Sync>",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        723,
+        5
+      ],
+      "end": [
+        723,
+        42
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::sync::Arc",
+          "id": 2,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Fn",
+                            "id": 3,
+                            "args": {
+                              "parenthesized": {
+                                "inputs": [
+                                  {
+                                    "borrowed_ref": {
+                                      "lifetime": null,
+                                      "is_mutable": false,
+                                      "type": {
+                                        "primitive": "str"
+                                      }
+                                    }
+                                  }
+                                ],
+                                "output": {
+                                  "resolved_path": {
+                                    "path": "tracing::Span",
+                                    "id": 4,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "generic_params": []
+                        },
+                        {
+                          "trait": {
+                            "path": "Send",
+                            "id": 5,
+                            "args": null
+                          },
+                          "generic_params": []
+                        },
+                        {
+                          "trait": {
+                            "path": "Sync",
+                            "id": 6,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "2": "alloc::sync::Arc",
+      "3": "core::ops::function::Fn",
+      "4": "tracing::span::Span",
+      "5": "core::marker::Send",
+      "6": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "704",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.json",
+    "anchor": "op-46497090c77189213e9a2feb",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c42c61df0bf29b6164506ee4",
+    "path": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule::supports_rewrite",
+    "name": "supports_rewrite",
+    "owner": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn supports_rewrite(&self) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        788,
+        5
+      ],
+      "end": [
+        790,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[allow(deprecated)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentedOptimizerRule",
+          "id": "datafusion_tracing::rule_instrumentation::InstrumentedOptimizerRule",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "OptimizerRule",
+        "id": "datafusion_optimizer::optimizer::OptimizerRule",
+        "args": null
+      },
+      "trait_path": "datafusion_optimizer::optimizer::OptimizerRule",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          775,
+          1
+        ],
+        "end": [
+          847,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "733",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.InstrumentedOptimizerRule.json",
+    "anchor": "op-c42c61df0bf29b6164506ee4",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

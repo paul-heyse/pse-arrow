@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Final-cut Delta integration oracles. Do not run before Plan 08 implementation closure.
+//! Delta integration oracles. Author/compile now; execute only after Plan 13 W18.
 #![allow(clippy::unwrap_used, reason = "integration fixture assertions")]
 use datafusion::{
     arrow::{
@@ -9,7 +9,6 @@ use datafusion::{
         datatypes::DataType,
     },
     common::ResolvedTableReference,
-    execution::runtime_env::RuntimeEnv,
 };
 use pse_catalog::{
     artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
@@ -17,9 +16,10 @@ use pse_catalog::{
         maintenance::{MaintenanceAction, MaintenanceTarget},
         publication::{Publication, PublicationRoot},
     },
-    session::{ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile},
 };
-use pse_ids::{CancellationToken, FixedBudget, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_engine::session::EngineFactory;
+use pse_ids::SemanticId;
 use pse_relations::generated::{
     enums::PublicationKind,
     runtime::{publications, retained_versions},
@@ -58,23 +58,139 @@ fn registry() -> Arc<Registry> {
             FieldContract::payload("value", FieldContract::native(DataType::Int64), "Value"),
         ]),
     );
+    builder.declare_artifact_profile(
+        "inspection",
+        ["runtime.artifact_descriptors".to_owned()].into(),
+    );
     Arc::new(builder.build().unwrap())
 }
-fn factory() -> SessionFactory {
-    SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(128 << 20),
-        ExecutionSettings::default(),
-        ThreadBudget {
-            pool_threads: 1.try_into().unwrap(),
-            target_partitions: 1.try_into().unwrap(),
+
+fn descriptor(registry: &Registry) -> pse_model::artifact::ArtifactDescriptor {
+    use pse_ids::ContentHash;
+    use pse_model::{
+        artifact::ArtifactDescriptor,
+        generated::{enums::ArtifactReconstruction, runtime::artifact_descriptors as wire},
+    };
+    let hash = ContentHash::from_bytes([1; 32]);
+    ArtifactDescriptor::create(wire::Row {
+        artifact_id: hash,
+        descriptor_version: 1,
+        profile: PublicationKind::Inspection,
+        profile_contract: registry.fingerprint(),
+        requested_relations: vec![registry.relation("authored.values").unwrap().id],
+        release_id: hash,
+        release_members: vec![],
+        semantic_identity: hash,
+        implementation: wire::RuntimeArtifactDescriptorsFieldImplementation {
+            source: hash,
+            build: hash,
+            registry: registry.fingerprint(),
+            algorithms: hash,
         },
-        native_engine_profile(),
-    )
+        target_contract: hash,
+        value_assumptions: vec![],
+        reconstruction: ArtifactReconstruction::None,
+    })
     .unwrap()
 }
+
+#[tokio::test]
+async fn explicit_product_reopens_after_eviction_and_refuses_another_descriptor() {
+    use pse_ids::ContentHash;
+    use pse_model::artifact::ArtifactDescriptor;
+    let cancel = CancellationToken::new();
+    let registry = registry();
+    let factory = factory();
+    let descriptor = descriptor(&registry);
+    let artifact = artifact(&factory, registry.clone(), &cancel)
+        .inspection()
+        .with_product(descriptor.clone(), &cancel)
+        .unwrap();
+    assert_eq!(artifact.outputs().len(), 2);
+    let directory = tempfile::tempdir().unwrap();
+    let base = url::Url::from_directory_path(directory.path()).unwrap();
+    let control = base.join("control/").unwrap();
+    let destinations = artifact
+        .outputs()
+        .keys()
+        .enumerate()
+        .map(|(index, name)| {
+            (
+                name.clone(),
+                base.join(&format!("members/{index}/")).unwrap(),
+            )
+        })
+        .collect();
+    let header = publications::Row {
+        workspace_id: id(10),
+        publication_id: id(11),
+        attempt_id: id(12),
+        parent_publication_id: None,
+        kind: PublicationKind::Inspection,
+        inputs: vec![],
+        members: vec![],
+    };
+    let command = artifact
+        .prepare_publication(
+            PublicationTarget {
+                reference: name("runtime", "publications"),
+                location: control.clone(),
+            },
+            header,
+            destinations,
+            vec![],
+            &cancel,
+        )
+        .unwrap();
+    let result = command.execute(&cancel).await.unwrap();
+    let version = result.batches()[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .unwrap()
+        .value(0);
+    drop(result);
+    drop(artifact);
+    // A fresh native factory cannot inherit producer cells or mutable old providers.
+    let cold = self::factory();
+    let publication = Publication::open(
+        PublicationRoot {
+            location: control,
+            version,
+        },
+        registry,
+        &cold,
+        &cancel,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        **publication
+            .require_artifact(&descriptor, &cancel)
+            .await
+            .unwrap(),
+        descriptor
+    );
+    let mut changed = descriptor.row().clone();
+    changed.target_contract = ContentHash::from_bytes([2; 32]);
+    let changed = ArtifactDescriptor::create(changed).unwrap();
+    assert!(
+        publication
+            .require_artifact(&changed, &cancel)
+            .await
+            .is_err()
+    );
+}
+fn factory() -> EngineFactory {
+    pse_testkit::NativeFixture::new((128 << 20).try_into().unwrap())
+        .unwrap()
+        .into_factory()
+        .with_query_planner(Arc::new(pse_engine::session::planner::UnifiedPlanner::new(
+            pse_catalog::assembly::planners(),
+        )))
+}
 fn artifact(
-    factory: &SessionFactory,
+    factory: &EngineFactory,
     registry: Arc<Registry>,
     cancel: &CancellationToken,
 ) -> ArtifactPlan {
@@ -128,6 +244,13 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
     let artifact = artifact(&factory, registry.clone(), &cancel);
     let directory = tempfile::tempdir().unwrap();
     let base = url::Url::from_directory_path(directory.path()).unwrap();
+    let runtime = factory.native_state().runtime_env();
+    let faults = pse_testkit::fault_store::FaultStore::new(
+        runtime
+            .object_store(datafusion::execution::object_store::ObjectStoreUrl::local_filesystem())
+            .unwrap(),
+    );
+    runtime.register_object_store(&base, faults.clone());
     let target = PublicationTarget {
         reference: name("runtime", "publications"),
         location: base.join("control/").unwrap(),
@@ -211,14 +334,17 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
             .await
             .is_err()
     );
-    let changes = publication
-        .session()
-        .prepare_changes(&name("authored", "values"), 0, &cancel)
-        .await
-        .unwrap()
-        .execute(&cancel)
-        .await
-        .unwrap();
+    let changes = pse_catalog::delta::changes::prepare_changes(
+        publication.session(),
+        &name("authored", "values"),
+        0,
+        &cancel,
+    )
+    .await
+    .unwrap()
+    .execute(&cancel)
+    .await
+    .unwrap();
     assert_eq!(
         changes
             .batches()
@@ -281,12 +407,18 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
             table: selected_controls.table().into(),
         })
         .unwrap();
-    let retained_publications = administrative
-        .publication_retention(&selected_controls, &cancel)
-        .unwrap();
-    let retention = administrative
-        .combine_retention(&[retention, retained_publications], &cancel)
-        .unwrap();
+    let retained_publications = pse_catalog::delta::retention::publication_retention(
+        &administrative,
+        &selected_controls,
+        &cancel,
+    )
+    .unwrap();
+    let retention = pse_catalog::delta::retention::combine_retention(
+        &administrative,
+        &[retention, retained_publications],
+        &cancel,
+    )
+    .unwrap();
     let maintenance = MaintenanceTarget {
         head: root.clone(),
         reference: name("authored", "values"),
@@ -296,20 +428,88 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
         log_cutoff_ms: 0,
     };
     assert!(
-        administrative
-            .prepare_maintenance(maintenance.clone(), &retention, &cancel)
-            .unwrap()
-            .execute(&cancel)
-            .await
-            .is_err()
-    );
-    drop(publication);
-    administrative
-        .prepare_maintenance(maintenance, &retention, &cancel)
+        pse_catalog::delta::maintenance::prepare_maintenance(
+            &administrative,
+            maintenance.clone(),
+            &retention,
+            &cancel
+        )
         .unwrap()
         .execute(&cancel)
         .await
+        .is_err()
+    );
+    drop(publication);
+    // The fence commits before checkpointing. A later IO error must preserve that
+    // durable boundary and the original cause; a generic pre-commit error is false.
+    faults.arm(pse_testkit::fault_store::FaultPlan {
+        operation: "put",
+        prefix: base
+            .join("values/_delta_log/_last_checkpoint")
+            .unwrap()
+            .path()
+            .trim_start_matches('/')
+            .into(),
+        call: 1,
+        fault: pse_testkit::fault_store::Fault::FailBefore,
+    });
+    let interrupted = pse_catalog::delta::maintenance::prepare_maintenance(
+        &administrative,
+        maintenance.clone(),
+        &retention,
+        &cancel,
+    )
+    .unwrap()
+    .execute(&cancel)
+    .await
+    .unwrap_err();
+    assert_eq!(faults.fired(), 1);
+    let mut cause: &(dyn std::error::Error + 'static) = &interrupted;
+    let fence_version = loop {
+        if let Some(pse_catalog::delta::settlement::SettlementError::MaintenanceInterrupted {
+            fence_version,
+            source,
+        }) = cause.downcast_ref()
+        {
+            assert!(source.source().is_some());
+            break *fence_version;
+        }
+        cause = cause.source().unwrap();
+    };
+    assert!(fence_version > 0);
+    let protected = Publication::open(root.clone(), registry.clone(), &factory, &cancel)
+        .await
         .unwrap();
+    let protected_rows = protected
+        .session()
+        .capture_relation(&name("authored", "values"), &cancel)
+        .await
+        .unwrap();
+    assert_eq!(
+        protected_rows
+            .checked()
+            .batch()
+            .column(1)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap()
+            .value(0),
+        41
+    );
+    drop(protected_rows);
+    drop(protected);
+    // A fresh prepared command reconciles current native fences; it does not replay
+    // a stale pre-maintenance snapshot or discard the selected historical member.
+    pse_catalog::delta::maintenance::prepare_maintenance(
+        &administrative,
+        maintenance,
+        &retention,
+        &cancel,
+    )
+    .unwrap()
+    .execute(&cancel)
+    .await
+    .unwrap();
     let reopened = Publication::open(root.clone(), registry.clone(), &factory, &cancel)
         .await
         .unwrap();
@@ -360,23 +560,23 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
         .unwrap();
     let version = before.version().unwrap();
     drop(before);
-    administrative
-        .prepare_maintenance(
-            MaintenanceTarget {
-                head: root.clone(),
-                reference: name("authored", "values"),
-                location: orphan.clone(),
-                relation_id,
-                action: MaintenanceAction::ReclaimUnpublished,
-                log_cutoff_ms: 0,
-            },
-            &retention,
-            &cancel,
-        )
-        .unwrap()
-        .execute(&cancel)
-        .await
-        .unwrap();
+    pse_catalog::delta::maintenance::prepare_maintenance(
+        &administrative,
+        MaintenanceTarget {
+            head: root.clone(),
+            reference: name("authored", "values"),
+            location: orphan.clone(),
+            relation_id,
+            action: MaintenanceAction::ReclaimUnpublished,
+            log_cutoff_ms: 0,
+        },
+        &retention,
+        &cancel,
+    )
+    .unwrap()
+    .execute(&cancel)
+    .await
+    .unwrap();
     let retired = deltalake::DeltaTableBuilder::from_url(orphan.clone())
         .unwrap()
         .load()

@@ -1,0 +1,811 @@
+[
+  {
+    "id": "6a243c79a425778b9db10ee4",
+    "path": "opentelemetry::trace::noop::NoopTracer",
+    "name": "NoopTracer",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct NoopTracer",
+    "docs": "A no-op instance of a `Tracer`.",
+    "span": {
+      "filename": "src/trace/noop.rs",
+      "begin": [
+        109,
+        1
+      ],
+      "end": [
+        111,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1557,
+          1558,
+          1559,
+          1560,
+          1561,
+          1562,
+          1563,
+          1564,
+          1565,
+          1566,
+          1567,
+          1568,
+          1569,
+          1570,
+          1571,
+          1572,
+          1573,
+          1574,
+          1575,
+          1576,
+          1578,
+          1580,
+          1582,
+          1585
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1515",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.noop.NoopTracer.md",
+    "record_file": "operations/opentelemetry.trace.noop.NoopTracer.json",
+    "anchor": "op-6a243c79a425778b9db10ee4",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1f2324b26b88b587a2259f08",
+    "path": "opentelemetry::trace::noop::NoopTracer::Span",
+    "name": "Span",
+    "owner": "opentelemetry::trace::noop::NoopTracer",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Span",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/noop.rs",
+      "begin": [
+        121,
+        5
+      ],
+      "end": [
+        121,
+        26
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "NoopSpan",
+            "id": 1519,
+            "args": null
+          }
+        }
+      }
+    },
+    "type_references": {
+      "1519": "opentelemetry::trace::noop::NoopSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "NoopTracer",
+          "id": "opentelemetry::trace::noop::NoopTracer",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Tracer",
+        "id": "opentelemetry::trace::tracer::Tracer",
+        "args": null
+      },
+      "trait_path": "opentelemetry::trace::tracer::Tracer",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/noop.rs",
+        "begin": [
+          120,
+          1
+        ],
+        "end": [
+          132,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1583",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.noop.NoopTracer.md",
+    "record_file": "operations/opentelemetry.trace.noop.NoopTracer.json",
+    "anchor": "op-1f2324b26b88b587a2259f08",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3a0a9eac40c3265aa5c36094",
+    "path": "opentelemetry::trace::noop::NoopTracer::build_with_context",
+    "name": "build_with_context",
+    "owner": "opentelemetry::trace::noop::NoopTracer",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build_with_context(&self, _builder: trace::SpanBuilder, parent_cx: &Context) -> Self::Span",
+    "docs": "Builds a `NoopSpan` from a `SpanBuilder`.\n\nIf the span builder or the context's current span contains a valid span context, it is\npropagated.",
+    "span": {
+      "filename": "src/trace/noop.rs",
+      "begin": [
+        127,
+        5
+      ],
+      "end": [
+        131,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "trace::SpanBuilder",
+                  "id": 120,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "parent_cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 121,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Span",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 108,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "120": "opentelemetry::trace::tracer::SpanBuilder",
+      "121": "opentelemetry::context::Context",
+      "108": "opentelemetry::trace::tracer::Tracer"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "NoopTracer",
+          "id": "opentelemetry::trace::noop::NoopTracer",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Tracer",
+        "id": "opentelemetry::trace::tracer::Tracer",
+        "args": null
+      },
+      "trait_path": "opentelemetry::trace::tracer::Tracer",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/noop.rs",
+        "begin": [
+          120,
+          1
+        ],
+        "end": [
+          132,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1584",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.noop.NoopTracer.md",
+    "record_file": "operations/opentelemetry.trace.noop.NoopTracer.json",
+    "anchor": "op-3a0a9eac40c3265aa5c36094",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cde52ca7b9ed6fd329bde27e",
+    "path": "opentelemetry::trace::noop::NoopTracer::clone",
+    "name": "clone",
+    "owner": "opentelemetry::trace::noop::NoopTracer",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> NoopTracer",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/noop.rs",
+      "begin": [
+        108,
+        10
+      ],
+      "end": [
+        108,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "NoopTracer",
+              "id": 1515,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1515": "opentelemetry::trace::noop::NoopTracer"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "NoopTracer",
+          "id": "opentelemetry::trace::noop::NoopTracer",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/noop.rs",
+        "begin": [
+          108,
+          10
+        ],
+        "end": [
+          108,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1577",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.noop.NoopTracer.md",
+    "record_file": "operations/opentelemetry.trace.noop.NoopTracer.json",
+    "anchor": "op-cde52ca7b9ed6fd329bde27e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3c992697cad3f85595271d86",
+    "path": "opentelemetry::trace::noop::NoopTracer::default",
+    "name": "default",
+    "owner": "opentelemetry::trace::noop::NoopTracer",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> NoopTracer",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/noop.rs",
+      "begin": [
+        108,
+        24
+      ],
+      "end": [
+        108,
+        31
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "NoopTracer",
+              "id": 1515,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1515": "opentelemetry::trace::noop::NoopTracer"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "NoopTracer",
+          "id": "opentelemetry::trace::noop::NoopTracer",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/noop.rs",
+        "begin": [
+          108,
+          24
+        ],
+        "end": [
+          108,
+          31
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1581",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.noop.NoopTracer.md",
+    "record_file": "operations/opentelemetry.trace.noop.NoopTracer.json",
+    "anchor": "op-3c992697cad3f85595271d86",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b4cbe6b2754109c2ca6f3109",
+    "path": "opentelemetry::trace::noop::NoopTracer::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::trace::noop::NoopTracer",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/noop.rs",
+      "begin": [
+        108,
+        17
+      ],
+      "end": [
+        108,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "NoopTracer",
+          "id": "opentelemetry::trace::noop::NoopTracer",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/noop.rs",
+        "begin": [
+          108,
+          17
+        ],
+        "end": [
+          108,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1579",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.noop.NoopTracer.md",
+    "record_file": "operations/opentelemetry.trace.noop.NoopTracer.json",
+    "anchor": "op-b4cbe6b2754109c2ca6f3109",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cafda8e5da5b31e8ef510ea3",
+    "path": "opentelemetry::trace::noop::NoopTracer::new",
+    "name": "new",
+    "owner": "opentelemetry::trace::noop::NoopTracer",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn new() -> Self",
+    "docs": "Create a new no-op tracer",
+    "span": {
+      "filename": "src/trace/noop.rs",
+      "begin": [
+        115,
+        5
+      ],
+      "end": [
+        117,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "NoopTracer",
+          "id": "opentelemetry::trace::noop::NoopTracer",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/noop.rs",
+        "begin": [
+          113,
+          1
+        ],
+        "end": [
+          118,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1556",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.noop.NoopTracer.md",
+    "record_file": "operations/opentelemetry.trace.noop.NoopTracer.json",
+    "anchor": "op-cafda8e5da5b31e8ef510ea3",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

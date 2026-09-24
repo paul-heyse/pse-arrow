@@ -1,0 +1,1092 @@
+[
+  {
+    "id": "fd59c5fd5cb1ede2912f0bcf",
+    "path": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+    "name": "UtcTime",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct UtcTime<F>",
+    "docs": "Formats the current [UTC time] using a [formatter] from the [`time` crate].\n\nTo format the current [local time] instead, use the [`LocalTime`] type.\n\n[local time]: time::OffsetDateTime::now_local\n[UTC time]:     time::OffsetDateTime::now_utc\n[formatter]:    time::formatting::Formattable\n[`time` crate]: time",
+    "span": {
+      "filename": "src/fmt/time/time_crate.rs",
+      "begin": [
+        46,
+        1
+      ],
+      "end": [
+        48,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"time\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          2353,
+          2355,
+          2356,
+          2357,
+          2358,
+          2359,
+          2360,
+          2361,
+          2362,
+          2363,
+          2364,
+          2365,
+          2366,
+          2367,
+          2368,
+          2369,
+          2370,
+          2371,
+          2372,
+          2373,
+          2375,
+          2377,
+          2379,
+          2381
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`LocalTime`": 1675,
+      "time": 2315,
+      "time::formatting::Formattable": 2314,
+      "time::OffsetDateTime::now_local": 2313,
+      "time::OffsetDateTime::now_utc": 2316
+    },
+    "link_paths": {
+      "`LocalTime`": "tracing_subscriber::fmt::time::time_crate::LocalTime",
+      "time": "time",
+      "time::formatting::Formattable": "time::formatting::formattable::Formattable",
+      "time::OffsetDateTime::now_local": null,
+      "time::OffsetDateTime::now_utc": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1674",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.json",
+    "anchor": "op-fd59c5fd5cb1ede2912f0bcf",
+    "aliases": [
+      "tracing_subscriber::fmt::time::UtcTime"
+    ],
+    "resolved_doc_links": {
+      "`LocalTime`": "../operations/tracing_subscriber.fmt.time.time_crate.LocalTime.md#op-aafaf1b0b948bafe945fd50f"
+    }
+  },
+  {
+    "id": "ed247de099be19dc06e9cc4a",
+    "path": "tracing_subscriber::fmt::time::time_crate::UtcTime::clone",
+    "name": "clone",
+    "owner": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn clone(&self) -> UtcTime<F>",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/time/time_crate.rs",
+      "begin": [
+        45,
+        10
+      ],
+      "end": [
+        45,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "UtcTime",
+              "id": 1674,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "F"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1674": "tracing_subscriber::fmt::time::time_crate::UtcTime"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "UtcTime",
+          "id": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::clone::Clone",
+                        "id": "core::clone::Clone",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/time_crate.rs",
+        "begin": [
+          45,
+          10
+        ],
+        "end": [
+          45,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2374",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.json",
+    "anchor": "op-ed247de099be19dc06e9cc4a",
+    "aliases": [
+      "tracing_subscriber::fmt::time::UtcTime::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8c534205ed3387532a603813",
+    "path": "tracing_subscriber::fmt::time::time_crate::UtcTime::default",
+    "name": "default",
+    "owner": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/time/time_crate.rs",
+      "begin": [
+        308,
+        5
+      ],
+      "end": [
+        310,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "UtcTime",
+          "id": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Formattable",
+                      "id": "time::formatting::formattable::Formattable",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Default",
+                      "id": "core::default::Default",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/time_crate.rs",
+        "begin": [
+          304,
+          1
+        ],
+        "end": [
+          311,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2380",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.json",
+    "anchor": "op-8c534205ed3387532a603813",
+    "aliases": [
+      "tracing_subscriber::fmt::time::UtcTime::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9432af3925de5056aa4ee1fc",
+    "path": "tracing_subscriber::fmt::time::time_crate::UtcTime::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/time/time_crate.rs",
+      "begin": [
+        45,
+        17
+      ],
+      "end": [
+        45,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "UtcTime",
+          "id": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/time_crate.rs",
+        "begin": [
+          45,
+          17
+        ],
+        "end": [
+          45,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2376",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.json",
+    "anchor": "op-9432af3925de5056aa4ee1fc",
+    "aliases": [
+      "tracing_subscriber::fmt::time::UtcTime::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7b88a902106981199cc92e56",
+    "path": "tracing_subscriber::fmt::time::time_crate::UtcTime::format_time",
+    "name": "format_time",
+    "owner": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn format_time(&self, w: &mut Writer<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/time/time_crate.rs",
+      "begin": [
+        299,
+        5
+      ],
+      "end": [
+        301,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "w",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Writer",
+                      "id": 218,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "218": "tracing_subscriber::fmt::format::Writer",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "UtcTime",
+          "id": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "FormatTime",
+        "id": "tracing_subscriber::fmt::time::FormatTime",
+        "args": null
+      },
+      "trait_path": "tracing_subscriber::fmt::time::FormatTime",
+      "generics": {
+        "params": [
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Formattable",
+                      "id": "time::formatting::formattable::Formattable",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/time_crate.rs",
+        "begin": [
+          295,
+          1
+        ],
+        "end": [
+          302,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2378",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.json",
+    "anchor": "op-7b88a902106981199cc92e56",
+    "aliases": [
+      "tracing_subscriber::fmt::time::UtcTime::format_time"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c63d5ce5195ce274dc47ab8f",
+    "path": "tracing_subscriber::fmt::time::time_crate::UtcTime::new",
+    "name": "new",
+    "owner": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn new(format: F) -> Self",
+    "docs": "Returns a formatter that formats the current [UTC time] using the\n[`time` crate], with the provided provided format. The format may be any\ntype that implements the [`Formattable`] trait.\n\nTypically, the format will be a format description string, or one of the\n`time` crate's [well-known formats].\n\nIf the format description is statically known, then the\n[`format_description!`] macro should be used. This is identical to the\n[`time::format_description::parse`] method, but runs at compile-time,\nfailing  an error if the format description is invalid. If the desired format\nis not known statically (e.g., a user is providing a format string), then the\n[`time::format_description::parse`] method should be used. Note that this\nmethod is fallible.\n\nSee the [`time` book] for details on the format description syntax.\n\n# Examples\n\nUsing the [`format_description!`] macro:\n\n```\nuse tracing_subscriber::fmt::{self, time::UtcTime};\nuse time::macros::format_description;\n\nlet timer = UtcTime::new(format_description!(\"[hour]:[minute]:[second]\"));\nlet subscriber = tracing_subscriber::fmt()\n    .with_timer(timer);\n# drop(subscriber);\n```\n\nUsing the [`format_description!`] macro requires enabling the `time`\ncrate's \"macros\" feature flag.\n\nUsing [`time::format_description::parse`]:\n\n```\nuse tracing_subscriber::fmt::{self, time::UtcTime};\n\nlet time_format = time::format_description::parse(\"[hour]:[minute]:[second]\")\n    .expect(\"format string should be valid!\");\nlet timer = UtcTime::new(time_format);\nlet subscriber = tracing_subscriber::fmt()\n    .with_timer(timer);\n# drop(subscriber);\n```\n\nUsing a [well-known format][well-known formats] (this is equivalent to\n[`UtcTime::rfc_3339`]):\n\n```\nuse tracing_subscriber::fmt::{self, time::UtcTime};\n\nlet timer = UtcTime::new(time::format_description::well_known::Rfc3339);\nlet subscriber = tracing_subscriber::fmt()\n    .with_timer(timer);\n# drop(subscriber);\n```\n\n[UTC time]: time::OffsetDateTime::now_utc()\n[`time` crate]: time\n[`Formattable`]: time::formatting::Formattable\n[well-known formats]: time::format_description::well_known\n[`format_description!`]: https://docs.rs/time/0.3/time/macros/macro.format_description.html\n[`time::format_description::parse`]: time::format_description::parse\n[`time` book]: https://time-rs.github.io/book/api/format-description.html",
+    "span": {
+      "filename": "src/fmt/time/time_crate.rs",
+      "begin": [
+        290,
+        5
+      ],
+      "end": [
+        292,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "format",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "UtcTime",
+          "id": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Formattable",
+                        "id": "time::formatting::formattable::Formattable",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/time_crate.rs",
+        "begin": [
+          223,
+          1
+        ],
+        "end": [
+          293,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`UtcTime::rfc_3339`": 2352,
+      "time": 2315,
+      "time::format_description::parse": 2322,
+      "time::OffsetDateTime::now_utc()": 2316,
+      "time::formatting::Formattable": 2314,
+      "time::format_description::well_known": 2321
+    },
+    "link_paths": {
+      "`UtcTime::rfc_3339`": null,
+      "time": "time",
+      "time::format_description::parse": "time::format_description::parse::parse",
+      "time::OffsetDateTime::now_utc()": null,
+      "time::formatting::Formattable": "time::formatting::formattable::Formattable",
+      "time::format_description::well_known": "time::format_description::well_known"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2354",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.json",
+    "anchor": "op-c63d5ce5195ce274dc47ab8f",
+    "aliases": [
+      "tracing_subscriber::fmt::time::UtcTime::new"
+    ],
+    "resolved_doc_links": {
+      "`UtcTime::rfc_3339`": "../operations/tracing_subscriber.fmt.time.time_crate.UtcTime.md#op-97fdfa9160a061440ce17f3f"
+    }
+  },
+  {
+    "id": "97fdfa9160a061440ce17f3f",
+    "path": "tracing_subscriber::fmt::time::time_crate::UtcTime::rfc_3339",
+    "name": "rfc_3339",
+    "owner": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn rfc_3339() -> Self",
+    "docs": "Returns a formatter that formats the current [UTC time] in the\n[RFC 3339] format, which is a subset of the [ISO 8601] timestamp format.\n\n# Examples\n\n```\nuse tracing_subscriber::fmt::{self, time};\n\nlet subscriber = tracing_subscriber::fmt()\n    .with_timer(time::UtcTime::rfc_3339());\n# drop(subscriber);\n```\n\n[local time]: time::OffsetDateTime::now_utc\n[RFC 3339]: https://datatracker.ietf.org/doc/html/rfc3339\n[ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601",
+    "span": {
+      "filename": "src/fmt/time/time_crate.rs",
+      "begin": [
+        218,
+        5
+      ],
+      "end": [
+        220,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "UtcTime",
+          "id": "tracing_subscriber::fmt::time::time_crate::UtcTime",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "well_known::Rfc3339",
+                      "id": "time::format_description::well_known::rfc3339::Rfc3339",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/time/time_crate.rs",
+        "begin": [
+          201,
+          1
+        ],
+        "end": [
+          221,
+          2
+        ]
+      }
+    },
+    "links": {
+      "time::OffsetDateTime::now_utc": 2316
+    },
+    "link_paths": {
+      "time::OffsetDateTime::now_utc": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2352",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.time_crate.UtcTime.json",
+    "anchor": "op-97fdfa9160a061440ce17f3f",
+    "aliases": [
+      "tracing_subscriber::fmt::time::UtcTime::rfc_3339"
+    ],
+    "resolved_doc_links": {}
+  }
+]

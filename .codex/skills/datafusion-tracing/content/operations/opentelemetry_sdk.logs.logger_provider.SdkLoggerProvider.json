@@ -1,0 +1,1303 @@
+[
+  {
+    "id": "410821400e0083f96db20f29",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "name": "SdkLoggerProvider",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct SdkLoggerProvider",
+    "docs": "Handles the creation and coordination of [`Logger`]s.\n\nAll `Logger`s created by a `SdkLoggerProvider` will share the same\n[`Resource`] and have their created log records processed by the\nconfigured log processors. This is a clonable handle to the `SdkLoggerProvider`\nitself, and cloning it will create a new reference, not a new instance of a\n`SdkLoggerProvider`. Dropping the last reference will trigger the shutdown of\nthe provider, ensuring that all remaining logs are flushed and no further\nlogs are processed. Shutdown can also be triggered manually by calling\nthe [`shutdown`](SdkLoggerProvider::shutdown) method.\n\n[`Logger`]: opentelemetry::logs::Logger\n[`Resource`]: crate::Resource",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        43,
+        1
+      ],
+      "end": [
+        45,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          294,
+          295,
+          296,
+          297,
+          298,
+          299,
+          300,
+          301,
+          302,
+          303,
+          304,
+          305,
+          306,
+          307,
+          308,
+          309,
+          310,
+          311,
+          312,
+          313,
+          314,
+          315,
+          317,
+          319,
+          325
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::Resource": 81,
+      "opentelemetry::logs::Logger": 282,
+      "SdkLoggerProvider::shutdown": 288
+    },
+    "link_paths": {
+      "crate::Resource": "opentelemetry_sdk::resource::Resource",
+      "opentelemetry::logs::Logger": "opentelemetry::logs::logger::Logger",
+      "SdkLoggerProvider::shutdown": null
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "289",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-410821400e0083f96db20f29",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider"
+    ],
+    "resolved_doc_links": {
+      "crate::Resource": "../operations/opentelemetry_sdk.resource.Resource.md#op-6665d2e0897d180bf11ccb3b",
+      "opentelemetry::logs::Logger": "../operations/opentelemetry.logs.logger.Logger.md#op-f433cc26744e85b74bee1072",
+      "SdkLoggerProvider::shutdown": "../operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md#op-d9521c09029ec8a0087d8aa8"
+    }
+  },
+  {
+    "id": "0c6df763bab3d37a05d71684",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider::Logger",
+    "name": "Logger",
+    "owner": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Logger",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        48,
+        5
+      ],
+      "end": [
+        48,
+        29
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "SdkLogger",
+            "id": 222,
+            "args": null
+          }
+        }
+      }
+    },
+    "type_references": {
+      "222": "opentelemetry_sdk::logs::logger::SdkLogger"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkLoggerProvider",
+          "id": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "LoggerProvider",
+        "id": "opentelemetry::logs::logger::LoggerProvider",
+        "args": null
+      },
+      "trait_path": "opentelemetry::logs::logger::LoggerProvider",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/logger_provider.rs",
+        "begin": [
+          47,
+          1
+        ],
+        "end": [
+          73,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "320",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-0c6df763bab3d37a05d71684",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider::Logger"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f81ecba487e55cb470f7e25a",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider::builder",
+    "name": "builder",
+    "owner": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn builder() -> LoggerProviderBuilder",
+    "docs": "Create a new `LoggerProvider` builder.",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        77,
+        5
+      ],
+      "end": [
+        79,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "LoggerProviderBuilder",
+              "id": 291,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "291": "opentelemetry_sdk::logs::logger_provider::LoggerProviderBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkLoggerProvider",
+          "id": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/logger_provider.rs",
+        "begin": [
+          75,
+          1
+        ],
+        "end": [
+          132,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "290",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-f81ecba487e55cb470f7e25a",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider::builder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "90557b88d1eac0dfba72af71",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> SdkLoggerProvider",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        29,
+        17
+      ],
+      "end": [
+        29,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "SdkLoggerProvider",
+              "id": 289,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "289": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkLoggerProvider",
+          "id": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/logger_provider.rs",
+        "begin": [
+          29,
+          17
+        ],
+        "end": [
+          29,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "318",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-90557b88d1eac0dfba72af71",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8213e2300e3c3b53ed0141ae",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        29,
+        10
+      ],
+      "end": [
+        29,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkLoggerProvider",
+          "id": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/logger_provider.rs",
+        "begin": [
+          29,
+          10
+        ],
+        "end": [
+          29,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "316",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-8213e2300e3c3b53ed0141ae",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "753d6dec843742df970842e7",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider::force_flush",
+    "name": "force_flush",
+    "owner": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn force_flush(&self) -> OTelSdkResult",
+    "docs": "Force flush all remaining logs in log processors and return results.",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        86,
+        5
+      ],
+      "end": [
+        97,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkLoggerProvider",
+          "id": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/logger_provider.rs",
+        "begin": [
+          75,
+          1
+        ],
+        "end": [
+          132,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "292",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-753d6dec843742df970842e7",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider::force_flush"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c69db7ae22a19b02c664e961",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider::logger",
+    "name": "logger",
+    "owner": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn logger(&self, name: impl Into<Cow<'static, str>>) -> Self::Logger",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        50,
+        5
+      ],
+      "end": [
+        53,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 37,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 322,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Logger",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 323,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 37,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 322,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "37": "core::convert::Into",
+      "322": "alloc::borrow::Cow",
+      "323": "opentelemetry::logs::logger::LoggerProvider"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkLoggerProvider",
+          "id": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "LoggerProvider",
+        "id": "opentelemetry::logs::logger::LoggerProvider",
+        "args": null
+      },
+      "trait_path": "opentelemetry::logs::logger::LoggerProvider",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/logger_provider.rs",
+        "begin": [
+          47,
+          1
+        ],
+        "end": [
+          73,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "321",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-c69db7ae22a19b02c664e961",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider::logger"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "05c17835114bcfd55b6d54a4",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider::logger_with_scope",
+    "name": "logger_with_scope",
+    "owner": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn logger_with_scope(&self, scope: InstrumentationScope) -> Self::Logger",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        55,
+        5
+      ],
+      "end": [
+        72,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "scope",
+              {
+                "resolved_path": {
+                  "path": "InstrumentationScope",
+                  "id": 75,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Logger",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 323,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "opentelemetry::common::InstrumentationScope",
+      "323": "opentelemetry::logs::logger::LoggerProvider"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkLoggerProvider",
+          "id": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "LoggerProvider",
+        "id": "opentelemetry::logs::logger::LoggerProvider",
+        "args": null
+      },
+      "trait_path": "opentelemetry::logs::logger::LoggerProvider",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/logger_provider.rs",
+        "begin": [
+          47,
+          1
+        ],
+        "end": [
+          73,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "324",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-05c17835114bcfd55b6d54a4",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider::logger_with_scope"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d9521c09029ec8a0087d8aa8",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider::shutdown",
+    "name": "shutdown",
+    "owner": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown(&self) -> OTelSdkResult",
+    "docs": "Shuts down this `LoggerProvider` with default timeout",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        129,
+        5
+      ],
+      "end": [
+        131,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkLoggerProvider",
+          "id": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/logger_provider.rs",
+        "begin": [
+          75,
+          1
+        ],
+        "end": [
+          132,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "288",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-d9521c09029ec8a0087d8aa8",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider::shutdown"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6dc972c972ff0829e5c385cf",
+    "path": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider::shutdown_with_timeout",
+    "name": "shutdown_with_timeout",
+    "owner": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown_with_timeout(&self, timeout: Duration) -> OTelSdkResult",
+    "docs": "Shuts down this `LoggerProvider`",
+    "span": {
+      "filename": "src/logs/logger_provider.rs",
+      "begin": [
+        100,
+        5
+      ],
+      "end": [
+        126,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "timeout",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration",
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkLoggerProvider",
+          "id": "opentelemetry_sdk::logs::logger_provider::SdkLoggerProvider",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/logger_provider.rs",
+        "begin": [
+          75,
+          1
+        ],
+        "end": [
+          132,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "293",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.md",
+    "record_file": "operations/opentelemetry_sdk.logs.logger_provider.SdkLoggerProvider.json",
+    "anchor": "op-6dc972c972ff0829e5c385cf",
+    "aliases": [
+      "opentelemetry_sdk::logs::SdkLoggerProvider::shutdown_with_timeout"
+    ],
+    "resolved_doc_links": {}
+  }
+]

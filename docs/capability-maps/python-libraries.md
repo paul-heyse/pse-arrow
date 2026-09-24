@@ -695,9 +695,9 @@ is supplied by this map.
 | 6 | **P2** | **probe** | `probe_arrow.py` PROBE 1 | extension type through IPC, registered vs not | registered → `SemanticId`; unregistered → `FixedSizeBinaryType`, **`ARROW:extension:name` metadata retained** |
 | 7 | **P1, P2** | **probe** | `probe_arrow.py` PROBE 2 | schema/field metadata across IPC and `__arrow_c_stream__` | preserved on both paths; extension type survives the capsule path |
 | 8 | **P9** | **probe** | `probe_arrow.py` PROBE 8 | numpy zero-copy and nulls | zero-copy **refused** with nulls; `zero_copy_only=False` turns **null → NaN**; `-0.0` preserved |
-| 9 | **P3** | **probe** | `probe_pyomo.py` PROBE 3 | `LinearExpression`, `Expr_if`, `ExternalFunction` | all confirmed; **missing external library only warns** |
-| 10 | **P4** | **probe** | `probe_pyomo.py` PROBE 4 | units consistency, with and without pint | **`pyo.units` raises `DeferredImportError` without pint**; with pint, `InconsistentUnitsError` + `identify_inconsistent_units` names the culprit |
-| 11 | P4 | **probe** | `probe_pyomo.py` PROBE 5 | suffixes and solver availability | suffixes declare OK; **no solver available** → round-trip `[UNVERIFIED]` |
+| 9 | **P3** | **probe** | retired Pyomo probe (historical only) PROBE 3 | `LinearExpression`, `Expr_if`, `ExternalFunction` | all confirmed; **missing external library only warns** |
+| 10 | **P4** | **probe** | retired Pyomo probe (historical only) PROBE 4 | units consistency, with and without pint | **`pyo.units` raises `DeferredImportError` without pint**; with pint, `InconsistentUnitsError` + `identify_inconsistent_units` names the culprit |
+| 11 | P4 | **probe** | retired Pyomo probe (historical only) PROBE 5 | suffixes and solver availability | suffixes declare OK; **no solver available** → round-trip `[UNVERIFIED]` |
 | 12 | **P6** | **probe** | `probe_contracts.py` PROBE 6 | cattrs strictness and `Any` | **unknown keys silently dropped by default**; `forbid_extra_keys` rejects; **`Any` accepted** |
 | 13 | **P7** | **probe** | `probe_contracts.py` PROBE 7 | msgspec constraints and schema | unknown field + type + `Meta(gt=0)` all rejected **with JSON-path locations**; `json.schema()` emits `additionalProperties: False` |
 | 14 | P5 | probe | import checks on `py314` | parmest, PyROS, GDPopt, pyomo.dae, incidence_analysis, iis | all present; `IncidenceGraphInterface` at `pyomo.contrib.incidence_analysis.interface` |

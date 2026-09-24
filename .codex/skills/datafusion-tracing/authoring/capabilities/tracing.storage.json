@@ -1,0 +1,111 @@
+{
+  "id": "tracing.storage",
+  "title": "Instrument storage requests and returned streams",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "see storage requests",
+    "wrap object store register",
+    "get ranges bytes stream list multipart errors"
+  ],
+  "crates": [
+    "instrumented-object-store",
+    "tracing-futures"
+  ],
+  "input": [
+    "Arc<dyn ObjectStore>",
+    "store name"
+  ],
+  "output": [
+    "Arc<dyn ObjectStore>",
+    "storage spans"
+  ],
+  "properties": [
+    "storage",
+    "errors",
+    "lazy-stream"
+  ],
+  "operations": [
+    "instrumented_object_store::instrumented_object_store::instrument_object_store"
+  ],
+  "brief": "The returned wrapper observes calls made through it. Registration and use of the wrapped instance determine whether query I/O reaches that boundary.",
+  "choices": [
+    {
+      "candidate": "wrapped instance",
+      "choose_when": "Object-store call observations are required",
+      "tradeoff": "The consumer must actually use this instance."
+    },
+    {
+      "candidate": "underlying instance",
+      "choose_when": "No wrapper observations are requested",
+      "tradeoff": "Query results can be the same with a different trace."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.storage.1",
+      "aspect": "API",
+      "kind": "source_observation",
+      "statement": "instrument_object_store takes an Arc<dyn ObjectStore> and &str name and returns Arc<dyn ObjectStore>.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.storage.2",
+      "aspect": "Lifecycle",
+      "kind": "source_observation",
+      "statement": "Method completion and consumption of returned streams are distinct. Inspect each method: a span around returning GetResult is not proof of payload-transfer coverage.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.storage.3",
+      "aspect": "Errors",
+      "kind": "source_observation",
+      "statement": "instrument_result records result metadata or error text and returns the original Result.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.storage.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "Direct wrapped and underlying in-memory store calls return identical bytes/ranges; only the wrapper emits store spans. Missing-path errors are recorded, get closes before bytes consumption, and list stays live until consumed. Registration into a DataFusion runtime is not exercised.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Wrap the store before passing it to the consuming storage registration point.",
+    "Check target and concrete method; lazy streams/multipart operations need their own boundary evidence."
+  ],
+  "unknowns": [
+    "Local controlled storage does not qualify cloud retries, authentication or network traffic."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "storage_wrapper_result_error_and_lazy_lifetime"
+      ],
+      "scope": "Direct wrapped and underlying in-memory store calls return identical bytes/ranges; only the wrapper emits store spans. Missing-path errors are recorded, get closes before bytes consumption, and list stays live until consumed. Registration into a DataFusion runtime is not exercised."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ]
+}

@@ -1,0 +1,1139 @@
+[
+  {
+    "id": "680b563a7b4760ad610d0e0b",
+    "path": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+    "name": "BatchLogProcessor",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct BatchLogProcessor<R: RuntimeChannel>",
+    "docs": "A [`LogProcessor`] that asynchronously buffers log records and reports\nthem at a pre-configured interval.",
+    "span": {
+      "filename": "src/logs/log_processor_with_async_runtime.rs",
+      "begin": [
+        43,
+        1
+      ],
+      "end": [
+        51,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "R",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "RuntimeChannel",
+                          "id": 242,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          644,
+          645,
+          646,
+          647,
+          648,
+          650,
+          651,
+          652,
+          653,
+          654,
+          655,
+          656,
+          657,
+          658,
+          659,
+          660,
+          661,
+          662,
+          663,
+          664,
+          666,
+          241
+        ]
+      }
+    },
+    "type_references": {
+      "242": "opentelemetry_sdk::runtime::RuntimeChannel"
+    },
+    "impl_context": null,
+    "links": {
+      "`LogProcessor`": 83
+    },
+    "link_paths": {
+      "`LogProcessor`": "opentelemetry_sdk::logs::log_processor::LogProcessor"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "243",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.json",
+    "anchor": "op-680b563a7b4760ad610d0e0b",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`LogProcessor`": "../operations/opentelemetry_sdk.logs.log_processor.LogProcessor.md#op-006d2a495c0f4272e9c3d480"
+    }
+  },
+  {
+    "id": "142553f3b47bb06feefe74d1",
+    "path": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor::builder",
+    "name": "builder",
+    "owner": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn builder<E>(exporter: E, runtime: R) -> BatchLogProcessorBuilder<E, R> where E: LogExporter",
+    "docs": "Create a new batch processor builder",
+    "span": {
+      "filename": "src/logs/log_processor_with_async_runtime.rs",
+      "begin": [
+        217,
+        5
+      ],
+      "end": [
+        226,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "exporter",
+              {
+                "generic": "E"
+              }
+            ],
+            [
+              "runtime",
+              {
+                "generic": "R"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "BatchLogProcessorBuilder",
+              "id": 643,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "E"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "R"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "E",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "E"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LogExporter",
+                        "id": 13,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "643": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessorBuilder",
+      "13": "opentelemetry_sdk::logs::export::LogExporter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchLogProcessor",
+          "id": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "RuntimeChannel",
+                        "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/log_processor_with_async_runtime.rs",
+        "begin": [
+          119,
+          1
+        ],
+        "end": [
+          227,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "642",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.json",
+    "anchor": "op-142553f3b47bb06feefe74d1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dd3dda151dbb44f356174954",
+    "path": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor::emit",
+    "name": "emit",
+    "owner": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn emit(&self, record: &mut SdkLogRecord, instrumentation: &InstrumentationScope)",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/log_processor_with_async_runtime.rs",
+      "begin": [
+        62,
+        5
+      ],
+      "end": [
+        77,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "record",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "SdkLogRecord",
+                      "id": 74,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "instrumentation",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "InstrumentationScope",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "74": "opentelemetry_sdk::logs::record::SdkLogRecord",
+      "75": "opentelemetry::common::InstrumentationScope"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchLogProcessor",
+          "id": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "LogProcessor",
+        "id": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+      "generics": {
+        "params": [
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "RuntimeChannel",
+                        "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/log_processor_with_async_runtime.rs",
+        "begin": [
+          61,
+          1
+        ],
+        "end": [
+          117,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "237",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.json",
+    "anchor": "op-dd3dda151dbb44f356174954",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "70911d5120438f47d48a0fcc",
+    "path": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/log_processor_with_async_runtime.rs",
+      "begin": [
+        54,
+        5
+      ],
+      "end": [
+        58,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchLogProcessor",
+          "id": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "RuntimeChannel",
+                        "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/log_processor_with_async_runtime.rs",
+        "begin": [
+          53,
+          1
+        ],
+        "end": [
+          59,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "665",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.json",
+    "anchor": "op-70911d5120438f47d48a0fcc",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6c930029e167822961a95f3d",
+    "path": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor::force_flush",
+    "name": "force_flush",
+    "owner": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn force_flush(&self) -> OTelSdkResult",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/log_processor_with_async_runtime.rs",
+      "begin": [
+        79,
+        5
+      ],
+      "end": [
+        88,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchLogProcessor",
+          "id": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "LogProcessor",
+        "id": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+      "generics": {
+        "params": [
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "RuntimeChannel",
+                        "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/log_processor_with_async_runtime.rs",
+        "begin": [
+          61,
+          1
+        ],
+        "end": [
+          117,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "238",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.json",
+    "anchor": "op-6c930029e167822961a95f3d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "95e0b7155a05a3b43bdd2984",
+    "path": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor::set_resource",
+    "name": "set_resource",
+    "owner": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn set_resource(&mut self, resource: &Resource)",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/log_processor_with_async_runtime.rs",
+      "begin": [
+        111,
+        5
+      ],
+      "end": [
+        116,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "resource",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Resource",
+                      "id": 81,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "81": "opentelemetry_sdk::resource::Resource"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchLogProcessor",
+          "id": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "LogProcessor",
+        "id": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+      "generics": {
+        "params": [
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "RuntimeChannel",
+                        "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/log_processor_with_async_runtime.rs",
+        "begin": [
+          61,
+          1
+        ],
+        "end": [
+          117,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "240",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.json",
+    "anchor": "op-95e0b7155a05a3b43bdd2984",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e085621a20f5d4124f088ee8",
+    "path": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor::shutdown",
+    "name": "shutdown",
+    "owner": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown(&self) -> OTelSdkResult",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/log_processor_with_async_runtime.rs",
+      "begin": [
+        90,
+        5
+      ],
+      "end": [
+        109,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchLogProcessor",
+          "id": "opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "LogProcessor",
+        "id": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+      "generics": {
+        "params": [
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "RuntimeChannel",
+                        "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/log_processor_with_async_runtime.rs",
+        "begin": [
+          61,
+          1
+        ],
+        "end": [
+          117,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "239",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor_with_async_runtime.BatchLogProcessor.json",
+    "anchor": "op-e085621a20f5d4124f088ee8",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

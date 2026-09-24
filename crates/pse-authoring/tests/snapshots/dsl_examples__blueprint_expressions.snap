@@ -441,7 +441,6 @@ expression: snapshots
                                 },
                             },
                         ],
-                        named: [],
                     },
                     span: Span {
                         start: 18,
@@ -748,196 +747,6 @@ expression: snapshots
             span: Span {
                 start: 0,
                 end: 44,
-            },
-        },
-    ),
-    (
-        "weighted_mean(w1, t1, w2, t2)",
-        Expr {
-            kind: Call {
-                function: WeightedMean,
-                args: [
-                    Expr {
-                        kind: Path(
-                            Path {
-                                segments: [
-                                    PathSegment {
-                                        name: "w1",
-                                        indices: [],
-                                    },
-                                ],
-                            },
-                        ),
-                        span: Span {
-                            start: 14,
-                            end: 16,
-                        },
-                    },
-                    Expr {
-                        kind: Path(
-                            Path {
-                                segments: [
-                                    PathSegment {
-                                        name: "t1",
-                                        indices: [],
-                                    },
-                                ],
-                            },
-                        ),
-                        span: Span {
-                            start: 18,
-                            end: 20,
-                        },
-                    },
-                    Expr {
-                        kind: Path(
-                            Path {
-                                segments: [
-                                    PathSegment {
-                                        name: "w2",
-                                        indices: [],
-                                    },
-                                ],
-                            },
-                        ),
-                        span: Span {
-                            start: 22,
-                            end: 24,
-                        },
-                    },
-                    Expr {
-                        kind: Path(
-                            Path {
-                                segments: [
-                                    PathSegment {
-                                        name: "t2",
-                                        indices: [],
-                                    },
-                                ],
-                            },
-                        ),
-                        span: Span {
-                            start: 26,
-                            end: 28,
-                        },
-                    },
-                ],
-                named: [],
-            },
-            span: Span {
-                start: 0,
-                end: 29,
-            },
-        },
-    ),
-    (
-        "smooth_min(smooth_min(a, b, eps=1e-3{Pa}), c, eps=1e-3{Pa})",
-        Expr {
-            kind: Call {
-                function: SmoothMin,
-                args: [
-                    Expr {
-                        kind: Call {
-                            function: SmoothMin,
-                            args: [
-                                Expr {
-                                    kind: Path(
-                                        Path {
-                                            segments: [
-                                                PathSegment {
-                                                    name: "a",
-                                                    indices: [],
-                                                },
-                                            ],
-                                        },
-                                    ),
-                                    span: Span {
-                                        start: 22,
-                                        end: 23,
-                                    },
-                                },
-                                Expr {
-                                    kind: Path(
-                                        Path {
-                                            segments: [
-                                                PathSegment {
-                                                    name: "b",
-                                                    indices: [],
-                                                },
-                                            ],
-                                        },
-                                    ),
-                                    span: Span {
-                                        start: 25,
-                                        end: 26,
-                                    },
-                                },
-                            ],
-                            named: [
-                                NamedArg {
-                                    name: "eps",
-                                    value: Expr {
-                                        kind: Number(
-                                            Number {
-                                                value: 0.001,
-                                                unit: Some(
-                                                    "Pa",
-                                                ),
-                                            },
-                                        ),
-                                        span: Span {
-                                            start: 32,
-                                            end: 40,
-                                        },
-                                    },
-                                },
-                            ],
-                        },
-                        span: Span {
-                            start: 11,
-                            end: 41,
-                        },
-                    },
-                    Expr {
-                        kind: Path(
-                            Path {
-                                segments: [
-                                    PathSegment {
-                                        name: "c",
-                                        indices: [],
-                                    },
-                                ],
-                            },
-                        ),
-                        span: Span {
-                            start: 43,
-                            end: 44,
-                        },
-                    },
-                ],
-                named: [
-                    NamedArg {
-                        name: "eps",
-                        value: Expr {
-                            kind: Number(
-                                Number {
-                                    value: 0.001,
-                                    unit: Some(
-                                        "Pa",
-                                    ),
-                                },
-                            ),
-                            span: Span {
-                                start: 50,
-                                end: 58,
-                            },
-                        },
-                    },
-                ],
-            },
-            span: Span {
-                start: 0,
-                end: 59,
             },
         },
     ),
@@ -1451,7 +1260,6 @@ expression: snapshots
                         },
                     },
                 ],
-                named: [],
             },
             span: Span {
                 start: 0,
@@ -1498,7 +1306,6 @@ expression: snapshots
                         },
                     },
                 ],
-                named: [],
             },
             span: Span {
                 start: 0,

@@ -1,0 +1,60 @@
+[
+  {
+    "id": "d37a648f25beedf59548b980",
+    "path": "tracing::span",
+    "name": "span",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "macro",
+    "signature": "macro_rules! span",
+    "docs": "Constructs a new span.\n\nSee [the top-level documentation][lib] for details on the syntax accepted by\nthis macro.\n\n[lib]: crate#using-the-macros\n\n# Examples\n\nCreating a new span:\n```\n# use tracing::{span, Level};\n# fn main() {\nlet span = span!(Level::TRACE, \"my span\");\nlet _enter = span.enter();\n// do work inside the span...\n# }\n```",
+    "span": {
+      "filename": "src/macros.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        131,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! span {\n    (target: $target:expr, parent: $parent:expr, $lvl:expr, $name:expr) => { ... };\n    (target: $target:expr, parent: $parent:expr, $lvl:expr, $name:expr, $($fields:tt)*) => { ... };\n    (target: $target:expr, $lvl:expr, $name:expr, $($fields:tt)*) => { ... };\n    (target: $target:expr, parent: $parent:expr, $lvl:expr, $name:expr) => { ... };\n    (parent: $parent:expr, $lvl:expr, $name:expr, $($fields:tt)*) => { ... };\n    (parent: $parent:expr, $lvl:expr, $name:expr) => { ... };\n    (target: $target:expr, $lvl:expr, $name:expr, $($fields:tt)*) => { ... };\n    (target: $target:expr, $lvl:expr, $name:expr) => { ... };\n    ($lvl:expr, $name:expr, $($fields:tt)*) => { ... };\n    ($lvl:expr, $name:expr) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate#using-the-macros": 385
+    },
+    "link_paths": {
+      "crate#using-the-macros": "tracing"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "321",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.md",
+    "record_file": "operations/tracing.span.json",
+    "anchor": "op-d37a648f25beedf59548b980",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate#using-the-macros": "../modules/tracing.md#op-9c1f7d23f358e3a0a8455190"
+    }
+  }
+]

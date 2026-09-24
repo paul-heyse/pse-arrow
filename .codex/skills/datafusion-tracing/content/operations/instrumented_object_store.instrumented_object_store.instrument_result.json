@@ -1,0 +1,201 @@
+[
+  {
+    "id": "2949d7b56d433cef854100c0",
+    "path": "instrumented_object_store::instrumented_object_store::instrument_result",
+    "name": "instrument_result",
+    "owner": null,
+    "crate": "instrumented-object-store",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn instrument_result<T, E>(result: object_store::Result<T, E>) -> object_store::Result<T, E> where T: Instrumentable, E: std::error::Error",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_object_store.rs",
+      "begin": [
+        116,
+        1
+      ],
+      "end": [
+        129,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 4,
+        "path": "::instrumented_object_store"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "result",
+              {
+                "resolved_path": {
+                  "path": "object_store::Result",
+                  "id": 106,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "generic": "T"
+                          }
+                        },
+                        {
+                          "type": {
+                            "generic": "E"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "object_store::Result",
+              "id": 106,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "T"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "E"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "E",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "T"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Instrumentable",
+                        "id": 127,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "E"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "std::error::Error",
+                        "id": 143,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "106": "object_store::Result",
+      "127": "instrumented_object_store::instrumented_object_store::Instrumentable",
+      "143": "core::error::Error"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "d4e00139e3a8b1fe6a5b9e35f66ec6b93cc801c613eb053f7427694a9afd71d7",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "142",
+      "origin": "../../build/acquired/rustdoc/instrumented-object-store@55.0.0.private.json.zst",
+      "compressed_sha256": "7bde671818e0da59b2b3ab8203ffad736a840ccb3f9eeeda821758a103115061",
+      "local_file": "build/acquired/rustdoc/instrumented-object-store@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/instrumented_object_store.instrumented_object_store.instrument_result.md",
+    "record_file": "operations/instrumented_object_store.instrumented_object_store.instrument_result.json",
+    "anchor": "op-2949d7b56d433cef854100c0",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

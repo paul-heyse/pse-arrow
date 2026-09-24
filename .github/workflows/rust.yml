@@ -80,8 +80,8 @@ jobs:
       - name: clippy (default features)
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: clippy (no default features)
-        # Proves the `ipopt` feature is genuinely optional, so a consumer without a
-        # solver can still build the library crates.
+        # Checks the no-default dependency graph. Native ABI link profiles are explicit
+        # and qualify separately; this job does not establish solver availability.
         run: cargo clippy --workspace --all-targets --locked --no-default-features -- -D warnings
 
   test:

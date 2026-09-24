@@ -1,0 +1,371 @@
+[
+  {
+    "id": "4bd50093c9a272555ebecf03",
+    "path": "tracing::instrument::WithSubscriber",
+    "name": "WithSubscriber",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "trait",
+    "signature": "trait WithSubscriber: Sized",
+    "docs": "Extension trait allowing futures to be instrumented with\na `tracing` [`Subscriber`](crate::Subscriber).",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        136,
+        1
+      ],
+      "end": [
+        234,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgAttrTrace([NameValue { name: \"docsrs\", value: None, span: src/instrument.rs:135:12: 135:18 (#0) }])]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"std\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          60,
+          62
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Sized",
+                "id": 57,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          64
+        ]
+      }
+    },
+    "type_references": {
+      "57": "core::marker::Sized"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::Subscriber": 17
+    },
+    "link_paths": {
+      "crate::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "63",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithSubscriber.md",
+    "record_file": "operations/tracing.instrument.WithSubscriber.json",
+    "anchor": "op-4bd50093c9a272555ebecf03",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "76e6327da42dff6ad95a6736",
+    "path": "tracing::instrument::WithSubscriber::with_current_subscriber",
+    "name": "with_current_subscriber",
+    "owner": "tracing::instrument::WithSubscriber",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn with_current_subscriber(self) -> WithDispatch<Self>",
+    "docs": "Attaches the current [default] [`Subscriber`] to this type, returning a\n[`WithDispatch`] wrapper.\n\nThe attached `Subscriber` will be set as the [default] when the returned\n[`Future`] is polled.\n\nThis can be used to propagate the current dispatcher context when\nspawning a new future that may run on a different thread.\n\n# Examples\n\n```\n# mod tokio {\n#     pub(super) fn spawn(_: impl std::future::Future) {}\n# }\n# use tracing::subscriber::NoSubscriber as MySubscriber;\n# async fn docs() {\nuse tracing::instrument::WithSubscriber;\n\n// Using `set_default` (rather than `set_global_default`) sets the\n// default `Subscriber` for *this* thread only.\nlet _default = tracing::subscriber::set_default(MySubscriber::default());\n\nlet future = async {\n    // ...\n};\n\n// If a multi-threaded async runtime is in use, this spawned task may\n// run on a different thread, in a different default `Subscriber`'s context.\ntokio::spawn(future);\n\n// However, calling `with_current_subscriber` on the future before\n// spawning it, ensures that the current thread's default `Subscriber` is\n// propagated to the spawned task, regardless of where it executes:\n# let future = async { };\ntokio::spawn(future.with_current_subscriber());\n# }\n```\n[`Subscriber`]: super::Subscriber\n[default]: dispatcher#setting-the-default-subscriber\n[`Future`]: std::future::Future",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        228,
+        5
+      ],
+      "end": [
+        233,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WithDispatch",
+              "id": 59,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "59": "tracing::instrument::WithDispatch"
+    },
+    "impl_context": null,
+    "links": {
+      "super::Subscriber": 17,
+      "dispatcher#setting-the-default-subscriber": 18,
+      "`WithDispatch`": 59,
+      "std::future::Future": 48
+    },
+    "link_paths": {
+      "super::Subscriber": "tracing_core::subscriber::Subscriber",
+      "dispatcher#setting-the-default-subscriber": "tracing::dispatcher",
+      "`WithDispatch`": "tracing::instrument::WithDispatch",
+      "std::future::Future": "core::future::future::Future"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "62",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithSubscriber.md",
+    "record_file": "operations/tracing.instrument.WithSubscriber.json",
+    "anchor": "op-76e6327da42dff6ad95a6736",
+    "aliases": [],
+    "resolved_doc_links": {
+      "super::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "dispatcher#setting-the-default-subscriber": "../modules/tracing.dispatcher.md#op-ad4cec090ca0a26cbe94a168",
+      "`WithDispatch`": "../operations/tracing.instrument.WithDispatch.md#op-f37fe528a1c49c9d37012bbc"
+    }
+  },
+  {
+    "id": "ef3821a7bc4c08d5246c199d",
+    "path": "tracing::instrument::WithSubscriber::with_subscriber",
+    "name": "with_subscriber",
+    "owner": "tracing::instrument::WithSubscriber",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn with_subscriber<S>(self, subscriber: S) -> WithDispatch<Self> where S: Into<Dispatch>",
+    "docs": "Attaches the provided [`Subscriber`] to this type, returning a\n[`WithDispatch`] wrapper.\n\nThe attached [`Subscriber`] will be set as the [default] when the returned\n[`Future`] is polled.\n\n# Examples\n\n```\n# use tracing::subscriber::NoSubscriber as MySubscriber;\n# use tracing::subscriber::NoSubscriber as MyOtherSubscriber;\n# async fn docs() {\nuse tracing::instrument::WithSubscriber;\n\n// Set the default `Subscriber`\nlet _default = tracing::subscriber::set_default(MySubscriber::default());\n\ntracing::info!(\"this event will be recorded by the default `Subscriber`\");\n\n// Create a different `Subscriber` and attach it to a future.\nlet other_subscriber = MyOtherSubscriber::default();\nlet future = async {\n    tracing::info!(\"this event will be recorded by the other `Subscriber`\");\n    // ...\n};\n\nfuture\n    // Attach the other `Subscriber` to the future before awaiting it\n    .with_subscriber(other_subscriber)\n    .await;\n\n// Once the future has completed, we return to the default `Subscriber`.\ntracing::info!(\"this event will be recorded by the default `Subscriber`\");\n# }\n```\n\n[`Subscriber`]: super::Subscriber\n[default]: dispatcher#setting-the-default-subscriber\n[`Future`]: std::future::Future",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        176,
+        5
+      ],
+      "end": [
+        184,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "subscriber",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WithDispatch",
+              "id": 59,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 61,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Dispatch",
+                                    "id": 12,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "59": "tracing::instrument::WithDispatch",
+      "61": "core::convert::Into",
+      "12": "tracing_core::dispatcher::Dispatch"
+    },
+    "impl_context": null,
+    "links": {
+      "super::Subscriber": 17,
+      "dispatcher#setting-the-default-subscriber": 18,
+      "`WithDispatch`": 59,
+      "std::future::Future": 48
+    },
+    "link_paths": {
+      "super::Subscriber": "tracing_core::subscriber::Subscriber",
+      "dispatcher#setting-the-default-subscriber": "tracing::dispatcher",
+      "`WithDispatch`": "tracing::instrument::WithDispatch",
+      "std::future::Future": "core::future::future::Future"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "60",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.WithSubscriber.md",
+    "record_file": "operations/tracing.instrument.WithSubscriber.json",
+    "anchor": "op-ef3821a7bc4c08d5246c199d",
+    "aliases": [],
+    "resolved_doc_links": {
+      "super::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "dispatcher#setting-the-default-subscriber": "../modules/tracing.dispatcher.md#op-ad4cec090ca0a26cbe94a168",
+      "`WithDispatch`": "../operations/tracing.instrument.WithDispatch.md#op-f37fe528a1c49c9d37012bbc"
+    }
+  }
+]

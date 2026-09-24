@@ -2,12 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Registered P2 unnest/anti-join/distinct behavior against an independent set oracle.
-use datafusion::execution::runtime_env::RuntimeEnv;
-use pse_catalog::session::{
-    ExecutionSettings, ThreadBudget, build_candidate_session, native_engine_profile,
-};
-use pse_ids::{CancellationToken, FixedBudget, SemanticId};
-use pse_schema::model::Cell;
+use pse_columnar::CancellationToken;
+use pse_engine::session::{ExecutionSettings, ThreadBudget};
+use pse_ids::SemanticId;
 use std::{
     collections::{BTreeMap, BTreeSet},
     num::NonZeroUsize,
@@ -16,14 +13,14 @@ use std::{
 fn id(value: u8) -> SemanticId {
     SemanticId::from_bytes([value; 16])
 }
-fn phase_row(phase: u8) -> Vec<Cell> {
+fn phase_row(phase: u8) -> Vec<serde_json::Value> {
     vec![
-        Cell::Id(id(phase)),
-        Cell::Id(id(90)),
-        Cell::text(format!("phase{phase}")),
-        Cell::Enum(pse_material::PhaseType::Liquid.as_str()),
-        Cell::Bool(false),
-        Cell::text("declared phase"),
+        serde_json::json!(["id", (id(phase)).to_hex()]),
+        serde_json::json!(["id", (id(90)).to_hex()]),
+        serde_json::json!(["text", format!("phase{phase}")]),
+        serde_json::json!(["enum", pse_material::PhaseType::Liquid.as_str()]),
+        serde_json::json!(["bool", false]),
+        serde_json::json!(["text", "declared phase"]),
     ]
 }
 
@@ -53,18 +50,24 @@ async fn relational_expansion_reference_matches_complete_actual_p2_keys() {
         let expected: Vec<_> = systems
             .iter()
             .filter(|(_, members)| members.iter().any(|member| !present.contains(member)))
-            .map(|(system, _)| vec![Cell::Id(id(*system))])
+            .map(|(system, _)| vec![serde_json::json!(["id", (id(*system)).to_hex()])])
             .collect();
         let mut system_rows: Vec<_> = systems
             .iter()
             .map(|(system, members)| {
                 vec![
-                    Cell::Id(id(*system)),
-                    Cell::Id(id(90)),
-                    Cell::text(format!("system{system}")),
-                    Cell::List(vec![]),
-                    Cell::List(members.iter().map(|member| Cell::Id(id(*member))).collect()),
-                    Cell::text("actual declared membership"),
+                    serde_json::json!(["id", (id(*system)).to_hex()]),
+                    serde_json::json!(["id", (id(90)).to_hex()]),
+                    serde_json::json!(["text", format!("system{system}")]),
+                    serde_json::json!(["list", []]),
+                    serde_json::json!([
+                        "list",
+                        members
+                            .iter()
+                            .map(|member| serde_json::json!(["id", (id(*member)).to_hex()]))
+                            .collect::<Vec<serde_json::Value>>()
+                    ]),
+                    serde_json::json!(["text", "actual declared membership"]),
                 ]
             })
             .collect();
@@ -75,26 +78,26 @@ async fn relational_expansion_reference_matches_complete_actual_p2_keys() {
         let rows = BTreeMap::from([
             (
                 spec.key,
-                pse_relations::cells::batch_from_cells(&registry, spec, &system_rows).unwrap(),
+                pse_relations::testing::batch_from_literals(&registry, spec, &system_rows).unwrap(),
             ),
             (
                 phases.key,
-                pse_relations::cells::batch_from_cells(&registry, phases, &phase_rows).unwrap(),
+                pse_relations::testing::batch_from_literals(&registry, phases, &phase_rows)
+                    .unwrap(),
             ),
         ]);
         let thread = NonZeroUsize::new(1).unwrap();
-        let session = build_candidate_session(
-            rows,
-            Arc::clone(&registry),
-            Arc::new(RuntimeEnv::default()),
-            FixedBudget::new(64 << 20),
+        let session = pse_testkit::factory(
+            Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
             ExecutionSettings::default(),
             ThreadBudget {
                 pool_threads: thread,
                 target_partitions: thread,
             },
-            native_engine_profile(),
         )
+        .and_then(|factory| {
+            factory.candidate(rows, Arc::clone(&registry), &CancellationToken::new())
+        })
         .unwrap();
         let cancel = CancellationToken::default();
         let inputs = invariant
@@ -120,7 +123,7 @@ async fn relational_expansion_reference_matches_complete_actual_p2_keys() {
         let actual: Vec<_> = result
             .batches()
             .iter()
-            .flat_map(|batch| pse_relations::cells::decode_columns(&registry, batch).unwrap())
+            .flat_map(|batch| pse_relations::testing::literal_rows(batch).unwrap())
             .collect();
         assert_eq!(
             actual, expected,

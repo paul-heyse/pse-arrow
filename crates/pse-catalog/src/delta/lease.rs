@@ -4,9 +4,10 @@
 //! Local lazy readers and destructive maintenance share one OS lock per table.
 //! This coordinates file retention only; Delta transactions remain write authority.
 use datafusion::common::{DataFusionError, Result};
-use pse_ids::CancellationToken;
+use pse_columnar::CancellationToken;
 use std::{
     fs::{File, OpenOptions, TryLockError},
+    io::{Read, Seek, SeekFrom, Write},
     sync::Arc,
 };
 
@@ -14,6 +15,7 @@ use std::{
 pub(crate) struct ReadLease {
     // The last owner closes the file and releases its shared lock.
     _file: File,
+    pub(crate) generation: Generation,
 }
 
 pub(crate) async fn read(
@@ -23,9 +25,22 @@ pub(crate) async fn read(
     if location.scheme() != "file" {
         return Ok(None);
     }
-    let file = lock_file(location)?;
+    let mut file = lock_file(location)?;
     acquire(&file, false, cancel).await?;
-    Ok(Some(Arc::new(ReadLease { _file: file })))
+    if file.metadata().map_err(external)?.len() == 0 {
+        file.unlock().map_err(external)?;
+        acquire(&file, true, cancel).await?;
+        if file.metadata().map_err(external)?.len() == 0 {
+            renew(&mut file)?;
+        }
+        file.unlock().map_err(external)?;
+        acquire(&file, false, cancel).await?;
+    }
+    let generation = locked_generation(location, &mut file)?;
+    Ok(Some(Arc::new(ReadLease {
+        _file: file,
+        generation,
+    })))
 }
 
 /// Writers participate before creating a table or emitting data files. Directory
@@ -73,7 +88,7 @@ pub(crate) fn maintenance(
     cancel: &CancellationToken,
 ) -> Result<MaintenanceLease> {
     cancel.checkpoint().map_err(external)?;
-    let file = lock_file(location)?;
+    let mut file = lock_file(location)?;
     file.try_lock().map_err(|error| match error {
         TryLockError::WouldBlock => DataFusionError::Execution(
             "Delta maintenance is blocked by an active reader or writer".into(),
@@ -85,7 +100,90 @@ pub(crate) fn maintenance(
         .map_err(|()| DataFusionError::Plan("maintenance location must be local".into()))?
         .canonicalize()
         .map_err(external)?;
+    // Durable invalidation precedes every possible destructive action. A failed
+    // maintenance attempt may invalidate reuse, but cannot resurrect old entries.
+    renew(&mut file)?;
     Ok(MaintenanceLease { _file: file, path })
+}
+
+/// Cooperating local maintenance identity; remote reuse needs its own qualified lease.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct Generation {
+    token: [u8; 16],
+    #[cfg(unix)]
+    root: (u64, u64),
+    #[cfg(not(unix))]
+    root: std::time::SystemTime,
+}
+#[cfg(test)]
+pub(crate) fn test_generation(token: u8) -> Generation {
+    Generation {
+        token: [token; 16],
+        #[cfg(unix)]
+        root: (0, 0),
+        #[cfg(not(unix))]
+        root: std::time::SystemTime::UNIX_EPOCH,
+    }
+}
+pub(crate) fn generation(location: &url::Url) -> Result<Option<Generation>> {
+    if location.scheme() != "file" {
+        return Ok(None);
+    }
+    let path = location
+        .to_file_path()
+        .map_err(|()| DataFusionError::Plan("invalid local table path".into()))?;
+    let mut file = File::open(path.join(".pse-retention.lock")).map_err(external)?;
+    locked_generation(location, &mut file).map(Some)
+}
+fn locked_generation(location: &url::Url, file: &mut File) -> Result<Generation> {
+    let path = location
+        .to_file_path()
+        .map_err(|()| DataFusionError::Plan("invalid local table path".into()))?;
+    let root = identity(&path.metadata().map_err(external)?)?;
+    let held = file.metadata().map_err(external)?;
+    if held.len() != 16
+        || identity(&held)?
+            != identity(
+                &path
+                    .join(".pse-retention.lock")
+                    .metadata()
+                    .map_err(external)?,
+            )?
+    {
+        return Err(DataFusionError::Plan(
+            "retention owner was replaced or has an invalid generation".into(),
+        ));
+    }
+    let mut token = [0; 16];
+    file.seek(SeekFrom::Start(0)).map_err(external)?;
+    file.read_exact(&mut token).map_err(external)?;
+    if root != identity(&path.metadata().map_err(external)?)? {
+        return Err(DataFusionError::Plan(
+            "table root changed while acquiring retention ownership".into(),
+        ));
+    }
+    Ok(Generation { token, root })
+}
+#[cfg(unix)]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "shared fallible identity interface across supported platforms"
+)]
+fn identity(metadata: &std::fs::Metadata) -> Result<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    Ok((metadata.dev(), metadata.ino()))
+}
+#[cfg(not(unix))]
+fn identity(metadata: &std::fs::Metadata) -> Result<std::time::SystemTime> {
+    metadata.created().map_err(external)
+}
+
+fn renew(file: &mut File) -> Result<()> {
+    file.seek(SeekFrom::Start(0)).map_err(external)?;
+    file.write_all(uuid::Uuid::now_v7().as_bytes())
+        .map_err(external)?;
+    file.set_len(16).map_err(external)?;
+    file.sync_all().map_err(external)
 }
 
 fn lock_file(location: &url::Url) -> Result<File> {
@@ -125,8 +223,8 @@ async fn acquire(file: &File, exclusive: bool, cancel: &CancellationToken) -> Re
         }
     }
 }
-fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
+fn external(error: impl Into<DataFusionError>) -> DataFusionError {
+    error.into()
 }
 
 #[cfg(test)]
@@ -177,5 +275,46 @@ mod tests {
         ));
         drop(exclusive);
         assert!(maintenance(&url::Url::parse("memory:///remote").unwrap(), &cancel).is_err());
+    }
+}
+
+#[cfg(test)]
+mod integrated_performance_unit {
+    use super::*;
+    #[tokio::test]
+    async fn root_replacement_cannot_admit_the_old_locked_file_as_a_new_generation() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("table");
+        std::fs::create_dir(&root).unwrap();
+        let location = url::Url::from_directory_path(&root).unwrap();
+        let cancel = CancellationToken::new();
+        let original = read(&location, &cancel).await.unwrap().unwrap();
+        #[expect(
+            clippy::used_underscore_binding,
+            reason = "the test checks the held OS lock against a replaced pathname"
+        )]
+        let mut held = original._file.try_clone().unwrap();
+        std::fs::rename(&root, parent.path().join("old-table")).unwrap();
+        std::fs::create_dir(&root).unwrap();
+        let replacement = read(&location, &cancel).await.unwrap().unwrap();
+        assert_ne!(original.generation, replacement.generation);
+        assert!(locked_generation(&location, &mut held).is_err());
+    }
+    #[tokio::test]
+    async fn append_preserves_generation_and_maintenance_changes_it_before_effects() {
+        let directory = tempfile::tempdir().unwrap();
+        let location = url::Url::from_directory_path(directory.path()).unwrap();
+        let cancel = CancellationToken::new();
+        let first = read(&location, &cancel).await.unwrap().unwrap();
+        let selected = first.generation.clone();
+        let writer = write(&location, &cancel).await.unwrap().unwrap();
+        assert_eq!(writer.generation, selected);
+        assert!(maintenance(&location, &cancel).is_err());
+        drop((first, writer));
+        let exclusive = maintenance(&location, &cancel).unwrap();
+        assert_ne!(generation(&location).unwrap().unwrap(), selected);
+        drop(exclusive);
+        let next = read(&location, &cancel).await.unwrap().unwrap();
+        assert_ne!(next.generation, selected);
     }
 }

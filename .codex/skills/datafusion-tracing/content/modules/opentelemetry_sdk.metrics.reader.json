@@ -1,0 +1,62 @@
+[
+  {
+    "id": "aa27516e8f774005ce4ec276",
+    "path": "opentelemetry_sdk::metrics::reader",
+    "name": "reader",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod reader",
+    "docs": "Interfaces for reading and producing metrics",
+    "span": {
+      "filename": "src/metrics/reader.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        67,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"experimental_metrics_custom_reader\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          1490
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1771",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry_sdk.metrics.reader.md",
+    "record_file": "modules/opentelemetry_sdk.metrics.reader.json",
+    "anchor": "op-aa27516e8f774005ce4ec276",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

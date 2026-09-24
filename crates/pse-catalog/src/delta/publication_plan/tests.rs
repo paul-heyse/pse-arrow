@@ -3,8 +3,8 @@
 
 //! Publication constructors retain native shared producers without expanding them.
 use super::*;
-use crate::session::contract::ExecutionContract;
 use datafusion::{arrow::datatypes::DataType, common::DFSchema, logical_expr::EmptyRelation};
+use pse_engine::session::contract::ExecutionContract;
 use pse_relations::generated::enums::PublicationKind;
 use pse_schema::{
     RegistryBuilder,

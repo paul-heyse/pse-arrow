@@ -15,12 +15,12 @@ use datafusion::arrow::array::builder::{ListBuilder, make_builder};
 use datafusion::arrow::datatypes::DataType;
 use datafusion::common::ScalarValue;
 use datafusion::logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, Projection, Sort, col, lit};
-use pse_catalog::session::{
-    SnapshotSession,
+use pse_columnar::CancellationToken;
+use pse_engine::session::{
+    EngineSession,
     output::{checked_literal, declare_relation_output},
     scalar,
 };
-use pse_ids::CancellationToken;
 use pse_schema::{
     Registry,
     model::{InvariantSpec, RelationKey, RelationSpec, SnapshotClass},
@@ -31,12 +31,31 @@ use super::InvariantScope;
 
 pub(super) async fn compile(
     candidates: &BTreeSet<RelationKey>,
-    session: &SnapshotSession,
+    session: &EngineSession,
     registry: &Registry,
     scope: InvariantScope<'_>,
     cancel: &CancellationToken,
 ) -> Result<(Option<LogicalPlan>, usize), RuleError> {
-    let (mut branches, mut count) = native::compile(candidates, session, registry, scope, cancel)?;
+    let branches = compile_individual(candidates, session, registry, scope, cancel).await?;
+    let count = branches.len();
+    Ok((
+        combine_findings(
+            branches.into_iter().map(|(_, plan)| plan).collect(),
+            registry,
+        )?,
+        count,
+    ))
+}
+
+/// Keep each obligation's identity while sharing native query/field admission.
+pub(super) async fn compile_individual(
+    candidates: &BTreeSet<RelationKey>,
+    session: &EngineSession,
+    registry: &Registry,
+    scope: InvariantScope<'_>,
+    cancel: &CancellationToken,
+) -> Result<Vec<(pse_ids::SemanticId, LogicalPlan)>, RuleError> {
+    let mut branches = native::compile(candidates, session, registry, scope, cancel)?;
     let mut declared = Vec::new();
     for invariant in registry.invariants() {
         if let InvariantScope::Required(selected) = scope
@@ -96,17 +115,14 @@ pub(super) async fn compile(
     let plans = session.bind_declared_queries(&queries, cancel).await?;
     for ((invariant, target, _), plan) in declared.into_iter().zip(plans) {
         let keys = project_query_keys(plan, invariant, target, registry)?;
-        branches.push(finding(
-            keys,
-            invariant.into(),
-            "violation",
-            invariant.doc,
-            registry,
-        )?);
-        count += 1;
+        branches.push((
+            invariant.id,
+            finding(keys, invariant.into(), "violation", invariant.doc, registry)?,
+        ));
     }
     if let InvariantScope::Required(selected) = scope
-        && count != selected.len()
+        && (branches.len() != selected.len()
+            || branches.iter().map(|(id, _)| *id).collect::<BTreeSet<_>>() != *selected)
     {
         return Err(internal(
             "required invariant declaration or target binding is absent",
@@ -116,17 +132,21 @@ pub(super) async fn compile(
     // Derive their shared producers together instead of rewalking the complete
     // compiler graph for every individual check and diagnostic projection.
     if branches.is_empty() {
-        return Ok((None, count));
+        return Ok(Vec::new());
     }
     let target = registry
         .relation("runtime.diagnostics_findings")
         .ok_or_else(|| internal("diagnostic output is undeclared"))?;
-    let branches = session
-        .derive_plan_fields_many(&branches, cancel)?
-        .into_iter()
-        .map(|plan| declare_relation_output(plan, registry, target).map_err(engine))
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok((combine_findings(branches, registry)?, count))
+    let (ids, plans): (Vec<_>, Vec<_>) = branches.into_iter().unzip();
+    ids.into_iter()
+        .zip(session.derive_plan_fields_many(&plans, cancel)?)
+        .map(|(id, plan)| {
+            Ok((
+                id,
+                declare_relation_output(plan, registry, target).map_err(engine)?,
+            ))
+        })
+        .collect()
 }
 
 fn project_query_keys(
@@ -160,21 +180,31 @@ fn project_query_keys(
 }
 
 fn combine_findings(
-    branches: Vec<LogicalPlan>,
+    mut branches: Vec<LogicalPlan>,
     registry: &Registry,
 ) -> Result<Option<LogicalPlan>, RuleError> {
-    let mut plans = branches.into_iter();
-    let Some(first) = plans.next() else {
+    if branches.is_empty() {
         return Ok(None);
-    };
-    let mut plan = first;
-    for next in plans {
-        plan = LogicalPlanBuilder::from(plan)
-            .union(next)
-            .map_err(engine)?
-            .build()
-            .map_err(engine)?;
     }
+    if branches.len() == 1 {
+        return Ok(branches.pop());
+    }
+    let plan = LogicalPlan::Union(
+        datafusion::logical_expr::Union::try_new_with_loose_types(
+            branches.into_iter().map(Arc::new).collect(),
+        )
+        .map_err(engine)?,
+    );
+    let spec = registry
+        .relation("runtime.diagnostics_findings")
+        .ok_or_else(|| internal("diagnostic relation absent"))?;
+    Ok(Some(
+        declare_relation_output(plan, registry, spec).map_err(engine)?,
+    ))
+}
+
+/// Full reports alone promise unique findings in identity order.
+pub(super) fn full_report(plan: LogicalPlan) -> Result<LogicalPlan, RuleError> {
     let plan = LogicalPlanBuilder::from(plan)
         .distinct()
         .map_err(engine)?
@@ -188,17 +218,11 @@ fn combine_findings(
         finding_id.0.cloned(),
         finding_id.1.name(),
     ));
-    let plan = LogicalPlan::Sort(Sort {
+    Ok(LogicalPlan::Sort(Sort {
         expr: vec![ordering.sort(true, false)],
         input: Arc::new(plan),
         fetch: None,
-    });
-    let spec = registry
-        .relation("runtime.diagnostics_findings")
-        .ok_or_else(|| internal("diagnostic relation absent"))?;
-    Ok(Some(
-        declare_relation_output(plan, registry, spec).map_err(engine)?,
-    ))
+    }))
 }
 
 fn applies(scope: InvariantScope<'_>, target: &RelationSpec) -> bool {
@@ -344,7 +368,7 @@ fn finding_values(
         .into_iter()
         .map(Expr::Column)
         .collect::<Vec<_>>();
-    let key = scalar::key(
+    let key = pse_relations::identity::key(
         relation,
         names
             .iter()

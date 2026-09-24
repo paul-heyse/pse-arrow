@@ -22,8 +22,7 @@ fn expressions() -> impl Strategy<Value = String> {
                 .prop_map(|(left, right, op)| format!("({left}) {op} ({right})")),
             inner.clone().prop_map(|value| format!("-({value})")),
             inner.clone().prop_map(|value| format!("exp({value})")),
-            (inner.clone(), inner)
-                .prop_map(|(left, right)| format!("weighted_mean(1, {left}, 2, {right})")),
+            (inner.clone(), inner).prop_map(|(left, right)| format!("min({left}, {right})")),
         ]
     })
 }

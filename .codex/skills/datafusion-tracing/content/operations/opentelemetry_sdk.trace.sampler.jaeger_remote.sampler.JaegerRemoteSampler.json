@@ -1,0 +1,608 @@
+[
+  {
+    "id": "d91f91c2c3c8c806b9db2a4c",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler",
+    "name": "JaegerRemoteSampler",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct JaegerRemoteSampler",
+    "docs": "Sampler that fetches the sampling configuration from remotes.\n\nIt offers the following sampling strategies:\n- **Probabilistic**, fetch a probability between [0.0, 1.0] from remotes and use it to sample traces. If the probability is 0.0, it will never sample traces. If the probability is 1.0, it will always sample traces.\n- **Rate limiting**, ses a leaky bucket rate limiter to ensure that traces are sampled with a certain constant rate.\n- **Per Operations**, instead of sampling all traces, it samples traces based on the span name. Only probabilistic sampling is supported at the moment.\n\nUser can build a [`JaegerRemoteSampler`] by getting a [`JaegerRemoteSamplerBuilder`] from [`Sampler::jaeger_remote`].\n\nNote that the backend doesn't need to be Jaeger so long as it supports jaeger remote sampling\nprotocol.",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        144,
+        1
+      ],
+      "end": [
+        147,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2702,
+          2703,
+          2704,
+          2705,
+          2706,
+          2707,
+          2708,
+          2709,
+          2710,
+          2711,
+          2712,
+          2713,
+          2714,
+          2715,
+          2716,
+          2717,
+          2718,
+          2719,
+          2720,
+          2721,
+          2722,
+          2724,
+          2726,
+          2729
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Sampler::jaeger_remote`": 2670,
+      "`JaegerRemoteSampler`": 2669,
+      "`JaegerRemoteSamplerBuilder`": 2671
+    },
+    "link_paths": {
+      "`Sampler::jaeger_remote`": null,
+      "`JaegerRemoteSampler`": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler",
+      "`JaegerRemoteSamplerBuilder`": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSamplerBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2669",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.json",
+    "anchor": "op-d91f91c2c3c8c806b9db2a4c",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSampler"
+    ],
+    "resolved_doc_links": {
+      "`Sampler::jaeger_remote`": "../operations/opentelemetry_sdk.trace.sampler.Sampler.md#op-d65429cc175ff395f3d1ab43",
+      "`JaegerRemoteSampler`": "../operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.md#op-d91f91c2c3c8c806b9db2a4c",
+      "`JaegerRemoteSamplerBuilder`": "../operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSamplerBuilder.md#op-d5dafcecbea21ff9be6e083a"
+    }
+  },
+  {
+    "id": "1f5f3c34f913ab424bdb5573",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> JaegerRemoteSampler",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        143,
+        10
+      ],
+      "end": [
+        143,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "JaegerRemoteSampler",
+              "id": 2669,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2669": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "JaegerRemoteSampler",
+          "id": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+        "begin": [
+          143,
+          10
+        ],
+        "end": [
+          143,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2723",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.json",
+    "anchor": "op-1f5f3c34f913ab424bdb5573",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSampler::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5bc68dcaa221bf7378391388",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        143,
+        17
+      ],
+      "end": [
+        143,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "JaegerRemoteSampler",
+          "id": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+        "begin": [
+          143,
+          17
+        ],
+        "end": [
+          143,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2725",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.json",
+    "anchor": "op-5bc68dcaa221bf7378391388",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSampler::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "03b2ccb2f67ea48e02318377",
+    "path": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler::should_sample",
+    "name": "should_sample",
+    "owner": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn should_sample(&self, parent_context: Option<&Context>, trace_id: TraceId, name: &str, span_kind: &SpanKind, attributes: &[KeyValue], links: &[Link]) -> SamplingResult",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+      "begin": [
+        256,
+        5
+      ],
+      "end": [
+        277,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "parent_context",
+              {
+                "resolved_path": {
+                  "path": "Option",
+                  "id": 208,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": false,
+                              "type": {
+                                "resolved_path": {
+                                  "path": "Context",
+                                  "id": 1911,
+                                  "args": null
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "trace_id",
+              {
+                "resolved_path": {
+                  "path": "TraceId",
+                  "id": 422,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ],
+            [
+              "span_kind",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "SpanKind",
+                      "id": 2452,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "attributes",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "slice": {
+                      "resolved_path": {
+                        "path": "KeyValue",
+                        "id": 930,
+                        "args": null
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "links",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "slice": {
+                      "resolved_path": {
+                        "path": "Link",
+                        "id": 2529,
+                        "args": null
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "SamplingResult",
+              "id": 2728,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "208": "core::option::Option",
+      "1911": "opentelemetry::context::Context",
+      "422": "opentelemetry::trace_context::TraceId",
+      "2452": "opentelemetry::trace::span::SpanKind",
+      "930": "opentelemetry::common::KeyValue",
+      "2529": "opentelemetry::trace::Link",
+      "2728": "opentelemetry::trace::tracer::SamplingResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "JaegerRemoteSampler",
+          "id": "opentelemetry_sdk::trace::sampler::jaeger_remote::sampler::JaegerRemoteSampler",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "ShouldSample",
+        "id": "opentelemetry_sdk::trace::sampler::ShouldSample",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::trace::sampler::ShouldSample",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/sampler/jaeger_remote/sampler.rs",
+        "begin": [
+          255,
+          1
+        ],
+        "end": [
+          278,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2727",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.jaeger_remote.sampler.JaegerRemoteSampler.json",
+    "anchor": "op-03b2ccb2f67ea48e02318377",
+    "aliases": [
+      "opentelemetry_sdk::trace::JaegerRemoteSampler::should_sample"
+    ],
+    "resolved_doc_links": {}
+  }
+]

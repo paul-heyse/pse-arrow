@@ -8,15 +8,14 @@
     reason = "independent cold-writer assertions"
 )]
 
-#[path = "support/native_execution.rs"]
-mod native_execution;
+#[path = "../../../tests/support/catalog_context.rs"]
+mod catalog_context;
+use catalog_context::context;
+use pse_testkit::execution as native_execution;
 
-use datafusion::{
-    arrow::{
-        array::{ArrayRef, Int64Array, RecordBatch, StructArray},
-        datatypes::{DataType, SchemaRef},
-    },
-    execution::{context::SessionContext, session_state::SessionStateBuilder},
+use datafusion::arrow::{
+    array::{ArrayRef, Int64Array, RecordBatch, StructArray},
+    datatypes::{DataType, SchemaRef},
 };
 use deltalake::{
     DeltaTableBuilder,
@@ -24,10 +23,7 @@ use deltalake::{
     kernel::{engine::arrow_conversion::TryIntoArrow, transaction::CommitProperties},
     protocol::SaveMode,
 };
-use pse_catalog::{
-    delta::{contract::DeclaredCheck, write::DeltaWrite},
-    session::planner::UnifiedPlanner,
-};
+use pse_catalog::delta::{contract::DeclaredCheck, write::DeltaWrite};
 use pse_schema::{Registry, RegistryBuilder, model::*};
 use std::sync::Arc;
 
@@ -76,15 +72,6 @@ fn registry() -> Registry {
         key,
     ]));
     builder.build().unwrap()
-}
-
-fn context() -> SessionContext {
-    SessionContext::new_with_state(
-        SessionStateBuilder::new()
-            .with_default_features()
-            .with_query_planner(Arc::new(UnifiedPlanner::default()))
-            .build(),
-    )
 }
 
 fn batch(schema: &SchemaRef, key: [Option<i64>; 2]) -> RecordBatch {

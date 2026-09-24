@@ -1,0 +1,522 @@
+[
+  {
+    "id": "0beab352f71fbbf38e94b386",
+    "path": "tracing_core::dispatcher::WeakDispatch",
+    "name": "WeakDispatch",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "struct",
+    "signature": "struct WeakDispatch",
+    "docs": "`WeakDispatch` is a version of [`Dispatch`] that holds a non-owning reference\nto a [`Subscriber`].\n\nThe `Subscriber` may be accessed by calling [`WeakDispatch::upgrade`],\nwhich returns an `Option<Dispatch>`. If all [`Dispatch`] clones that point\nat the `Subscriber` have been dropped, [`WeakDispatch::upgrade`] will return\n`None`. Otherwise, it will return `Some(Dispatch)`.\n\nA `WeakDispatch` may be created from a [`Dispatch`] by calling the\n[`Dispatch::downgrade`] method. The primary use for creating a\n[`WeakDispatch`] is to allow a Subscriber` to hold a cyclical reference to\nitself without creating a memory leak. See [here] for details.\n\nThis type is analogous to the [`std::sync::Weak`] type, but for a\n[`Dispatch`] rather than an [`Arc`].\n\n[`Arc`]: std::sync::Arc\n[here]: Subscriber#avoiding-memory-leaks",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        172,
+        1
+      ],
+      "end": [
+        174,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          186,
+          187,
+          188,
+          189,
+          190,
+          191,
+          192,
+          193,
+          194,
+          195,
+          196,
+          197,
+          198,
+          199,
+          200,
+          201,
+          202,
+          204,
+          206
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "Subscriber#avoiding-memory-leaks": 112,
+      "`Subscriber`": 112,
+      "`std::sync::Weak`": 184,
+      "std::sync::Arc": 185,
+      "`Dispatch::downgrade`": 126,
+      "`WeakDispatch`": 124,
+      "`WeakDispatch::upgrade`": 183,
+      "`Dispatch`": 120
+    },
+    "link_paths": {
+      "Subscriber#avoiding-memory-leaks": "tracing_core::subscriber::Subscriber",
+      "`Subscriber`": "tracing_core::subscriber::Subscriber",
+      "`std::sync::Weak`": "alloc::sync::Weak",
+      "std::sync::Arc": "alloc::sync::Arc",
+      "`Dispatch::downgrade`": "tracing_core::dispatcher::Dispatch::downgrade",
+      "`WeakDispatch`": "tracing_core::dispatcher::WeakDispatch",
+      "`WeakDispatch::upgrade`": "tracing_core::dispatcher::WeakDispatch::upgrade",
+      "`Dispatch`": "tracing_core::dispatcher::Dispatch"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "124",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.WeakDispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.WeakDispatch.json",
+    "anchor": "op-0beab352f71fbbf38e94b386",
+    "aliases": [
+      "tracing::dispatcher::WeakDispatch"
+    ],
+    "resolved_doc_links": {
+      "Subscriber#avoiding-memory-leaks": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "`Subscriber`": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "`Dispatch::downgrade`": "../operations/tracing_core.dispatcher.Dispatch.md#op-3d911653bdde5f29cad4eafd",
+      "`WeakDispatch`": "../operations/tracing_core.dispatcher.WeakDispatch.md#op-0beab352f71fbbf38e94b386",
+      "`WeakDispatch::upgrade`": "../operations/tracing_core.dispatcher.WeakDispatch.md#op-579b0e9e6911ae19b38a2911",
+      "`Dispatch`": "../operations/tracing_core.dispatcher.Dispatch.md#op-bdcb8c4598cc406ba313069c"
+    }
+  },
+  {
+    "id": "eea86fddda0303176b472e60",
+    "path": "tracing_core::dispatcher::WeakDispatch::clone",
+    "name": "clone",
+    "owner": "tracing_core::dispatcher::WeakDispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn clone(&self) -> WeakDispatch",
+    "docs": "",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        171,
+        10
+      ],
+      "end": [
+        171,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WeakDispatch",
+              "id": 124,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "124": "tracing_core::dispatcher::WeakDispatch"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WeakDispatch",
+          "id": "tracing_core::dispatcher::WeakDispatch",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          171,
+          10
+        ],
+        "end": [
+          171,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "203",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.WeakDispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.WeakDispatch.json",
+    "anchor": "op-eea86fddda0303176b472e60",
+    "aliases": [
+      "tracing::dispatcher::WeakDispatch::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5bff443ecf9bfb7ecd94c715",
+    "path": "tracing_core::dispatcher::WeakDispatch::fmt",
+    "name": "fmt",
+    "owner": "tracing_core::dispatcher::WeakDispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        790,
+        5
+      ],
+      "end": [
+        801,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 79,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 80,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "79": "core::fmt::Formatter",
+      "80": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WeakDispatch",
+          "id": "tracing_core::dispatcher::WeakDispatch",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          789,
+          1
+        ],
+        "end": [
+          802,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "205",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.WeakDispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.WeakDispatch.json",
+    "anchor": "op-5bff443ecf9bfb7ecd94c715",
+    "aliases": [
+      "tracing::dispatcher::WeakDispatch::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "579b0e9e6911ae19b38a2911",
+    "path": "tracing_core::dispatcher::WeakDispatch::upgrade",
+    "name": "upgrade",
+    "owner": "tracing_core::dispatcher::WeakDispatch",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn upgrade(&self) -> Option<Dispatch>",
+    "docs": "Attempts to upgrade this `WeakDispatch` to a [`Dispatch`].\n\nReturns `None` if the referenced `Dispatch` has already been dropped.\n\n## Examples\n\n```\n# use tracing_core::subscriber::NoSubscriber;\n# use tracing_core::dispatcher::Dispatch;\nlet strong = Dispatch::new(NoSubscriber::default());\nlet weak = strong.downgrade();\n\n// The strong here keeps it alive, so we can still access the object.\nassert!(weak.upgrade().is_some());\n\ndrop(strong); // But not any more.\nassert!(weak.upgrade().is_none());\n```",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        782,
+        5
+      ],
+      "end": [
+        786,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 155,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Dispatch",
+                          "id": 120,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "155": "core::option::Option",
+      "120": "tracing_core::dispatcher::Dispatch"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WeakDispatch",
+          "id": "tracing_core::dispatcher::WeakDispatch",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/dispatcher.rs",
+        "begin": [
+          763,
+          1
+        ],
+        "end": [
+          787,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Dispatch`": 120
+    },
+    "link_paths": {
+      "`Dispatch`": "tracing_core::dispatcher::Dispatch"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "183",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.WeakDispatch.md",
+    "record_file": "operations/tracing_core.dispatcher.WeakDispatch.json",
+    "anchor": "op-579b0e9e6911ae19b38a2911",
+    "aliases": [
+      "tracing::dispatcher::WeakDispatch::upgrade"
+    ],
+    "resolved_doc_links": {
+      "`Dispatch`": "../operations/tracing_core.dispatcher.Dispatch.md#op-bdcb8c4598cc406ba313069c"
+    }
+  }
+]

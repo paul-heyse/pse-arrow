@@ -45,16 +45,16 @@ need() {
 
 stage_venv() {
   need uv "https://docs.astral.sh/uv/"
-  say "Syncing ${UV_PROJECT_ENVIRONMENT} from uv.lock (platform set + pyomo extra + dev groups)"
+  say "Syncing ${UV_PROJECT_ENVIRONMENT} from uv.lock (platform set + dev groups)"
   # uv creates the venv on the interpreter from .python-version, installs the locked
   # dependency set, and builds the extension via maturin (PEP 517, editable).
-  uv sync --locked --extra pyomo
+  uv sync --locked
 }
 
 stage_quality() {
   need uv "https://docs.astral.sh/uv/"
   say "Installing quality tools from [dependency-groups].quality"
-  uv sync --locked --extra pyomo --group quality
+  uv sync --locked --group quality
 }
 
 stage_rust() {

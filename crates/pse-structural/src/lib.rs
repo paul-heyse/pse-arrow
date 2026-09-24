@@ -1,9 +1,22 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Incidence, bipartite matching, Dulmage-Mendelsohn, SCC/BTD, degrees of freedom and tear selection (blueprint §3.2, §15).
+//! Complete package and rule dependency graphs using library ordering and SCC analysis.
 //!
-//! `petgraph` leaves intra-component order arbitrary; every result is sorted by
-//! semantic ID before it becomes a relation (blueprint §15.3).
-//!
-//! Phase 0: this crate is a declared boundary with no implementation yet.
+//! Complete graph projections and certified structural analysis.
+/// Complete immutable dependency projections and library analysis.
+pub mod projection;
+
+/// Typed graph projection contracts.
+pub mod domains;
+
+#[cfg(test)]
+#[path = "rule_schedule_tests.rs"]
+mod computation_unit;
+
+/// Complete physical process-flow graph and explicit tear-decision groups.
+pub mod flowsheet;
+/// Library-owned selected-case structural analysis.
+pub mod incidence;
+/// Conditional BTF initialization plans with explicit boundary inputs.
+pub mod initialization;

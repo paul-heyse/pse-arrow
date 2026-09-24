@@ -1,0 +1,235 @@
+[
+  {
+    "id": "6a834e546d18c4e645cd4801",
+    "path": "tracing_opentelemetry::span_ext::SetParentError",
+    "name": "SetParentError",
+    "owner": null,
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "enum",
+    "signature": "enum SetParentError",
+    "docs": "",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        230,
+        1
+      ],
+      "end": [
+        237,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          162,
+          163,
+          164
+        ],
+        "impls": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "136",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.SetParentError.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.SetParentError.json",
+    "anchor": "op-6a834e546d18c4e645cd4801",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9ecf8adcee9e7950bd4df896",
+    "path": "tracing_opentelemetry::span_ext::SetParentError::AlreadyStarted",
+    "name": "AlreadyStarted",
+    "owner": "tracing_opentelemetry::span_ext::SetParentError",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "variant",
+    "signature": "AlreadyStarted",
+    "docs": "",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        234,
+        5
+      ],
+      "end": [
+        234,
+        19
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[error(\"Span has already been started, cannot set parent\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "163",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.SetParentError.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.SetParentError.json",
+    "anchor": "op-9ecf8adcee9e7950bd4df896",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "741e1ea88cf3ec5875f6b319",
+    "path": "tracing_opentelemetry::span_ext::SetParentError::LayerNotFound",
+    "name": "LayerNotFound",
+    "owner": "tracing_opentelemetry::span_ext::SetParentError",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "variant",
+    "signature": "LayerNotFound",
+    "docs": "",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        232,
+        5
+      ],
+      "end": [
+        232,
+        18
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[error(\"OpenTelemetry layer not found\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "162",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.SetParentError.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.SetParentError.json",
+    "anchor": "op-741e1ea88cf3ec5875f6b319",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1984a2b0dca03d7e31f0534c",
+    "path": "tracing_opentelemetry::span_ext::SetParentError::SpanDisabled",
+    "name": "SpanDisabled",
+    "owner": "tracing_opentelemetry::span_ext::SetParentError",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "variant",
+    "signature": "SpanDisabled",
+    "docs": "",
+    "span": {
+      "filename": "src/span_ext.rs",
+      "begin": [
+        236,
+        5
+      ],
+      "end": [
+        236,
+        17
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[error(\"Span disabled\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "164",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.span_ext.SetParentError.md",
+    "record_file": "operations/tracing_opentelemetry.span_ext.SetParentError.json",
+    "anchor": "op-1984a2b0dca03d7e31f0534c",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -51,6 +51,18 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_cases(builder);
     entities(
         builder,
+        "computation_models",
+        "computation_models/*.yaml",
+        &[
+            "authored.computation_models",
+            "authored.dynamic_cases",
+            "authored.native_providers",
+            "authored.physical_balances",
+            "authored.fit_cases",
+        ],
+    );
+    entities(
+        builder,
         "instances",
         "instances/*.yaml",
         &[
@@ -124,7 +136,6 @@ fn declare_methods(builder: &mut RegistryBuilder) {
             "reference.method_state_parameters",
             "reference.method_parameter_axes",
             "reference.method_kernel_inputs",
-            "reference.kernel_specs",
         ],
     );
 }
@@ -335,7 +346,6 @@ fn projection(relation: &str) -> Projection {
         "reference.conversion_rules" => (Some("conversion_id"), None, None, None),
         "reference.quantity_operations" => (Some("operation_id"), None, None, None),
         "reference.property_kinds" => (Some("property_kind_id"), None, None, None),
-        "reference.kernel_specs" => (Some("kernel_id"), None, None, None),
         "authored.domains" => (Some("domain_id"), None, None, None),
         "authored.domain_members" => (Some("member_id"), None, None, None),
         "authored.property_packages" => (

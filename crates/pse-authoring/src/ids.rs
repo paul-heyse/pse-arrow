@@ -3,9 +3,8 @@
 
 //! Explicit creation identities and checked deterministic package identities (§5.1).
 
-pub use crate::document::assign_ids;
 use pse_ids::{SemanticId, named_id};
-pub use pse_relations::generated::enums::IdPolicy;
+pub use pse_model::generated::enums::IdPolicy;
 
 use crate::{AuthoringError, SourceSpan};
 

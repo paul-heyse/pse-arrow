@@ -1,5 +1,7 @@
 # Design review template
 
+> **Superseded 2026-09-24** by the [core review template](core/design-review-template.md) and the [process-simulator review additions](profiles/process-simulator/review.md). Retained for historical reference.
+
 Reference: `DATA_MODEL_DESIGN_CHARTER.md`. Replace bracketed prompts with evidence. Remove irrelevant sections with a brief scope note rather than inventing requirements. For a small change, use a compact version of this template.
 
 ## 1. Decision and scope

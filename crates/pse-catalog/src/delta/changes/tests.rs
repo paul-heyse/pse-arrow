@@ -15,7 +15,6 @@ use datafusion::{
     datasource::MemTable,
     execution::{runtime_env::RuntimeEnv, session_state::SessionStateBuilder},
 };
-use pse_ids::FixedBudget;
 use pse_relations::generated::runtime::publications::{
     RuntimePublicationsFieldMembersItem as Member,
     RuntimePublicationsFieldMembersItemSelection as Selection,
@@ -85,9 +84,9 @@ async fn cdf_images_keep_typed_keys_values_versions_and_timestamps() {
     )
     .unwrap();
     let cancel = CancellationToken::new();
-    let factory = crate::session::SessionFactory::from_builder(
+    let factory = pse_engine::session::EngineFactory::from_builder(
         Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(32 << 20),
+        Arc::new(pse_columnar::GreedyMemoryPool::new(32 << 20)),
         "cdf-unit",
         SessionStateBuilder::new_with_default_features(),
     );

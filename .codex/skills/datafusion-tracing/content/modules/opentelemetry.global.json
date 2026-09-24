@@ -1,0 +1,78 @@
+[
+  {
+    "id": "a047a0fcd9c3b7e9a73e328c",
+    "path": "opentelemetry::global",
+    "name": "global",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod global",
+    "docs": "Utilities for working with global telemetry primitives\n\n## Global Trace API\n\nThe global trace API **provides applications access to their configured\n[`TracerProvider`] instance from anywhere in the codebase**. This allows\napplications to be less coupled to the specific Open Telemetry SDK while not\nmanually passing references to each part of the code that needs to create\n[`Span`]s. Additionally, **3rd party middleware** or **library code** can be\nwritten against this generic API and not constrain users to a specific\nimplementation choice.\n\n### Usage in Applications\n\nApplications configure their tracer either by installing a trace pipeline,\nor calling [`set_tracer_provider`].\n\n```\n# #[cfg(feature=\"trace\")]\n# {\nuse opentelemetry::trace::{Tracer, noop::NoopTracerProvider};\nuse opentelemetry::global;\n\nfn init_tracer() {\n    // Swap this no-op provider for your tracing service of choice (jaeger, zipkin, etc)\n    let provider = NoopTracerProvider::new();\n\n    // Configure the global `TracerProvider` singleton when your app starts\n    // (there is a no-op default if this is not set by your application)\n    let _ = global::set_tracer_provider(provider);\n}\n\nfn do_something_tracked() {\n    // Then you can get a named tracer instance anywhere in your codebase.\n    let tracer = global::tracer(\"my-component\");\n\n    tracer.in_span(\"doing_work\", |cx| {\n        // Traced app logic here...\n    });\n}\n\n// in main or other app start\ninit_tracer();\ndo_something_tracked();\n# }\n```\n\n### Usage in Libraries\n\n```\n# #[cfg(feature=\"trace\")]\n# {\nuse std::sync::Arc;\nuse opentelemetry::trace::Tracer;\nuse opentelemetry::global;\nuse opentelemetry::InstrumentationScope;\n\npub fn my_traced_library_function() {\n    // End users of your library will configure their global tracer provider\n    // so you can use the global tracer without any setup\n\n    let scope = InstrumentationScope::builder(\"my_library-name\")\n        .with_version(env!(\"CARGO_PKG_VERSION\"))\n        .with_schema_url(\"https://opentelemetry.io/schemas/1.17.0\")\n        .build();\n\n    let tracer = global::tracer_with_scope(scope);\n\n    tracer.in_span(\"doing_library_work\", |cx| {\n        // Traced library logic here...\n    });\n}\n# }\n```\n\n[`TracerProvider`]: crate::trace::TracerProvider\n[`Span`]: crate::trace::Span\n\n## Global Metrics API\n\nThe global metrics API **provides applications access to their configured\n[`MeterProvider`] instance from anywhere in the codebase**. This allows\napplications to be less coupled to the specific Open Telemetry SDK while not\nmanually passing references to each part of the code that needs to create\nmetric instruments. Additionally, **3rd party middleware** or **library code** can be\nwritten against this generic API and not constrain users to a specific\nimplementation choice.\n\n### Usage in Applications and libraries\n\nApplications and libraries can obtain meter from the global meter provider,\nand use the meter to create instruments to emit measurements.\n\n```\n# #[cfg(feature=\"metrics\")]\n# {\nuse opentelemetry::metrics::{Meter};\nuse opentelemetry::{global, KeyValue};\n\n   fn do_something_instrumented() {\n    let meter = global::meter(\"my-component\");\n    // It is recommended to reuse the same counter instance for the\n    // lifetime of the application\n    let counter = meter.u64_counter(\"my_counter\").build();\n\n    // record measurements\n    counter.add(1, &[KeyValue::new(\"mykey\", \"myvalue\")]);\n    }\n}\n```\n\n### Usage in Applications\nApplication owners have the responsibility to set the global meter provider.\nThe global meter provider can be set using the [`set_meter_provider`] function.\nAs set_meter_provider takes ownership of the provider, it is recommended to\nprovide a clone of the provider, if the application needs to use the provider\nlater to perform operations like shutdown.\n```\n# #[cfg(feature=\"metrics\")]\n# {\nuse opentelemetry::{global, KeyValue};\n\nfn main() {\n   // Set the global meter provider\n   // global::set_meter_provider(my_meter_provider().clone());\n}\n# }\n```\n\n[`MeterProvider`]: crate::metrics::MeterProvider\n[`set_meter_provider`]: crate::global::set_meter_provider",
+    "span": {
+      "filename": "src/global/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        149,
+        18
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          184,
+          185,
+          186
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`set_tracer_provider`": 182,
+      "crate::trace::TracerProvider": 141,
+      "crate::global::set_meter_provider": 5,
+      "crate::trace::Span": 34,
+      "crate::metrics::MeterProvider": 1
+    },
+    "link_paths": {
+      "`set_tracer_provider`": "opentelemetry::global::trace::set_tracer_provider",
+      "crate::trace::TracerProvider": "opentelemetry::trace::tracer_provider::TracerProvider",
+      "crate::global::set_meter_provider": "opentelemetry::global::metrics::set_meter_provider",
+      "crate::trace::Span": "opentelemetry::trace::span::Span",
+      "crate::metrics::MeterProvider": "opentelemetry::metrics::meter::MeterProvider"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "12",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.global.md",
+    "record_file": "modules/opentelemetry.global.json",
+    "anchor": "op-a047a0fcd9c3b7e9a73e328c",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`set_tracer_provider`": "../operations/opentelemetry.global.trace.set_tracer_provider.md#op-1838068eed0349336444df04",
+      "crate::trace::TracerProvider": "../operations/opentelemetry.trace.tracer_provider.TracerProvider.md#op-3d14c743f48c20c76241bcf3",
+      "crate::global::set_meter_provider": "../operations/opentelemetry.global.metrics.set_meter_provider.md#op-6b3a1e871bc2b067a0f4aa75",
+      "crate::trace::Span": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8",
+      "crate::metrics::MeterProvider": "../operations/opentelemetry.metrics.meter.MeterProvider.md#op-8ef66c51648972f9d178f50b"
+    }
+  }
+]

@@ -85,6 +85,22 @@
   - [ADR-0068: Unify simulator data and execution through DataFusion and Delta Lake](adr/0068-unified-datafusion-delta.md)
   - [ADR-0069: Make recursive native contracts authoritative for existing data operations](adr/0069-schema-first-native-contracts.md)
   - [ADR-0070: Unify native cache lifetimes and consumed-input identity](adr/0070-native-cache-lifetimes-and-consumed-inputs.md)
+  - [ADR-0071: Admit resolved native contracts through owner-bound handles](adr/0071-resolved-native-contract-handles.md)
+  - [ADR-0072: Unify native validation values and diagnostic contracts](adr/0072-native-foundation-contracts.md)
+  - [ADR-0073: Consolidate native engine resource and boundary ownership](adr/0073-native-engine-resource-boundaries.md)
+  - [ADR-0074: Retain native execution assemblies and exact local evidence](adr/0074-integrated-native-performance.md)
+  - [ADR-0075: Select flowsheet tears through Pyomo at run time and withdraw compiler tear selection](adr/0075-pyomo-sequential-decomposition.md)
+  - [ADR-0076: Separate semantic compilation from relational execution and adopt bounded Salsa reuse](adr/0076-rust-computation-foundations.md)
+  - [ADR-0077: Derive executable rule schedules from checked native plans](adr/0077-derived-rule-schedules.md)
+  - [ADR-0078: Compile P7 through P10 as one typed semantic region](adr/0078-typed-math-compilation-region.md)
+  - [ADR-0079: Use containment intervals for scope membership](adr/0079-containment-interval-projections.md)
+  - [ADR-0080: Resolve port paths from typed inventories](adr/0080-typed-port-path-projections.md)
+  - [ADR-0081: Publish selected products and admit exact release updates](adr/0081-selected-durable-products-and-release-admission.md)
+  - [ADR-0082: Compile typed process definitions through library-owned mathematics](adr/0082-library-owned-process-mathematics.md)
+  - [ADR-0083: Replace legacy math and Pyomo routes with native class-specific execution](adr/0083-class-specific-native-execution.md)
+  - [ADR-0084: Separate physical provider validity from derivative and dynamic eligibility](adr/0084-physical-provider-and-dynamic-contracts.md)
+  - [ADR-0085: Adopt a layered design standard with a process-simulator profile](adr/0085-layered-design-standard.md)
+  - [ADR-0086: Retire orphaned rule execution and check structural governance contracts](adr/0086-retire-orphaned-rule-execution.md)
 <!-- adr:end -->
 
 # Plans
@@ -100,12 +116,33 @@
   - [07 — Unified DataFusion and Delta Lake hard pivot](plans/07-unified-datafusion-delta-hard-pivot.md)
   - [08 — Schema-first native data pivot](plans/08-schema-first-native-data-pivot.md)
   - [09 — Native caching and pivot completion](plans/09-native-caching-and-pivot-completion.md)
+  - [10 — Native contract compilation and consolidation](plans/10-native-contract-consolidation.md)
+  - [Native consolidation closure](plans/10-consolidation-closure.md)
+    - [Execution inventory](plans/10-execution-inventory.md)
+    - [N09/N11 implementation contracts](plans/10-native-contracts-n09-n11.md)
+  - [11 — Integrated work reuse and native execution performance](plans/11-integrated-native-performance.md)
+    - [Plan 11 execution inventory](plans/11-execution-inventory.md)
+  - [13 — Rust computation architecture (historical)](plans/13-rust-computation-architecture.md)
+  - [Rust computation foundations](plans/13-w00-w06-execution.md)
+  - [Rust computation W07–W11 execution](plans/13-w07-w11-execution.md)
+  - [Rust computation W12–W14 execution](plans/13-w12-w14-execution.md)
+  - [Rust computation W15–W20 execution](plans/13-w15-w20-execution.md)
+  - [Historical W19 repair checkpoint](plans/13-w19-repair-checkpoint.md)
+  - [Rust computation inventory](plans/13-execution-inventory.md)
+  - [Rust computation stage contracts](plans/13-stage-contracts.md)
+  - [Foundation library profile](plans/13-foundation-library-profile.md)
+  - [14 — Library-owned process simulator hard pivot](plans/14-library-owned-process-simulator.md)
 
 # Design reviews
 
-- [Data model design charter](design_review/design_principles/DATA_MODEL_DESIGN_CHARTER.md)
-  - [Design review template](design_review/design_principles/DESIGN_REVIEW_TEMPLATE.md)
-  - [Agent design directive](design_review/design_principles/AGENT_DESIGN_DIRECTIVE.md)
+- [Design principles (core)](design_review/design_principles/core/design-principles.md)
+  - [Design review template (core)](design_review/design_principles/core/design-review-template.md)
+  - [Process-simulator principles](design_review/design_principles/profiles/process-simulator/principles.md)
+  - [Process-simulator review additions](design_review/design_principles/profiles/process-simulator/review.md)
+  - [pse-arrow binding](design_review/design_principles/binding/pse-arrow.md)
+  - [Superseded: data model design charter](design_review/design_principles/DATA_MODEL_DESIGN_CHARTER.md)
+  - [Superseded: design review template 1.0](design_review/design_principles/DESIGN_REVIEW_TEMPLATE.md)
+  - [Superseded: agent design directive](design_review/design_principles/AGENT_DESIGN_DIRECTIVE.md)
 - [Review: blueprint revision 1](design_review/reviews/design_review_arrow-native-idaes-core-blueprint_2026-09-13.md)
 - [Review: blueprint revision 2](design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md)
 - [Review: blueprint revision 4 and library contracts](design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
@@ -120,6 +157,14 @@
 - [Review: DataFusion-integral semantics versus scripted checks](design_review/reviews/design_review_datafusion-integral-semantics_2026-09-14.md)
 - [Review: unified DataFusion and Delta Lake](design_review/reviews/design_review_unified-datafusion-delta_2026-09-15.md)
 - [Review: caching across DataFusion and Delta](design_review/reviews/design_review_datafusion-delta-caching_2026-09-17.md)
+- [Review: consolidation and native pivot](design_review/reviews/design_review_consolidation-and-native-pivot_2026-09-18.md)
+- [Review: native consolidation reassessment](design_review/reviews/design_review_native-consolidation-reassessment_2026-09-18.md)
+- [Review: contract foundations](design_review/reviews/design_review_contract-foundations_2026-09-18.md)
+- [Review: engine extraction and execution assurance](design_review/reviews/design_review_engine-extraction-assurance_2026-09-18.md)
+- [Review: performance-optimal native execution](design_review/reviews/design_review_performance-optimal-native-execution_2026-09-19.md)
+- [Review: integrated work reuse and native execution performance](design_review/reviews/design_review_integrated-native-performance_2026-09-19.md)
+- [Review: library-owned mathematics](design_review/reviews/design_review_library-owned-math-pipeline_2026-09-23.md)
+  - [Follow-up: native library mathematics and process simulation](design_review/reviews/design_review_native-library-math-target_2026-09-24.md)
 
 # Capability maps
 
@@ -133,5 +178,6 @@
 
 # Development
 
+- [Native execution assurance](dev/native-execution-assurance.md)
 - [CI job graph](dev/ci.md)
 - [Dependency and licence policy](dev/dependency-policy.md)

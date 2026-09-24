@@ -11,13 +11,20 @@ use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 
 use datafusion::arrow::array::UInt64Array;
 use pse_catalog::{delta::publication::Publication, inspection::TableReader};
-use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_ids::SemanticId;
 use pse_schema::{
     RegistryBuilder,
-    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
+    model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 
-async fn fixture(empty: bool) -> (Publication, Arc<FixedBudget>, tempfile::TempDir) {
+async fn fixture(
+    empty: bool,
+) -> (
+    Publication,
+    Arc<dyn pse_columnar::MemoryPool>,
+    tempfile::TempDir,
+) {
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare_diagnostics(&mut builder);
     pse_schema::catalog::declare_publications(&mut builder);
@@ -45,22 +52,26 @@ async fn fixture(empty: bool) -> (Publication, Arc<FixedBudget>, tempfile::TempD
         ]),
     );
     let registry = Arc::new(builder.build().unwrap());
-    let budget = FixedBudget::new(32 << 20);
-    let reserver: Arc<dyn MemoryReserver> = budget.clone();
     let spec = registry.relation("authored.items").unwrap();
     let rows = (0..5)
         .map(|value| {
             vec![
-                Cell::U64(value),
-                Cell::Struct(vec![Cell::Id(SemanticId::from_bytes([7; 16]))]),
+                serde_json::json!(["u64", value]),
+                serde_json::json!([
+                    "struct",
+                    vec![serde_json::json!([
+                        "id",
+                        (SemanticId::from_bytes([7; 16])).to_hex()
+                    ])]
+                ]),
             ]
         })
         .collect::<Vec<_>>();
-    let batch = pse_relations::cells::batch_from_cells(&registry, spec, &rows).unwrap();
+    let batch = pse_relations::testing::batch_from_literals(&registry, spec, &rows).unwrap();
     let batch = batch.slice(1, if empty { 0 } else { 3 });
     let key = spec.key;
-    let (publication, directory, _) =
-        native_publication::publish(registry, BTreeMap::from([(key, batch)]), reserver).await;
+    let (publication, directory, budget) =
+        native_publication::publish(registry, BTreeMap::from([(key, batch)])).await;
     (publication, budget, directory)
 }
 

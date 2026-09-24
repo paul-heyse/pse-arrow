@@ -8,8 +8,7 @@
     reason = "independent native contract assertions"
 )]
 
-#[path = "support/native_execution.rs"]
-mod native_execution;
+use pse_testkit::execution as native_execution;
 
 use datafusion::{
     arrow::{
@@ -30,10 +29,8 @@ use deltalake::{
     kernel::{engine::arrow_conversion::TryIntoArrow, transaction::CommitProperties},
     protocol::SaveMode,
 };
-use pse_catalog::{
-    delta::{contract::DeclaredCheck, write::DeltaWrite},
-    session::planner::UnifiedPlanner,
-};
+use pse_catalog::delta::{contract::DeclaredCheck, write::DeltaWrite};
+use pse_engine::session::planner::UnifiedPlanner;
 use pse_schema::{Registry, RegistryBuilder, model::*};
 use std::sync::Arc;
 
@@ -55,16 +52,19 @@ fn every_registry_contract_is_native_sql_against_its_durable_schema() {
             .create_logical_expr(sql, &schema)
             .unwrap_or_else(|error| panic!("{}: {error}; {sql}", spec.key));
         for (key, sql) in contract.properties() {
-            if key.starts_with("pse.check.nested.expression.") {
+            if key.starts_with("pse.check.field.expression.") {
                 let encoded: Vec<u8> = serde_json::from_str(sql).unwrap();
                 let predicate = datafusion::logical_expr::Expr::from_bytes_with_ctx(
                     &encoded,
                     &expressions.task_ctx(),
                 )
                 .unwrap();
-                let predicate = predicate.resolve_lambda_variables(&schema).unwrap().data;
+                let execution =
+                    DFSchema::try_from(contract.layout().execution_schema().as_ref().clone())
+                        .unwrap();
+                let predicate = predicate.resolve_lambda_variables(&execution).unwrap().data;
                 expressions
-                    .create_physical_expr(predicate, &schema)
+                    .create_physical_expr(predicate, &execution)
                     .unwrap_or_else(|error| panic!("{}: {error}; {sql}", spec.key));
             }
         }
@@ -144,7 +144,9 @@ fn batch(schema: SchemaRef, kind: &str, offset: i64, visible: bool) -> RecordBat
 async fn seed(registry: &Arc<Registry>, contract: &DeclaredCheck, location: &url::Url) {
     let state = SessionStateBuilder::new()
         .with_default_features()
-        .with_query_planner(Arc::new(UnifiedPlanner::default()))
+        .with_query_planner(Arc::new(UnifiedPlanner::new(
+            pse_catalog::assembly::planners(),
+        )))
         .build();
     let context = SessionContext::new_with_state(state);
     let input = context
@@ -181,7 +183,7 @@ async fn nested_native_checks_guard_first_write_and_cold_raw_delta_mutations() {
     let location = url::Url::from_directory_path(root.path()).unwrap();
     seed(&registry, &contract, &location).await;
     // A fresh session needs only the declared native-expression adapter; neither
-    // a PSE query planner nor the deleted Cell validator is involved.
+    // a PSE query planner nor the deleted serde_json::Value validator is involved.
     let cold = SessionContext::new_with_state(
         SessionStateBuilder::new()
             .with_default_features()

@@ -1,0 +1,1135 @@
+[
+  {
+    "id": "4c19a404103c7b3177855dcd",
+    "path": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+    "name": "MeterProviderBuilder",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct MeterProviderBuilder",
+    "docs": "Configuration options for a [MeterProvider].",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        232,
+        1
+      ],
+      "end": [
+        236,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1607,
+          1608,
+          1609,
+          1610,
+          1611,
+          1612,
+          1613,
+          1614,
+          1615,
+          1616,
+          1617,
+          1618,
+          1619,
+          1620,
+          1621,
+          1622,
+          1623,
+          1624,
+          1625,
+          1626,
+          1628,
+          1630
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "MeterProvider": 1595
+    },
+    "link_paths": {
+      "MeterProvider": "opentelemetry::metrics::meter::MeterProvider"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1559",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.json",
+    "anchor": "op-4c19a404103c7b3177855dcd",
+    "aliases": [
+      "opentelemetry_sdk::metrics::MeterProviderBuilder"
+    ],
+    "resolved_doc_links": {
+      "MeterProvider": "../operations/opentelemetry.metrics.meter.MeterProvider.md#op-8ef66c51648972f9d178f50b"
+    }
+  },
+  {
+    "id": "f5be1bdbe02b59fe68ed58d3",
+    "path": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> SdkMeterProvider",
+    "docs": "Construct a new [MeterProvider] with this configuration.",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        376,
+        5
+      ],
+      "end": [
+        398,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "SdkMeterProvider",
+              "id": 1558,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1558": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MeterProviderBuilder",
+          "id": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          238,
+          1
+        ],
+        "end": [
+          399,
+          2
+        ]
+      }
+    },
+    "links": {
+      "MeterProvider": 1595
+    },
+    "link_paths": {
+      "MeterProvider": "opentelemetry::metrics::meter::MeterProvider"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1606",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.json",
+    "anchor": "op-f5be1bdbe02b59fe68ed58d3",
+    "aliases": [
+      "opentelemetry_sdk::metrics::MeterProviderBuilder::build"
+    ],
+    "resolved_doc_links": {
+      "MeterProvider": "../operations/opentelemetry.metrics.meter.MeterProvider.md#op-8ef66c51648972f9d178f50b"
+    }
+  },
+  {
+    "id": "7b72074a89c16b94d19477e5",
+    "path": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> MeterProviderBuilder",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        231,
+        10
+      ],
+      "end": [
+        231,
+        17
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "MeterProviderBuilder",
+              "id": 1559,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1559": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MeterProviderBuilder",
+          "id": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          231,
+          10
+        ],
+        "end": [
+          231,
+          17
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1627",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.json",
+    "anchor": "op-7b72074a89c16b94d19477e5",
+    "aliases": [
+      "opentelemetry_sdk::metrics::MeterProviderBuilder::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "253d48e126946a8849d21fb0",
+    "path": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        402,
+        5
+      ],
+      "end": [
+        408,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MeterProviderBuilder",
+          "id": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          401,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1629",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.json",
+    "anchor": "op-253d48e126946a8849d21fb0",
+    "aliases": [
+      "opentelemetry_sdk::metrics::MeterProviderBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3571f1a138368cdc7c39e880",
+    "path": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder::with_periodic_exporter",
+    "name": "with_periodic_exporter",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_periodic_exporter<T>(self, exporter: T) -> Self where T: PushMetricExporter",
+    "docs": "Adds a [`PushMetricExporter`] to the [`MeterProvider`] and configures it\nto export metrics at **fixed** intervals (60 seconds) using a\n[`PeriodicReader`].\n\nTo customize the export interval, set the\n**\"OTEL_METRIC_EXPORT_INTERVAL\"** environment variable (in\nmilliseconds).\n\nMost users should use this method to attach an exporter. Advanced users\nwho need finer control over the export process can use\n[`crate::metrics::PeriodicReaderBuilder`] to configure a custom reader and attach it\nusing [`MeterProviderBuilder::with_reader()`].",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        282,
+        5
+      ],
+      "end": [
+        289,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "exporter",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "T"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "PushMetricExporter",
+                        "id": 1318,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1318": "opentelemetry_sdk::metrics::exporter::PushMetricExporter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MeterProviderBuilder",
+          "id": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          238,
+          1
+        ],
+        "end": [
+          399,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`crate::metrics::PeriodicReaderBuilder`": 1603,
+      "`PushMetricExporter`": 1318,
+      "`MeterProvider`": 1595,
+      "`PeriodicReader`": 1602,
+      "`MeterProviderBuilder::with_reader()`": 1601
+    },
+    "link_paths": {
+      "`crate::metrics::PeriodicReaderBuilder`": "opentelemetry_sdk::metrics::periodic_reader::PeriodicReaderBuilder",
+      "`PushMetricExporter`": "opentelemetry_sdk::metrics::exporter::PushMetricExporter",
+      "`MeterProvider`": "opentelemetry::metrics::meter::MeterProvider",
+      "`PeriodicReader`": "opentelemetry_sdk::metrics::periodic_reader::PeriodicReader",
+      "`MeterProviderBuilder::with_reader()`": null
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1600",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.json",
+    "anchor": "op-3571f1a138368cdc7c39e880",
+    "aliases": [
+      "opentelemetry_sdk::metrics::MeterProviderBuilder::with_periodic_exporter"
+    ],
+    "resolved_doc_links": {
+      "`crate::metrics::PeriodicReaderBuilder`": "../operations/opentelemetry_sdk.metrics.periodic_reader.PeriodicReaderBuilder.md#op-1ccb928c4d2c2ae19ce4569c",
+      "`PushMetricExporter`": "../operations/opentelemetry_sdk.metrics.exporter.PushMetricExporter.md#op-6d578ed5c0fd27cf6ab55b23",
+      "`MeterProvider`": "../operations/opentelemetry.metrics.meter.MeterProvider.md#op-8ef66c51648972f9d178f50b",
+      "`PeriodicReader`": "../operations/opentelemetry_sdk.metrics.periodic_reader.PeriodicReader.md#op-7af448cc206ead85a28fc452",
+      "`MeterProviderBuilder::with_reader()`": "../operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md#op-9da9ee3a647ce6b7538ecbea"
+    }
+  },
+  {
+    "id": "9da9ee3a647ce6b7538ecbea",
+    "path": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder::with_reader",
+    "name": "with_reader",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_reader<T: MetricReader>(self, reader: T) -> Self",
+    "docs": "Associates a [MetricReader] with a [MeterProvider].\n[`MeterProviderBuilder::with_periodic_exporter()] can be used to add a PeriodicReader which is\nthe most common use case.\n\nA [MeterProvider] will export no metrics without [MetricReader]\nadded.",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        265,
+        5
+      ],
+      "end": [
+        268,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "reader",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "MetricReader",
+                          "id": 1490,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1490": "opentelemetry_sdk::metrics::reader::MetricReader"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MeterProviderBuilder",
+          "id": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          238,
+          1
+        ],
+        "end": [
+          399,
+          2
+        ]
+      }
+    },
+    "links": {
+      "MetricReader": 1490,
+      "`MeterProviderBuilder::with_periodic_exporter()": 1600,
+      "MeterProvider": 1595
+    },
+    "link_paths": {
+      "MetricReader": "opentelemetry_sdk::metrics::reader::MetricReader",
+      "`MeterProviderBuilder::with_periodic_exporter()": null,
+      "MeterProvider": "opentelemetry::metrics::meter::MeterProvider"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1601",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.json",
+    "anchor": "op-9da9ee3a647ce6b7538ecbea",
+    "aliases": [
+      "opentelemetry_sdk::metrics::MeterProviderBuilder::with_reader"
+    ],
+    "resolved_doc_links": {
+      "MetricReader": "../operations/opentelemetry_sdk.metrics.reader.MetricReader.md#op-50fae5ec1b547de01d0084a6",
+      "`MeterProviderBuilder::with_periodic_exporter()": "../operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md#op-3571f1a138368cdc7c39e880",
+      "MeterProvider": "../operations/opentelemetry.metrics.meter.MeterProvider.md#op-8ef66c51648972f9d178f50b"
+    }
+  },
+  {
+    "id": "ba40ecc38af80fe2a860ec07",
+    "path": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder::with_resource",
+    "name": "with_resource",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_resource(self, resource: Resource) -> Self",
+    "docs": "Associates a [Resource] with a [MeterProvider].\n\nThis [Resource] represents the entity producing telemetry and is associated\nwith all [Meter]s the [MeterProvider] will create.\n\nBy default, if this option is not used, the default [Resource] will be used.\n\n*Note*: Calls to this method are additive, each call merges the provided\nresource with the previous one.\n\n[Meter]: opentelemetry::metrics::Meter",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        250,
+        5
+      ],
+      "end": [
+        257,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "resource",
+              {
+                "resolved_path": {
+                  "path": "Resource",
+                  "id": 81,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "81": "opentelemetry_sdk::resource::Resource"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MeterProviderBuilder",
+          "id": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          238,
+          1
+        ],
+        "end": [
+          399,
+          2
+        ]
+      }
+    },
+    "links": {
+      "Resource": 81,
+      "opentelemetry::metrics::Meter": 1557,
+      "MeterProvider": 1595
+    },
+    "link_paths": {
+      "Resource": "opentelemetry_sdk::resource::Resource",
+      "opentelemetry::metrics::Meter": "opentelemetry::metrics::meter::Meter",
+      "MeterProvider": "opentelemetry::metrics::meter::MeterProvider"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1599",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.json",
+    "anchor": "op-ba40ecc38af80fe2a860ec07",
+    "aliases": [
+      "opentelemetry_sdk::metrics::MeterProviderBuilder::with_resource"
+    ],
+    "resolved_doc_links": {
+      "Resource": "../operations/opentelemetry_sdk.resource.Resource.md#op-6665d2e0897d180bf11ccb3b",
+      "opentelemetry::metrics::Meter": "../operations/opentelemetry.metrics.meter.Meter.md#op-5e48a510d8c00731cf60cb7a",
+      "MeterProvider": "../operations/opentelemetry.metrics.meter.MeterProvider.md#op-8ef66c51648972f9d178f50b"
+    }
+  },
+  {
+    "id": "aa35adec4514e43d89129e3f",
+    "path": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder::with_view",
+    "name": "with_view",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_view<T>(self, view: T) -> Self where T: Fn(&Instrument) -> Option<Stream> + Send + Sync + 'static",
+    "docs": "Adds a view to the [MeterProvider].\n\nViews allow you to customize how metrics are aggregated, renamed, or\notherwise transformed before export, without modifying instrument\ndefinitions in your application or library code.\n\nYou can pass any function or closure matching the signature\n`Fn(&Instrument) -> Option<Stream> + Send + Sync + 'static`. The\nfunction receives a reference to the [`Instrument`] and can return an\n[`Option`] of [`Stream`] to specify how matching instruments should be\nexported. Returning `None` means the view does not apply to the given\ninstrument, and the default behavior will be used.\n\n\n# Examples\n\nRenaming a metric:\n\n```\n# use opentelemetry_sdk::metrics::{Stream, Instrument};\nlet view_rename = |i: &Instrument| {\n    if i.name() == \"my_counter\" {\n        Some(Stream::builder().with_name(\"my_counter_renamed\").build().expect(\"Stream should be valid\"))\n    } else {\n        None\n    }\n};\n# let builder = opentelemetry_sdk::metrics::SdkMeterProvider::builder();\n# let _builder =\nbuilder.with_view(view_rename);\n```\n\nSetting a cardinality limit to control resource usage:\n\n```\n# use opentelemetry_sdk::metrics::{Stream, Instrument};\nlet view_change_cardinality = |i: &Instrument| {\n    if i.name() == \"my_counter\" {\n        Some(\n            Stream::builder()\n                .with_cardinality_limit(100).build().expect(\"Stream should be valid\"),\n        )\n    } else {\n        None\n    }\n};\n# let builder = opentelemetry_sdk::metrics::SdkMeterProvider::builder();\n# let _builder =\nbuilder.with_view(view_change_cardinality);\n```\n\nSilently ignoring Stream build errors:\n\n```\n# use opentelemetry_sdk::metrics::{Stream, Instrument};\nlet my_view_change_cardinality = |i: &Instrument| {\n    if i.name() == \"my_second_histogram\" {\n        // Note: If Stream is invalid, build() will return `Error` variant.\n        // By calling `.ok()`, any such error is ignored and treated as if the view does not match\n        // the instrument.\n        // If this is not the desired behavior, consider handling the error explicitly.\n        Stream::builder().with_cardinality_limit(0).build().ok()\n    } else {\n        None\n    }\n};\n# let builder = opentelemetry_sdk::metrics::SdkMeterProvider::builder();\n# let _builder =\nbuilder.with_view(my_view_change_cardinality);\n```\n\nIf no views are added, the [MeterProvider] uses the default view.\n\n[`Instrument`]: crate::metrics::Instrument\n[`Stream`]: crate::metrics::Stream\n[`Option`]: core::option::Option",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        367,
+        5
+      ],
+      "end": [
+        373,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "view",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "T"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Fn",
+                        "id": 1605,
+                        "args": {
+                          "parenthesized": {
+                            "inputs": [
+                              {
+                                "borrowed_ref": {
+                                  "lifetime": null,
+                                  "is_mutable": false,
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Instrument",
+                                      "id": 822,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "output": {
+                              "resolved_path": {
+                                "path": "Option",
+                                "id": 208,
+                                "args": {
+                                  "angle_bracketed": {
+                                    "args": [
+                                      {
+                                        "type": {
+                                          "resolved_path": {
+                                            "path": "Stream",
+                                            "id": 1375,
+                                            "args": null
+                                          }
+                                        }
+                                      }
+                                    ],
+                                    "constraints": []
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 16,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sync",
+                        "id": 18,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1605": "core::ops::function::Fn",
+      "822": "opentelemetry_sdk::metrics::instrument::Instrument",
+      "208": "core::option::Option",
+      "1375": "opentelemetry_sdk::metrics::instrument::Stream",
+      "16": "core::marker::Send",
+      "18": "core::marker::Sync"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MeterProviderBuilder",
+          "id": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          238,
+          1
+        ],
+        "end": [
+          399,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::metrics::Instrument": 822,
+      "crate::metrics::Stream": 1375,
+      "MeterProvider": 1595,
+      "core::option::Option": 208
+    },
+    "link_paths": {
+      "crate::metrics::Instrument": "opentelemetry_sdk::metrics::instrument::Instrument",
+      "crate::metrics::Stream": "opentelemetry_sdk::metrics::instrument::Stream",
+      "MeterProvider": "opentelemetry::metrics::meter::MeterProvider",
+      "core::option::Option": "core::option::Option"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1604",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.json",
+    "anchor": "op-aa35adec4514e43d89129e3f",
+    "aliases": [
+      "opentelemetry_sdk::metrics::MeterProviderBuilder::with_view"
+    ],
+    "resolved_doc_links": {
+      "crate::metrics::Instrument": "../operations/opentelemetry_sdk.metrics.instrument.Instrument.md#op-8cf16666479a8972c6770675",
+      "crate::metrics::Stream": "../operations/opentelemetry_sdk.metrics.instrument.Stream.md#op-58efe95b35cd74f5deb12539",
+      "MeterProvider": "../operations/opentelemetry.metrics.meter.MeterProvider.md#op-8ef66c51648972f9d178f50b"
+    }
+  }
+]

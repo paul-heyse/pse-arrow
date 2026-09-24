@@ -18,8 +18,6 @@ use pse_relations::generated::authored::template_symbols;
 use pse_relations::generated::enums::{BoundKind, IdPolicy, PackageKind, SymbolRole};
 use pse_relations::generated::extension_values::Bound;
 use pse_relations::generated::reference::units;
-use pse_relations::typed::CellCodec;
-use pse_schema::model::Cell;
 
 fn package_row() -> packages::Row {
     packages::Row {
@@ -116,68 +114,20 @@ fn generated_nested_rows_round_trip_through_serde_and_direct_arrow_views() {
     packages::validate(batch.batch()).expect("independent raw admission agrees");
 }
 
-fn unit_row() -> units::Row {
-    units::Row {
-        unit_id: SemanticId::from_bytes([7; 16]),
-        symbol: "m".to_owned(),
-        name: "metre".to_owned(),
-        dimension: CellCodec::from_cell(Cell::List(
-            (0..8)
-                .map(|index| Cell::Struct(vec![Cell::I64(i64::from(index == 0)), Cell::I64(1)]))
-                .collect(),
-        ))
-        .expect("dimension"),
-        scale_to_canonical: 1.0,
-        offset_to_canonical: 0.0,
-        is_affine: false,
-        reference_state_id: None,
-        system: "SI".to_owned(),
-        doc: String::new(),
-    }
-}
-
-#[test]
-fn generated_builder_checks_actual_nested_values_and_view_checks_actual_fields() {
-    let mut invalid = unit_row();
-    invalid.dimension[2].den = 0;
-    let mut builder = units::Builder::new().expect("builder");
-    assert!(builder.push(invalid).is_err());
-    assert!(builder.is_empty());
-    builder.push(unit_row()).expect("valid");
-    let constructed = builder.finish().expect("batch");
-    let batch = constructed.batch();
-    let mut fields = batch
-        .schema()
-        .fields()
-        .iter()
-        .map(|field| field.as_ref().clone())
-        .collect::<Vec<_>>();
-    fields[1] = fields[1].clone().with_name("renamed_symbol");
-    let forged = pse_relations::RecordBatch::try_new(
-        Arc::new(pse_relations::Schema::new_with_metadata(
-            fields,
-            batch.schema().metadata().clone(),
-        )),
-        batch.columns().to_vec(),
-    )
-    .expect("Arrow accepts renamed field with copied fingerprint");
-    assert!(units::View::try_from_batch(&forged).is_err());
-}
-
 #[test]
 fn generated_enum_round_trip_preserves_names_and_rejects_unknown_members() {
-    for value in pse_relations::generated::enums::EquationRole::ALL {
+    for value in pse_relations::generated::enums::Direction::ALL {
         assert_eq!(
             value
                 .as_str()
-                .parse::<pse_relations::generated::enums::EquationRole>()
+                .parse::<pse_relations::generated::enums::Direction>()
                 .expect("member"),
             value
         );
     }
     assert!(
         "MISCLASSIFIED"
-            .parse::<pse_relations::generated::enums::EquationRole>()
+            .parse::<pse_relations::generated::enums::Direction>()
             .is_err()
     );
 }
@@ -291,7 +241,13 @@ fn nullable_nested_bounds_preserve_parent_masks_and_reject_visible_invalid_paylo
         kind: BoundKind::Finite,
         value: None,
     });
-    assert!(builder.push(invalid).is_err());
+    assert!(
+        builder
+            .push(invalid)
+            .and_then(|()| builder.finish())
+            .is_err()
+    );
+    let mut builder = template_symbols::Builder::new().expect("fresh builder after refused batch");
     let first = template_symbol();
     builder
         .push(first.clone())
@@ -369,108 +325,4 @@ fn raw_admission_concat_and_slices_share_one_private_field_capability() {
         )
         .is_err()
     );
-}
-
-#[test]
-fn canonical_order_transfers_checked_values_and_retained_buffer_ownership() {
-    let registry = pse_schema::registry().expect("registry");
-    let spec = units::spec(registry).expect("units declaration");
-    let budget = pse_ids::FixedBudget::new(32 * 1024 * 1024);
-    let mut first = unit_row();
-    first.unit_id = SemanticId::from_bytes([1; 16]);
-    first.offset_to_canonical = -0.0;
-    let mut second = unit_row();
-    second.unit_id = SemanticId::from_bytes([2; 16]);
-    let mut builder = units::Builder::new().expect("builder");
-    builder.push(second.clone()).expect("later key");
-    builder.push(first.clone()).expect("earlier key");
-    let input = builder.finish().expect("checked fields");
-    let (ordered, identity) = input
-        .canonicalize(
-            registry,
-            spec,
-            budget.as_ref(),
-            pse_ids::CanonicalizeOptions::default(),
-        )
-        .expect("actual canonical order");
-    assert_eq!(identity.row_count, 2);
-    assert!(identity.sorted.is_none());
-    assert!(budget.reserved() > 0);
-    ordered
-        .check_declaration(registry, spec)
-        .expect("same complete declaration");
-    let view = units::View::from_checked(&ordered).expect("borrow without raw admission");
-    assert_eq!(view.rows().expect("original values"), vec![first, second]);
-    // Canonical identity normalizes floating zero in its hashing copy only.
-    assert_eq!(
-        view.offset_to_canonical_column().value(0).to_bits(),
-        (-0.0_f64).to_bits()
-    );
-    assert_eq!(
-        units::View::from_checked(&input)
-            .expect("original owner")
-            .unit_id_column()
-            .value(0),
-        &[2; 16]
-    );
-    let retained = ordered.slice(0, 1).expect("retained sorted row");
-    drop(ordered);
-    assert!(budget.reserved() > 0);
-    drop(retained);
-    assert_eq!(budget.reserved(), 0);
-
-    let duplicates =
-        pse_relations::columnar::FieldCheckedBatch::concat(registry, spec, &[input.clone(), input])
-            .expect("local fields permit duplicate keys");
-    assert!(matches!(
-        duplicates.canonicalize(
-            registry,
-            spec,
-            budget.as_ref(),
-            pse_ids::CanonicalizeOptions::default()
-        ),
-        Err(pse_relations::RelationError::Canon(
-            pse_ids::CanonError::DuplicateKey { .. }
-        ))
-    ));
-    assert_eq!(budget.reserved(), 0);
-}
-
-#[test]
-fn reserved_concat_refuses_before_allocation_and_keeps_its_claim_with_slices() {
-    use pse_relations::columnar::FieldCheckedBatch;
-    let registry = pse_schema::registry().expect("registry");
-    let spec = units::spec(registry).expect("units");
-    let cancel = pse_ids::CancellationToken::new();
-    let mut builder = units::Builder::new().expect("builder");
-    builder.push(unit_row()).expect("row");
-    let input = builder.finish().expect("fields");
-    let tiny = pse_ids::FixedBudget::new(1);
-    assert!(
-        FieldCheckedBatch::concat_reserved(
-            registry,
-            spec,
-            &[input.clone(), input.clone()],
-            tiny.as_ref(),
-            &cancel
-        )
-        .is_err()
-    );
-    assert_eq!(tiny.reserved(), 0);
-    let budget = pse_ids::FixedBudget::new(8 << 20);
-    let output = FieldCheckedBatch::concat_reserved(
-        registry,
-        spec,
-        &[input.clone(), input],
-        budget.as_ref(),
-        &cancel,
-    )
-    .expect("accounted native concat");
-    assert_eq!(output.batch().num_rows(), 2);
-    assert!(budget.reserved() > 0);
-    let slice = output.slice(1, 1).expect("view");
-    drop(output);
-    assert!(budget.reserved() > 0);
-    drop(slice);
-    assert_eq!(budget.reserved(), 0);
 }

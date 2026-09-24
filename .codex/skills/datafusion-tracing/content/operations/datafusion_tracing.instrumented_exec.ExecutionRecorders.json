@@ -1,0 +1,888 @@
+[
+  {
+    "id": "28dcfab9088f09e7c2d81fbb",
+    "path": "datafusion_tracing::instrumented_exec::ExecutionRecorders",
+    "name": "ExecutionRecorders",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct ExecutionRecorders",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_exec.rs",
+      "begin": [
+        499,
+        1
+      ],
+      "end": [
+        508,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 114,
+        "path": "::instrumented_exec"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              226,
+              228,
+              230,
+              231,
+              233,
+              235,
+              236,
+              237
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          245,
+          246,
+          247,
+          248,
+          249,
+          250,
+          251,
+          252,
+          253,
+          254,
+          255,
+          256,
+          257,
+          258,
+          259,
+          260,
+          261,
+          262,
+          263,
+          264,
+          265
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "125",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.md",
+    "record_file": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.json",
+    "anchor": "op-28dcfab9088f09e7c2d81fbb",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "88bff2bd311488805a95ce20",
+    "path": "datafusion_tracing::instrumented_exec::ExecutionRecorders::active_streams",
+    "name": "active_streams",
+    "owner": "datafusion_tracing::instrumented_exec::ExecutionRecorders",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "active_streams: std::sync::atomic::AtomicUsize",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_exec.rs",
+      "begin": [
+        504,
+        5
+      ],
+      "end": [
+        504,
+        32
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 114,
+        "path": "::instrumented_exec"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::sync::atomic::AtomicUsize",
+          "id": 234,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "234": "core::sync::atomic::AtomicUsize"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "233",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.md",
+    "record_file": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.json",
+    "anchor": "op-88bff2bd311488805a95ce20",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "455a15c0223c0c74c62d9cfb",
+    "path": "datafusion_tracing::instrumented_exec::ExecutionRecorders::context",
+    "name": "context",
+    "owner": "datafusion_tracing::instrumented_exec::ExecutionRecorders",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "context: std::sync::Arc<datafusion::execution::TaskContext>",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_exec.rs",
+      "begin": [
+        502,
+        5
+      ],
+      "end": [
+        502,
+        30
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 114,
+        "path": "::instrumented_exec"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::sync::Arc",
+          "id": 2,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "datafusion::execution::TaskContext",
+                      "id": 131,
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "2": "alloc::sync::Arc",
+      "131": "datafusion_execution::task::TaskContext"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "230",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.md",
+    "record_file": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.json",
+    "anchor": "op-455a15c0223c0c74c62d9cfb",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "22096d491320f3cae77e4313",
+    "path": "datafusion_tracing::instrumented_exec::ExecutionRecorders::metrics_recorder",
+    "name": "metrics_recorder",
+    "owner": "datafusion_tracing::instrumented_exec::ExecutionRecorders",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "metrics_recorder: Option<std::sync::Arc<metrics::MetricsRecorder>>",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_exec.rs",
+      "begin": [
+        506,
+        5
+      ],
+      "end": [
+        506,
+        51
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 114,
+        "path": "::instrumented_exec"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 118,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::sync::Arc",
+                      "id": 2,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "resolved_path": {
+                                  "path": "crate::metrics::MetricsRecorder",
+                                  "id": 137,
+                                  "args": null
+                                }
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "118": "core::option::Option",
+      "2": "alloc::sync::Arc",
+      "137": "datafusion_tracing::metrics::MetricsRecorder"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "236",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.md",
+    "record_file": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.json",
+    "anchor": "op-22096d491320f3cae77e4313",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b77fe1c45f8adbee7ad76968",
+    "path": "datafusion_tracing::instrumented_exec::ExecutionRecorders::node_recorder",
+    "name": "node_recorder",
+    "owner": "datafusion_tracing::instrumented_exec::ExecutionRecorders",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "node_recorder: std::sync::Arc<node::NodeRecorder>",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_exec.rs",
+      "begin": [
+        505,
+        5
+      ],
+      "end": [
+        505,
+        37
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 114,
+        "path": "::instrumented_exec"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::sync::Arc",
+          "id": 2,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::node::NodeRecorder",
+                      "id": 135,
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "2": "alloc::sync::Arc",
+      "135": "datafusion_tracing::node::NodeRecorder"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "235",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.md",
+    "record_file": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.json",
+    "anchor": "op-b77fe1c45f8adbee7ad76968",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "615be7dc9c4ab6044ff9788c",
+    "path": "datafusion_tracing::instrumented_exec::ExecutionRecorders::parent_span_id",
+    "name": "parent_span_id",
+    "owner": "datafusion_tracing::instrumented_exec::ExecutionRecorders",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "parent_span_id: Option<tracing::Id>",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_exec.rs",
+      "begin": [
+        501,
+        5
+      ],
+      "end": [
+        501,
+        31
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 114,
+        "path": "::instrumented_exec"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 118,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "tracing::Id",
+                      "id": 229,
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "118": "core::option::Option",
+      "229": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "228",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.md",
+    "record_file": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.json",
+    "anchor": "op-615be7dc9c4ab6044ff9788c",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a6d50cd926cf7df0ef178ac1",
+    "path": "datafusion_tracing::instrumented_exec::ExecutionRecorders::preview_recorder",
+    "name": "preview_recorder",
+    "owner": "datafusion_tracing::instrumented_exec::ExecutionRecorders",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "preview_recorder: Option<std::sync::Arc<preview::PreviewRecorder>>",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_exec.rs",
+      "begin": [
+        507,
+        5
+      ],
+      "end": [
+        507,
+        51
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 114,
+        "path": "::instrumented_exec"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 118,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::sync::Arc",
+                      "id": 2,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "resolved_path": {
+                                  "path": "crate::preview::PreviewRecorder",
+                                  "id": 139,
+                                  "args": null
+                                }
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "118": "core::option::Option",
+      "2": "alloc::sync::Arc",
+      "139": "datafusion_tracing::preview::PreviewRecorder"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "237",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.md",
+    "record_file": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.json",
+    "anchor": "op-a6d50cd926cf7df0ef178ac1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "44392dcc173e92391a67be77",
+    "path": "datafusion_tracing::instrumented_exec::ExecutionRecorders::seen_partitions",
+    "name": "seen_partitions",
+    "owner": "datafusion_tracing::instrumented_exec::ExecutionRecorders",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "seen_partitions: std::sync::Mutex<std::collections::HashSet<usize>>",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_exec.rs",
+      "begin": [
+        503,
+        5
+      ],
+      "end": [
+        503,
+        43
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 114,
+        "path": "::instrumented_exec"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::sync::Mutex",
+          "id": 123,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::collections::HashSet",
+                      "id": 232,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "usize"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "123": "std::sync::poison::mutex::Mutex",
+      "232": "std::collections::hash::set::HashSet"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "231",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.md",
+    "record_file": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.json",
+    "anchor": "op-44392dcc173e92391a67be77",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "03563ed2b8176f744ed019e9",
+    "path": "datafusion_tracing::instrumented_exec::ExecutionRecorders::slot",
+    "name": "slot",
+    "owner": "datafusion_tracing::instrumented_exec::ExecutionRecorders",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "slot: std::sync::Weak<std::sync::Mutex<Vec<std::sync::Arc<ExecutionRecorders>>>>",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_exec.rs",
+      "begin": [
+        500,
+        5
+      ],
+      "end": [
+        500,
+        52
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 114,
+        "path": "::instrumented_exec"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::sync::Weak",
+          "id": 227,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::sync::Mutex",
+                      "id": 123,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "resolved_path": {
+                                  "path": "Vec",
+                                  "id": 124,
+                                  "args": {
+                                    "angle_bracketed": {
+                                      "args": [
+                                        {
+                                          "type": {
+                                            "resolved_path": {
+                                              "path": "std::sync::Arc",
+                                              "id": 2,
+                                              "args": {
+                                                "angle_bracketed": {
+                                                  "args": [
+                                                    {
+                                                      "type": {
+                                                        "resolved_path": {
+                                                          "path": "ExecutionRecorders",
+                                                          "id": 125,
+                                                          "args": null
+                                                        }
+                                                      }
+                                                    }
+                                                  ],
+                                                  "constraints": []
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      ],
+                                      "constraints": []
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "227": "alloc::sync::Weak",
+      "123": "std::sync::poison::mutex::Mutex",
+      "124": "alloc::vec::Vec",
+      "2": "alloc::sync::Arc",
+      "125": "datafusion_tracing::instrumented_exec::ExecutionRecorders"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "226",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.md",
+    "record_file": "operations/datafusion_tracing.instrumented_exec.ExecutionRecorders.json",
+    "anchor": "op-03563ed2b8176f744ed019e9",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

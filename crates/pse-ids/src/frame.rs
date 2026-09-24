@@ -21,14 +21,21 @@
 /// as a digest, without ever materializing it).
 pub trait FrameSink {
     /// A variable-length component: `u64` little-endian byte length, then the bytes.
-    fn put_len_prefixed(&mut self, bytes: &[u8]);
+    fn put_len_prefixed(&mut self, bytes: &[u8]) {
+        self.put_u64_le(framed_len(bytes));
+        self.put_fixed(bytes);
+    }
 
     /// A fixed-width 32-bit component: four little-endian bytes, no length.
-    fn put_u32_le(&mut self, v: u32);
+    fn put_u32_le(&mut self, v: u32) {
+        self.put_fixed(&v.to_le_bytes());
+    }
 
     /// A fixed-width 64-bit component — a count, an ordinal: eight little-endian bytes,
     /// no length.
-    fn put_u64_le(&mut self, v: u64);
+    fn put_u64_le(&mut self, v: u64) {
+        self.put_fixed(&v.to_le_bytes());
+    }
 
     /// A component whose width the contract fixes — an ID, a hash: the bytes verbatim.
     fn put_fixed(&mut self, bytes: &[u8]);
@@ -44,45 +51,18 @@ fn framed_len(bytes: &[u8]) -> u64 {
 }
 
 impl FrameSink for Vec<u8> {
-    fn put_len_prefixed(&mut self, bytes: &[u8]) {
-        self.put_u64_le(framed_len(bytes));
-        self.extend_from_slice(bytes);
-    }
-
-    fn put_u32_le(&mut self, v: u32) {
-        self.extend_from_slice(&v.to_le_bytes());
-    }
-
-    fn put_u64_le(&mut self, v: u64) {
-        self.extend_from_slice(&v.to_le_bytes());
-    }
-
     fn put_fixed(&mut self, bytes: &[u8]) {
         self.extend_from_slice(bytes);
     }
 }
-
 impl FrameSink for blake3::Hasher {
-    fn put_len_prefixed(&mut self, bytes: &[u8]) {
-        self.put_u64_le(framed_len(bytes));
-        self.update(bytes);
-    }
-
-    fn put_u32_le(&mut self, v: u32) {
-        self.update(&v.to_le_bytes());
-    }
-
-    fn put_u64_le(&mut self, v: u64) {
-        self.update(&v.to_le_bytes());
-    }
-
     fn put_fixed(&mut self, bytes: &[u8]) {
         self.update(bytes);
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod consolidation_unit {
     use proptest::prelude::*;
 
     use super::*;

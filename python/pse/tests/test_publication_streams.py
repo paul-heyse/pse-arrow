@@ -6,7 +6,10 @@ import gc
 import shutil
 import subprocess
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier, Event
 from typing import get_type_hints
 
 import attrs
@@ -14,8 +17,6 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse._transfer import compare_schemas
-from pse.contracts.extension_types import PseSemanticId
 from pse.tests.test_native_registry import PublicationIndex, publication_index
 
 
@@ -35,13 +36,13 @@ def _assert_released(publication: pse.Publication) -> None:
     assert all(row.active_loads in (None, 0) for row in caches)
     assert all(row.inflight_bytes in (None, 0) for row in caches)
     cached = sum(row.capacity_bytes + (row.live_bytes or 0) for row in caches)
-    assert publication.resource_usage().reserved_bytes == cached
+    assert publication.resource_usage().pool_reserved_now == cached
 
 
 def _assert_exported_owner(publication: pse.Publication) -> None:
     caches = publication.cache_usage()
     cached = sum(row.capacity_bytes + (row.live_bytes or 0) for row in caches)
-    assert publication.resource_usage().reserved_bytes > cached or any(
+    assert publication.resource_usage().pool_reserved_now > cached or any(
         row.pinned_bytes is not None and row.pinned_bytes > 0 for row in caches
     )
 
@@ -54,7 +55,9 @@ def test_publication_streams_values_schema_empty_and_final_array_lease(
     publication = _open(index, inspection_settings)
     assert publication.version == index.root.version
     assert publication.location == index.root.location
-    assert set(publication.tables()) == set(index.tables)
+    assert {
+        (name.catalog, name.schema, name.table) for name in publication.tables()
+    } == set(index.tables)
     with (
         publication.table("artifact", "authored", "packages") as empty,
         pa.RecordBatchReader.from_stream(empty) as reader,
@@ -152,7 +155,7 @@ def test_malformed_control_log_fails_before_members_are_exposed(
             version=inspection_publication.root.version,
             settings=inspection_settings,
         )
-    assert failure.value.code is not None
+    assert failure.value.report.code is not None
     assert failure.value.args
 
 
@@ -190,6 +193,7 @@ def test_tiny_explicit_budget_refuses_actual_admission_in_a_fresh_process(
 ) -> None:
     program = """
 import sys
+import time
 import pse
 settings = pse.EngineSettings(memory_limit_bytes=1, threads=1, spill_dir=sys.argv[3],
     max_spill_bytes=1048576, batch_size=7)
@@ -218,66 +222,9 @@ else:
 
 
 @pytest.mark.unit
-def test_consumer_schema_reports_nested_semantics_and_degradation() -> None:
-    extension = PseSemanticId()
-    semantic = pa.field(
-        "sid", extension, nullable=False, metadata={b"owner": b"actual"}
-    )
-    source = pa.schema([pa.field("outer", pa.struct([semantic]))])
-    assert all(item.state == "retained" for item in compare_schemas(source, source))
-    raw = pa.field(
-        "sid",
-        extension.storage_type,
-        nullable=False,
-        metadata={
-            b"owner": b"actual",
-            b"ARROW:extension:name": extension.extension_name.encode(),
-            b"ARROW:extension:metadata": extension.__arrow_ext_serialize__(),
-        },
-    )
-    storage = pa.schema([pa.field("outer", pa.struct([raw]))])
-    assert compare_schemas(source, storage)[1].state == "storage_only"
-    lost = pa.schema(
-        [pa.field("outer", pa.struct([raw.with_metadata({b"owner": b"actual"})]))]
-    )
-    assert compare_schemas(source, lost)[1].state == "metadata_lost"
-    assert raw.metadata is not None
-    changed = raw.with_metadata({**raw.metadata, b"owner": b"different"})
-    mismatch = pa.schema([pa.field("outer", pa.struct([changed]))])
-    assert compare_schemas(source, mismatch)[1].state == "mismatch"
-    version = raw.with_metadata(
-        {**raw.metadata, b"ARROW:extension:metadata": b'{"v":99}'}
-    )
-    assert (
-        compare_schemas(source, pa.schema([pa.field("outer", pa.struct([version]))]))[
-            1
-        ].state
-        == "mismatch"
-    )
-    wrong = pa.schema(
-        [pa.field("outer", pa.struct([pa.field("sid", pa.binary(32), nullable=False)]))]
-    )
-    assert compare_schemas(source, wrong)[1].state == "mismatch"
-
-
-@pytest.mark.unit
-def test_consumer_schema_report_checks_order_metadata_and_unknown_fields() -> None:
-    left, right = pa.field("left", pa.int64()), pa.field("right", pa.int64())
-    source = pa.schema([left, right], metadata={b"contract": b"complete"})
-    reordered = pa.schema([right, left], metadata=source.metadata)
-    assert compare_schemas(source, reordered)[0].state == "mismatch"
-    assert compare_schemas(source, source.remove_metadata())[0].state == "mismatch"
-    unknown = pa.schema(
-        [left, right, pa.field("unknown", pa.int64())], metadata=source.metadata
-    )
-    assert compare_schemas(source, unknown)[-1].state == "mismatch"
-
-
-@pytest.mark.unit
 def test_inspection_annotations_evaluate_on_the_running_interpreter() -> None:
     for target in (
         pse.FieldTransfer,
-        pse.ResourceUsage,
         pse.TableStream,
         pse.Publication,
         pse.open,
@@ -285,6 +232,13 @@ def test_inspection_annotations_evaluate_on_the_running_interpreter() -> None:
         pse.TableStream.extension_report,
     ):
         assert get_type_hints(target), target
+    # Native properties are typed by the stub emitted from the compiled API.
+    # They deliberately have no duplicate runtime Python declaration.
+    report_stub = (
+        Path(pse.__file__).with_name("_native.pyi").read_text(encoding="utf-8")
+    )
+    assert "def pool_reserved_now(self, /) -> int:" in report_stub
+    assert hasattr(pse.ResourceReport, "pool_reserved_now")
 
 
 @pytest.mark.component
@@ -365,6 +319,9 @@ def test_engine_settings_preserve_independent_worker_and_partition_policies(
         sort_spill_reservation_bytes=16 << 20,
         time_zone="Europe/Brussels",
         hashing_may_use_pool=True,
+        concurrent_queries=1,
+        concurrent_outputs=3,
+        model_result_bytes=1024,
     )
     assert settings.threads == 2
     assert settings.target_partitions == 8
@@ -372,6 +329,9 @@ def test_engine_settings_preserve_independent_worker_and_partition_policies(
     assert settings.time_zone == "Europe/Brussels"
     assert settings.top_consumers == 5
     assert settings.hashing_may_use_pool
+    assert settings.concurrent_queries == 1
+    assert settings.concurrent_outputs == 3
+    assert settings.model_result_bytes == 1024
     name = "threads"
     with pytest.raises(AttributeError):
         setattr(settings, name, 7)
@@ -411,3 +371,83 @@ def test_engine_settings_preserve_zero_native_spill_capacity(tmp_path: Path) -> 
         batch_size=7,
     )
     assert settings.max_spill_bytes == 0
+
+
+def _two_reader_progress(publication: pse.Publication) -> dict[str, int | float]:
+    """Measure whole reader tasks and progress; never infer a particular GIL span."""
+    start = Barrier(3)
+    stop = Event()
+    finished = [Event(), Event()]
+    iterations = 16
+
+    def read(index: int) -> tuple[pa.Table, float]:
+        start.wait(timeout=30)
+        started = time.perf_counter()
+        reference: pa.Table | None = None
+        try:
+            for _ in range(iterations):
+                with (
+                    publication.table(
+                        "artifact", "reference", "schema_relations"
+                    ) as stream,
+                    pa.RecordBatchReader.from_stream(stream) as reader,
+                ):
+                    actual = reader.read_all()
+                if reference is None:
+                    reference = actual
+                else:
+                    assert actual.equals(reference, check_metadata=True)
+            assert reference is not None
+            return reference, time.perf_counter() - started
+        finally:
+            finished[index].set()
+
+    def python_work() -> tuple[int, int]:
+        start.wait(timeout=30)
+        cycles = 0
+        overlapping_cycles = 0
+        while not stop.wait(0.0001):
+            # Count completed independent work, not a nonzero initial value.
+            assert sum(range(1000)) == 499500
+            cycles += 1
+            if not finished[0].is_set() and not finished[1].is_set():
+                overlapping_cycles += 1
+        return cycles, overlapping_cycles
+
+    started = time.perf_counter()
+    with ThreadPoolExecutor(max_workers=3) as workers:
+        first = workers.submit(read, 0)
+        second = workers.submit(read, 1)
+        progress = workers.submit(python_work)
+        try:
+            left, left_seconds = first.result(timeout=60)
+            right, right_seconds = second.result(timeout=60)
+        finally:
+            stop.set()
+        cycles, overlapping_cycles = progress.result(timeout=30)
+    assert cycles > 0
+    assert overlapping_cycles > 0
+    assert left.equals(right, check_metadata=True)
+    return {
+        "reader_tasks": 2,
+        "streams_per_reader": iterations,
+        "rows_per_stream": left.num_rows,
+        "left_task_seconds": left_seconds,
+        "right_task_seconds": right_seconds,
+        "total_seconds": time.perf_counter() - started,
+        "python_work_cycles": cycles,
+        "cycles_while_both_reader_tasks_active": overlapping_cycles,
+        "python_wait_seconds": 0.0001,
+    }
+
+
+@pytest.mark.integration
+def test_two_arrow_consumers_and_python_worker_make_independent_progress(
+    inspection_publication: PublicationIndex, inspection_settings: pse.EngineSettings
+) -> None:
+    """I18 actual PyArrow C-stream exercise; never an implementation unit gate."""
+    publication = _open(inspection_publication, inspection_settings)
+    try:
+        _two_reader_progress(publication)
+    finally:
+        publication.close()

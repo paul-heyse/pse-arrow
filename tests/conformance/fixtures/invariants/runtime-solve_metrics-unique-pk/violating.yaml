@@ -1,0 +1,37 @@
+{
+  "invariant": "runtime.solve_metrics:unique:pk",
+  "rows": {
+    "runtime.solve_metrics": [
+      {
+        "boolean": "[\"bool\",true]",
+        "integer": "[\"i64\",1]",
+        "kind": "[\"enum\",\"real\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "namespace": "[\"text\",\"value-1\"]",
+        "real": "[\"f64\",\"3ff0000000000000\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "step": "[\"i64\",1]",
+        "text": "[\"text\",\"value-1\"]"
+      },
+      {
+        "boolean": "[\"bool\",true]",
+        "integer": "[\"i64\",1]",
+        "kind": "[\"enum\",\"real\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "namespace": "[\"text\",\"value-1\"]",
+        "real": "[\"f64\",\"3ff0000000000000\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "step": "[\"i64\",1]",
+        "text": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"i64\",1]",
+      "[\"text\",\"value-1\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

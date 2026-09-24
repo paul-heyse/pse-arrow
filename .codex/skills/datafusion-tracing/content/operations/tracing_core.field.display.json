@@ -1,0 +1,132 @@
+[
+  {
+    "id": "8b44bb2f65ec682be3b2f17f",
+    "path": "tracing_core::field::display",
+    "name": "display",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn display<T>(t: T) -> DisplayValue<T> where T: fmt::Display",
+    "docs": "Wraps a type implementing `fmt::Display` as a `Value` that can be\nrecorded using its `Display` implementation.",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        368,
+        1
+      ],
+      "end": [
+        373,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "t",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "DisplayValue",
+              "id": 570,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "T"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "T"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "fmt::Display",
+                        "id": 252,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "570": "tracing_core::field::DisplayValue",
+      "252": "core::fmt::Display"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "626",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.display.md",
+    "record_file": "operations/tracing_core.field.display.json",
+    "anchor": "op-8b44bb2f65ec682be3b2f17f",
+    "aliases": [
+      "tracing::field::display"
+    ],
+    "resolved_doc_links": {}
+  }
+]

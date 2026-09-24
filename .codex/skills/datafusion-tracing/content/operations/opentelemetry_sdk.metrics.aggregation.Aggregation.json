@@ -1,0 +1,1002 @@
+[
+  {
+    "id": "c672903d4f80d2a912d42b4e",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "name": "Aggregation",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "enum",
+    "signature": "enum Aggregation",
+    "docs": "The way recorded measurements are summarized.",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        9,
+        1
+      ],
+      "end": [
+        92,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "non_exhaustive"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          711,
+          712,
+          713,
+          714,
+          717,
+          721
+        ],
+        "impls": [
+          723,
+          724,
+          725,
+          726,
+          727,
+          728,
+          729,
+          730,
+          731,
+          732,
+          733,
+          734,
+          735,
+          736,
+          737,
+          740,
+          743,
+          744,
+          745,
+          746,
+          747,
+          748,
+          750,
+          752,
+          753,
+          755,
+          757
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "722",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-c672903d4f80d2a912d42b4e",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "775fa3f9b841ff28c2ef1d1d",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::Base2ExponentialHistogram",
+    "name": "Base2ExponentialHistogram",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Base2ExponentialHistogram",
+    "docs": "An aggregation that summarizes a set of measurements as a histogram with\nbucket widths that grow exponentially.",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        69,
+        5
+      ],
+      "end": [
+        91,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "struct": {
+            "fields": [
+              718,
+              719,
+              720
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "721",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-775fa3f9b841ff28c2ef1d1d",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::Base2ExponentialHistogram"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a57b21fe619ec2f64537286a",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::Default",
+    "name": "Default",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Default",
+    "docs": "An aggregation that uses the default instrument kind selection mapping to\nselect another aggregation.\n\nA metric reader can be configured to make an aggregation selection based on\ninstrument kind that differs from the default. This aggregation ensures the\ndefault is used.\n\nSee the [the spec] for information about the default\ninstrument kind selection mapping.\n\n[the spec]: https://github.com/open-telemetry/opentelemetry-specification/blob/v1.19.0/specification/metrics/sdk.md#default-aggregation",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        24,
+        5
+      ],
+      "end": [
+        24,
+        12
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "712",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-a57b21fe619ec2f64537286a",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::Default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e58784ffb810199a2487794c",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::Drop",
+    "name": "Drop",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Drop",
+    "docs": "An aggregation that drops all recorded data.",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        11,
+        5
+      ],
+      "end": [
+        11,
+        9
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "711",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-e58784ffb810199a2487794c",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::Drop"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a6b0d1b2620d5930f271b2e7",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::ExplicitBucketHistogram",
+    "name": "ExplicitBucketHistogram",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "ExplicitBucketHistogram",
+    "docs": "An aggregation that summarizes a set of measurements as a histogram with\nexplicitly defined buckets.",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        35,
+        5
+      ],
+      "end": [
+        65,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "struct": {
+            "fields": [
+              715,
+              716
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "717",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-a6b0d1b2620d5930f271b2e7",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::ExplicitBucketHistogram"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d509f02fe91429a21f240db1",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::LastValue",
+    "name": "LastValue",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "LastValue",
+    "docs": "An aggregation that summarizes a set of measurements as the last one made.",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        31,
+        5
+      ],
+      "end": [
+        31,
+        14
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "714",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-d509f02fe91429a21f240db1",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::LastValue"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cb0b5fcc26cdb696449af9de",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::Sum",
+    "name": "Sum",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Sum",
+    "docs": "An aggregation that summarizes a set of measurements as their arithmetic\nsum.",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        28,
+        5
+      ],
+      "end": [
+        28,
+        8
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "713",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-cb0b5fcc26cdb696449af9de",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::Sum"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c43f499ddf52591298b5b8e2",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Aggregation",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        7,
+        10
+      ],
+      "end": [
+        7,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Aggregation",
+              "id": 722,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "722": "opentelemetry_sdk::metrics::aggregation::Aggregation"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Aggregation",
+          "id": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/aggregation.rs",
+        "begin": [
+          7,
+          10
+        ],
+        "end": [
+          7,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "749",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-c43f499ddf52591298b5b8e2",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ab54ec15562743b2fd620ea3",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::eq",
+    "name": "eq",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &Aggregation) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        7,
+        24
+      ],
+      "end": [
+        7,
+        33
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Aggregation",
+                      "id": 722,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "722": "opentelemetry_sdk::metrics::aggregation::Aggregation"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Aggregation",
+          "id": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/aggregation.rs",
+        "begin": [
+          7,
+          24
+        ],
+        "end": [
+          7,
+          33
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "754",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-ab54ec15562743b2fd620ea3",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1c98ea262344d23929373afc",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        7,
+        17
+      ],
+      "end": [
+        7,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Aggregation",
+          "id": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/aggregation.rs",
+        "begin": [
+          7,
+          17
+        ],
+        "end": [
+          7,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "751",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-1c98ea262344d23929373afc",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8f23cd8929921ad6a8cc77df",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        95,
+        5
+      ],
+      "end": [
+        107,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Aggregation",
+          "id": "opentelemetry_sdk::metrics::aggregation::Aggregation",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Display",
+        "id": "core::fmt::Display",
+        "args": null
+      },
+      "trait_path": "core::fmt::Display",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/aggregation.rs",
+        "begin": [
+          94,
+          1
+        ],
+        "end": [
+          108,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "756",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.json",
+    "anchor": "op-8f23cd8929921ad6a8cc77df",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Aggregation::fmt"
+    ],
+    "resolved_doc_links": {}
+  }
+]

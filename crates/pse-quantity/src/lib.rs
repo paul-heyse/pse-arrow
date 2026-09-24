@@ -34,8 +34,7 @@
 //!   and the [`closed_enum`] macro that gives each member one spelling.
 //! - [`index`] — [`BoundIndexRef`] and [`IndexSet`]: free-index identity.
 //! - [`error`] — every error enum with its §23.2 class.
-//! - [`mod@unit`] — [`UnitConvertSpec`], the payload `pse_mathir` carries on a
-//!   `UnitConvert` node.
+//! - [`mod@unit`] — [`UnitConvertSpec`], physically checked representation conversion.
 //!
 //! Registry admission and representation conversion live in [`registry`], [`unit_set`],
 //! [`conversion`], [`kind`], [`basis`], [`reference_state`] and [`quantity_type`].
@@ -95,3 +94,6 @@ pub use crate::reference_state::ReferenceState;
 pub use crate::registry::{QuantityRegistry, QuantityRegistryBuilder};
 pub use crate::unit::{Unit, UnitConvertSpec, convert_spec, convert_spec_for_type, convert_value};
 pub use crate::unit_set::{DerivedUnit, UnitSet};
+
+mod preconditions;
+pub use preconditions::PhysicalPreconditions;

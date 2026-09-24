@@ -1,0 +1,19 @@
+{
+  "invariant": "runtime.fit_observations:unique:pk",
+  "rows": {
+    "runtime.fit_observations": [
+      {
+        "experiment_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "included": "[\"bool\",true]",
+        "objective_contribution": "[\"f64\",\"3ff0000000000000\"]",
+        "observation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "prediction": "[\"f64\",\"3ff0000000000000\"]",
+        "residual": "[\"f64\",\"3ff0000000000000\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "standardized_residual": "[\"f64\",\"3ff0000000000000\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

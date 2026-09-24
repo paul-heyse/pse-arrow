@@ -20,7 +20,7 @@
         "name": "[\"text\",\"value-1\"]",
         "parameter_kinds": "[\"list\",[]]",
         "provides": "[\"list\",[]]",
-        "realization": "[\"struct\",[[\"text\",\"equation_template\"],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"]]],[\"null\",null]]]",
+        "realization": "[\"struct\",[[\"enum\",\"equation_template\"],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"]]],[\"null\",null]]]",
         "requires": "[\"list\",[]]",
         "validity": "[\"list\",[]]",
         "version": "[\"text\",\"value-1\"]"

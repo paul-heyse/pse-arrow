@@ -17,6 +17,10 @@ build = "build.rs"
 [lints]
 workspace = true
 
-# No dependencies, and deliberately no blake3: `pse-ids` is the only crate allowed to hash
-# (blueprint §5.1, governance `blake3_owner`). This crate embeds the bytes; whoever needs
-# a digest of them asks `pse-ids`.
+# Hashing remains exclusively in pse-ids (blueprint §5.1).
+
+[dependencies]
+pse-ids.workspace = true
+
+[build-dependencies]
+pse-ids.workspace = true

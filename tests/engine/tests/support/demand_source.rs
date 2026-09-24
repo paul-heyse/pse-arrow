@@ -7,11 +7,9 @@
     reason = "test fixture construction and exact independent value assertions"
 )]
 
-use pse_authoring::{
-    ParseBudget,
-    document::{DocumentBundle, load_package_texts},
-};
+use pse_authoring::ParseBudget;
 use pse_ids::SemanticId;
+use pse_runtime::authoring_driver::document::{DocumentBundle, load_package_texts};
 use pse_schema::Registry;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -47,7 +45,7 @@ pub(crate) fn source(registry: &Registry, ambiguous: bool) -> DocumentBundle {
         .unwrap()
         .parent()
         .unwrap();
-    let physical = pse_authoring::document::load_package(
+    let physical = pse_runtime::authoring_driver::document::load_package(
         &root.join("tests/fixtures/packages/physical-primitives"),
         registry,
         ParseBudget::default(),

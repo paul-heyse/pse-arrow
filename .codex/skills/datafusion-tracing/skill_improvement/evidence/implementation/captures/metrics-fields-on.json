@@ -1,0 +1,52 @@
+[
+  {
+    "kind": "open",
+    "id": 1,
+    "parent": null,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "open",
+    "id": 2,
+    "parent": 1,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "close",
+    "id": 2,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {
+      "datafusion.boundedness": "Bounded",
+      "datafusion.emission_type": "Incremental",
+      "datafusion.node": "DataSourceExec: partitions=1, partition_sizes=[1]",
+      "datafusion.partitioning": "UnknownPartitioning(1)",
+      "otel.name": "DataSourceExec",
+      "query_id": "abc"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 1,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {
+      "datafusion.boundedness": "Bounded",
+      "datafusion.emission_type": "Incremental",
+      "datafusion.metrics.elapsed_compute": "550ns",
+      "datafusion.metrics.end_timestamp": "2026-09-19 02:15:15.183368961 UTC",
+      "datafusion.metrics.output_batches": "1",
+      "datafusion.metrics.output_bytes": "32.0 B",
+      "datafusion.metrics.output_rows": "3",
+      "datafusion.metrics.start_timestamp": "2026-09-19 02:15:15.183361691 UTC",
+      "datafusion.node": "ProjectionExec: expr=[column1@0 as a]",
+      "datafusion.partitioning": "UnknownPartitioning(1)",
+      "otel.name": "ProjectionExec",
+      "query_id": "abc"
+    }
+  }
+]

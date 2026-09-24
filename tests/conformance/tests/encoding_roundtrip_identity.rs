@@ -46,7 +46,7 @@ fn native_ipc_and_parquet_have_distinct_bytes_and_equal_canonical_content() {
             .expect("Parquet batches");
     for batches in [ipc, parquet] {
         let actual = concat_batches(&batch.schema(), &batches).expect("decoded relation");
-        pse_relations::validate::validate_batch(&registry, spec, &actual)
+        pse_relations::validate::validate_schema(&registry, spec, actual.schema().as_ref())
             .expect("exact declared admission");
         let actual = canonical(&contract, &[actual]);
         assert_eq!(actual.preimage, expected.preimage);

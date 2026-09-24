@@ -1,0 +1,842 @@
+[
+  {
+    "id": "563d7a0c7d3b4e05b06837d6",
+    "path": "tracing::span::EnteredSpan",
+    "name": "EnteredSpan",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "struct",
+    "signature": "struct EnteredSpan",
+    "docs": "An owned version of [`Entered`], a guard representing a span which has been\nentered and is currently executing.\n\nWhen the guard is dropped, the span will be exited.\n\nThis is returned by the [`Span::entered`] function.\n\n[`Span::entered`]: super::Span::entered()",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        402,
+        1
+      ],
+      "end": [
+        412,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "must_use": {
+          "reason": "once a span has been entered, it should be exited"
+        }
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          288,
+          289,
+          290,
+          291,
+          292,
+          293,
+          294,
+          295,
+          296,
+          297,
+          298,
+          299,
+          300,
+          301,
+          302,
+          303,
+          305,
+          308,
+          310,
+          312,
+          314,
+          317,
+          319
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Entered`": 209,
+      "super::Span::entered()": 212
+    },
+    "link_paths": {
+      "`Entered`": "tracing::span::Entered",
+      "super::Span::entered()": "tracing::span::Span::entered"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "210",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.EnteredSpan.md",
+    "record_file": "operations/tracing.span.EnteredSpan.json",
+    "anchor": "op-563d7a0c7d3b4e05b06837d6",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`Entered`": "../operations/tracing.span.Entered.md#op-5fa98f5fd356bc6e42d6afad",
+      "super::Span::entered()": "../operations/tracing.span.Span.md#op-3b2f568eb51a6612d5b15c47"
+    }
+  },
+  {
+    "id": "6c7ccb5f72460efcdb07378a",
+    "path": "tracing::span::EnteredSpan::Target",
+    "name": "Target",
+    "owner": "tracing::span::EnteredSpan",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "assoc_type",
+    "signature": "Target",
+    "docs": "",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1557,
+        5
+      ],
+      "end": [
+        1557,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "Span",
+            "id": 46,
+            "args": null
+          }
+        },
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "EnteredSpan",
+          "id": "tracing::span::EnteredSpan",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Deref",
+        "id": "core::ops::deref::Deref",
+        "args": null
+      },
+      "trait_path": "core::ops::deref::Deref",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          1556,
+          1
+        ],
+        "end": [
+          1563,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "315",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.EnteredSpan.md",
+    "record_file": "operations/tracing.span.EnteredSpan.json",
+    "anchor": "op-6c7ccb5f72460efcdb07378a",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c004cec1d61feaeb75be7770",
+    "path": "tracing::span::EnteredSpan::deref",
+    "name": "deref",
+    "owner": "tracing::span::EnteredSpan",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn deref(&self) -> &Span",
+    "docs": "",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1560,
+        5
+      ],
+      "end": [
+        1562,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "resolved_path": {
+                  "path": "Span",
+                  "id": 46,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "EnteredSpan",
+          "id": "tracing::span::EnteredSpan",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Deref",
+        "id": "core::ops::deref::Deref",
+        "args": null
+      },
+      "trait_path": "core::ops::deref::Deref",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          1556,
+          1
+        ],
+        "end": [
+          1563,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "316",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.EnteredSpan.md",
+    "record_file": "operations/tracing.span.EnteredSpan.json",
+    "anchor": "op-c004cec1d61feaeb75be7770",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "054bf95a4b9add45afa0419c",
+    "path": "tracing::span::EnteredSpan::drop",
+    "name": "drop",
+    "owner": "tracing::span::EnteredSpan",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn drop(&mut self)",
+    "docs": "",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1574,
+        5
+      ],
+      "end": [
+        1576,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Always)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "EnteredSpan",
+          "id": "tracing::span::EnteredSpan",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Drop",
+        "id": "core::ops::drop::Drop",
+        "args": null
+      },
+      "trait_path": "core::ops::drop::Drop",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          1572,
+          1
+        ],
+        "end": [
+          1577,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "318",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.EnteredSpan.md",
+    "record_file": "operations/tracing.span.EnteredSpan.json",
+    "anchor": "op-054bf95a4b9add45afa0419c",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5f56e68c59421619aa82395f",
+    "path": "tracing::span::EnteredSpan::exit",
+    "name": "exit",
+    "owner": "tracing::span::EnteredSpan",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn exit(self) -> Span",
+    "docs": "Exits this span, returning the underlying [`Span`].",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1548,
+        5
+      ],
+      "end": [
+        1553,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Span",
+              "id": 46,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "46": "tracing::span::Span"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "EnteredSpan",
+          "id": "tracing::span::EnteredSpan",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          1540,
+          1
+        ],
+        "end": [
+          1554,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Span`": 46
+    },
+    "link_paths": {
+      "`Span`": "tracing::span::Span"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "211",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.EnteredSpan.md",
+    "record_file": "operations/tracing.span.EnteredSpan.json",
+    "anchor": "op-5f56e68c59421619aa82395f",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`Span`": "../operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6"
+    }
+  },
+  {
+    "id": "9ccf6c79ef96dc1b7c46387a",
+    "path": "tracing::span::EnteredSpan::fmt",
+    "name": "fmt",
+    "owner": "tracing::span::EnteredSpan",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        400,
+        10
+      ],
+      "end": [
+        400,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 130,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 131,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "130": "core::fmt::Formatter",
+      "131": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "EnteredSpan",
+          "id": "tracing::span::EnteredSpan",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          400,
+          10
+        ],
+        "end": [
+          400,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "309",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.EnteredSpan.md",
+    "record_file": "operations/tracing.span.EnteredSpan.json",
+    "anchor": "op-9ccf6c79ef96dc1b7c46387a",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "67cfb320f3fc561f1c4f75a4",
+    "path": "tracing::span::EnteredSpan::id",
+    "name": "id",
+    "owner": "tracing::span::EnteredSpan",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn id(&self) -> Option<Id>",
+    "docs": "Returns this span's `Id`, if it is enabled.",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1542,
+        5
+      ],
+      "end": [
+        1544,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 21,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Id",
+                          "id": 191,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "21": "core::option::Option",
+      "191": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "EnteredSpan",
+          "id": "tracing::span::EnteredSpan",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/span.rs",
+        "begin": [
+          1540,
+          1
+        ],
+        "end": [
+          1554,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "287",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span.EnteredSpan.md",
+    "record_file": "operations/tracing.span.EnteredSpan.json",
+    "anchor": "op-67cfb320f3fc561f1c4f75a4",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

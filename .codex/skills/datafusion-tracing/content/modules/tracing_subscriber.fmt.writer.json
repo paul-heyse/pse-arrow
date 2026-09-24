@@ -1,0 +1,80 @@
+[
+  {
+    "id": "4ef4277306114b778d441c9b",
+    "path": "tracing_subscriber::fmt::writer",
+    "name": "writer",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "module",
+    "signature": "mod writer",
+    "docs": "Abstractions for creating [`io::Write`] instances.\n\n[`io::Write`]: std::io::Write",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        1485,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(all(feature = \"fmt\", feature = \"std\")))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          1443,
+          1004,
+          1665,
+          2596,
+          2602,
+          2627,
+          2607,
+          2612,
+          2617,
+          2628,
+          2619,
+          2598
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "std::io::Write": 87
+    },
+    "link_paths": {
+      "std::io::Write": "std::io::Write"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2924",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_subscriber.fmt.writer.md",
+    "record_file": "modules/tracing_subscriber.fmt.writer.json",
+    "anchor": "op-4ef4277306114b778d441c9b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

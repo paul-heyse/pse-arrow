@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-engine"
+description = "Native DataFusion assembly, bound execution and contract evidence."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+pse-columnar.workspace = true
+pse-diagnostics.workspace = true
+datafusion.workspace = true
+datafusion-catalog.workspace = true
+datafusion-expr.workspace = true
+datafusion-proto.workspace = true
+async-trait.workspace = true
+url.workspace = true
+uuid.workspace = true
+futures-util.workspace = true
+object_store.workspace = true
+bytes.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+datafusion-tracing.workspace = true
+instrumented-object-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+pse-relations.workspace = true
+pse-ids.workspace = true
+pse-schema.workspace = true
+thiserror.workspace = true
+miette.workspace = true
+
+[dev-dependencies]
+pse-model.workspace = true
+pse-relations = { workspace = true, features = ["test-support"] }

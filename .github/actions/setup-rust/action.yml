@@ -50,6 +50,28 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Install the x86_64 Linux linker
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
+          exit 0
+        fi
+        if command -v clang >/dev/null 2>&1 && command -v mold >/dev/null 2>&1; then
+          clang --version | head -n 1
+          mold --version
+          exit 0
+        fi
+        if [[ "$(id -u)" == 0 ]]; then
+          apt-get update
+          apt-get install -y --no-install-recommends clang mold
+        else
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang mold
+        fi
+        clang --version | head -n 1
+        mold --version
+
     - name: Install rustup if the image does not have one
       shell: bash
       run: |

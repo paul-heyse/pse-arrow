@@ -1,0 +1,59 @@
+[
+  {
+    "id": "887dcd5602dab06c681620e5",
+    "path": "opentelemetry::logs::noop::NoopLogRecord",
+    "name": "NoopLogRecord",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct NoopLogRecord",
+    "docs": "A no-operation log record that implements the LogRecord trait.",
+    "span": {
+      "filename": "src/logs/noop.rs",
+      "begin": [
+        29,
+        1
+      ],
+      "end": [
+        29,
+        26
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": "unit",
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2032",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.noop.NoopLogRecord.md",
+    "record_file": "operations/opentelemetry.logs.noop.NoopLogRecord.json",
+    "anchor": "op-887dcd5602dab06c681620e5",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

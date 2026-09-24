@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-rules"
-description = "RuleSpec to DataFusion LogicalPlan compiler, fixed-point executor and provenance rows (blueprint §3.2, §14.2)."
+description = "Registry-declared relational invariants and engine requirement planning."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,22 +17,20 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+pse-columnar.workspace = true
+pse-engine.workspace = true
+pse-diagnostics.workspace = true
 async-trait.workspace = true
-futures-util.workspace = true
 datafusion.workspace = true
-datafusion-expr.workspace = true
 datafusion-common.workspace = true
-datafusion-proto.workspace = true
 pse-relations.workspace = true
 pse-schema.workspace = true
-pse-catalog.workspace = true
 pse-ids.workspace = true
-pse-quantity.workspace = true
-serde_json.workspace = true
-tokio.workspace = true
-tracing.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 
 [dev-dependencies]
-object_store.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+pse-testkit.workspace = true
+pse-relations = { workspace = true, features = ["test-support"] }

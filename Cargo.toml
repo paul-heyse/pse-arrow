@@ -49,26 +49,26 @@ authors = ["Paul Heyse <paul@heyse.io>"]
 publish = false
 
 [workspace.dependencies]
+allocation-counter = "=0.8.1"
 # ---- internal (path deps; `version` is added when publish flips to true) ----
+pse-codegen = { path = "crates/pse-codegen" }
+pse-model = { path = "crates/pse-model" }
+pse-columnar = { path = "crates/pse-columnar" }
 pse-schema = { path = "crates/pse-schema" }
 pse-relations = { path = "crates/pse-relations" }
 pse-ids = { path = "crates/pse-ids" }
 pse-quantity = { path = "crates/pse-quantity" }
 pse-material = { path = "crates/pse-material" }
 pse-authoring = { path = "crates/pse-authoring" }
-pse-mathir = { path = "crates/pse-mathir" }
-pse-templates = { path = "crates/pse-templates" }
+pse-math = { path = "crates/pse-math" }
 pse-rules = { path = "crates/pse-rules" }
 pse-catalog = { path = "crates/pse-catalog" }
+pse-engine = { path = "crates/pse-engine" }
+pse-testkit = { path = "crates/pse-testkit" }
 pse-compiler = { path = "crates/pse-compiler" }
 pse-structural = { path = "crates/pse-structural" }
 pse-kernels = { path = "crates/pse-kernels" }
-pse-kernels-ext = { path = "crates/pse-kernels-ext" }
-pse-numerics = { path = "crates/pse-numerics" }
-pse-plans = { path = "crates/pse-plans" }
 pse-backend-native = { path = "crates/pse-backend-native" }
-pse-backend-nl = { path = "crates/pse-backend-nl" }
-pse-backend-pyomo = { path = "crates/pse-backend-pyomo" }
 pse-diagnostics = { path = "crates/pse-diagnostics" }
 pse-runtime = { path = "crates/pse-runtime" }
 pse-ipopt-sys = { path = "crates/pse-ipopt-sys" }
@@ -112,6 +112,9 @@ parquet = { version = "=59.3.0", default-features = false, features = [
 datafusion = "=55.1.0"
 datafusion-common = "=55.1.0"
 datafusion-expr = "=55.1.0"
+datafusion-functions = "=55.1.0"
+datafusion-functions-nested = "=55.1.0"
+datafusion-functions-aggregate = "=55.1.0"
 datafusion-execution = "=55.1.0"
 datafusion-catalog = "=55.1.0"
 datafusion-physical-plan = "=55.1.0"
@@ -133,6 +136,7 @@ object_store = "=0.13.2"
 
 # ---- Python boundary (pse-py only; features added in that crate) ----
 pyo3 = "=0.29.2"
+pyo3-async-runtimes = { version = "=0.29.0", features = ["tokio-runtime"] }
 pyo3-arrow = "=0.19.0"
 pyo3-introspection = "=0.29.2"
 
@@ -146,10 +150,11 @@ tokio = { version = "=1.53.1", default-features = false, features = [
 tokio-util = { version = "=0.7.19", default-features = false, features = [
   "rt",
 ] }
-rayon = "=1.12.0"
 tracing = "=0.1.44"
+datafusion-tracing = "=55.0.0"
+instrumented-object-store = "=55.0.0"
 thiserror = "=2.0.20"
-# `fancy` only in the driver (xtask); library crates derive Diagnostic and nothing else.
+# Library error projections preserve native diagnostic causes without a rendering dependency.
 miette = "=7.6.0"
 
 # ---- serialization and documents ----
@@ -158,13 +163,14 @@ serde = { version = "=1.0.229", features = ["derive", "rc"] }
 # relation data. Identity framing lives in pse-ids (blueprint §5.3).
 serde_json = "=1.0.151"
 bytes = "=1.12.1"
-serde_arrow = { version = "=0.15.0", features = ["arrow-59"] }
+chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 serde-saphyr = "=1.2.0"
 toml = { version = "=1.1.6", default-features = false, features = [
   "parse",
   "serde",
   "display",
 ] }
+strum = { version = "=0.28.0", features = ["derive"] }
 winnow = { version = "=1.0.4", default-features = false, features = ["std"] }
 
 # ---- code generation (pse-schema and xtask only) ----
@@ -185,12 +191,54 @@ proc-macro2 = { version = "=1.0.107", features = ["span-locations"] }
 prettyplease = { version = "=0.3.0", features = ["verbatim"] }
 
 # ---- graphs, numerics, identity ----
+symbolica = { version = "=3.0.0", default-features = false, features = [
+  "integer-gmp",
+  "float-mpfr",
+] }
+faer = { version = "=0.24.4", default-features = false, features = [
+  "std",
+  "sparse-linalg",
+] }
+feos = { version = "=0.10.1", default-features = false, features = ["pcsaft"] }
+feos-core = { version = "=0.10.1", default-features = false }
+num-dual = { version = "=0.14.2", default-features = false }
+nalgebra = { version = "=0.35.0", default-features = false, features = ["std"] }
+highs = "=2.4.0"
+highs-sys = "=1.14.3"
+clarabel = { version = "=0.11.1", default-features = false, features = [
+  "serde",
+] }
+quantity = { version = "=0.14.0", default-features = false }
+sundials-sys = { version = "=0.6.2", default-features = false, features = [
+  "kinsol",
+  "klu",
+  "build_libraries",
+  "static_libraries",
+] }
+diffsol = { version = "=0.16.2", default-features = false, features = ["faer"] }
+pounce-presolve = "=0.12.0"
+pounce-nlp = "=0.12.0"
+pounce-common = "=0.12.0"
+pounce-rs = { version = "=0.12.0", features = ["qp"] }
+pounce-feral = "=0.12.0"
+rayon = "=1.12.0"
+suitesparse_sys = { version = "=0.1.4", default-features = false, features = [
+  "static_libraries",
+  "klu",
+  "amd",
+  "colamd",
+  "btf",
+] }
+salsa = { version = "=0.28.4", default-features = false, features = [
+  "macros",
+  "inventory",
+  "salsa_unstable",
+] }
+rustworkx-core = "=0.18.1"
 petgraph = { version = "=0.8.3", default-features = false, features = [
   "stable_graph",
   "graphmap",
 ] }
-num-dual = "=0.15.0"
-faer = { version = "=0.24.4", default-features = false, features = ["linalg"] }
 # pse-ids is the only crate allowed to depend on blake3 (tests/governance/blake3_owner).
 blake3 = { version = "=1.8.7", features = ["rayon"] }
 # `explicit`-policy entity IDs, minted by `pse authoring assign-ids` only; P1 never
@@ -198,7 +246,7 @@ blake3 = { version = "=1.8.7", features = ["rayon"] }
 uuid = { version = "=1.26.1", features = ["v7"] }
 
 # ---- optional providers enter here WITH their consumer crate (blueprint §9.8, §13.6,
-# §7.4): feos-core / feos =0.10.1 (conditional on num-dual 0.15), diffsol =0.16.2,
+# §7.4): FeOS uses the pinned num-dual 0.14 trait universe; native dynamics uses Diffsol.
 # egglog =3.0.0. Nothing holds them back but a consumer (blueprint §3.3.2, ADR-0066).
 
 # ---- dev and tooling (exempt from the §3.1 check via tests/governance/tooling_deps.toml) ----
@@ -219,7 +267,6 @@ semver = "=1.0.28"
 sha2 = "=0.11.0"
 # dev-dependency of pse-tests-lifecycle: the fault-injecting ObjectStore wrapper
 # implements an async trait (blueprint §24.1 "Lifecycle").
-futures-core = "=0.3.34"
 futures-util = "=0.3.34"
 async-trait = "=0.1.92"
 anyhow = "=1.0.104"
@@ -277,7 +324,7 @@ float_cmp = "warn"
 [profile.dev]
 debug = "line-tables-only"
 
-# arrow/datafusion/faer at -O0 make the suite crawl; float semantics are unchanged.
+# Arrow/DataFusion at -O0 make the suite crawl; float semantics are unchanged.
 [profile.dev.package."*"]
 opt-level = 2
 debug = false
@@ -320,12 +367,14 @@ validate-features = ["pse-relations/force-validate"]
 unsafe-allowlist = [
   "pse-ipopt-sys",
   "pse-backend-native",
-  "pse-kernels-ext",
   "pse-py",
 ]
 
 # Consumed by `cargo xtask family-check`: one resolved version per family, equal to the
 # declared one (`match = "minor"` for pyo3).
+[workspace.metadata.pse.execution]
+active-plan = 14
+
 [workspace.metadata.pse.families]
 arrow = { version = "59.3.0", crates = [
   "arrow",
@@ -333,7 +382,13 @@ arrow = { version = "59.3.0", crates = [
   "parquet",
   "parquet-*",
 ] }
-datafusion = { version = "55.1.0", crates = ["datafusion", "datafusion-*"] }
+# Instrumentation is independently released; its native dependencies remain checked.
+datafusion = { version = "55.1.0", crates = [
+  "datafusion",
+  "datafusion-*",
+], exclude = [
+  "datafusion-tracing",
+] }
 object_store = { version = "0.13.2", crates = ["object_store"] }
 pyo3 = { version = "0.29", match = "minor", crates = [
   "pyo3",
@@ -343,3 +398,53 @@ pyo3 = { version = "0.29", match = "minor", crates = [
   "pyo3-build-config",
   "pyo3-introspection",
 ] }
+
+# Resolved normal-dependency closures, checked by family-check (ADR-0076).
+[workspace.metadata.pse.dependency-ceilings.semantic]
+roots = [
+  "pse-ids",
+  "pse-diagnostics",
+  "pse-model",
+  "pse-authoring",
+  "pse-quantity",
+  "pse-material",
+  "pse-structural",
+  "pse-compiler",
+]
+forbidden = [
+  "arrow",
+  "arrow-*",
+  "parquet",
+  "datafusion",
+  "datafusion-*",
+  "deltalake*",
+  "buoyant_kernel*",
+  "object_store",
+  "tokio",
+]
+[workspace.metadata.pse.dependency-ceilings.columnar]
+roots = ["pse-schema", "pse-relations", "pse-columnar"]
+forbidden = [
+  "datafusion",
+  "datafusion-sql",
+  "deltalake*",
+  "buoyant_kernel*",
+  "pse-engine",
+  "pse-catalog",
+  "pse-runtime",
+  "pse-codegen",
+]
+[workspace.metadata.pse.dependency-ceilings.generator]
+roots = ["pse-codegen"]
+forbidden = [
+  "datafusion",
+  "datafusion-sql",
+  "deltalake*",
+  "pse-model",
+  "pse-relations",
+  "pse-engine",
+  "pse-catalog",
+  "pse-runtime",
+  "pse-compiler",
+  "pse-authoring",
+]

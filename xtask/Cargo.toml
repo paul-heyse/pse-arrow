@@ -24,8 +24,8 @@ default = ["package-fixtures"]
 package-fixtures = [
   "dep:datafusion",
   "dep:pse-authoring",
+  "dep:pse-engine",
   "dep:pse-catalog",
-  "dep:pse-compiler",
   "dep:pse-material",
   "dep:pse-relations",
   "dep:pse-runtime",
@@ -33,6 +33,9 @@ package-fixtures = [
 ]
 
 [dependencies]
+pse-columnar.workspace = true
+pse-codegen.workspace = true
+pse-engine = { workspace = true, optional = true }
 datafusion = { workspace = true, optional = true }
 url.workspace = true
 bindgen.workspace = true
@@ -40,8 +43,6 @@ bindgen.workspace = true
 pse-schema.workspace = true
 pse-authoring = { workspace = true, optional = true }
 pse-catalog = { workspace = true, optional = true }
-pse-compiler = { workspace = true, optional = true }
-pse-ids.workspace = true
 pse-material = { workspace = true, optional = true }
 pse-quantity.workspace = true
 pse-relations = { workspace = true, optional = true }
@@ -53,11 +54,7 @@ cargo_metadata.workspace = true
 toml.workspace = true
 serde.workspace = true
 regex.workspace = true
-ignore.workspace = true
 anyhow.workspace = true
-# `fancy` lives here and nowhere else: library crates derive Diagnostic, the driver renders
-# it (blueprint §23.2).
-miette = { workspace = true, features = ["fancy"] }
 semver.workspace = true
 tokio.workspace = true
 # `codegen --check` regenerates into a scratch directory and diffs both ways (ADR-0051).

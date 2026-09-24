@@ -1,0 +1,886 @@
+[
+  {
+    "id": "104120ad01ef35a964754737",
+    "path": "datafusion_tracing::metrics::MetricsRecordingStream",
+    "name": "MetricsRecordingStream",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct MetricsRecordingStream",
+    "docs": "A wrapper around a DataFusion stream that integrates automatic metrics recording.\n\nIt uses `MetricsRecorder` to safely handle metric aggregation and recording, avoiding concurrency issues.",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        71,
+        1
+      ],
+      "end": [
+        78,
+        2
+      ]
+    },
+    "visibility": "crate",
+    "attributes": [
+      {
+        "other": "#[pin(__private())]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              799,
+              800
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          806,
+          808,
+          809,
+          810,
+          811,
+          812,
+          813,
+          814,
+          815,
+          816,
+          817,
+          818,
+          819,
+          820,
+          821,
+          822,
+          823,
+          824,
+          825,
+          826,
+          827,
+          828,
+          829,
+          830,
+          831,
+          832,
+          836,
+          838
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "801",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.metrics.MetricsRecordingStream.md",
+    "record_file": "operations/datafusion_tracing.metrics.MetricsRecordingStream.json",
+    "anchor": "op-104120ad01ef35a964754737",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ff99c231ed2d1e273024a12a",
+    "path": "datafusion_tracing::metrics::MetricsRecordingStream::Item",
+    "name": "Item",
+    "owner": "datafusion_tracing::metrics::MetricsRecordingStream",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "assoc_type",
+    "signature": "Item",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        96,
+        5
+      ],
+      "end": [
+        96,
+        57
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "Result",
+            "id": 41,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "type": {
+                      "resolved_path": {
+                        "path": "RecordBatch",
+                        "id": 119,
+                        "args": null
+                      }
+                    }
+                  },
+                  {
+                    "type": {
+                      "resolved_path": {
+                        "path": "DataFusionError",
+                        "id": 317,
+                        "args": null
+                      }
+                    }
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        },
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "41": "core::result::Result",
+      "119": "arrow_array::record_batch::RecordBatch",
+      "317": "datafusion_common::error::DataFusionError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsRecordingStream",
+          "id": "datafusion_tracing::metrics::MetricsRecordingStream",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Stream",
+        "id": "futures_core::stream::Stream",
+        "args": null
+      },
+      "trait_path": "futures_core::stream::Stream",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          95,
+          1
+        ],
+        "end": [
+          102,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "834",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.metrics.MetricsRecordingStream.md",
+    "record_file": "operations/datafusion_tracing.metrics.MetricsRecordingStream.json",
+    "anchor": "op-ff99c231ed2d1e273024a12a",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7ff3624953f22ca9b10f0f05",
+    "path": "datafusion_tracing::metrics::MetricsRecordingStream::inner",
+    "name": "inner",
+    "owner": "datafusion_tracing::metrics::MetricsRecordingStream",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "inner: datafusion::execution::SendableRecordBatchStream",
+    "docs": "The underlying DataFusion stream providing record batches.",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        74,
+        5
+      ],
+      "end": [
+        74,
+        37
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 773,
+        "path": "::metrics"
+      }
+    },
+    "attributes": [
+      {
+        "other": "#[pin]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "datafusion::execution::SendableRecordBatchStream",
+          "id": 133,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "133": "datafusion_execution::stream::SendableRecordBatchStream"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "799",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.metrics.MetricsRecordingStream.md",
+    "record_file": "operations/datafusion_tracing.metrics.MetricsRecordingStream.json",
+    "anchor": "op-7ff3624953f22ca9b10f0f05",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f3873b4bf482d85a3bcfb350",
+    "path": "datafusion_tracing::metrics::MetricsRecordingStream::metrics_recorder",
+    "name": "metrics_recorder",
+    "owner": "datafusion_tracing::metrics::MetricsRecordingStream",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "metrics_recorder: std::sync::Arc<MetricsRecorder>",
+    "docs": "Shared recorder used for metric aggregation and logging, which will record the metrics when dropped.",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        77,
+        5
+      ],
+      "end": [
+        77,
+        43
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 773,
+        "path": "::metrics"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::sync::Arc",
+          "id": 2,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "MetricsRecorder",
+                      "id": 137,
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "2": "alloc::sync::Arc",
+      "137": "datafusion_tracing::metrics::MetricsRecorder"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "800",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.metrics.MetricsRecordingStream.md",
+    "record_file": "operations/datafusion_tracing.metrics.MetricsRecordingStream.json",
+    "anchor": "op-f3873b4bf482d85a3bcfb350",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d8716fce10dffa895b7c37c5",
+    "path": "datafusion_tracing::metrics::MetricsRecordingStream::new",
+    "name": "new",
+    "owner": "datafusion_tracing::metrics::MetricsRecordingStream",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn new(inner: SendableRecordBatchStream, metrics_recorder: Arc<MetricsRecorder>) -> Self",
+    "docs": "Wraps a DataFusion stream with metrics recording capability.\n\nThe provided `MetricsRecorder` will handle logging the metrics via tracing when it is dropped.",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        84,
+        5
+      ],
+      "end": [
+        92,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "inner",
+              {
+                "resolved_path": {
+                  "path": "SendableRecordBatchStream",
+                  "id": 133,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "metrics_recorder",
+              {
+                "resolved_path": {
+                  "path": "Arc",
+                  "id": 2,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "MetricsRecorder",
+                              "id": 137,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "133": "datafusion_execution::stream::SendableRecordBatchStream",
+      "2": "alloc::sync::Arc",
+      "137": "datafusion_tracing::metrics::MetricsRecorder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsRecordingStream",
+          "id": "datafusion_tracing::metrics::MetricsRecordingStream",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          80,
+          1
+        ],
+        "end": [
+          93,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "807",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.metrics.MetricsRecordingStream.md",
+    "record_file": "operations/datafusion_tracing.metrics.MetricsRecordingStream.json",
+    "anchor": "op-d8716fce10dffa895b7c37c5",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b4f41276e970dd7f1ca74777",
+    "path": "datafusion_tracing::metrics::MetricsRecordingStream::poll_next",
+    "name": "poll_next",
+    "owner": "datafusion_tracing::metrics::MetricsRecordingStream",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn poll_next(Pin<&mut self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>>",
+    "docs": "Retrieves the next record batch from the underlying stream.",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        99,
+        5
+      ],
+      "end": [
+        101,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "resolved_path": {
+                  "path": "Pin",
+                  "id": 270,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": true,
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 300,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Poll",
+              "id": 301,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Option",
+                          "id": 118,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "qualified_path": {
+                                      "name": "Item",
+                                      "args": null,
+                                      "self_type": {
+                                        "generic": "Self"
+                                      },
+                                      "trait": {
+                                        "path": "",
+                                        "id": 292,
+                                        "args": null
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "270": "core::pin::Pin",
+      "300": "core::task::wake::Context",
+      "301": "core::task::poll::Poll",
+      "118": "core::option::Option",
+      "292": "futures_core::stream::Stream"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsRecordingStream",
+          "id": "datafusion_tracing::metrics::MetricsRecordingStream",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Stream",
+        "id": "futures_core::stream::Stream",
+        "args": null
+      },
+      "trait_path": "futures_core::stream::Stream",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          95,
+          1
+        ],
+        "end": [
+          102,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "835",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.metrics.MetricsRecordingStream.md",
+    "record_file": "operations/datafusion_tracing.metrics.MetricsRecordingStream.json",
+    "anchor": "op-b4f41276e970dd7f1ca74777",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f27bf0ad92f6e6c2fa4bfb59",
+    "path": "datafusion_tracing::metrics::MetricsRecordingStream::schema",
+    "name": "schema",
+    "owner": "datafusion_tracing::metrics::MetricsRecordingStream",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn schema(&self) -> SchemaRef",
+    "docs": "Returns the schema for the record batches produced by the wrapped stream.",
+    "span": {
+      "filename": "src/metrics.rs",
+      "begin": [
+        106,
+        5
+      ],
+      "end": [
+        108,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "SchemaRef",
+              "id": 166,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "166": "arrow_schema::schema::SchemaRef"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "MetricsRecordingStream",
+          "id": "datafusion_tracing::metrics::MetricsRecordingStream",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "RecordBatchStream",
+        "id": "datafusion_execution::stream::RecordBatchStream",
+        "args": null
+      },
+      "trait_path": "datafusion_execution::stream::RecordBatchStream",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics.rs",
+        "begin": [
+          104,
+          1
+        ],
+        "end": [
+          109,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "837",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.metrics.MetricsRecordingStream.md",
+    "record_file": "operations/datafusion_tracing.metrics.MetricsRecordingStream.json",
+    "anchor": "op-f27bf0ad92f6e6c2fa4bfb59",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

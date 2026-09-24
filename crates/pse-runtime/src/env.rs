@@ -8,9 +8,9 @@ use std::sync::Arc;
 use datafusion_execution::memory_pool::{
     FairSpillPool, MemoryLimit, MemoryPool, PeakRecordingPool, TrackConsumersPool,
 };
-use datafusion_execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
+use datafusion_execution::runtime_env::RuntimeEnv;
 
-use crate::{PoolReserver, ResourceBudget, ResourceReport, RuntimeError};
+use crate::{ResourceBudget, ResourceReport, RuntimeError};
 
 /// Shared deployment state. Building session handles never constructs another pool.
 #[derive(Debug)]
@@ -18,9 +18,10 @@ pub struct SharedRuntime {
     env: Arc<RuntimeEnv>,
     tracked: Arc<TrackConsumersPool<FairSpillPool>>,
     peak: Arc<PeakRecordingPool>,
-    reserver: Arc<PoolReserver>,
     budget: ResourceBudget,
-    caches: Arc<pse_catalog::cache_service::NativeCacheService>,
+    compiler_cpu: Arc<tokio::sync::Semaphore>,
+    caches: Arc<pse_catalog::cache_service::DeltaCacheService>,
+    math: Arc<crate::math::MathService>,
 }
 
 impl SharedRuntime {
@@ -33,32 +34,21 @@ impl SharedRuntime {
     /// [`RuntimeError::Internal`] for failed configuration read-back.
     pub fn build(budget: ResourceBudget) -> Result<Arc<Self>, RuntimeError> {
         budget.validate()?;
-        let tracked = Arc::new(TrackConsumersPool::new(
-            FairSpillPool::new(budget.memory_limit_bytes.get()),
+        let native = pse_engine::resources::EngineResources::build(
+            budget.memory_limit_bytes,
             budget.top_consumers,
-        ));
-        let tracked_pool: Arc<dyn MemoryPool> = tracked.clone();
-        let peak = Arc::new(PeakRecordingPool::new(tracked_pool));
-        let pool: Arc<dyn MemoryPool> = peak.clone();
-        let reserver = Arc::new(PoolReserver::new(Arc::clone(&pool))?);
-        let caches =
-            pse_catalog::cache_service::NativeCacheService::new(budget.cache.clone(), &pool)
-                .map_err(|error| {
-                    RuntimeError::Catalog(pse_catalog::failure::collapse_classified(
-                        pse_catalog::classify(error, pse_catalog::PlanOrigin::RuleCompiler),
-                    ))
-                })?;
-        let env = RuntimeEnvBuilder::new()
-            .with_cache_manager(pse_catalog::cache_service::NativeCacheService::unbound_config())
-            .with_memory_pool(pool)
-            .with_temp_file_path(budget.spill_dir.clone())
-            .with_max_temp_directory_size(budget.max_temp_dir_bytes)
-            .build()
-            .map_err(|error| {
-                RuntimeError::Catalog(pse_catalog::failure::collapse_classified(
-                    pse_catalog::classify(error, pse_catalog::PlanOrigin::RuleCompiler),
-                ))
-            })?;
+            budget.spill_dir.clone(),
+            budget.max_temp_dir_bytes,
+            budget.cache.native.clone(),
+        )?;
+        let caches = pse_catalog::cache_service::DeltaCacheService::with_native(
+            budget.cache.clone(),
+            native.caches.clone(),
+        )
+        .map_err(|error| RuntimeError::Catalog(pse_engine::session::engine(error)))?;
+        let env = native.runtime;
+        let tracked = native.tracked;
+        let peak = native.peak;
         if !matches!(env.memory_pool.memory_limit(), MemoryLimit::Finite(limit) if limit == budget.memory_limit_bytes.get())
             || env.disk_manager.max_temp_directory_size() != budget.max_temp_dir_bytes
             || !env.disk_manager.tmp_files_enabled()
@@ -67,14 +57,34 @@ impl SharedRuntime {
                 message: "runtime memory/spill limits failed read-back".to_owned(),
             });
         }
+        let compiler_cpu = Arc::new(tokio::sync::Semaphore::new(
+            budget.threads.pool_threads.get(),
+        ));
+        let math = crate::math::MathService::new(
+            env.memory_pool.clone(),
+            compiler_cpu.clone(),
+            budget.threads.pool_threads.get(),
+            budget.math.clone(),
+            caches.native(),
+        );
         Ok(Arc::new(Self {
-            env: Arc::new(env),
+            env,
             tracked,
             peak,
-            reserver,
+            compiler_cpu,
+            math,
             budget,
             caches,
         }))
+    }
+
+    /// Shared math compiler/runtime artifact owner.
+    pub fn math(&self) -> &Arc<crate::math::MathService> {
+        &self.math
+    }
+
+    pub(crate) fn compiler_cpu(&self) -> Arc<tokio::sync::Semaphore> {
+        self.compiler_cpu.clone()
     }
 
     /// The same engine runtime for every session constructed by the runtime layer.
@@ -87,19 +97,23 @@ impl SharedRuntime {
         Arc::clone(&self.env.memory_pool)
     }
 
-    /// An attributed reserve-before-allocate adapter over [`Self::pool`].
-    pub fn reserver(&self) -> Arc<PoolReserver> {
-        Arc::clone(&self.reserver)
-    }
-
     /// Validated resource and execution policy.
     pub const fn budget(&self) -> &ResourceBudget {
         &self.budget
     }
 
     /// The same native cache owner for all factories and provider scopes.
-    pub fn caches(&self) -> &Arc<pse_catalog::cache_service::NativeCacheService> {
+    pub fn caches(&self) -> &Arc<pse_catalog::cache_service::DeltaCacheService> {
         &self.caches
+    }
+
+    /// Start a new pool observation without discarding current live reservations.
+    pub fn reset_observation_peak(&self) {
+        self.peak.reset_peak();
+    }
+    /// Maximum reserved bytes since the last observation reset.
+    pub fn observation_peak_bytes(&self) -> usize {
+        self.peak.peak_reserved()
     }
 
     /// Accounted pool usage and independently measured process peak RSS.
@@ -123,7 +137,7 @@ impl SharedRuntime {
             pool_reserved_now: self.peak.reserved(),
             top_consumers: consumers,
             process_peak_rss_bytes: crate::peak::process_peak_rss()?,
-            caches: self.caches.report(),
+            caches: self.caches.native().report(),
         })
     }
 }

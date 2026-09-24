@@ -3,7 +3,7 @@
 #
 # Two tiers. `pre-commit` holds the checks that are fast enough to run on every
 # commit and that catch a mistake while it is still cheap to fix; `pre-push`
-# holds static type/import checks and Rust formatting. Neither stage compiles
+# holds spelling, licence headers, static type/import checks and Rust formatting. Neither stage compiles
 # native code or runs tests; compilation and full suites run in GitHub or through
 # explicitly requested just recipes.
 #
@@ -15,6 +15,8 @@
 default_install_hook_types: [pre-commit, pre-push]
 default_stages: [pre-commit]
 minimum_pre_commit_version: "4.6.0"
+# Skill bundles are excluded even when a hook receives explicit file paths.
+exclude: '^\.(codex|claude|agents)/skills/'
 
 repos:
   - repo: local
@@ -49,12 +51,14 @@ repos:
         language: system
         entry: just lint-typos
         pass_filenames: false
+        stages: [pre-push]
 
       - id: reuse
         name: reuse lint (SPDX headers)
         language: system
         entry: just lint-license
         pass_filenames: false
+        stages: [pre-push]
 
       - id: uv-lock-check
         name: uv lock --check

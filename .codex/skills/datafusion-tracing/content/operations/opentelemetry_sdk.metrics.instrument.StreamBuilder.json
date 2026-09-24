@@ -1,0 +1,1552 @@
+[
+  {
+    "id": "88f13d188e6f1026d98a3b01",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "name": "StreamBuilder",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct StreamBuilder",
+    "docs": "A builder for creating Stream objects.\n\n# Example\n\n```\nuse opentelemetry_sdk::metrics::{Aggregation, Stream};\nuse opentelemetry::Key;\n\nlet stream = Stream::builder()\n    .with_name(\"my_stream\")\n    .with_aggregation(Aggregation::Sum)\n    .with_cardinality_limit(100)\n    .build()\n    .unwrap();\n```",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        148,
+        1
+      ],
+      "end": [
+        155,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1425,
+          1426,
+          1427,
+          1428,
+          1429,
+          1430,
+          1431,
+          1432,
+          1433,
+          1434,
+          1435,
+          1436,
+          1437,
+          1438,
+          1439,
+          1440,
+          1441,
+          1442,
+          1443,
+          1444,
+          1446,
+          1448
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1415",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-88f13d188e6f1026d98a3b01",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3deffc945d3205c108dc5cc8",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Result<Stream, Box<dyn Error>>",
+    "docs": "Build a new Stream instance using the configuration in this builder.\n\n# Returns\n\nA Result containing the new Stream instance or an error if the build failed.",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        214,
+        5
+      ],
+      "end": [
+        274,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 43,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Stream",
+                          "id": 1375,
+                          "args": null
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Box",
+                          "id": 1423,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "dyn_trait": {
+                                      "traits": [
+                                        {
+                                          "trait": {
+                                            "path": "Error",
+                                            "id": 1424,
+                                            "args": null
+                                          },
+                                          "generic_params": []
+                                        }
+                                      ],
+                                      "lifetime": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "43": "core::result::Result",
+      "1375": "opentelemetry_sdk::metrics::instrument::Stream",
+      "1423": "alloc::boxed::Box",
+      "1424": "core::error::Error"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StreamBuilder",
+          "id": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          157,
+          1
+        ],
+        "end": [
+          275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1422",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-3deffc945d3205c108dc5cc8",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bf858cd011f28b6351fb640a",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> StreamBuilder",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        147,
+        10
+      ],
+      "end": [
+        147,
+        17
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "StreamBuilder",
+              "id": 1415,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1415": "opentelemetry_sdk::metrics::instrument::StreamBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StreamBuilder",
+          "id": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          147,
+          10
+        ],
+        "end": [
+          147,
+          17
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1445",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-bf858cd011f28b6351fb640a",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "37e6279417cd864d04375e6e",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        147,
+        19
+      ],
+      "end": [
+        147,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StreamBuilder",
+          "id": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          147,
+          19
+        ],
+        "end": [
+          147,
+          24
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1447",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-37e6279417cd864d04375e6e",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2cdd1d77954e84949aaa898f",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder::with_aggregation",
+    "name": "with_aggregation",
+    "owner": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_aggregation(self, aggregation: Aggregation) -> Self",
+    "docs": "Set the stream aggregation. This is used to customize the aggregation.\nIf not set, the default aggregation based on the instrument kind will be used.",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        184,
+        5
+      ],
+      "end": [
+        187,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"spec_unstable_metrics_views\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "aggregation",
+              {
+                "resolved_path": {
+                  "path": "Aggregation",
+                  "id": 722,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "722": "opentelemetry_sdk::metrics::aggregation::Aggregation"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StreamBuilder",
+          "id": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          157,
+          1
+        ],
+        "end": [
+          275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1419",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-2cdd1d77954e84949aaa898f",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder::with_aggregation"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "96fdc6b636071caccc423a9b",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder::with_allowed_attribute_keys",
+    "name": "with_allowed_attribute_keys",
+    "owner": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_allowed_attribute_keys(self, attribute_keys: impl IntoIterator<Item = Key>) -> Self",
+    "docs": "Set the stream allowed attribute keys.\n\nAny attribute recorded for the stream with a key not in this set will be\ndropped. If the set is empty, all attributes will be dropped.\nIf this method is not used, all attributes will be kept.",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        195,
+        5
+      ],
+      "end": [
+        201,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"spec_unstable_metrics_views\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "attribute_keys",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "IntoIterator",
+                        "id": 419,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [],
+                            "constraints": [
+                              {
+                                "name": "Item",
+                                "args": null,
+                                "binding": {
+                                  "equality": {
+                                    "type": {
+                                      "resolved_path": {
+                                        "path": "Key",
+                                        "id": 379,
+                                        "args": null
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl IntoIterator<Item = Key>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "IntoIterator",
+                          "id": 419,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [],
+                              "constraints": [
+                                {
+                                  "name": "Item",
+                                  "args": null,
+                                  "binding": {
+                                    "equality": {
+                                      "type": {
+                                        "resolved_path": {
+                                          "path": "Key",
+                                          "id": 379,
+                                          "args": null
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "419": "core::iter::traits::collect::IntoIterator",
+      "379": "opentelemetry::common::Key"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StreamBuilder",
+          "id": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          157,
+          1
+        ],
+        "end": [
+          275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1420",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-96fdc6b636071caccc423a9b",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder::with_allowed_attribute_keys"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3c8f4e100d23c9bdfa993f83",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder::with_cardinality_limit",
+    "name": "with_cardinality_limit",
+    "owner": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_cardinality_limit(self, limit: usize) -> Self",
+    "docs": "Set the stream cardinality limit. If this is not set, the default limit of 2000 will be used.",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        204,
+        5
+      ],
+      "end": [
+        207,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "limit",
+              {
+                "primitive": "usize"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StreamBuilder",
+          "id": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          157,
+          1
+        ],
+        "end": [
+          275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1421",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-3c8f4e100d23c9bdfa993f83",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder::with_cardinality_limit"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "75905806a80ce2f1b3f1dcd6",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder::with_description",
+    "name": "with_description",
+    "owner": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_description(self, description: impl Into<Cow<'static, str>>) -> Self",
+    "docs": "Set the stream description. If this is not set, description provided while creating the instrument will be used.",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        170,
+        5
+      ],
+      "end": [
+        173,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "description",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 37,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 322,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 37,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 322,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "37": "core::convert::Into",
+      "322": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StreamBuilder",
+          "id": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          157,
+          1
+        ],
+        "end": [
+          275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1417",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-75905806a80ce2f1b3f1dcd6",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder::with_description"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "81a29432dd0ebc1e8b680577",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder::with_name",
+    "name": "with_name",
+    "owner": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_name(self, name: impl Into<Cow<'static, str>>) -> Self",
+    "docs": "Set the stream name. If this is not set, name provide while creating the instrument will be used.",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        164,
+        5
+      ],
+      "end": [
+        167,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 37,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 322,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 37,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 322,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "37": "core::convert::Into",
+      "322": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StreamBuilder",
+          "id": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          157,
+          1
+        ],
+        "end": [
+          275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1416",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-81a29432dd0ebc1e8b680577",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder::with_name"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b8652004785306e50bdd408e",
+    "path": "opentelemetry_sdk::metrics::instrument::StreamBuilder::with_unit",
+    "name": "with_unit",
+    "owner": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_unit(self, unit: impl Into<Cow<'static, str>>) -> Self",
+    "docs": "Set the stream unit. If this is not set, unit provided while creating the instrument will be used.",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        176,
+        5
+      ],
+      "end": [
+        179,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "unit",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 37,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 322,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 37,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 322,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "37": "core::convert::Into",
+      "322": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "StreamBuilder",
+          "id": "opentelemetry_sdk::metrics::instrument::StreamBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          157,
+          1
+        ],
+        "end": [
+          275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1418",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.StreamBuilder.json",
+    "anchor": "op-b8652004785306e50bdd408e",
+    "aliases": [
+      "opentelemetry_sdk::metrics::StreamBuilder::with_unit"
+    ],
+    "resolved_doc_links": {}
+  }
+]

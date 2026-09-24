@@ -1,0 +1,143 @@
+[
+  {
+    "id": "da8fd29a0da93e7e5eb4d6d6",
+    "path": "opentelemetry::trace::context::mark_span_as_active",
+    "name": "mark_span_as_active",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn mark_span_as_active<T: trace::Span + Send + Sync + 'static>(span: T) -> ContextGuard",
+    "docs": "Mark a given `Span` as active.\n\nThe `Tracer` MUST provide a way to update its active `Span`, and MAY provide convenience\nmethods to manage a `Span`'s lifetime and the scope in which a `Span` is active. When an\nactive `Span` is made inactive, the previously-active `Span` SHOULD be made active. A `Span`\nmaybe finished (i.e. have a non-null end time) but still be active. A `Span` may be active\non one thread after it has been made inactive on another.\n\n# Examples\n\n```\nuse opentelemetry::{global, trace::{Span, Tracer}, KeyValue};\nuse opentelemetry::trace::{get_active_span, mark_span_as_active};\n\nfn my_function() {\n    let tracer = global::tracer(\"my-component-a\");\n    // start an active span in one function\n    let span = tracer.start(\"span-name\");\n    let _guard = mark_span_as_active(span);\n    // anything happening in functions we call can still access the active span...\n    my_other_function();\n}\n\nfn my_other_function() {\n    // call methods on the current span from\n    get_active_span(|span| {\n        span.add_event(\"An event!\".to_string(), vec![KeyValue::new(\"happened\", true)]);\n    });\n}\n```",
+    "span": {
+      "filename": "src/trace/context.rs",
+      "begin": [
+        358,
+        1
+      ],
+      "end": [
+        361,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "must_use": {
+          "reason": "Dropping the guard detaches the context."
+        }
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "span",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "crate::ContextGuard",
+              "id": 437,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "crate::trace::Span",
+                          "id": 34,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Send",
+                          "id": 6,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Sync",
+                          "id": 7,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "outlives": "'static"
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "437": "opentelemetry::context::ContextGuard",
+      "34": "opentelemetry::trace::span::Span",
+      "6": "core::marker::Send",
+      "7": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1482",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.context.mark_span_as_active.md",
+    "record_file": "operations/opentelemetry.trace.context.mark_span_as_active.json",
+    "anchor": "op-da8fd29a0da93e7e5eb4d6d6",
+    "aliases": [
+      "opentelemetry::trace::mark_span_as_active"
+    ],
+    "resolved_doc_links": {}
+  }
+]

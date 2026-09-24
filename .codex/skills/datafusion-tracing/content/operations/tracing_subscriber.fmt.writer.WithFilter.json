@@ -1,0 +1,1796 @@
+[
+  {
+    "id": "82740b61d324165daa059d96",
+    "path": "tracing_subscriber::fmt::writer::WithFilter",
+    "name": "WithFilter",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct WithFilter<M, F>",
+    "docs": "A [`MakeWriter`] combinator that wraps a [`MakeWriter`] with a predicate for\nspan and event [`Metadata`], so that the [`MakeWriter::make_writer_for`]\nmethod returns [`OptionalWriter::some`][ows] when the predicate returns `true`,\nand [`OptionalWriter::none`][own] when the predicate returns `false`.\n\nThis is returned by the [`MakeWriterExt::with_filter`] method. See the\nmethod documentation for details.\n\n[`Metadata`]: tracing_core::Metadata\n[ows]: EitherWriter::some\n[own]: EitherWriter::none",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        616,
+        1
+      ],
+      "end": [
+        619,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "M",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          2799,
+          2800,
+          2801,
+          2802,
+          2803,
+          2804,
+          2805,
+          2806,
+          2807,
+          2808,
+          2809,
+          2810,
+          2811,
+          2812,
+          2813,
+          2814,
+          2815,
+          2816,
+          2817,
+          2818,
+          2819,
+          2821,
+          2823,
+          2824,
+          2825,
+          2827,
+          2616
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "EitherWriter::some": 2696,
+      "`MakeWriter`": 1443,
+      "`MakeWriterExt::with_filter`": 2632,
+      "`MakeWriter::make_writer_for`": 2575,
+      "tracing_core::Metadata": 278,
+      "EitherWriter::none": 2631
+    },
+    "link_paths": {
+      "EitherWriter::some": null,
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter",
+      "`MakeWriterExt::with_filter`": null,
+      "`MakeWriter::make_writer_for`": null,
+      "tracing_core::Metadata": "tracing_core::metadata::Metadata",
+      "EitherWriter::none": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2617",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.WithFilter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.WithFilter.json",
+    "anchor": "op-82740b61d324165daa059d96",
+    "aliases": [],
+    "resolved_doc_links": {
+      "EitherWriter::some": "../operations/tracing_subscriber.fmt.writer.EitherWriter.md#op-50c42a02ad55d7e674b58a59",
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a",
+      "`MakeWriterExt::with_filter`": "../operations/tracing_subscriber.fmt.writer.MakeWriterExt.md#op-25389b1a363c79682d8c131a",
+      "`MakeWriter::make_writer_for`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-f80df00cea31d415c78108e6",
+      "tracing_core::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "EitherWriter::none": "../operations/tracing_subscriber.fmt.writer.EitherWriter.md#op-f6e00051b2c8a83963973ec7"
+    }
+  },
+  {
+    "id": "a3f8c19131a838203b369e40",
+    "path": "tracing_subscriber::fmt::writer::WithFilter::Writer",
+    "name": "Writer",
+    "owner": "tracing_subscriber::fmt::writer::WithFilter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "assoc_type",
+    "signature": "Writer",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        1019,
+        5
+      ],
+      "end": [
+        1019,
+        45
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "EitherWriter",
+            "id": 2602,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "type": {
+                      "qualified_path": {
+                        "name": "Writer",
+                        "args": null,
+                        "self_type": {
+                          "generic": "M"
+                        },
+                        "trait": {
+                          "path": "MakeWriter",
+                          "id": 1443,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'a"
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "type": {
+                      "resolved_path": {
+                        "path": "Sink",
+                        "id": 2603,
+                        "args": null
+                      }
+                    }
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "2602": "tracing_subscriber::fmt::writer::EitherWriter",
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter",
+      "2603": "core::io::util::Sink"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithFilter",
+          "id": "tracing_subscriber::fmt::writer::WithFilter",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "MakeWriter",
+        "id": "tracing_subscriber::fmt::writer::MakeWriter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::writer::MakeWriter",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "M"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "MakeWriter",
+                      "id": "tracing_subscriber::fmt::writer::MakeWriter",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'a"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          1014,
+          1
+        ],
+        "end": [
+          1034,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2613",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.WithFilter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.WithFilter.json",
+    "anchor": "op-a3f8c19131a838203b369e40",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d983c4f052b8fd3f2f027c45",
+    "path": "tracing_subscriber::fmt::writer::WithFilter::clone",
+    "name": "clone",
+    "owner": "tracing_subscriber::fmt::writer::WithFilter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn clone(&self) -> WithFilter<M, F>",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        615,
+        16
+      ],
+      "end": [
+        615,
+        21
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WithFilter",
+              "id": 2617,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "M"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "F"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2617": "tracing_subscriber::fmt::writer::WithFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithFilter",
+          "id": "tracing_subscriber::fmt::writer::WithFilter",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::clone::Clone",
+                        "id": "core::clone::Clone",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::clone::Clone",
+                        "id": "core::clone::Clone",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          615,
+          16
+        ],
+        "end": [
+          615,
+          21
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2820",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.WithFilter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.WithFilter.json",
+    "anchor": "op-d983c4f052b8fd3f2f027c45",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7c9d391df413cf345568cb95",
+    "path": "tracing_subscriber::fmt::writer::WithFilter::eq",
+    "name": "eq",
+    "owner": "tracing_subscriber::fmt::writer::WithFilter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &WithFilter<M, F>) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        615,
+        34
+      ],
+      "end": [
+        615,
+        43
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "WithFilter",
+                      "id": 2617,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "generic": "M"
+                              }
+                            },
+                            {
+                              "type": {
+                                "generic": "F"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2617": "tracing_subscriber::fmt::writer::WithFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithFilter",
+          "id": "tracing_subscriber::fmt::writer::WithFilter",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::cmp::PartialEq",
+                        "id": "core::cmp::PartialEq",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::cmp::PartialEq",
+                        "id": "core::cmp::PartialEq",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          615,
+          34
+        ],
+        "end": [
+          615,
+          43
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2826",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.WithFilter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.WithFilter.json",
+    "anchor": "op-7c9d391df413cf345568cb95",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6b038198361d531da513e7a0",
+    "path": "tracing_subscriber::fmt::writer::WithFilter::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::writer::WithFilter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        615,
+        23
+      ],
+      "end": [
+        615,
+        28
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithFilter",
+          "id": "tracing_subscriber::fmt::writer::WithFilter",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          615,
+          23
+        ],
+        "end": [
+          615,
+          28
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2822",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.WithFilter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.WithFilter.json",
+    "anchor": "op-6b038198361d531da513e7a0",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7922beae980e73a8ea643cc1",
+    "path": "tracing_subscriber::fmt::writer::WithFilter::make_writer",
+    "name": "make_writer",
+    "owner": "tracing_subscriber::fmt::writer::WithFilter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn make_writer(&'a self) -> Self::Writer",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        1022,
+        5
+      ],
+      "end": [
+        1024,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Writer",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1443,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithFilter",
+          "id": "tracing_subscriber::fmt::writer::WithFilter",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "MakeWriter",
+        "id": "tracing_subscriber::fmt::writer::MakeWriter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::writer::MakeWriter",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "M"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "MakeWriter",
+                      "id": "tracing_subscriber::fmt::writer::MakeWriter",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'a"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          1014,
+          1
+        ],
+        "end": [
+          1034,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2614",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.WithFilter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.WithFilter.json",
+    "anchor": "op-7922beae980e73a8ea643cc1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "421674abb1f9e3848e457d37",
+    "path": "tracing_subscriber::fmt::writer::WithFilter::make_writer_for",
+    "name": "make_writer_for",
+    "owner": "tracing_subscriber::fmt::writer::WithFilter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn make_writer_for(&'a self, meta: &Metadata<'_>) -> Self::Writer",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        1027,
+        5
+      ],
+      "end": [
+        1033,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "meta",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Writer",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1443,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithFilter",
+          "id": "tracing_subscriber::fmt::writer::WithFilter",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "MakeWriter",
+        "id": "tracing_subscriber::fmt::writer::MakeWriter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::writer::MakeWriter",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "M"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "MakeWriter",
+                      "id": "tracing_subscriber::fmt::writer::MakeWriter",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'a"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          1014,
+          1
+        ],
+        "end": [
+          1034,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2615",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.WithFilter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.WithFilter.json",
+    "anchor": "op-421674abb1f9e3848e457d37",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0000ef79db8369deb91f853a",
+    "path": "tracing_subscriber::fmt::writer::WithFilter::new",
+    "name": "new",
+    "owner": "tracing_subscriber::fmt::writer::WithFilter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn new(make: M, filter: F) -> Self where F: Fn(&Metadata<'_>) -> bool",
+    "docs": "Wraps `make` with the provided `filter`, returning a [`MakeWriter`] that\nwill call `make.make_writer_for()` when `filter` returns `true` for a\nspan or event's [`Metadata`], and returns a [`sink`] otherwise.\n\nSee [`MakeWriterExt::with_filter`] for details.\n\n[`Metadata`]: tracing_core::Metadata\n[`sink`]: std::io::sink",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        1006,
+        5
+      ],
+      "end": [
+        1011,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "make",
+              {
+                "generic": "M"
+              }
+            ],
+            [
+              "filter",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "F"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Fn",
+                        "id": 214,
+                        "args": {
+                          "parenthesized": {
+                            "inputs": [
+                              {
+                                "borrowed_ref": {
+                                  "lifetime": null,
+                                  "is_mutable": false,
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Metadata",
+                                      "id": 278,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'_"
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "output": {
+                              "primitive": "bool"
+                            }
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "214": "core::ops::function::Fn",
+      "278": "tracing_core::metadata::Metadata"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "WithFilter",
+          "id": "tracing_subscriber::fmt::writer::WithFilter",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "M"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "M",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          997,
+          1
+        ],
+        "end": [
+          1012,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`MakeWriter`": 1443,
+      "tracing_core::Metadata": 278,
+      "std::io::sink": 2694,
+      "`MakeWriterExt::with_filter`": 2632
+    },
+    "link_paths": {
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter",
+      "tracing_core::Metadata": "tracing_core::metadata::Metadata",
+      "std::io::sink": "core::io::util::sink",
+      "`MakeWriterExt::with_filter`": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2798",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.WithFilter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.WithFilter.json",
+    "anchor": "op-0000ef79db8369deb91f853a",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a",
+      "tracing_core::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "`MakeWriterExt::with_filter`": "../operations/tracing_subscriber.fmt.writer.MakeWriterExt.md#op-25389b1a363c79682d8c131a"
+    }
+  }
+]

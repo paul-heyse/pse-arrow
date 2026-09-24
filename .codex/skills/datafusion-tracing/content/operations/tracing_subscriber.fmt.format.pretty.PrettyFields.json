@@ -1,0 +1,884 @@
+[
+  {
+    "id": "19cd2f5d02f60844d4df2e26",
+    "path": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+    "name": "PrettyFields",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct PrettyFields",
+    "docs": "An excessively pretty, human-readable [`MakeVisitor`] implementation.\n\n[`MakeVisitor`]: crate::field::MakeVisitor",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        119,
+        1
+      ],
+      "end": [
+        131,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1958,
+          1959,
+          1960,
+          1961,
+          1962,
+          1963,
+          1964,
+          1965,
+          1966,
+          1967,
+          1968,
+          1969,
+          1970,
+          1971,
+          1972,
+          1973,
+          1974,
+          1975,
+          1977,
+          1979,
+          219
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::field::MakeVisitor": 20
+    },
+    "link_paths": {
+      "crate::field::MakeVisitor": "tracing_subscriber::field::MakeVisitor"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "220",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.json",
+    "anchor": "op-19cd2f5d02f60844d4df2e26",
+    "aliases": [
+      "tracing_subscriber::fmt::format::PrettyFields"
+    ],
+    "resolved_doc_links": {
+      "crate::field::MakeVisitor": "../operations/tracing_subscriber.field.MakeVisitor.md#op-ee298e39fc8a5785910ade4f"
+    }
+  },
+  {
+    "id": "587d1e2552c2fbf251e65849",
+    "path": "tracing_subscriber::fmt::format::pretty::PrettyFields::Visitor",
+    "name": "Visitor",
+    "owner": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "assoc_type",
+    "signature": "Visitor",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        388,
+        5
+      ],
+      "end": [
+        388,
+        38
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "PrettyVisitor",
+            "id": 216,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "lifetime": "'a"
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "216": "tracing_subscriber::fmt::format::pretty::PrettyVisitor"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PrettyFields",
+          "id": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MakeVisitor",
+        "id": "tracing_subscriber::field::MakeVisitor",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "Writer",
+                    "id": "tracing_subscriber::fmt::format::Writer",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "lifetime": "'a"
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::field::MakeVisitor",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          387,
+          1
+        ],
+        "end": [
+          397,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "215",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.json",
+    "anchor": "op-587d1e2552c2fbf251e65849",
+    "aliases": [
+      "tracing_subscriber::fmt::format::PrettyFields::Visitor"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cd2b4a3f56d613974292c9d0",
+    "path": "tracing_subscriber::fmt::format::pretty::PrettyFields::default",
+    "name": "default",
+    "owner": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        360,
+        5
+      ],
+      "end": [
+        362,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PrettyFields",
+          "id": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          359,
+          1
+        ],
+        "end": [
+          363,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1978",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.json",
+    "anchor": "op-cd2b4a3f56d613974292c9d0",
+    "aliases": [
+      "tracing_subscriber::fmt::format::PrettyFields::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "01e250e98f8fc4a3b51e8877",
+    "path": "tracing_subscriber::fmt::format::pretty::PrettyFields::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        118,
+        10
+      ],
+      "end": [
+        118,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PrettyFields",
+          "id": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          118,
+          10
+        ],
+        "end": [
+          118,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1976",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.json",
+    "anchor": "op-01e250e98f8fc4a3b51e8877",
+    "aliases": [
+      "tracing_subscriber::fmt::format::PrettyFields::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8e53cf2d7c2cf03c1127c3f0",
+    "path": "tracing_subscriber::fmt::format::pretty::PrettyFields::make_visitor",
+    "name": "make_visitor",
+    "owner": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn make_visitor(&self, target: Writer<'a>) -> Self::Visitor",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        391,
+        5
+      ],
+      "end": [
+        396,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "target",
+              {
+                "resolved_path": {
+                  "path": "Writer",
+                  "id": 218,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'a"
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Visitor",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 20,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "218": "tracing_subscriber::fmt::format::Writer",
+      "20": "tracing_subscriber::field::MakeVisitor"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PrettyFields",
+          "id": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MakeVisitor",
+        "id": "tracing_subscriber::field::MakeVisitor",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "Writer",
+                    "id": "tracing_subscriber::fmt::format::Writer",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "lifetime": "'a"
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::field::MakeVisitor",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          387,
+          1
+        ],
+        "end": [
+          397,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "217",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.json",
+    "anchor": "op-8e53cf2d7c2cf03c1127c3f0",
+    "aliases": [
+      "tracing_subscriber::fmt::format::PrettyFields::make_visitor"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9e8a0af3f19fe1047c558495",
+    "path": "tracing_subscriber::fmt::format::pretty::PrettyFields::new",
+    "name": "new",
+    "owner": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn new() -> Self",
+    "docs": "Returns a new default [`PrettyFields`] implementation.",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        367,
+        5
+      ],
+      "end": [
+        372,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PrettyFields",
+          "id": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          365,
+          1
+        ],
+        "end": [
+          385,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`PrettyFields`": 220
+    },
+    "link_paths": {
+      "`PrettyFields`": "tracing_subscriber::fmt::format::pretty::PrettyFields"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1956",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.json",
+    "anchor": "op-9e8a0af3f19fe1047c558495",
+    "aliases": [
+      "tracing_subscriber::fmt::format::PrettyFields::new"
+    ],
+    "resolved_doc_links": {
+      "`PrettyFields`": "../operations/tracing_subscriber.fmt.format.pretty.PrettyFields.md#op-19cd2f5d02f60844d4df2e26"
+    }
+  },
+  {
+    "id": "639e0b673f3588853e92e1e6",
+    "path": "tracing_subscriber::fmt::format::pretty::PrettyFields::with_ansi",
+    "name": "with_ansi",
+    "owner": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_ansi(self, ansi: bool) -> Self",
+    "docs": "Enable ANSI encoding for formatted fields.",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        379,
+        5
+      ],
+      "end": [
+        384,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": {
+      "since": "0.3.3",
+      "note": "Use `fmt::Subscriber::with_ansi` or `fmt::Layer::with_ansi` instead."
+    },
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "ansi",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PrettyFields",
+          "id": "tracing_subscriber::fmt::format::pretty::PrettyFields",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          365,
+          1
+        ],
+        "end": [
+          385,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1957",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.PrettyFields.json",
+    "anchor": "op-639e0b673f3588853e92e1e6",
+    "aliases": [
+      "tracing_subscriber::fmt::format::PrettyFields::with_ansi"
+    ],
+    "resolved_doc_links": {}
+  }
+]

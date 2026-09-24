@@ -1,0 +1,1020 @@
+[
+  {
+    "id": "6f9ab4009e929a66ad0904b5",
+    "path": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+    "name": "TraceContextPropagator",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct TraceContextPropagator",
+    "docs": "Propagates `SpanContext`s in [W3C TraceContext] format under `traceparent` and `tracestate` header.\n\nThe `traceparent` header represents the incoming request in a\ntracing system in a common format, understood by all vendors.\nHere’s an example of a `traceparent` header.\n\n`traceparent: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01`\n\nThe `traceparent` HTTP header field identifies the incoming request in a\ntracing system. It has four fields:\n\n   - version\n   - trace-id\n   - parent-id\n   - trace-flags\n\nThe `tracestate` header provides additional vendor-specific trace\nidentification information across different distributed tracing systems.\nHere's an example of a `tracestate` header\n\n`tracestate: vendorname1=opaqueValue1,vendorname2=opaqueValue2`\n\nSee the [w3c trace-context docs] for more details.\n\n[w3c trace-context docs]: https://w3c.github.io/trace-context/\n[W3C TraceContext]: https://www.w3.org/TR/trace-context/",
+    "span": {
+      "filename": "src/propagation/trace_context.rs",
+      "begin": [
+        52,
+        1
+      ],
+      "end": [
+        54,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1923,
+          1924,
+          1925,
+          1926,
+          1927,
+          1928,
+          1929,
+          1930,
+          1931,
+          1932,
+          1933,
+          1934,
+          1935,
+          1936,
+          1937,
+          1938,
+          1939,
+          1940,
+          1941,
+          1942,
+          1943,
+          1944,
+          1946,
+          1948,
+          1950,
+          1954
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1921",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.json",
+    "anchor": "op-6f9ab4009e929a66ad0904b5",
+    "aliases": [
+      "opentelemetry_sdk::propagation::TraceContextPropagator"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "32ae7c67ca445f06bf4d5a5c",
+    "path": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> TraceContextPropagator",
+    "docs": "",
+    "span": {
+      "filename": "src/propagation/trace_context.rs",
+      "begin": [
+        51,
+        10
+      ],
+      "end": [
+        51,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "TraceContextPropagator",
+              "id": 1921,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1921": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceContextPropagator",
+          "id": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/trace_context.rs",
+        "begin": [
+          51,
+          10
+        ],
+        "end": [
+          51,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1945",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.json",
+    "anchor": "op-32ae7c67ca445f06bf4d5a5c",
+    "aliases": [
+      "opentelemetry_sdk::propagation::TraceContextPropagator::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2e8f0fcca33d906a1d1ebabb",
+    "path": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> TraceContextPropagator",
+    "docs": "",
+    "span": {
+      "filename": "src/propagation/trace_context.rs",
+      "begin": [
+        51,
+        24
+      ],
+      "end": [
+        51,
+        31
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "TraceContextPropagator",
+              "id": 1921,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1921": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceContextPropagator",
+          "id": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/trace_context.rs",
+        "begin": [
+          51,
+          24
+        ],
+        "end": [
+          51,
+          31
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1949",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.json",
+    "anchor": "op-2e8f0fcca33d906a1d1ebabb",
+    "aliases": [
+      "opentelemetry_sdk::propagation::TraceContextPropagator::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4c21a5eefad7debb24c37cb2",
+    "path": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator::extract_with_context",
+    "name": "extract_with_context",
+    "owner": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn extract_with_context(&self, cx: &Context, extractor: &dyn Extractor) -> Context",
+    "docs": "Retrieves encoded `SpanContext`s using the `Extractor`. It decodes\nthe `SpanContext` and returns it. If no `SpanContext` was retrieved\nOR if the retrieved SpanContext is invalid then an empty `SpanContext`\nis returned.",
+    "span": {
+      "filename": "src/propagation/trace_context.rs",
+      "begin": [
+        147,
+        5
+      ],
+      "end": [
+        151,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 1911,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "extractor",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Extractor",
+                            "id": 1914,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Context",
+              "id": 1911,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1911": "opentelemetry::context::Context",
+      "1914": "opentelemetry::propagation::Extractor"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceContextPropagator",
+          "id": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "TextMapPropagator",
+        "id": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+        "args": null
+      },
+      "trait_path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/trace_context.rs",
+        "begin": [
+          124,
+          1
+        ],
+        "end": [
+          156,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1952",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.json",
+    "anchor": "op-4c21a5eefad7debb24c37cb2",
+    "aliases": [
+      "opentelemetry_sdk::propagation::TraceContextPropagator::extract_with_context"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fba00720c9189de302e3f8c3",
+    "path": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator::fields",
+    "name": "fields",
+    "owner": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fields(&self) -> FieldIter<'_>",
+    "docs": "",
+    "span": {
+      "filename": "src/propagation/trace_context.rs",
+      "begin": [
+        153,
+        5
+      ],
+      "end": [
+        155,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "FieldIter",
+              "id": 1916,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1916": "opentelemetry::propagation::text_map_propagator::FieldIter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceContextPropagator",
+          "id": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "TextMapPropagator",
+        "id": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+        "args": null
+      },
+      "trait_path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/trace_context.rs",
+        "begin": [
+          124,
+          1
+        ],
+        "end": [
+          156,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1953",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.json",
+    "anchor": "op-fba00720c9189de302e3f8c3",
+    "aliases": [
+      "opentelemetry_sdk::propagation::TraceContextPropagator::fields"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5ff6bd8ee5f37d4e53a57e1e",
+    "path": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/propagation/trace_context.rs",
+      "begin": [
+        51,
+        17
+      ],
+      "end": [
+        51,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceContextPropagator",
+          "id": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/trace_context.rs",
+        "begin": [
+          51,
+          17
+        ],
+        "end": [
+          51,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1947",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.json",
+    "anchor": "op-5ff6bd8ee5f37d4e53a57e1e",
+    "aliases": [
+      "opentelemetry_sdk::propagation::TraceContextPropagator::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "aaabbcb0f8f80fca675fce01",
+    "path": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator::inject_context",
+    "name": "inject_context",
+    "owner": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn inject_context(&self, cx: &Context, injector: &mut dyn Injector)",
+    "docs": "Properly encodes the values of the `SpanContext` and injects them\ninto the `Injector`.",
+    "span": {
+      "filename": "src/propagation/trace_context.rs",
+      "begin": [
+        127,
+        5
+      ],
+      "end": [
+        141,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 1911,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "injector",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Injector",
+                            "id": 1912,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1911": "opentelemetry::context::Context",
+      "1912": "opentelemetry::propagation::Injector"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceContextPropagator",
+          "id": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "TextMapPropagator",
+        "id": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+        "args": null
+      },
+      "trait_path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/trace_context.rs",
+        "begin": [
+          124,
+          1
+        ],
+        "end": [
+          156,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1951",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.json",
+    "anchor": "op-aaabbcb0f8f80fca675fce01",
+    "aliases": [
+      "opentelemetry_sdk::propagation::TraceContextPropagator::inject_context"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f0086d961ca0d228b699f320",
+    "path": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator::new",
+    "name": "new",
+    "owner": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn new() -> Self",
+    "docs": "Create a new `TraceContextPropagator`.",
+    "span": {
+      "filename": "src/propagation/trace_context.rs",
+      "begin": [
+        58,
+        5
+      ],
+      "end": [
+        60,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceContextPropagator",
+          "id": "opentelemetry_sdk::propagation::trace_context::TraceContextPropagator",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/trace_context.rs",
+        "begin": [
+          56,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1922",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.trace_context.TraceContextPropagator.json",
+    "anchor": "op-f0086d961ca0d228b699f320",
+    "aliases": [
+      "opentelemetry_sdk::propagation::TraceContextPropagator::new"
+    ],
+    "resolved_doc_links": {}
+  }
+]

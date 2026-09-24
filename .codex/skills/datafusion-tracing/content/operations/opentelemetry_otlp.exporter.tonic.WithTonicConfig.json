@@ -1,0 +1,610 @@
+[
+  {
+    "id": "112358fcec71a29e158eaf2a",
+    "path": "opentelemetry_otlp::exporter::tonic::WithTonicConfig",
+    "name": "WithTonicConfig",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait WithTonicConfig",
+    "docs": "Expose methods to override [TonicConfig].\n\nThis trait will be implemented for every struct that implemented [`HasTonicConfig`] trait.\n\n## Examples\n```\n# #[cfg(all(feature = \"trace\", feature = \"grpc-tonic\"))]\n# {\nuse opentelemetry_otlp::{WithExportConfig, WithTonicConfig};\nlet exporter_builder = opentelemetry_otlp::SpanExporter::builder()\n    .with_tonic()\n    .with_compression(opentelemetry_otlp::Compression::Gzip);\n# }\n```",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        370,
+        1
+      ],
+      "end": [
+        478,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          226,
+          227,
+          228,
+          230,
+          231
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          232
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "TonicConfig": 144,
+      "`HasTonicConfig`": 191
+    },
+    "link_paths": {
+      "TonicConfig": "opentelemetry_otlp::exporter::tonic::TonicConfig",
+      "`HasTonicConfig`": "opentelemetry_otlp::exporter::tonic::HasTonicConfig"
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "192",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.json",
+    "anchor": "op-112358fcec71a29e158eaf2a",
+    "aliases": [
+      "opentelemetry_otlp::WithTonicConfig"
+    ],
+    "resolved_doc_links": {
+      "TonicConfig": "../operations/opentelemetry_otlp.exporter.tonic.TonicConfig.md#op-a6cb94179d82f7fc38273c80",
+      "`HasTonicConfig`": "../operations/opentelemetry_otlp.exporter.tonic.HasTonicConfig.md#op-5549afd81c403aefae8d1efa"
+    }
+  },
+  {
+    "id": "8798185098b579081a338f76",
+    "path": "opentelemetry_otlp::exporter::tonic::WithTonicConfig::with_channel",
+    "name": "with_channel",
+    "owner": "opentelemetry_otlp::exporter::tonic::WithTonicConfig",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_channel(self, channel: tonic::transport::Channel) -> Self",
+    "docs": "Use `channel` as tonic's transport channel.\nthis will override tls config and should only be used\nwhen working with non-HTTP transports.\n\nUsers MUST make sure the [`ExportConfig::timeout`] is\nthe same as the channel's timeout.",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        413,
+        5
+      ],
+      "end": [
+        413,
+        71
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "channel",
+              {
+                "resolved_path": {
+                  "path": "tonic::transport::Channel",
+                  "id": 173,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "173": "tonic::transport::channel::Channel"
+    },
+    "impl_context": null,
+    "links": {
+      "`ExportConfig::timeout`": 229
+    },
+    "link_paths": {
+      "`ExportConfig::timeout`": null
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "230",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.json",
+    "anchor": "op-8798185098b579081a338f76",
+    "aliases": [
+      "opentelemetry_otlp::WithTonicConfig::with_channel"
+    ],
+    "resolved_doc_links": {
+      "`ExportConfig::timeout`": "../operations/opentelemetry_otlp.exporter.ExportConfig.md#op-3c9ce635c145057f395c35e9"
+    }
+  },
+  {
+    "id": "d91dc5967e804ec995f5b198",
+    "path": "opentelemetry_otlp::exporter::tonic::WithTonicConfig::with_compression",
+    "name": "with_compression",
+    "owner": "opentelemetry_otlp::exporter::tonic::WithTonicConfig",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_compression(self, compression: Compression) -> Self",
+    "docs": "Set the compression algorithm to use when communicating with the collector.",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        405,
+        5
+      ],
+      "end": [
+        405,
+        65
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "compression",
+              {
+                "resolved_path": {
+                  "path": "Compression",
+                  "id": 38,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "38": "opentelemetry_otlp::exporter::Compression"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "228",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.json",
+    "anchor": "op-d91dc5967e804ec995f5b198",
+    "aliases": [
+      "opentelemetry_otlp::WithTonicConfig::with_compression"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "58152aac58a1c14ff7417476",
+    "path": "opentelemetry_otlp::exporter::tonic::WithTonicConfig::with_interceptor",
+    "name": "with_interceptor",
+    "owner": "opentelemetry_otlp::exporter::tonic::WithTonicConfig",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_interceptor<I>(self, interceptor: I) -> Self where I: tonic::service::Interceptor + Clone + Send + Sync + 'static",
+    "docs": "Use a custom `interceptor` to modify each outbound request.\nThis can be used to modify the gRPC metadata, for example\nto inject auth tokens.\n\n**Note**: Calling this method multiple times will replace the previous\ninterceptor. If you need multiple interceptors, chain them together\nbefore passing to this method.\n\n# Examples\n\n## Single interceptor\n```no_run\n# #[cfg(feature = \"grpc-tonic\")]\n# {\nuse tonic::{Request, Status};\nuse opentelemetry_otlp::WithTonicConfig;\n\nfn auth_interceptor(mut req: Request<()>) -> Result<Request<()>, Status> {\n    req.metadata_mut().insert(\"authorization\", \"Bearer token\".parse().unwrap());\n    Ok(req)\n}\n\nlet exporter = opentelemetry_otlp::SpanExporter::builder()\n    .with_tonic()\n    .with_interceptor(auth_interceptor)\n    .build()?;\n# }\n# Ok::<(), Box<dyn std::error::Error>>(())\n```\n\n## Multiple interceptors (chaining)\n```no_run\n# #[cfg(feature = \"grpc-tonic\")]\n# {\nuse tonic::{Request, Status};\nuse opentelemetry_otlp::WithTonicConfig;\n\nfn auth_interceptor(mut req: Request<()>) -> Result<Request<()>, Status> {\n    req.metadata_mut().insert(\"authorization\", \"Bearer token\".parse().unwrap());\n    Ok(req)\n}\n\nfn logging_interceptor(req: Request<()>) -> Result<Request<()>, Status> {\n    println!(\"Sending gRPC request with metadata: {:?}\", req.metadata());\n    Ok(req)\n}\n\n// Chain interceptors by wrapping them\nfn combined_interceptor(req: Request<()>) -> Result<Request<()>, Status> {\n    let req = logging_interceptor(req)?;\n    auth_interceptor(req)\n}\n\nlet exporter = opentelemetry_otlp::SpanExporter::builder()\n    .with_tonic()\n    .with_interceptor(combined_interceptor)\n    .build()?;\n# }\n# Ok::<(), Box<dyn std::error::Error>>(())\n```",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        475,
+        5
+      ],
+      "end": [
+        477,
+        72
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "interceptor",
+              {
+                "generic": "I"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "I",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "I"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "tonic::service::Interceptor",
+                        "id": 188,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Clone",
+                        "id": 189,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 21,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sync",
+                        "id": 23,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "188": "tonic::service::interceptor::Interceptor",
+      "189": "core::clone::Clone",
+      "21": "core::marker::Send",
+      "23": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "231",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.json",
+    "anchor": "op-58152aac58a1c14ff7417476",
+    "aliases": [
+      "opentelemetry_otlp::WithTonicConfig::with_interceptor"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a2faee71e1150dce52a6de3d",
+    "path": "opentelemetry_otlp::exporter::tonic::WithTonicConfig::with_metadata",
+    "name": "with_metadata",
+    "owner": "opentelemetry_otlp::exporter::tonic::WithTonicConfig",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_metadata(self, metadata: MetadataMap) -> Self",
+    "docs": "Set custom metadata entries to send to the collector.\n\n**Note**: This method is additive - calling it multiple times will merge\nthe metadata entries. If the same key is provided in multiple calls,\nthe last value will override previous ones.\n\n# Example\n```no_run\n# #[cfg(feature = \"grpc-tonic\")]\n# {\nuse tonic::metadata::MetadataMap;\nuse opentelemetry_otlp::WithTonicConfig;\n\nlet mut metadata1 = MetadataMap::new();\nmetadata1.insert(\"key1\", \"value1\".parse().unwrap());\n\nlet mut metadata2 = MetadataMap::new();\nmetadata2.insert(\"key2\", \"value2\".parse().unwrap());\n\nlet exporter = opentelemetry_otlp::SpanExporter::builder()\n    .with_tonic()\n    .with_metadata(metadata1)  // Adds key1=value1\n    .with_metadata(metadata2)  // Adds key2=value2 (both are present)\n    .build()?;\n# }\n# Ok::<(), Box<dyn std::error::Error>>(())\n```",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        402,
+        5
+      ],
+      "end": [
+        402,
+        59
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "metadata",
+              {
+                "resolved_path": {
+                  "path": "MetadataMap",
+                  "id": 184,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "184": "tonic::metadata::map::MetadataMap"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "227",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.json",
+    "anchor": "op-a2faee71e1150dce52a6de3d",
+    "aliases": [
+      "opentelemetry_otlp::WithTonicConfig::with_metadata"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9e0397dde5ac189cae9e9e74",
+    "path": "opentelemetry_otlp::exporter::tonic::WithTonicConfig::with_tls_config",
+    "name": "with_tls_config",
+    "owner": "opentelemetry_otlp::exporter::tonic::WithTonicConfig",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_tls_config(self, tls_config: ClientTlsConfig) -> Self",
+    "docs": "Set the TLS settings for the collector endpoint.",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        373,
+        5
+      ],
+      "end": [
+        373,
+        67
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"tls\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "tls_config",
+              {
+                "resolved_path": {
+                  "path": "ClientTlsConfig",
+                  "id": 182,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "182": "tonic::transport::channel::tls::ClientTlsConfig"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "226",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.WithTonicConfig.json",
+    "anchor": "op-9e0397dde5ac189cae9e9e74",
+    "aliases": [
+      "opentelemetry_otlp::WithTonicConfig::with_tls_config"
+    ],
+    "resolved_doc_links": {}
+  }
+]

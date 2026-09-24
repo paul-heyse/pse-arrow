@@ -3,22 +3,16 @@
 
 //! Consumed semantic compilation contracts (blueprint §6.15, ADR-0062–0064).
 
-mod algorithm_occurrences;
 mod configuration;
 pub(super) mod conservation_values;
 mod elements;
-mod expression_outputs;
 mod kernel_methods;
 mod law_contracts;
 mod material_constraints;
 mod methods;
-mod paths;
 mod ports;
-mod projected_groups;
-mod realization;
-mod reindexings;
 mod source_occurrences;
-mod support;
+mod source_definitions;
 mod symbol_contracts;
 
 use super::declarations::{column, enumeration, relation};
@@ -29,23 +23,17 @@ use crate::model::{
 
 /// Declare contracts before normalized copies, documents, invariants and passes.
 pub fn declare(builder: &mut RegistryBuilder) {
-    algorithm_occurrences::declare(builder);
     configuration::declare(builder);
     elements::declare(builder);
-    expression_outputs::declare(builder);
     kernel_methods::declare(builder);
     material_constraints::declare(builder);
     methods::declare(builder);
-    support::declare(builder);
     conservation_values::declare(builder);
-    realization::declare(builder);
     law_contracts::declare(builder);
-    projected_groups::declare(builder);
-    reindexings::declare(builder);
-    paths::declare(builder);
     ports::declare(builder);
     symbol_contracts::declare(builder);
     source_occurrences::declare(builder);
+    source_definitions::declare(builder);
 }
 
 /// The one physical shape of a configuration value, admitted by its explicit tag.

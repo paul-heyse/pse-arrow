@@ -1,0 +1,1252 @@
+[
+  {
+    "id": "d2e217a7d8c3b8dfc5bb623b",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "name": "InMemorySpanExporter",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct InMemorySpanExporter",
+    "docs": " An in-memory span exporter that stores span data in memory.\n\n This exporter is useful for testing and debugging purposes. It stores\n span data in a `Vec<SpanData>`. Spans can be retrieved\n using the `get_finished_spans` method.\n # Example\n ```\n# use opentelemetry::trace::{SpanKind, TraceContextExt};\n# use opentelemetry::{global, trace::Tracer, Context};\n# use opentelemetry_sdk::propagation::TraceContextPropagator;\n# use opentelemetry_sdk::runtime;\n# use opentelemetry_sdk::trace::InMemorySpanExporterBuilder;\n# use opentelemetry_sdk::trace::{BatchSpanProcessor, SdkTracerProvider};\n\n# #[tokio::main]\n# async fn main() {\n     let exporter = InMemorySpanExporterBuilder::new().build();\n     let provider = SdkTracerProvider::builder()\n         .with_span_processor(BatchSpanProcessor::builder(exporter.clone()).build())\n         .build();\n\n     global::set_tracer_provider(provider.clone());\n\n     let tracer = global::tracer(\"example/in_memory_exporter\");\n     let span = tracer\n         .span_builder(\"say hello\")\n         .with_kind(SpanKind::Server)\n         .start(&tracer);\n\n     let cx = Context::current_with_span(span);\n     cx.span().add_event(\"handling this...\", Vec::new());\n     cx.span().end();\n\n     if let Err(e) = provider.force_flush() {\n         println!(\"{:?}\", e)\n     }\n     let spans = exporter.get_finished_spans().unwrap();\n     for span in spans {\n         println!(\"{:?}\", span)\n     }\n# }\n ```",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        51,
+        1
+      ],
+      "end": [
+        56,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          3138,
+          3139,
+          3140,
+          3141,
+          3142,
+          3143,
+          3144,
+          3145,
+          3146,
+          3147,
+          3148,
+          3149,
+          3150,
+          3151,
+          3152,
+          3153,
+          3154,
+          3155,
+          3156,
+          3157,
+          3158,
+          3159,
+          3161,
+          3163,
+          3165,
+          2446
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2447",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-d2e217a7d8c3b8dfc5bb623b",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fad48ac7bdc3a305a3948797",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> InMemorySpanExporter",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        50,
+        10
+      ],
+      "end": [
+        50,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InMemorySpanExporter",
+              "id": 2447,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2447": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemorySpanExporter",
+          "id": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/in_memory_exporter.rs",
+        "begin": [
+          50,
+          10
+        ],
+        "end": [
+          50,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3160",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-fad48ac7bdc3a305a3948797",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8335dab33245fb803821c1bd",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        59,
+        5
+      ],
+      "end": [
+        61,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemorySpanExporter",
+          "id": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/in_memory_exporter.rs",
+        "begin": [
+          58,
+          1
+        ],
+        "end": [
+          62,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3164",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-8335dab33245fb803821c1bd",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e41e87eafb8d7d252cbdb208",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter::export",
+    "name": "export",
+    "owner": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "async fn export(&self, batch: Vec<SpanData>) -> OTelSdkResult",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        156,
+        5
+      ],
+      "end": [
+        163,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "batch",
+              {
+                "resolved_path": {
+                  "path": "Vec",
+                  "id": 493,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "SpanData",
+                              "id": 2438,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": true,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "493": "alloc::vec::Vec",
+      "2438": "opentelemetry_sdk::trace::export::SpanData",
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemorySpanExporter",
+          "id": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "SpanExporter",
+        "id": "opentelemetry_sdk::trace::export::SpanExporter",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::trace::export::SpanExporter",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/in_memory_exporter.rs",
+        "begin": [
+          155,
+          1
+        ],
+        "end": [
+          180,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2443",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-e41e87eafb8d7d252cbdb208",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter::export"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2eb542d99f03f36545c2cc21",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        50,
+        17
+      ],
+      "end": [
+        50,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemorySpanExporter",
+          "id": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/in_memory_exporter.rs",
+        "begin": [
+          50,
+          17
+        ],
+        "end": [
+          50,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3162",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-2eb542d99f03f36545c2cc21",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c953f978f36d1816e9229284",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter::get_finished_spans",
+    "name": "get_finished_spans",
+    "owner": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn get_finished_spans(&self) -> Result<Vec<SpanData>, InMemoryExporterError>",
+    "docs": "Returns the finished span as a vector of `SpanData`.\n\n# Errors\n\nReturns a `TraceError` if the internal lock cannot be acquired.\n\n# Example\n\n```\n# use opentelemetry_sdk::trace::InMemorySpanExporter;\n\nlet exporter = InMemorySpanExporter::default();\nlet finished_spans = exporter.get_finished_spans().unwrap();\n```",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        131,
+        5
+      ],
+      "end": [
+        138,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 43,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Vec",
+                          "id": 493,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "SpanData",
+                                      "id": 2438,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "InMemoryExporterError",
+                          "id": 495,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "43": "core::result::Result",
+      "493": "alloc::vec::Vec",
+      "2438": "opentelemetry_sdk::trace::export::SpanData",
+      "495": "opentelemetry_sdk::InMemoryExporterError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemorySpanExporter",
+          "id": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/in_memory_exporter.rs",
+        "begin": [
+          110,
+          1
+        ],
+        "end": [
+          153,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3136",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-c953f978f36d1816e9229284",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter::get_finished_spans"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1a85cd4d65ae959e482990f6",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter::is_shutdown_called",
+    "name": "is_shutdown_called",
+    "owner": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn is_shutdown_called(&self) -> bool",
+    "docs": "Returns true if shutdown was called.",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        112,
+        5
+      ],
+      "end": [
+        115,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemorySpanExporter",
+          "id": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/in_memory_exporter.rs",
+        "begin": [
+          110,
+          1
+        ],
+        "end": [
+          153,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3135",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-1a85cd4d65ae959e482990f6",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter::is_shutdown_called"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8fda2125db4cf73bd57765fb",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter::reset",
+    "name": "reset",
+    "owner": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn reset(&self)",
+    "docs": "Clears the internal storage of finished spans.\n\n# Example\n\n```\n# use opentelemetry_sdk::trace::InMemorySpanExporter;\n\nlet exporter = InMemorySpanExporter::default();\nexporter.reset();\n```",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        150,
+        5
+      ],
+      "end": [
+        152,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemorySpanExporter",
+          "id": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/in_memory_exporter.rs",
+        "begin": [
+          110,
+          1
+        ],
+        "end": [
+          153,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3137",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-8fda2125db4cf73bd57765fb",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter::reset"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "64649cd4c557369b69d1cd23",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter::set_resource",
+    "name": "set_resource",
+    "owner": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn set_resource(&mut self, resource: &Resource)",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        174,
+        5
+      ],
+      "end": [
+        179,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "resource",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Resource",
+                      "id": 81,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "81": "opentelemetry_sdk::resource::Resource"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemorySpanExporter",
+          "id": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "SpanExporter",
+        "id": "opentelemetry_sdk::trace::export::SpanExporter",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::trace::export::SpanExporter",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/in_memory_exporter.rs",
+        "begin": [
+          155,
+          1
+        ],
+        "end": [
+          180,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2445",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-64649cd4c557369b69d1cd23",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter::set_resource"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5a543addc93e7463d0f2fb62",
+    "path": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter::shutdown_with_timeout",
+    "name": "shutdown_with_timeout",
+    "owner": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown_with_timeout(&mut self, _timeout: Duration) -> OTelSdkResult",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/in_memory_exporter.rs",
+      "begin": [
+        165,
+        5
+      ],
+      "end": [
+        172,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_timeout",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration",
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemorySpanExporter",
+          "id": "opentelemetry_sdk::trace::in_memory_exporter::InMemorySpanExporter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "SpanExporter",
+        "id": "opentelemetry_sdk::trace::export::SpanExporter",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::trace::export::SpanExporter",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/in_memory_exporter.rs",
+        "begin": [
+          155,
+          1
+        ],
+        "end": [
+          180,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2444",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.md",
+    "record_file": "operations/opentelemetry_sdk.trace.in_memory_exporter.InMemorySpanExporter.json",
+    "anchor": "op-5a543addc93e7463d0f2fb62",
+    "aliases": [
+      "opentelemetry_sdk::trace::InMemorySpanExporter::shutdown_with_timeout"
+    ],
+    "resolved_doc_links": {}
+  }
+]

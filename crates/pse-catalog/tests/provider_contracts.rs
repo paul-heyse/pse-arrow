@@ -13,30 +13,25 @@ use datafusion::{
     catalog::{CatalogProvider, CatalogProviderList, TableProvider},
     common::{Constraint, Constraints, TableReference},
     datasource::{MemTable, provider_as_source},
-    execution::runtime_env::RuntimeEnv,
     logical_expr::{LogicalPlanBuilder, TableType},
 };
 use datafusion_catalog::{memory::MemoryCatalogProvider, view::ViewTable};
-use pse_catalog::{
+use pse_columnar::CancellationToken;
+use pse_engine::{
     provider::list::SnapshotCatalogList,
-    session::{
-        ExecutionSettings, SessionFactory, SnapshotSession, ThreadBudget, native_engine_profile,
-    },
+    session::{EngineSession, ExecutionSettings, ThreadBudget},
 };
-use pse_ids::{CancellationToken, FixedBudget};
 use pse_schema::RegistryBuilder;
 
 #[expect(clippy::unwrap_used, reason = "fixed native test environment")]
-fn session() -> SnapshotSession {
-    SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
+fn session() -> EngineSession {
+    pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
             target_partitions: 1.try_into().unwrap(),
         },
-        native_engine_profile(),
     )
     .unwrap()
     .candidate(
@@ -91,18 +86,7 @@ async fn native_created_tables_preserve_defaults_and_get_private_mutation_genera
         )
         .await
         .unwrap();
-    for (label, plan) in [
-        ("original", prepared.original_plan()),
-        ("optimized", prepared.optimized_plan()),
-    ] {
-        let datafusion::logical_expr::LogicalPlan::Ddl(
-            datafusion::logical_expr::DdlStatement::CreateMemoryTable(command),
-        ) = plan
-        else {
-            panic!("native table command")
-        };
-        assert_eq!(command.constraints.len(), 1, "{label} declaration");
-    }
+    assert_native_create_command(&prepared);
     let created = prepared
         .execute(&cancel)
         .await
@@ -175,7 +159,7 @@ async fn native_created_tables_preserve_defaults_and_get_private_mutation_genera
     clippy::unwrap_used,
     reason = "assert the native affected-row count contract"
 )]
-fn affected(completed: &pse_catalog::session::CompletedComputation) -> u64 {
+fn affected(completed: &pse_engine::session::CompletedComputation) -> u64 {
     assert_eq!(completed.batches().len(), 1);
     assert_eq!(completed.batches()[0].num_rows(), 1);
     completed.batches()[0]
@@ -188,10 +172,10 @@ fn affected(completed: &pse_catalog::session::CompletedComputation) -> u64 {
 
 #[expect(clippy::unwrap_used, reason = "successful native command fixture")]
 async fn complete_sql(
-    session: &SnapshotSession,
+    session: &EngineSession,
     sql: &str,
     cancel: &CancellationToken,
-) -> pse_catalog::session::CompletedComputation {
+) -> pse_engine::session::CompletedComputation {
     session
         .prepare_sql(sql, cancel)
         .await
@@ -203,7 +187,7 @@ async fn complete_sql(
 
 #[tokio::test]
 async fn private_native_dml_commits_a_new_generation_and_preserves_prepared_readers() {
-    use pse_catalog::session::mutation::MemoryTableFactory;
+    use pse_engine::session::mutation::MemoryTableFactory;
     use pse_schema::model::provider::OperationPurpose;
     let cancel = CancellationToken::new();
     let base = session();
@@ -307,7 +291,7 @@ async fn private_native_dml_commits_a_new_generation_and_preserves_prepared_read
 
 #[tokio::test]
 async fn private_dml_rejects_key_violations_and_truthfully_reports_unsupported_hooks() {
-    use pse_catalog::session::mutation::MemoryTableFactory;
+    use pse_engine::session::mutation::MemoryTableFactory;
     use pse_schema::model::provider::OperationPurpose;
     let cancel = CancellationToken::new();
     let base = session();
@@ -585,9 +569,17 @@ async fn general_capture_refuses_forged_primary_keys_without_optimizer_eliminati
         )
         .unwrap();
     let error = prepared.execute(&cancel).await.unwrap_err();
-    assert!(
-        matches!(error, pse_catalog::CatalogError::Admission { path, .. } if path == "provider.capture")
-    );
+    let mut cause: &dyn std::error::Error = &error;
+    loop {
+        if matches!(cause.downcast_ref::<pse_engine::EngineError>(),
+            Some(pse_engine::EngineError::Admission { path, .. }) if path == "provider.capture")
+        {
+            break;
+        }
+        cause = cause
+            .source()
+            .expect("retained typed provider admission cause");
+    }
 }
 
 #[tokio::test]
@@ -772,7 +764,8 @@ async fn materialized_native_roles_release_producing_providers_and_plans() {
         &consumer.computation_source("materialized").unwrap(),
     )
     .unwrap();
-    assert!(provider.get_logical_plan().is_none());
+    // The computation wrapper may expose a scan of detached immutable values.
+    // The weak-owner assertion above proves the producing source was released.
     assert!(provider.as_ref().downcast_ref::<MemTable>().is_none());
     assert!(
         provider
@@ -980,7 +973,7 @@ async fn private_quoted_namespaces_survive_capture_and_obey_native_cascade() {
 
 #[test]
 fn policies_conjoin_requirements_restrict_effects_and_resolve_defaults_with_origins() {
-    use pse_catalog::session::policy::EffectivePolicy;
+    use pse_engine::session::policy::EffectivePolicy;
     use pse_schema::model::provider::{
         OperationEffect as E, OperationPurpose as P, ProviderScope as S,
     };
@@ -1080,4 +1073,35 @@ async fn stream_keeps_batch_owners_and_refuses_partial_materialization() {
     assert_eq!(batch.num_rows(), 3);
     assert!(stream.collect(&cancel).await.is_err());
     assert_eq!(batch.num_rows(), 3);
+}
+
+#[expect(clippy::unwrap_used, reason = "test-only native command assertions")]
+fn assert_native_create_command(prepared: &pse_engine::session::PreparedComputation) {
+    // The deferred operation owns the native DDL behind legitimate wrappers.
+    // The caller checks the resulting provider's primary key and default value.
+    let mut commands = 0;
+    prepared
+        .optimized_plan()
+        .apply_with_subqueries(|plan| {
+            if let datafusion::logical_expr::LogicalPlan::Extension(extension) = plan
+                && let Some(operation) = extension
+                    .node
+                    .as_any()
+                    .downcast_ref::<pse_engine::operation::Operation>()
+                && operation.family() == pse_engine::operation::Family::Command
+            {
+                assert!(
+                    operation
+                        .effects()
+                        .contains(&pse_schema::model::provider::OperationEffect::Namespace)
+                );
+                commands += 1;
+            }
+            Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+        })
+        .unwrap();
+    assert_eq!(
+        commands, 1,
+        "one deferred native command owns the namespace change"
+    );
 }

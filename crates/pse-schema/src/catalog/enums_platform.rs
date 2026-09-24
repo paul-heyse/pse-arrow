@@ -15,9 +15,8 @@
 
 use crate::builder::RegistryBuilder;
 use crate::model::{
-    Authority, ColumnRole, ConflictPolicy, DependencyMode, DerivationGranularity, Determinism,
-    EnumDecl, EnumMember, InvariantKind, Namespace, NegationPolicy, Severity, SnapshotClass,
-    Stability,
+    Authority, ColumnRole, DerivationGranularity, Determinism, EnumDecl, EnumMember, InvariantKind,
+    Namespace, Severity, SnapshotClass, Stability,
 };
 
 /// Declares every platform vocabulary.
@@ -215,75 +214,34 @@ fn declare_column_and_invariant_vocabularies(builder: &mut RegistryBuilder) {
 
 /// The vocabularies the rule algebra is written in (blueprint §6.11, §14.2).
 fn declare_rule_vocabularies(builder: &mut RegistryBuilder) {
-    declare_plan_vocabularies(builder);
     declare_policy_vocabularies(builder);
     declare_null_vocabularies(builder);
 }
 
 /// Native rule dependency roles.
-fn declare_plan_vocabularies(builder: &mut RegistryBuilder) {
+
+/// Algorithm determinism (blueprint §14.1).
+fn declare_policy_vocabularies(builder: &mut RegistryBuilder) {
     builder.declare_enum(EnumDecl::platform(
-        "DependencyMode",
-        DependencyMode::ALL
+        "Determinism",
+        Determinism::ALL
             .iter()
-            .map(|value| member(value.as_str(), "Native query input or output scope."))
+            .map(|value| {
+                member(
+                    value.as_str(),
+                    match value {
+                        Determinism::Deterministic => "The same inputs give the same outputs.",
+                        Determinism::DeterministicFixedPoint => {
+                            "Deterministic as a least fixed point."
+                        }
+                        Determinism::DeterministicPerBackend => {
+                            "Deterministic once a backend is chosen."
+                        }
+                    },
+                )
+            })
             .collect(),
     ));
-}
-
-/// `NegationPolicy`, `ConflictPolicy` and `Determinism` (blueprint §14.1, §14.2).
-fn declare_policy_vocabularies(builder: &mut RegistryBuilder) {
-    builder
-        .declare_enum(EnumDecl::platform(
-            "NegationPolicy",
-            NegationPolicy::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            NegationPolicy::None => "The rule contains no negation.",
-                            NegationPolicy::Stratified => "Only lower strata are negated.",
-                        },
-                    )
-                })
-                .collect(),
-        ))
-        .declare_enum(EnumDecl::platform(
-            "ConflictPolicy",
-            ConflictPolicy::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            ConflictPolicy::Reject => "A conflict is an error.",
-                            ConflictPolicy::Undecided => "The key goes to `inferred.undecided`.",
-                        },
-                    )
-                })
-                .collect(),
-        ))
-        .declare_enum(EnumDecl::platform(
-            "Determinism",
-            Determinism::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            Determinism::Deterministic => "The same inputs give the same outputs.",
-                            Determinism::DeterministicFixedPoint => {
-                                "Deterministic as a least fixed point."
-                            }
-                            Determinism::DeterministicPerBackend => {
-                                "Deterministic once a backend is chosen."
-                            }
-                        },
-                    )
-                })
-                .collect(),
-        ));
 }
 
 /// The null, empty and truth-value vocabularies (blueprint §6.11, §7.6, §14.2).
@@ -371,74 +329,20 @@ fn declare_identity_vocabularies(builder: &mut RegistryBuilder) {
         ));
 }
 
-/// The §23.2 failure classes, as a closed dictionary.
-///
-/// The member spelling is the diagnostic code, so a `algorithm_specs.diagnostics` row and a
-/// `#[diagnostic(code(...))]` are the same string rather than two spellings of one idea.
+/// Registry projections of the leaf's diagnostic vocabulary.
 pub(super) fn declare_failure_classes(builder: &mut RegistryBuilder) {
     builder.declare_enum(EnumDecl::platform(
         "FailureClass",
-        vec![
-            member("authoring.parse", "A syntax error or an unknown key."),
-            member("authoring.reference", "An unknown path or a derived write."),
-            member(
-                "validation.invariant",
-                "A declared invariant does not hold.",
-            ),
-            member("compile.feature", "An incompatible feature combination."),
-            member("compile.property", "An unsupported or ambiguous property."),
-            member("compile.law", "An unsupported balance binding."),
-            member(
-                "compile.math",
-                "Incompatible physical contracts or a cyclic expression.",
-            ),
-            member(
-                "kernel.unbound_parameter",
-                "A selected kernel lacks its actual executable or parameter binding.",
-            ),
-            member(
-                "compile.discretization",
-                "A mixed derivative or a missing policy.",
-            ),
-            member(
-                "capability.backend",
-                "An unsupported opcode or missing derivative.",
-            ),
-            member(
-                "plan.initialization",
-                "A structural singularity or a failed postcheck.",
-            ),
-            member("solve.infeasible", "The problem is infeasible."),
-            member(
-                "solve.locally_infeasible",
-                "The solver converged to local infeasibility.",
-            ),
-            member("solve.unbounded", "The objective is unbounded."),
-            member("solve.limit", "An iteration, time or evaluation limit."),
-            member("solve.evaluation_error", "A function evaluation failed."),
-            member(
-                "solve.solver_error",
-                "The solver reported an internal failure.",
-            ),
-            member("runtime.cancelled", "A cancellation token fired."),
-            member("runtime.timeout", "A wall-clock limit fired."),
-            member(
-                "runtime.resource_limit",
-                "A reservation or size limit was exceeded.",
-            ),
-            member(
-                "runtime.infrastructure",
-                "Store input/output or an integrity failure.",
-            ),
-            member(
-                "config.invalid",
-                "An invalid engine or platform configuration key.",
-            ),
-            member("internal.invariant", "A pass postcondition failed."),
-            member(
-                "user.model",
-                "An authored assertion or user equation failed.",
-            ),
-        ],
+        pse_diagnostics::FailureClass::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::platform(
+        "DiagnosticCode",
+        pse_diagnostics::DiagnosticCode::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
     ));
 }

@@ -6,7 +6,7 @@
         "indexed_by": "[\"list\",[]]",
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "natural_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "output": "[\"struct\",[[\"text\",\"kernel_output\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]",
+        "output": "[\"struct\",[[\"enum\",\"kernel_output\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]",
         "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
@@ -19,7 +19,7 @@
         "name": "[\"text\",\"value-1\"]",
         "parameter_kinds": "[\"list\",[]]",
         "provides": "[\"list\",[]]",
-        "realization": "[\"struct\",[[\"text\",\"equation_template\"],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"]]],[\"null\",null]]]",
+        "realization": "[\"struct\",[[\"enum\",\"equation_template\"],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"]]],[\"null\",null]]]",
         "requires": "[\"list\",[]]",
         "validity": "[\"list\",[]]",
         "version": "[\"text\",\"value-1\"]"

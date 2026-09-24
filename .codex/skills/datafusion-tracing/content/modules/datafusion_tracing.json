@@ -1,0 +1,164 @@
+[
+  {
+    "id": "b9a62e328bba1376c68230b3",
+    "path": "datafusion_tracing",
+    "name": "datafusion_tracing",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "module",
+    "signature": "mod datafusion_tracing",
+    "docs": "DataFusion Tracing is an extension for [Apache DataFusion](https://datafusion.apache.org/) that helps you monitor and debug queries. It uses [`tracing`](https://docs.rs/tracing/latest/tracing/) and [OpenTelemetry](https://opentelemetry.io/) to gather DataFusion metrics, trace execution steps, and preview partial query results.\n\n**Note:** This is not an official Apache Software Foundation release.\n\n# Overview\n\nWhen you run queries with DataFusion Tracing enabled, it automatically adds tracing around execution steps, records all native DataFusion metrics such as execution time and output row count, lets you preview partial results for easier debugging, and integrates with OpenTelemetry for distributed tracing. This makes it simpler to understand and improve query performance.\n\n## See it in action\n\nHere's what DataFusion Tracing can look like in practice:\n\n<details>\n<summary>Jaeger UI</summary>\n\n![Jaeger UI screenshot](https://raw.githubusercontent.com/datafusion-contrib/datafusion-tracing/main/datafusion-tracing/docs/screenshots/jaeger.png)\n</details>\n\n<details>\n<summary>DataDog UI</summary>\n\n![DataDog UI screenshot](https://raw.githubusercontent.com/datafusion-contrib/datafusion-tracing/main/datafusion-tracing/docs/screenshots/datadog.png)\n</details>\n\n# Getting Started\n\n## Installation\n\nInclude DataFusion Tracing in your project's `Cargo.toml`:\n\n```toml\n[dependencies]\ndatafusion = \"55.0.0\"\ndatafusion-tracing = \"55.0.0\"\n```\n\n## Quick Start Example\n\n```rust\nuse datafusion::{\n    arrow::{array::RecordBatch, util::pretty::pretty_format_batches},\n    error::Result,\n    execution::SessionStateBuilder,\n    prelude::*,\n};\nuse datafusion_tracing::{\n    instrument_rules_with_info_spans, instrument_with_info_spans,\n    pretty_format_compact_batch, InstrumentationOptions, RuleInstrumentationOptions,\n};\nuse std::sync::Arc;\nuse tracing::field;\n\n#[tokio::main]\nasync fn main() -> Result<()> {\n    // Initialize tracing subscriber as usual\n    // (See examples/otlp.rs for a complete example).\n\n    // Set up execution plan tracing options (you can customize these).\n    let exec_options = InstrumentationOptions::builder()\n        .record_metrics(true)\n        .preview_limit(5)\n        .preview_fn(Arc::new(|batch: &RecordBatch| {\n            pretty_format_compact_batch(batch, 64, 3, 10).map(|fmt| fmt.to_string())\n        }))\n        .add_custom_field(\"env\", \"production\")\n        .add_custom_field(\"region\", \"us-west\")\n        .build();\n\n    let instrument_rule = instrument_with_info_spans!(\n        options: exec_options,\n        env = field::Empty,\n        region = field::Empty,\n    );\n\n    let session_state = SessionStateBuilder::new()\n        .with_default_features()\n        .with_physical_optimizer_rule(instrument_rule)\n        .build();\n\n    // Instrument all rules (analyzer, logical optimizer, physical optimizer)\n    // Physical plan creation tracing is automatically enabled when physical_optimizer is set\n    let rule_options = RuleInstrumentationOptions::full().with_plan_diff();\n    let session_state = instrument_rules_with_info_spans!(\n        options: rule_options,\n        state: session_state\n    );\n\n    let ctx = SessionContext::new_with_state(session_state);\n\n    // Execute a query - the entire lifecycle is now traced:\n    // SQL Parsing -> Logical Plan -> Analyzer Rules -> Optimizer Rules ->\n    // Physical Plan Creation -> Physical Optimizer Rules -> Execution\n    let results = ctx.sql(\"SELECT 1\").await?.collect().await?;\n    println!(\n        \"Query Results:\\n{}\",\n        pretty_format_batches(results.as_slice())?\n    );\n\n    Ok(())\n}\n```\n\nA more complete example can be found in the [examples directory](https://github.com/datafusion-contrib/datafusion-tracing/tree/main/examples).\n",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        154,
+        50
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          158,
+          159,
+          160,
+          163,
+          164,
+          165,
+          166,
+          167,
+          168,
+          169,
+          170,
+          171,
+          172,
+          173,
+          174
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "175",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/datafusion_tracing.md",
+    "record_file": "modules/datafusion_tracing.json",
+    "anchor": "op-b9a62e328bba1376c68230b3",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "56c206fd47a0d28f68526940",
+    "path": "datafusion_tracing",
+    "name": "datafusion_tracing",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "module",
+    "signature": "mod datafusion_tracing",
+    "docs": "DataFusion Tracing is an extension for [Apache DataFusion](https://datafusion.apache.org/) that helps you monitor and debug queries. It uses [`tracing`](https://docs.rs/tracing/latest/tracing/) and [OpenTelemetry](https://opentelemetry.io/) to gather DataFusion metrics, trace execution steps, and preview partial query results.\n\n**Note:** This is not an official Apache Software Foundation release.\n\n# Overview\n\nWhen you run queries with DataFusion Tracing enabled, it automatically adds tracing around execution steps, records all native DataFusion metrics such as execution time and output row count, lets you preview partial results for easier debugging, and integrates with OpenTelemetry for distributed tracing. This makes it simpler to understand and improve query performance.\n\n## See it in action\n\nHere's what DataFusion Tracing can look like in practice:\n\n<details>\n<summary>Jaeger UI</summary>\n\n![Jaeger UI screenshot](https://raw.githubusercontent.com/datafusion-contrib/datafusion-tracing/main/datafusion-tracing/docs/screenshots/jaeger.png)\n</details>\n\n<details>\n<summary>DataDog UI</summary>\n\n![DataDog UI screenshot](https://raw.githubusercontent.com/datafusion-contrib/datafusion-tracing/main/datafusion-tracing/docs/screenshots/datadog.png)\n</details>\n\n# Getting Started\n\n## Installation\n\nInclude DataFusion Tracing in your project's `Cargo.toml`:\n\n```toml\n[dependencies]\ndatafusion = \"55.0.0\"\ndatafusion-tracing = \"55.0.0\"\n```\n\n## Quick Start Example\n\n```rust\nuse datafusion::{\n    arrow::{array::RecordBatch, util::pretty::pretty_format_batches},\n    error::Result,\n    execution::SessionStateBuilder,\n    prelude::*,\n};\nuse datafusion_tracing::{\n    instrument_rules_with_info_spans, instrument_with_info_spans,\n    pretty_format_compact_batch, InstrumentationOptions, RuleInstrumentationOptions,\n};\nuse std::sync::Arc;\nuse tracing::field;\n\n#[tokio::main]\nasync fn main() -> Result<()> {\n    // Initialize tracing subscriber as usual\n    // (See examples/otlp.rs for a complete example).\n\n    // Set up execution plan tracing options (you can customize these).\n    let exec_options = InstrumentationOptions::builder()\n        .record_metrics(true)\n        .preview_limit(5)\n        .preview_fn(Arc::new(|batch: &RecordBatch| {\n            pretty_format_compact_batch(batch, 64, 3, 10).map(|fmt| fmt.to_string())\n        }))\n        .add_custom_field(\"env\", \"production\")\n        .add_custom_field(\"region\", \"us-west\")\n        .build();\n\n    let instrument_rule = instrument_with_info_spans!(\n        options: exec_options,\n        env = field::Empty,\n        region = field::Empty,\n    );\n\n    let session_state = SessionStateBuilder::new()\n        .with_default_features()\n        .with_physical_optimizer_rule(instrument_rule)\n        .build();\n\n    // Instrument all rules (analyzer, logical optimizer, physical optimizer)\n    // Physical plan creation tracing is automatically enabled when physical_optimizer is set\n    let rule_options = RuleInstrumentationOptions::full().with_plan_diff();\n    let session_state = instrument_rules_with_info_spans!(\n        options: rule_options,\n        state: session_state\n    );\n\n    let ctx = SessionContext::new_with_state(session_state);\n\n    // Execute a query - the entire lifecycle is now traced:\n    // SQL Parsing -> Logical Plan -> Analyzer Rules -> Optimizer Rules ->\n    // Physical Plan Creation -> Physical Optimizer Rules -> Execution\n    let results = ctx.sql(\"SELECT 1\").await?.collect().await?;\n    println!(\n        \"Query Results:\\n{}\",\n        pretty_format_batches(results.as_slice())?\n    );\n\n    Ok(())\n}\n```\n\nA more complete example can be found in the [examples directory](https://github.com/datafusion-contrib/datafusion-tracing/tree/main/examples).\n",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        154,
+        50
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          0,
+          10,
+          114,
+          327,
+          771,
+          773,
+          840,
+          945,
+          981,
+          1017,
+          1123,
+          1212,
+          1277,
+          1278,
+          1279,
+          1280,
+          1283,
+          1284,
+          1285,
+          1286,
+          1287,
+          1288,
+          1289,
+          1290,
+          1291,
+          1292,
+          1293,
+          1294
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1295",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/datafusion_tracing.md",
+    "record_file": "modules/datafusion_tracing.json",
+    "anchor": "op-56c206fd47a0d28f68526940",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

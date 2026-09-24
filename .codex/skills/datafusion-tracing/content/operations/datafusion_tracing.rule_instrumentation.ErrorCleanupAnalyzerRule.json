@@ -1,0 +1,670 @@
+[
+  {
+    "id": "053f3769275fc14c9b2afbaa",
+    "path": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule",
+    "name": "ErrorCleanupAnalyzerRule",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct ErrorCleanupAnalyzerRule",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        436,
+        1
+      ],
+      "end": [
+        438,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              552
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          554,
+          555,
+          556,
+          557,
+          558,
+          559,
+          560,
+          561,
+          562,
+          563,
+          564,
+          565,
+          566,
+          567,
+          568,
+          569,
+          570,
+          571,
+          572,
+          573,
+          575,
+          578
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "553",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.json",
+    "anchor": "op-053f3769275fc14c9b2afbaa",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "866cc13d6cd8ebb01be14f9e",
+    "path": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule::analyze",
+    "name": "analyze",
+    "owner": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn analyze(&self, plan: LogicalPlan, config: &ConfigOptions) -> Result<LogicalPlan>",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        447,
+        5
+      ],
+      "end": [
+        453,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "plan",
+              {
+                "resolved_path": {
+                  "path": "LogicalPlan",
+                  "id": 336,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "config",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "ConfigOptions",
+                      "id": 72,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 73,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "LogicalPlan",
+                          "id": 336,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "336": "datafusion_expr::logical_plan::plan::LogicalPlan",
+      "72": "datafusion_common::config::ConfigOptions",
+      "73": "datafusion_common::error::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ErrorCleanupAnalyzerRule",
+          "id": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "AnalyzerRule",
+        "id": "datafusion_optimizer::analyzer::AnalyzerRule",
+        "args": null
+      },
+      "trait_path": "datafusion_optimizer::analyzer::AnalyzerRule",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          446,
+          1
+        ],
+        "end": [
+          458,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "576",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.json",
+    "anchor": "op-866cc13d6cd8ebb01be14f9e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "217f05e089f5614445a93b0c",
+    "path": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule::fmt",
+    "name": "fmt",
+    "owner": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        441,
+        5
+      ],
+      "end": [
+        443,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::fmt::Formatter",
+                      "id": 66,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "std::fmt::Result",
+              "id": 67,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "66": "core::fmt::Formatter",
+      "67": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ErrorCleanupAnalyzerRule",
+          "id": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          440,
+          1
+        ],
+        "end": [
+          444,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "574",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.json",
+    "anchor": "op-217f05e089f5614445a93b0c",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9809e943c6038dbf44617ed5",
+    "path": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule::inner",
+    "name": "inner",
+    "owner": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "inner: std::sync::Arc<dyn AnalyzerRule + Send + Sync>",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        437,
+        5
+      ],
+      "end": [
+        437,
+        47
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::sync::Arc",
+          "id": 2,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "AnalyzerRule",
+                            "id": 488,
+                            "args": null
+                          },
+                          "generic_params": []
+                        },
+                        {
+                          "trait": {
+                            "path": "Send",
+                            "id": 5,
+                            "args": null
+                          },
+                          "generic_params": []
+                        },
+                        {
+                          "trait": {
+                            "path": "Sync",
+                            "id": 6,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "2": "alloc::sync::Arc",
+      "488": "datafusion_optimizer::analyzer::AnalyzerRule",
+      "5": "core::marker::Send",
+      "6": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "552",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.json",
+    "anchor": "op-9809e943c6038dbf44617ed5",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e1b3b83b69a9f740108343fe",
+    "path": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule::name",
+    "name": "name",
+    "owner": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn name(&self) -> &str",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        455,
+        5
+      ],
+      "end": [
+        457,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "primitive": "str"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ErrorCleanupAnalyzerRule",
+          "id": "datafusion_tracing::rule_instrumentation::ErrorCleanupAnalyzerRule",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "AnalyzerRule",
+        "id": "datafusion_optimizer::analyzer::AnalyzerRule",
+        "args": null
+      },
+      "trait_path": "datafusion_optimizer::analyzer::AnalyzerRule",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          446,
+          1
+        ],
+        "end": [
+          458,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "577",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.ErrorCleanupAnalyzerRule.json",
+    "anchor": "op-e1b3b83b69a9f740108343fe",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -1,0 +1,936 @@
+[
+  {
+    "id": "3e6029749820ed5fdbf90c51",
+    "path": "opentelemetry::common::InstrumentationScopeBuilder",
+    "name": "InstrumentationScopeBuilder",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct InstrumentationScopeBuilder",
+    "docs": "Configuration options for [InstrumentationScope].\n\nAn instrumentation scope is a library or crate providing instrumentation.\nIt should be named to follow any naming conventions of the instrumented\nlibrary (e.g. 'middleware' for a web framework).\n\nApart from the name, all other fields are optional.\n\nSee the [instrumentation libraries] spec for more information.\n\n[instrumentation libraries]: https://github.com/open-telemetry/opentelemetry-specification/blob/v1.9.0/specification/overview.md#instrumentation-libraries",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        561,
+        1
+      ],
+      "end": [
+        566,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          938,
+          939,
+          940,
+          941,
+          942,
+          943,
+          944,
+          945,
+          946,
+          947,
+          948,
+          949,
+          950,
+          951,
+          952,
+          953,
+          954,
+          956
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "InstrumentationScope": 10
+    },
+    "link_paths": {
+      "InstrumentationScope": "opentelemetry::common::InstrumentationScope"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "895",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.InstrumentationScopeBuilder.md",
+    "record_file": "operations/opentelemetry.common.InstrumentationScopeBuilder.json",
+    "anchor": "op-3e6029749820ed5fdbf90c51",
+    "aliases": [
+      "opentelemetry::InstrumentationScopeBuilder"
+    ],
+    "resolved_doc_links": {
+      "InstrumentationScope": "../operations/opentelemetry.common.InstrumentationScope.md#op-5a674011980d528952015efb"
+    }
+  },
+  {
+    "id": "527e37f2514ec29d179c2c23",
+    "path": "opentelemetry::common::InstrumentationScopeBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::common::InstrumentationScopeBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> InstrumentationScope",
+    "docs": "Create a new [InstrumentationScope] from this configuration",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        617,
+        5
+      ],
+      "end": [
+        624,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InstrumentationScope",
+              "id": 10,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "10": "opentelemetry::common::InstrumentationScope"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentationScopeBuilder",
+          "id": "opentelemetry::common::InstrumentationScopeBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          568,
+          1
+        ],
+        "end": [
+          625,
+          2
+        ]
+      }
+    },
+    "links": {
+      "InstrumentationScope": 10
+    },
+    "link_paths": {
+      "InstrumentationScope": "opentelemetry::common::InstrumentationScope"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "937",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.InstrumentationScopeBuilder.md",
+    "record_file": "operations/opentelemetry.common.InstrumentationScopeBuilder.json",
+    "anchor": "op-527e37f2514ec29d179c2c23",
+    "aliases": [
+      "opentelemetry::InstrumentationScopeBuilder::build"
+    ],
+    "resolved_doc_links": {
+      "InstrumentationScope": "../operations/opentelemetry.common.InstrumentationScope.md#op-5a674011980d528952015efb"
+    }
+  },
+  {
+    "id": "174238d18a06d5c9f55c4717",
+    "path": "opentelemetry::common::InstrumentationScopeBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::common::InstrumentationScopeBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        560,
+        10
+      ],
+      "end": [
+        560,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentationScopeBuilder",
+          "id": "opentelemetry::common::InstrumentationScopeBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          560,
+          10
+        ],
+        "end": [
+          560,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "955",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.InstrumentationScopeBuilder.md",
+    "record_file": "operations/opentelemetry.common.InstrumentationScopeBuilder.json",
+    "anchor": "op-174238d18a06d5c9f55c4717",
+    "aliases": [
+      "opentelemetry::InstrumentationScopeBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "41dffb8c283325f2f76e2224",
+    "path": "opentelemetry::common::InstrumentationScopeBuilder::with_attributes",
+    "name": "with_attributes",
+    "owner": "opentelemetry::common::InstrumentationScopeBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_attributes<I>(self, attributes: I) -> Self where I: IntoIterator<Item = KeyValue>",
+    "docs": "Configure the attributes for the instrumentation scope\n\n# Examples\n\n```\nuse opentelemetry::KeyValue;\n\nlet scope = opentelemetry::InstrumentationScope::builder(\"my-crate\")\n    .with_attributes([KeyValue::new(\"k\", \"v\")])\n    .build();\n```",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        608,
+        5
+      ],
+      "end": [
+        614,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "attributes",
+              {
+                "generic": "I"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "I",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "I"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "IntoIterator",
+                        "id": 236,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [],
+                            "constraints": [
+                              {
+                                "name": "Item",
+                                "args": null,
+                                "binding": {
+                                  "equality": {
+                                    "type": {
+                                      "resolved_path": {
+                                        "path": "KeyValue",
+                                        "id": 22,
+                                        "args": null
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "236": "core::iter::traits::collect::IntoIterator",
+      "22": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentationScopeBuilder",
+          "id": "opentelemetry::common::InstrumentationScopeBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          568,
+          1
+        ],
+        "end": [
+          625,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "936",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.InstrumentationScopeBuilder.md",
+    "record_file": "operations/opentelemetry.common.InstrumentationScopeBuilder.json",
+    "anchor": "op-41dffb8c283325f2f76e2224",
+    "aliases": [
+      "opentelemetry::InstrumentationScopeBuilder::with_attributes"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "db5300e95c9635b39f2c9b88",
+    "path": "opentelemetry::common::InstrumentationScopeBuilder::with_schema_url",
+    "name": "with_schema_url",
+    "owner": "opentelemetry::common::InstrumentationScopeBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_schema_url(self, schema_url: impl Into<Cow<'static, str>>) -> Self",
+    "docs": "Configure the Schema URL for the instrumentation scope\n\n# Examples\n\n```\nlet scope = opentelemetry::InstrumentationScope::builder(\"my-crate\")\n    .with_schema_url(\"https://opentelemetry.io/schemas/1.17.0\")\n    .build();\n```",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        592,
+        5
+      ],
+      "end": [
+        595,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "schema_url",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentationScopeBuilder",
+          "id": "opentelemetry::common::InstrumentationScopeBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          568,
+          1
+        ],
+        "end": [
+          625,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "935",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.InstrumentationScopeBuilder.md",
+    "record_file": "operations/opentelemetry.common.InstrumentationScopeBuilder.json",
+    "anchor": "op-db5300e95c9635b39f2c9b88",
+    "aliases": [
+      "opentelemetry::InstrumentationScopeBuilder::with_schema_url"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cdeab6b313c0b4663b99048d",
+    "path": "opentelemetry::common::InstrumentationScopeBuilder::with_version",
+    "name": "with_version",
+    "owner": "opentelemetry::common::InstrumentationScopeBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_version(self, version: impl Into<Cow<'static, str>>) -> Self",
+    "docs": "Configure the version for the instrumentation scope\n\n# Examples\n\n```\nlet scope = opentelemetry::InstrumentationScope::builder(\"my-crate\")\n    .with_version(\"v0.1.0\")\n    .build();\n```",
+    "span": {
+      "filename": "src/common.rs",
+      "begin": [
+        578,
+        5
+      ],
+      "end": [
+        581,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "version",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentationScopeBuilder",
+          "id": "opentelemetry::common::InstrumentationScopeBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/common.rs",
+        "begin": [
+          568,
+          1
+        ],
+        "end": [
+          625,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "934",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.common.InstrumentationScopeBuilder.md",
+    "record_file": "operations/opentelemetry.common.InstrumentationScopeBuilder.json",
+    "anchor": "op-cdeab6b313c0b4663b99048d",
+    "aliases": [
+      "opentelemetry::InstrumentationScopeBuilder::with_version"
+    ],
+    "resolved_doc_links": {}
+  }
+]

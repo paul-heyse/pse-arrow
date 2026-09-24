@@ -3,7 +3,7 @@
 //! Exported Arrow buffers retain accounted ownership after session/provider drops.
 
 mod support;
-use pse_ids::CancellationToken;
+use pse_columnar::CancellationToken;
 use std::sync::Arc;
 
 #[tokio::test]
@@ -22,19 +22,19 @@ async fn detached_result_arrays_hold_their_actual_shared_pool_claim() {
     drop(array);
     drop(result);
     drop(session);
-    let retained = runtime.reserver().reserved();
+    let retained = runtime.pool().reserved();
     assert!(
         retained >= 100 * 8,
         "detached buffer still owns its allocation claim"
     );
     let clone = buffer.clone();
     assert_eq!(
-        runtime.reserver().reserved(),
+        runtime.pool().reserved(),
         retained,
         "clones do not double charge"
     );
     drop(buffer);
-    assert_eq!(runtime.reserver().reserved(), retained);
+    assert_eq!(runtime.pool().reserved(), retained);
     drop(clone);
-    assert_eq!(runtime.reserver().reserved(), 0);
+    assert_eq!(runtime.pool().reserved(), 0);
 }

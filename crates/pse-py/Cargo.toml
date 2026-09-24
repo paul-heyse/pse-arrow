@@ -29,7 +29,26 @@ test = false
 doctest = false
 bench = false
 
+[features]
+native-solvers = ["pse-runtime/native-solvers"]
+solver-ipopt = ["pse-runtime/solver-ipopt"]
+solver-pounce = ["pse-runtime/solver-pounce"]
+solver-highs = ["pse-runtime/solver-highs"]
+solver-kinsol = ["pse-runtime/solver-kinsol"]
+solver-diffsol = ["pse-runtime/solver-diffsol"]
+# Validation-only dependency: expose the workspace's Arrow validation feature to
+# maturin, which selects this package without selecting the other workspace members.
+force-validate = ["pse-relations/force-validate"]
+
 [dependencies]
+pyo3-async-runtimes.workspace = true
+pse-backend-native.workspace = true
+pse-authoring.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+pse-columnar.workspace = true
+pse-relations.workspace = true
+pse-engine.workspace = true
 datafusion.workspace = true
 url.workspace = true
 pyo3 = { workspace = true, features = [
@@ -44,8 +63,5 @@ pse-catalog.workspace = true
 pse-schema.workspace = true
 pse-ids.workspace = true
 pse-rules.workspace = true
-pse-compiler.workspace = true
-arrow-array.workspace = true
-arrow-schema.workspace = true
 tokio.workspace = true
 miette.workspace = true

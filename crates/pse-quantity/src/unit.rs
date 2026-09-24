@@ -3,15 +3,9 @@
 
 //! Units and the unit-conversion edge (blueprint §6.2, §8.2).
 //!
-//! Includes `Unit`, `convert_spec` and context-aware `convert_spec_for_type` for the
-//! `UnitConvert` edges P3, P9 and P10 emit or check, and `convert_value`, which applies
-//! the two roundings of `(v * scale) + offset` in that order and never contracts them into
-//! an FMA (§7.3, ADR-0047).
-//!
-//! [`UnitConvertSpec`] lands with the keel rather than with Q-1 because
-//! `pse_mathir::Payload::UnitConvert` carries it: the payload of a node and the value a
-//! conversion function returns are the same four numbers, and declaring them twice would
-//! be the second copy prime directive 3 refuses.
+//! Includes `Unit`, `convert_spec` and context-aware `convert_spec_for_type`.
+//! `convert_value` applies `(v * scale) + offset` at the physical binding boundary.
+//! The mathematical body receives canonical coordinates after this admission.
 
 use crate::ids::UnitId;
 
@@ -189,3 +183,17 @@ impl UnitConvertSpec {
             && pse_ids::canonical_f64_bits(self.offset) == pse_ids::canonical_f64_bits(other.offset)
     }
 }
+
+// Semantic equality preserves every declared IEEE bit, including signed zero.
+impl PartialEq for Unit {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.symbol == other.symbol
+            && self.dimension == other.dimension
+            && self.is_affine == other.is_affine
+            && self.reference_state == other.reference_state
+            && self.scale_to_canonical.to_bits() == other.scale_to_canonical.to_bits()
+            && self.offset_to_canonical.to_bits() == other.offset_to_canonical.to_bits()
+    }
+}
+impl Eq for Unit {}

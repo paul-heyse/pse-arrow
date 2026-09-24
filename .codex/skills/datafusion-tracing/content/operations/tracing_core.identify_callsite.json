@@ -1,0 +1,63 @@
+[
+  {
+    "id": "40c89bb45082fd67c7ac9c25",
+    "path": "tracing_core::identify_callsite",
+    "name": "identify_callsite",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "macro",
+    "signature": "macro_rules! identify_callsite",
+    "docs": "Statically constructs an [`Identifier`] for the provided [`Callsite`].\n\nThis may be used in contexts such as static initializers.\n\nFor example:\n```rust\nuse tracing_core::{callsite, identify_callsite};\n# use tracing_core::{Metadata, subscriber::Interest};\n# fn main() {\npub struct MyCallsite {\n   // ...\n}\nimpl callsite::Callsite for MyCallsite {\n# fn set_interest(&self, _: Interest) { unimplemented!() }\n# fn metadata(&self) -> &Metadata { unimplemented!() }\n    // ...\n}\n\nstatic CALLSITE: MyCallsite = MyCallsite {\n    // ...\n};\n\nstatic CALLSITE_ID: callsite::Identifier = identify_callsite!(&CALLSITE);\n# }\n```\n\n[`Identifier`]: callsite::Identifier\n[`Callsite`]: callsite::Callsite",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        192,
+        1
+      ],
+      "end": [
+        196,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! identify_callsite {\n    ($callsite:expr) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "callsite::Callsite": 16,
+      "callsite::Identifier": 14
+    },
+    "link_paths": {
+      "callsite::Callsite": "tracing_core::callsite::Callsite",
+      "callsite::Identifier": "tracing_core::callsite::Identifier"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1114",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.identify_callsite.md",
+    "record_file": "operations/tracing_core.identify_callsite.json",
+    "anchor": "op-40c89bb45082fd67c7ac9c25",
+    "aliases": [],
+    "resolved_doc_links": {
+      "callsite::Callsite": "../operations/tracing_core.callsite.Callsite.md#op-f2f04985f5653f1f8f822082",
+      "callsite::Identifier": "../operations/tracing_core.callsite.Identifier.md#op-cef1410a3f296584b90d483e"
+    }
+  }
+]

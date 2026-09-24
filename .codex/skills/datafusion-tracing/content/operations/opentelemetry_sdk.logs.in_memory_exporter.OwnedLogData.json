@@ -1,0 +1,477 @@
+[
+  {
+    "id": "26b749087ee33265ce79eb1e",
+    "path": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData",
+    "name": "OwnedLogData",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct OwnedLogData",
+    "docs": "`OwnedLogData` represents a single log event without resource context.",
+    "span": {
+      "filename": "src/logs/in_memory_exporter.rs",
+      "begin": [
+        57,
+        1
+      ],
+      "end": [
+        62,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              525,
+              526
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          528,
+          529,
+          530,
+          531,
+          532,
+          533,
+          534,
+          535,
+          536,
+          537,
+          538,
+          539,
+          540,
+          541,
+          542,
+          543,
+          544,
+          545,
+          546,
+          547,
+          548,
+          550,
+          552
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "527",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.md",
+    "record_file": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.json",
+    "anchor": "op-26b749087ee33265ce79eb1e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f6b14a74a4c8bbd1965e91f9",
+    "path": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> OwnedLogData",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/in_memory_exporter.rs",
+      "begin": [
+        56,
+        17
+      ],
+      "end": [
+        56,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OwnedLogData",
+              "id": 527,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "527": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OwnedLogData",
+          "id": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/in_memory_exporter.rs",
+        "begin": [
+          56,
+          17
+        ],
+        "end": [
+          56,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "551",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.md",
+    "record_file": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.json",
+    "anchor": "op-f6b14a74a4c8bbd1965e91f9",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cebc07263c34aa07333403cd",
+    "path": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/in_memory_exporter.rs",
+      "begin": [
+        56,
+        10
+      ],
+      "end": [
+        56,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OwnedLogData",
+          "id": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/in_memory_exporter.rs",
+        "begin": [
+          56,
+          10
+        ],
+        "end": [
+          56,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "549",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.md",
+    "record_file": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.json",
+    "anchor": "op-cebc07263c34aa07333403cd",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "84f86166181a6fa1ad8709df",
+    "path": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData::instrumentation",
+    "name": "instrumentation",
+    "owner": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "instrumentation: opentelemetry::InstrumentationScope",
+    "docs": "Instrumentation details for the emitter who produced this `LogEvent`.",
+    "span": {
+      "filename": "src/logs/in_memory_exporter.rs",
+      "begin": [
+        61,
+        5
+      ],
+      "end": [
+        61,
+        46
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "opentelemetry::InstrumentationScope",
+          "id": 75,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "75": "opentelemetry::common::InstrumentationScope"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "526",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.md",
+    "record_file": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.json",
+    "anchor": "op-84f86166181a6fa1ad8709df",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c78be603fdcd01f4964ea58f",
+    "path": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData::record",
+    "name": "record",
+    "owner": "opentelemetry_sdk::logs::in_memory_exporter::OwnedLogData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "record: logs::SdkLogRecord",
+    "docs": "Log record, which can be borrowed or owned.",
+    "span": {
+      "filename": "src/logs/in_memory_exporter.rs",
+      "begin": [
+        59,
+        5
+      ],
+      "end": [
+        59,
+        29
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "crate::logs::SdkLogRecord",
+          "id": 74,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "74": "opentelemetry_sdk::logs::record::SdkLogRecord"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "525",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.md",
+    "record_file": "operations/opentelemetry_sdk.logs.in_memory_exporter.OwnedLogData.json",
+    "anchor": "op-c78be603fdcd01f4964ea58f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

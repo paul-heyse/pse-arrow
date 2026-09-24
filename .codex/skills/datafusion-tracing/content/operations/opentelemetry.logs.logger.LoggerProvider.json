@@ -1,0 +1,462 @@
+[
+  {
+    "id": "730d84df0e8b727068bb7ebd",
+    "path": "opentelemetry::logs::logger::LoggerProvider",
+    "name": "LoggerProvider",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait LoggerProvider",
+    "docs": "Interfaces that can create [`Logger`] instances.",
+    "span": {
+      "filename": "src/logs/logger.rs",
+      "begin": [
+        28,
+        1
+      ],
+      "end": [
+        64,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          1995,
+          1996,
+          1998
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          2002
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Logger`": 1991
+    },
+    "link_paths": {
+      "`Logger`": "opentelemetry::logs::logger::Logger"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1997",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.logger.LoggerProvider.md",
+    "record_file": "operations/opentelemetry.logs.logger.LoggerProvider.json",
+    "anchor": "op-730d84df0e8b727068bb7ebd",
+    "aliases": [
+      "opentelemetry::logs::LoggerProvider"
+    ],
+    "resolved_doc_links": {
+      "`Logger`": "../operations/opentelemetry.logs.logger.Logger.md#op-f433cc26744e85b74bee1072"
+    }
+  },
+  {
+    "id": "5b4e4352a1efdf812df9049d",
+    "path": "opentelemetry::logs::logger::LoggerProvider::Logger",
+    "name": "Logger",
+    "owner": "opentelemetry::logs::logger::LoggerProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Logger",
+    "docs": "The [`Logger`] type that this provider will return.",
+    "span": {
+      "filename": "src/logs/logger.rs",
+      "begin": [
+        30,
+        5
+      ],
+      "end": [
+        30,
+        25
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Logger",
+                "id": 1991,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "type": null
+      }
+    },
+    "type_references": {
+      "1991": "opentelemetry::logs::logger::Logger"
+    },
+    "impl_context": null,
+    "links": {
+      "`Logger`": 1991
+    },
+    "link_paths": {
+      "`Logger`": "opentelemetry::logs::logger::Logger"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1995",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.logger.LoggerProvider.md",
+    "record_file": "operations/opentelemetry.logs.logger.LoggerProvider.json",
+    "anchor": "op-5b4e4352a1efdf812df9049d",
+    "aliases": [
+      "opentelemetry::logs::LoggerProvider::Logger"
+    ],
+    "resolved_doc_links": {
+      "`Logger`": "../operations/opentelemetry.logs.logger.Logger.md#op-f433cc26744e85b74bee1072"
+    }
+  },
+  {
+    "id": "3ae2287d589c86b8e7627db1",
+    "path": "opentelemetry::logs::logger::LoggerProvider::logger",
+    "name": "logger",
+    "owner": "opentelemetry::logs::logger::LoggerProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn logger(&self, name: impl Into<Cow<'static, str>>) -> Self::Logger",
+    "docs": "Returns a new logger with the given name.\n\nThe `name` should be the application name or the name of the library\nproviding instrumentation.",
+    "span": {
+      "filename": "src/logs/logger.rs",
+      "begin": [
+        60,
+        5
+      ],
+      "end": [
+        63,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Logger",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1997,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1997": "opentelemetry::logs::logger::LoggerProvider"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1998",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.logger.LoggerProvider.md",
+    "record_file": "operations/opentelemetry.logs.logger.LoggerProvider.json",
+    "anchor": "op-3ae2287d589c86b8e7627db1",
+    "aliases": [
+      "opentelemetry::logs::LoggerProvider::logger"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bb84088389b251205d4c519b",
+    "path": "opentelemetry::logs::logger::LoggerProvider::logger_with_scope",
+    "name": "logger_with_scope",
+    "owner": "opentelemetry::logs::logger::LoggerProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn logger_with_scope(&self, scope: InstrumentationScope) -> Self::Logger",
+    "docs": "Returns a new logger with the given instrumentation scope.\n\n# Examples\n\n```\nuse opentelemetry::InstrumentationScope;\nuse opentelemetry::logs::LoggerProvider;\nuse opentelemetry_sdk::logs::SdkLoggerProvider;\n\nlet provider = SdkLoggerProvider::builder().build();\n\n// logger used in applications/binaries\nlet logger = provider.logger(\"my_app\");\n\n// logger used in libraries/crates that optionally includes version and schema url\nlet scope = InstrumentationScope::builder(env!(\"CARGO_PKG_NAME\"))\n    .with_version(env!(\"CARGO_PKG_VERSION\"))\n    .with_schema_url(\"https://opentelemetry.io/schema/1.0.0\")\n    .build();\n\nlet logger = provider.logger_with_scope(scope);\n```",
+    "span": {
+      "filename": "src/logs/logger.rs",
+      "begin": [
+        54,
+        5
+      ],
+      "end": [
+        54,
+        78
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "scope",
+              {
+                "resolved_path": {
+                  "path": "InstrumentationScope",
+                  "id": 10,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Logger",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1997,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "10": "opentelemetry::common::InstrumentationScope",
+      "1997": "opentelemetry::logs::logger::LoggerProvider"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1996",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.logger.LoggerProvider.md",
+    "record_file": "operations/opentelemetry.logs.logger.LoggerProvider.json",
+    "anchor": "op-bb84088389b251205d4c519b",
+    "aliases": [
+      "opentelemetry::logs::LoggerProvider::logger_with_scope"
+    ],
+    "resolved_doc_links": {}
+  }
+]

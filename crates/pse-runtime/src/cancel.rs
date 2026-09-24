@@ -3,7 +3,7 @@
 
 //! Driver cancellation shared with cooperative loops and asynchronous work.
 
-use pse_ids::CancellationToken;
+use pse_columnar::CancellationToken;
 
 use crate::RuntimeError;
 

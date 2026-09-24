@@ -1,0 +1,429 @@
+{
+  "schema_version": 1,
+  "verification_date": "2026-09-18",
+  "scope": "Portable datafusion-tracing skill exact-release API and feature verification; no host architecture edits, dependency upgrades, runtime certification, or collector qualification.",
+  "verification_kind": "exact_release_manifest_and_source",
+  "runtime_validation_status": "not_run",
+  "context7": {
+    "library_id": "/open-telemetry/opentelemetry-rust",
+    "retrieval_date": "2026-09-18",
+    "role": "discovery_only",
+    "result": "Query returned main-branch and 0.32 release material, so it was not used as exact-release authority."
+  },
+  "live_primary_pages_read": [
+    "https://docs.rs/opentelemetry_sdk/0.31.0/opentelemetry_sdk/trace/struct.SdkTracerProvider.html",
+    "https://docs.rs/crate/tracing-opentelemetry/0.32.0/source/Cargo.toml",
+    "https://docs.rs/tracing/0.1.44/tracing/instrument/trait.Instrument.html",
+    "https://docs.rs/tracing/0.1.44/tracing/instrument/trait.WithSubscriber.html"
+  ],
+  "web_limitation": "Several docs.rs SDK exporter, builder, source and features routes were inaccessible through the browser tool. Their claims were verified against the exact crates.io archive available in Cargo cache, with byte-for-byte source and retained-manifest comparison.",
+  "archives": {
+    "opentelemetry_sdk-0.31.0": {
+      "crate": "opentelemetry_sdk",
+      "version": "0.31.0",
+      "path": "skill_improvement/evidence/implementation/upstream-sources/opentelemetry_sdk-0.31.0.crate",
+      "sha256": "e14ae4f5991976fd48df6d843de219ca6d31b01daaab2dad5af2badeded372bd",
+      "primary_url": "https://static.crates.io/crates/opentelemetry_sdk/opentelemetry_sdk-0.31.0.crate",
+      "read_date": "2026-09-18",
+      "retrieved_in_this_task": false
+    },
+    "tracing-0.1.44": {
+      "crate": "tracing",
+      "version": "0.1.44",
+      "path": "skill_improvement/evidence/implementation/upstream-sources/tracing-0.1.44.crate",
+      "sha256": "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100",
+      "primary_url": "https://static.crates.io/crates/tracing/tracing-0.1.44.crate",
+      "read_date": "2026-09-18",
+      "retrieved_in_this_task": false
+    },
+    "tracing-opentelemetry-0.32.0": {
+      "crate": "tracing-opentelemetry",
+      "version": "0.32.0",
+      "path": "skill_improvement/evidence/implementation/upstream-sources/tracing-opentelemetry-0.32.0.crate",
+      "sha256": "1e6e5658463dd88089aba75c7791e1d3120633b1bfde22478b28f625a9bb1b8e",
+      "primary_url": "https://static.crates.io/crates/tracing-opentelemetry/tracing-opentelemetry-0.32.0.crate",
+      "read_date": "2026-09-18",
+      "retrieved_in_this_task": true
+    }
+  },
+  "sources": {
+    "opentelemetry_sdk-0.31.0/Cargo.toml": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/opentelemetry_sdk-0.31.0/Cargo.toml",
+      "sha256": "df2ddf6d423c67010cf2b51c17c28060fd90ea11c8a6ceeb04d3cecc8242229b",
+      "archive": "opentelemetry_sdk-0.31.0",
+      "member": "Cargo.toml",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/source/Cargo.toml",
+      "matches_cargo_registry_extraction": true,
+      "matches_retained_manifest": true
+    },
+    "opentelemetry_sdk-0.31.0/.cargo_vcs_info.json": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/opentelemetry_sdk-0.31.0/.cargo_vcs_info.json",
+      "sha256": "f40a24e05ee778c5d4ee656e58f460bb389943abed5488d53a3820cfccd2062c",
+      "archive": "opentelemetry_sdk-0.31.0",
+      "member": ".cargo_vcs_info.json",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/source/.cargo_vcs_info.json",
+      "matches_cargo_registry_extraction": true
+    },
+    "opentelemetry_sdk-0.31.0/src/lib.rs": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/opentelemetry_sdk-0.31.0/src/lib.rs",
+      "sha256": "e045327d70979f8f4ec436184ee286a745d613b187417b5f83c4671a16a2cabc",
+      "archive": "opentelemetry_sdk-0.31.0",
+      "member": "src/lib.rs",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/source/src/lib.rs",
+      "matches_cargo_registry_extraction": true
+    },
+    "opentelemetry_sdk-0.31.0/src/error.rs": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/opentelemetry_sdk-0.31.0/src/error.rs",
+      "sha256": "29fa9cdd49b7512ce40e9c0748695b36696079eeecda9e5c6bca9447924ea886",
+      "archive": "opentelemetry_sdk-0.31.0",
+      "member": "src/error.rs",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/source/src/error.rs",
+      "matches_cargo_registry_extraction": true
+    },
+    "opentelemetry_sdk-0.31.0/src/trace/mod.rs": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/opentelemetry_sdk-0.31.0/src/trace/mod.rs",
+      "sha256": "bdbb9283eada6cf85273abf31d0e48651862026fd532c662ae1c010b058857d7",
+      "archive": "opentelemetry_sdk-0.31.0",
+      "member": "src/trace/mod.rs",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/source/src/trace/mod.rs",
+      "matches_cargo_registry_extraction": true
+    },
+    "opentelemetry_sdk-0.31.0/src/trace/provider.rs": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/opentelemetry_sdk-0.31.0/src/trace/provider.rs",
+      "sha256": "40e237948892dba4f63bfe2c4f2abe88a6a37abd2185b407eb616ae530bd1a10",
+      "archive": "opentelemetry_sdk-0.31.0",
+      "member": "src/trace/provider.rs",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/source/src/trace/provider.rs",
+      "matches_cargo_registry_extraction": true
+    },
+    "opentelemetry_sdk-0.31.0/src/trace/in_memory_exporter.rs": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/opentelemetry_sdk-0.31.0/src/trace/in_memory_exporter.rs",
+      "sha256": "8febd10b55a02ab2bd805d1ad301a79e073a9308f03d49c0baffdd2a900c0e3f",
+      "archive": "opentelemetry_sdk-0.31.0",
+      "member": "src/trace/in_memory_exporter.rs",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/source/src/trace/in_memory_exporter.rs",
+      "matches_cargo_registry_extraction": true
+    },
+    "opentelemetry_sdk-0.31.0/src/trace/span_processor.rs": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/opentelemetry_sdk-0.31.0/src/trace/span_processor.rs",
+      "sha256": "2de666b38901e116157d4901a27df772b954c5d1ca50c645873923af230c9e42",
+      "archive": "opentelemetry_sdk-0.31.0",
+      "member": "src/trace/span_processor.rs",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/source/src/trace/span_processor.rs",
+      "matches_cargo_registry_extraction": true
+    },
+    "tracing-0.1.44/Cargo.toml": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/tracing-0.1.44/Cargo.toml",
+      "sha256": "b7e201be4f3872fe25da1fa45aa404c8751a661755d4883fdbb5c0c558303e6d",
+      "archive": "tracing-0.1.44",
+      "member": "Cargo.toml",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/tracing/0.1.44/source/Cargo.toml",
+      "matches_cargo_registry_extraction": true,
+      "matches_retained_manifest": true
+    },
+    "tracing-0.1.44/.cargo_vcs_info.json": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/tracing-0.1.44/.cargo_vcs_info.json",
+      "sha256": "e3812fbb3fb259f00c279faa9a044355113802daac267ab6e8dffcfd659cdc8e",
+      "archive": "tracing-0.1.44",
+      "member": ".cargo_vcs_info.json",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/tracing/0.1.44/source/.cargo_vcs_info.json",
+      "matches_cargo_registry_extraction": true
+    },
+    "tracing-0.1.44/src/instrument.rs": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/tracing-0.1.44/src/instrument.rs",
+      "sha256": "9266d792bd9b6678baa49728704c5f38003bbc24755eac16a9e0bffcb2728010",
+      "archive": "tracing-0.1.44",
+      "member": "src/instrument.rs",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/tracing/0.1.44/source/src/instrument.rs",
+      "matches_cargo_registry_extraction": true
+    },
+    "tracing-opentelemetry-0.32.0/Cargo.toml": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/tracing-opentelemetry-0.32.0/Cargo.toml",
+      "sha256": "3ca142cc365e5a68f6fcbfc4aebf46ccd68d54e97eed330a31bd6d768718c36d",
+      "archive": "tracing-opentelemetry-0.32.0",
+      "member": "Cargo.toml",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/source/Cargo.toml",
+      "matches_cargo_registry_extraction": false,
+      "matches_retained_manifest": true
+    },
+    "tracing-opentelemetry-0.32.0/.cargo_vcs_info.json": {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/tracing-opentelemetry-0.32.0/.cargo_vcs_info.json",
+      "sha256": "b5a86a62e24d9796ea43e7f1287b1ae7a33923fbc91d2ca7226326ae9c68417d",
+      "archive": "tracing-opentelemetry-0.32.0",
+      "member": ".cargo_vcs_info.json",
+      "read_date": "2026-09-18",
+      "primary_url": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/source/.cargo_vcs_info.json",
+      "matches_cargo_registry_extraction": false
+    }
+  },
+  "rows": [
+    {
+      "id": "SDK-IN-MEMORY-FEATURES",
+      "verdict": "verified",
+      "claim": "For downstream consumers, InMemorySpanExporter requires opentelemetry_sdk feature testing. That feature transitively enables trace and also metrics, logs, rt-tokio, rt-tokio-current-thread, tokio/macros and tokio/rt-multi-thread; default SDK features alone do not expose the exporter.",
+      "manifest_example": "opentelemetry_sdk = { version = \"=0.31.0\", default-features = false, features = [\"testing\"] }",
+      "evidence": [
+        {
+          "source": "opentelemetry_sdk-0.31.0/Cargo.toml",
+          "line_start": 36,
+          "line_end": 42,
+          "exact_quote": "[features]\ndefault = [\n    \"trace\",\n    \"metrics\",\n    \"logs\",\n    \"internal-logs\",\n]"
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/Cargo.toml",
+          "line_start": 89,
+          "line_end": 105,
+          "exact_quote": "testing = [\n    \"opentelemetry/testing\",\n    \"trace\",\n    \"metrics\",\n    \"logs\",\n    \"rt-tokio\",\n    \"rt-tokio-current-thread\",\n    \"tokio/macros\",\n    \"tokio/rt-multi-thread\",\n]\ntrace = [\n    \"opentelemetry/trace\",\n    \"rand\",\n    \"percent-encoding\",\n]\n\n[lib]"
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/mod.rs",
+          "line_start": 31,
+          "line_end": 37,
+          "exact_quote": "#[cfg(any(feature = \"testing\", test))]\n#[cfg_attr(docsrs, doc(cfg(any(feature = \"testing\", test))))]\npub mod in_memory_exporter;\n#[cfg(any(feature = \"testing\", test))]\n#[cfg_attr(docsrs, doc(cfg(any(feature = \"testing\", test))))]\npub use in_memory_exporter::{InMemorySpanExporter, InMemorySpanExporterBuilder};\n"
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/lib.rs",
+          "line_start": 137,
+          "line_end": 139,
+          "exact_quote": "#[cfg(feature = \"trace\")]\n#[cfg_attr(docsrs, doc(cfg(feature = \"trace\")))]\npub mod trace;"
+        }
+      ]
+    },
+    {
+      "id": "SDK-PROVIDER-BUILDERS",
+      "verdict": "verified",
+      "claim": "SdkTracerProvider::builder() returns TracerProviderBuilder. Its with_simple_exporter and with_batch_exporter each take only the exporter, with bound T: SpanExporter + static, and return Self. There is no runtime argument on with_batch_exporter in this release.",
+      "signatures": [
+        "pub fn builder() -> TracerProviderBuilder",
+        "pub fn with_simple_exporter<T: SpanExporter + 'static>(self, exporter: T) -> Self",
+        "pub fn with_batch_exporter<T: SpanExporter + 'static>(self, exporter: T) -> Self",
+        "pub fn build(self) -> SdkTracerProvider"
+      ],
+      "evidence": [
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/provider.rs",
+          "line_start": 177,
+          "line_end": 179,
+          "exact_quote": "    pub fn builder() -> TracerProviderBuilder {\n        TracerProviderBuilder::default()\n    }"
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/provider.rs",
+          "line_start": 318,
+          "line_end": 337,
+          "exact_quote": "    pub fn with_simple_exporter<T: SpanExporter + 'static>(self, exporter: T) -> Self {\n        let simple = SimpleSpanProcessor::new(exporter);\n        self.with_span_processor(simple)\n    }\n\n    /// Adds a [BatchSpanProcessor] with the configured exporter to the pipeline.\n    ///\n    /// # Arguments\n    ///\n    /// * `exporter` - The exporter to be used by the BatchSpanProcessor.\n    ///\n    /// # Returns\n    ///\n    /// A new `Builder` instance with the BatchSpanProcessor added to the pipeline.\n    ///\n    /// Processors are invoked in the order they are added.\n    pub fn with_batch_exporter<T: SpanExporter + 'static>(self, exporter: T) -> Self {\n        let batch = BatchSpanProcessor::builder(exporter).build();\n        self.with_span_processor(batch)\n    }"
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/provider.rs",
+          "line_start": 426,
+          "line_end": 426,
+          "exact_quote": "    pub fn build(self) -> SdkTracerProvider {"
+        }
+      ]
+    },
+    {
+      "id": "SDK-PROVIDER-LIFECYCLE",
+      "verdict": "verified",
+      "claim": "force_flush calls all configured processors and aggregates errors. shutdown delegates to shutdown_with_timeout with five seconds; subsequent shutdown returns AlreadyShutdown. OTelSdkResult aliases Result<(), OTelSdkError>. Flush does not end live spans.",
+      "signatures": [
+        "pub fn force_flush(&self) -> OTelSdkResult",
+        "pub fn shutdown_with_timeout(&self, timeout: Duration) -> OTelSdkResult",
+        "pub fn shutdown(&self) -> OTelSdkResult"
+      ],
+      "evidence": [
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/provider.rs",
+          "line_start": 230,
+          "line_end": 275,
+          "exact_quote": "    pub fn force_flush(&self) -> OTelSdkResult {\n        let result: Vec<_> = self\n            .span_processors()\n            .iter()\n            .map(|processor| processor.force_flush())\n            .collect();\n        if result.iter().all(|r| r.is_ok()) {\n            Ok(())\n        } else {\n            Err(OTelSdkError::InternalFailure(format!(\"errs: {result:?}\")))\n        }\n    }\n\n    /// Shuts down the current `TracerProvider`.\n    ///\n    /// Note that shut down doesn't means the TracerProvider has dropped\n    pub fn shutdown_with_timeout(&self, timeout: Duration) -> OTelSdkResult {\n        if self\n            .inner\n            .is_shutdown\n            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)\n            .is_ok()\n        {\n            // propagate the shutdown signal to processors\n            let results = self.inner.shutdown_with_timeout(timeout);\n\n            if results.iter().all(|res| res.is_ok()) {\n                Ok(())\n            } else {\n                Err(OTelSdkError::InternalFailure(format!(\n                    \"Shutdown errors: {:?}\",\n                    results\n                        .into_iter()\n                        .filter_map(Result::err)\n                        .collect::<Vec<_>>() // Collect only the errors\n                )))\n            }\n        } else {\n            Err(OTelSdkError::AlreadyShutdown)\n        }\n    }\n\n    /// shutdown with default timeout\n    pub fn shutdown(&self) -> OTelSdkResult {\n        self.shutdown_with_timeout(Duration::from_secs(5))\n    }"
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/error.rs",
+          "line_start": 44,
+          "line_end": 45,
+          "exact_quote": "/// A specialized `Result` type for Shutdown operations.\npub type OTelSdkResult = Result<(), OTelSdkError>;"
+        }
+      ],
+      "inference": "Flush operates on processor queues, so callers must finish/drop spans and await producing tasks first; provider force_flush is not a span-completion operation."
+    },
+    {
+      "id": "SDK-SIMPLE-PROCESSOR",
+      "verdict": "verified",
+      "claim": "SimpleSpanProcessor exports sampled spans on end with futures_executor::block_on; force_flush is a no-op success because it has no queue. This supports deterministic in-memory export probes after span completion.",
+      "evidence": [
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/span_processor.rs",
+          "line_start": 131,
+          "line_end": 158,
+          "exact_quote": "impl<T: SpanExporter> SpanProcessor for SimpleSpanProcessor<T> {\n    fn on_start(&self, _span: &mut Span, _cx: &Context) {\n        // Ignored\n    }\n\n    fn on_end(&self, span: SpanData) {\n        if !span.span_context.is_sampled() {\n            return;\n        }\n\n        let result = self\n            .exporter\n            .lock()\n            .map_err(|_| OTelSdkError::InternalFailure(\"SimpleSpanProcessor mutex poison\".into()))\n            .and_then(|exporter| futures_executor::block_on(exporter.export(vec![span])));\n\n        if let Err(err) = result {\n            // TODO: check error type, and log `error` only if the error is user-actionable, else log `debug`\n            otel_debug!(\n                name: \"SimpleProcessor.OnEnd.Error\",\n                reason = format!(\"{:?}\", err)\n            );\n        }\n    }\n\n    fn force_flush(&self) -> OTelSdkResult {\n        // Nothing to flush for simple span processor.\n        Ok(())"
+        }
+      ]
+    },
+    {
+      "id": "SDK-BATCH-PROCESSOR",
+      "verdict": "verified",
+      "claim": "The standard BatchSpanProcessor selected by with_batch_exporter uses a dedicated background thread. Exporter transports can impose their own runtime requirements. Shutdown is blocking; pinned docs advise a separate thread or spawn_blocking for current-thread Tokio runtimes.",
+      "evidence": [
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/span_processor.rs",
+          "line_start": 255,
+          "line_end": 282,
+          "exact_quote": "/// in batches to the configured `SpanExporter`. This processor is ideal for\n/// high-throughput environments, as it minimizes the overhead of exporting spans\n/// individually. It uses a **dedicated background thread** to manage and export spans\n/// asynchronously, ensuring that the application's main execution flow is not blocked.\n///\n/// This processor supports the following configurations:\n/// - **Queue size**: Maximum number of spans that can be buffered.\n/// - **Batch size**: Maximum number of spans to include in a single export.\n/// - **Scheduled delay**: Frequency at which the batch is exported.\n///\n/// When using this processor with the OTLP Exporter, the following exporter\n/// features are supported:\n/// - `grpc-tonic`: Requires `TracerProvider` to be created within a tokio runtime.\n/// - `reqwest-blocking-client`: Works with a regular `main` or `tokio::main`.\n///\n/// In other words, other clients like `reqwest` and `hyper` are not supported.\n///\n/// `BatchSpanProcessor` buffers spans in memory and exports them in batches. An\n/// export is triggered when `max_export_batch_size` is reached or every\n/// `scheduled_delay` milliseconds. Users can explicitly trigger an export using\n/// the `force_flush` method. Shutdown also triggers an export of all buffered\n/// spans and is recommended to be called before the application exits to ensure\n/// all buffered spans are exported.\n///\n/// **Warning**: When using tokio's current-thread runtime, `shutdown()`, which\n/// is a blocking call ,should not be called from your main thread. This can\n/// cause deadlock. Instead, call `shutdown()` from a separate thread or use\n/// tokio's `spawn_blocking`."
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/provider.rs",
+          "line_start": 334,
+          "line_end": 337,
+          "exact_quote": "    pub fn with_batch_exporter<T: SpanExporter + 'static>(self, exporter: T) -> Self {\n        let batch = BatchSpanProcessor::builder(exporter).build();\n        self.with_span_processor(batch)\n    }"
+        }
+      ]
+    },
+    {
+      "id": "SDK-IN-MEMORY-CAPTURE-BEFORE-SHUTDOWN",
+      "verdict": "verified",
+      "claim": "InMemorySpanExporter is Clone and shares captured spans. get_finished_spans clones the collected SpanData values. Its default builder resets records on shutdown. keep_records_on_shutdown is crate-private and cfg(test), so consumers must read or clone records before provider shutdown.",
+      "signatures": [
+        "pub fn get_finished_spans(&self) -> Result<Vec<SpanData>, InMemoryExporterError>",
+        "pub fn reset(&self)",
+        "pub fn is_shutdown_called(&self) -> bool"
+      ],
+      "evidence": [
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/in_memory_exporter.rs",
+          "line_start": 50,
+          "line_end": 55,
+          "exact_quote": "#[derive(Clone, Debug)]\npub struct InMemorySpanExporter {\n    spans: Arc<Mutex<Vec<SpanData>>>,\n    resource: Arc<Mutex<Resource>>,\n    should_reset_on_shutdown: bool,\n    shutdown_called: Arc<AtomicBool>,"
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/in_memory_exporter.rs",
+          "line_start": 82,
+          "line_end": 107,
+          "exact_quote": "impl InMemorySpanExporterBuilder {\n    /// Creates a new instance of the `InMemorySpanExporterBuilder`.\n    pub fn new() -> Self {\n        Self {\n            reset_on_shutdown: true,\n        }\n    }\n\n    /// Creates a new instance of the `InMemorySpanExporter`.\n    pub fn build(&self) -> InMemorySpanExporter {\n        InMemorySpanExporter {\n            spans: Arc::new(Mutex::new(Vec::new())),\n            resource: Arc::new(Mutex::new(Resource::builder().build())),\n            should_reset_on_shutdown: self.reset_on_shutdown,\n            shutdown_called: Arc::new(AtomicBool::new(false)),\n        }\n    }\n\n    /// If set, the records will not be [`InMemorySpanExporter::reset`] on shutdown.\n    #[cfg(test)]\n    #[allow(dead_code)]\n    pub(crate) fn keep_records_on_shutdown(self) -> Self {\n        Self {\n            reset_on_shutdown: false,\n        }\n    }"
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/in_memory_exporter.rs",
+          "line_start": 110,
+          "line_end": 139,
+          "exact_quote": "impl InMemorySpanExporter {\n    /// Returns true if shutdown was called.\n    pub fn is_shutdown_called(&self) -> bool {\n        self.shutdown_called\n            .load(std::sync::atomic::Ordering::Relaxed)\n    }\n\n    /// Returns the finished span as a vector of `SpanData`.\n    ///\n    /// # Errors\n    ///\n    /// Returns a `TraceError` if the internal lock cannot be acquired.\n    ///\n    /// # Example\n    ///\n    /// ```\n    /// # use opentelemetry_sdk::trace::InMemorySpanExporter;\n    ///\n    /// let exporter = InMemorySpanExporter::default();\n    /// let finished_spans = exporter.get_finished_spans().unwrap();\n    /// ```\n    pub fn get_finished_spans(&self) -> Result<Vec<SpanData>, InMemoryExporterError> {\n        let spans = self\n            .spans\n            .lock()\n            .map(|spans_guard| spans_guard.iter().cloned().collect())\n            .map_err(InMemoryExporterError::from)?;\n        Ok(spans)\n    }\n"
+        },
+        {
+          "source": "opentelemetry_sdk-0.31.0/src/trace/in_memory_exporter.rs",
+          "line_start": 165,
+          "line_end": 171,
+          "exact_quote": "    fn shutdown_with_timeout(&mut self, _timeout: Duration) -> OTelSdkResult {\n        self.shutdown_called\n            .store(true, std::sync::atomic::Ordering::Relaxed);\n        if self.should_reset_on_shutdown {\n            self.reset();\n        }\n        Ok(())"
+        }
+      ]
+    },
+    {
+      "id": "BRIDGE-OTEL-0.31-COMPATIBILITY",
+      "verdict": "verified",
+      "claim": "tracing-opentelemetry 0.32.0 declares opentelemetry 0.31.0 and opentelemetry_sdk 0.31.0 as dependencies, each with trace enabled and default-features false. Cargo manifest compatibility is verified; no runtime or collector qualification is claimed.",
+      "evidence": [
+        {
+          "source": "tracing-opentelemetry-0.32.0/Cargo.toml",
+          "line_start": 12,
+          "line_end": 16,
+          "exact_quote": "[package]\nedition = \"2021\"\nrust-version = \"1.75.0\"\nname = \"tracing-opentelemetry\"\nversion = \"0.32.0\""
+        },
+        {
+          "source": "tracing-opentelemetry-0.32.0/Cargo.toml",
+          "line_start": 130,
+          "line_end": 138,
+          "exact_quote": "[dependencies.opentelemetry]\nversion = \"0.31.0\"\nfeatures = [\"trace\"]\ndefault-features = false\n\n[dependencies.opentelemetry_sdk]\nversion = \"0.31.0\"\nfeatures = [\"trace\"]\ndefault-features = false"
+        }
+      ],
+      "primary_url": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/source/Cargo.toml",
+      "version_note": "Upstream manifest strings are semver requirements, not equality pins. Portable probes may pin =0.31.0 and =0.32.0 explicitly."
+    },
+    {
+      "id": "TRACING-ASYNC-INSTRUMENT",
+      "verdict": "verified",
+      "claim": "tracing 0.1.44 Instrument::instrument wraps the future with a selected span; in_current_span captures Span::current at wrapper construction. The span is entered on each poll and on drop. Use these wrappers to propagate span context across async execution.",
+      "signatures": [
+        "fn instrument(self, span: Span) -> Instrumented<Self>",
+        "fn in_current_span(self) -> Instrumented<Self>"
+      ],
+      "evidence": [
+        {
+          "source": "tracing-0.1.44/src/instrument.rs",
+          "line_start": 20,
+          "line_end": 25,
+          "exact_quote": "pub trait Instrument: Sized {\n    /// Instruments this type with the provided [`Span`], returning an\n    /// `Instrumented` wrapper.\n    ///\n    /// The attached [`Span`] will be [entered] every time the instrumented\n    /// [`Future`] is polled or [`Drop`]ped."
+        },
+        {
+          "source": "tracing-0.1.44/src/instrument.rs",
+          "line_start": 86,
+          "line_end": 91,
+          "exact_quote": "    fn instrument(self, span: Span) -> Instrumented<Self> {\n        Instrumented {\n            inner: ManuallyDrop::new(self),\n            span,\n        }\n    }"
+        },
+        {
+          "source": "tracing-0.1.44/src/instrument.rs",
+          "line_start": 127,
+          "line_end": 130,
+          "exact_quote": "    #[inline]\n    fn in_current_span(self) -> Instrumented<Self> {\n        self.instrument(Span::current())\n    }"
+        },
+        {
+          "source": "tracing-0.1.44/src/instrument.rs",
+          "line_start": 274,
+          "line_end": 277,
+          "exact_quote": "    impl<T> PinnedDrop for Instrumented<T> {\n        fn drop(this: Pin<&mut Self>) {\n            let this = this.project();\n            let _enter = this.span.enter();"
+        },
+        {
+          "source": "tracing-0.1.44/src/instrument.rs",
+          "line_start": 315,
+          "line_end": 321,
+          "exact_quote": "impl<T: Future> Future for Instrumented<T> {\n    type Output = T::Output;\n\n    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {\n        let (span, inner) = self.project().span_and_inner_pin_mut();\n        let _enter = span.enter();\n        inner.poll(cx)"
+        }
+      ],
+      "primary_url": "https://docs.rs/tracing/0.1.44/tracing/instrument/trait.Instrument.html"
+    },
+    {
+      "id": "TRACING-ASYNC-SUBSCRIBER",
+      "verdict": "verified",
+      "claim": "tracing 0.1.44 WithSubscriber is available with std. with_current_subscriber captures the default dispatcher when called; WithDispatch sets that dispatcher as the thread default for each future poll. It propagates subscriber context, while Instrument propagates span context.",
+      "signatures": [
+        "fn with_subscriber<S>(self, subscriber: S) -> WithDispatch<Self> where S: Into<Dispatch>",
+        "fn with_current_subscriber(self) -> WithDispatch<Self>"
+      ],
+      "evidence": [
+        {
+          "source": "tracing-0.1.44/src/instrument.rs",
+          "line_start": 133,
+          "line_end": 136,
+          "exact_quote": "/// Extension trait allowing futures to be instrumented with\n/// a `tracing` [`Subscriber`](crate::Subscriber).\n#[cfg_attr(docsrs, doc(cfg(feature = \"std\")))]\npub trait WithSubscriber: Sized {"
+        },
+        {
+          "source": "tracing-0.1.44/src/instrument.rs",
+          "line_start": 176,
+          "line_end": 183,
+          "exact_quote": "    fn with_subscriber<S>(self, subscriber: S) -> WithDispatch<Self>\n    where\n        S: Into<Dispatch>,\n    {\n        WithDispatch {\n            inner: self,\n            dispatcher: subscriber.into(),\n        }"
+        },
+        {
+          "source": "tracing-0.1.44/src/instrument.rs",
+          "line_start": 228,
+          "line_end": 233,
+          "exact_quote": "    fn with_current_subscriber(self) -> WithDispatch<Self> {\n        WithDispatch {\n            inner: self,\n            dispatcher: dispatcher::get_default(|default| default.clone()),\n        }\n    }"
+        },
+        {
+          "source": "tracing-0.1.44/src/instrument.rs",
+          "line_start": 380,
+          "line_end": 389,
+          "exact_quote": "impl<T: Future> Future for WithDispatch<T> {\n    type Output = T::Output;\n\n    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {\n        let this = self.project();\n        let dispatcher = this.dispatcher;\n        let future = this.inner;\n        let _default = dispatcher::set_default(dispatcher);\n        future.poll(cx)\n    }"
+        }
+      ],
+      "primary_url": "https://docs.rs/tracing/0.1.44/tracing/instrument/trait.WithSubscriber.html",
+      "inference": "For a per-session dispatcher used with spawned tasks, wrap the spawned future with both the intended span and current subscriber. A thread-local set_default guard alone does not install that subscriber on other worker threads."
+    }
+  ]
+}

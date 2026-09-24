@@ -1,0 +1,18 @@
+{
+  "state": "passed",
+  "mode": "research",
+  "manifest_files": 2030,
+  "lookup_commands": 4,
+  "cwd": "/",
+  "network_required": false,
+  "reader_access": "audit hook restricts file reads to bundle and Python runtime",
+  "archive_sha256": "0734aef3c1aa60d4d2d7cf75a3322ebb6f4ae0358deca35f2166310122821160",
+  "network_syscalls": 0,
+  "system_name_cache_attempts": 0,
+  "outside_skill_accesses": 0,
+  "source_cache_present": false,
+  "reader_file_access_restricted": true,
+  "environment": "PATH and LANG only; resolved base Python -I -S",
+  "invalidation_controls": "passed: changed authoring and newly added crate operation",
+  "scope": "No original host-project files opened; Python/system runtime reads and ancestor path metadata are expected."
+}

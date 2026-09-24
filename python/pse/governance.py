@@ -1,22 +1,15 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""The import-time contract-type lint (blueprint §21.5, plan §5).
+"""Explicit generated-contract and dynamic-hook annotation checks (ADR-0074).
 
-Every generated contract class is fully typed: a field whose resolved type is
-``typing.Any``, a bare ``dict`` or a bare ``list`` would let an unvalidated
-payload through the boundary the contract layer exists to defend, so
-:func:`check` walks every attrs class defined under :mod:`pse.contracts` when
-``pse`` is imported and raises :class:`ContractTypeError` on the first offence.
-
-The lint runs at import, not only in CI, because a generated file that drifts is
-a production hazard, not a review nit. ``ruff``'s banned-api rule catches the
-same mistake in hand-written code; this catches it in generated code, where the
-fix is to the generator.
+Normal quality and code generation check the complete candidate contract tree.
+Converter hooks call ``check_class`` when a dynamic attrs class enters the boundary.
 """
 
 import importlib
 import pkgutil
 from types import ModuleType
+from typing import Annotated, Literal, get_args, get_origin
 
 import attrs
 
@@ -98,11 +91,50 @@ def check_class(cls: type) -> None:
         ContractTypeError: If a field resolves to ``typing.Any``, a bare
             ``dict`` or a bare ``list``.
     """
+    _check_class(cls, set())
+
+
+def _check_class(cls: type, seen: set[int]) -> None:
+    if id(cls) in seen:
+        return
+    seen.add(id(cls))
     resolved = attrs.resolve_types(cls)
     for field in attrs.fields(resolved):
-        offence = _describe_offence(field.type)
-        if offence is not None:
-            raise ContractTypeError(cls, field.name, offence)
+        _check_annotation(field.type, cls, field.name, seen)
+
+
+def _check_annotation(
+    annotation: object, cls: type, field_name: str, seen: set[int]
+) -> None:
+    offence = _describe_offence(annotation)
+    if offence is not None:
+        raise ContractTypeError(cls, field_name, offence)
+    if annotation is None:
+        raise ContractTypeError(cls, field_name, "an absent annotation")
+    if isinstance(annotation, type) and attrs.has(annotation):
+        _check_class(annotation, seen)
+        return
+    if id(annotation) in seen:
+        return
+    seen.add(id(annotation))
+    if isinstance(annotation, list):
+        for argument in annotation:
+            _check_annotation(argument, cls, field_name, seen)
+        return
+    origin = get_origin(annotation)
+    arguments = get_args(annotation)
+    if origin in (list, dict) and not arguments:
+        raise ContractTypeError(cls, field_name, f"a bare {origin.__name__}")
+    if origin is Literal:
+        return
+    if origin is Annotated:
+        arguments = arguments[:1]
+    alias = getattr(annotation, "__value__", None)
+    if alias is not None:
+        _check_annotation(alias, cls, field_name, seen)
+    for argument in arguments:
+        if argument is not Ellipsis:
+            _check_annotation(argument, cls, field_name, seen)
 
 
 def _contract_classes(module: ModuleType) -> list[type]:
@@ -134,7 +166,7 @@ def check(module: ModuleType | None = None) -> None:
 
     Args:
         module: The package to walk. Defaults to :mod:`pse.contracts`, which is
-            what ``import pse`` checks.
+            what the explicit development check inspects.
 
     Raises:
         ContractTypeError: If any field of any contract class is typed

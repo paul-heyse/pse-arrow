@@ -24,17 +24,8 @@ pub fn render_expr(expr: &Expr) -> String {
             op.as_str(),
             render_expr(rhs)
         ),
-        ExprKind::Call {
-            function,
-            args,
-            named,
-        } => {
-            let mut arguments: Vec<_> = args.iter().map(render_expr).collect();
-            arguments.extend(
-                named
-                    .iter()
-                    .map(|arg| format!("{}={}", arg.name, render_expr(&arg.value))),
-            );
+        ExprKind::Call { function, args } => {
+            let arguments: Vec<_> = args.iter().map(render_expr).collect();
             format!("{}({})", function.as_str(), arguments.join(", "))
         }
         ExprKind::Kernel { name, args } => format!(

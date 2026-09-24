@@ -11,29 +11,15 @@ import pyarrow as pa
 
 from pse._build import (
     CacheReport,
+    DiagnosticReport,
     EngineSettings,
+    ResourceReport,
+    TableName,
     _NativePublication,
     _NativeTableStream,
     _open_publication,
 )
 from pse._transfer import FieldTransfer, compare_schemas
-
-
-@attrs.frozen
-class ResourceUsage:
-    """Actual shared pool counters, separate from whole-process peak RSS.
-
-    Attributes:
-        limit_bytes: Configured finite accounted memory limit.
-        reserved_bytes: Current actual reservations across all publications and arrays.
-        peak_bytes: Peak accounted reservations since runtime construction.
-        process_peak_rss_bytes: Independent process observation, when supported.
-    """
-
-    limit_bytes: int
-    reserved_bytes: int
-    peak_bytes: int
-    process_peak_rss_bytes: int | None
 
 
 @attrs.frozen
@@ -49,6 +35,11 @@ class TableStream:
     def __arrow_c_stream__(self, requested_schema: object | None = None) -> object:
         """Export once; requested schema casts are explicitly refused."""
         return self._handle.__arrow_c_stream__(requested_schema)
+
+    @property
+    def failure(self) -> DiagnosticReport | None:
+        """Original terminal native failure, including causes and execution contexts."""
+        return self._handle.failure
 
     def close(self) -> None:
         """Release unread work; readers reach EOF and live arrays stay valid."""
@@ -98,7 +89,7 @@ class Publication:
         """The exact selected Delta control version."""
         return self._handle.version
 
-    def tables(self) -> tuple[tuple[str, str, str], ...]:
+    def tables(self) -> tuple[TableName, ...]:
         """Return exact catalog, schema and table components for every member."""
         return tuple(self._handle.tables())
 
@@ -115,9 +106,9 @@ class Publication:
         """
         return TableStream(self._handle.table(catalog, schema, table))
 
-    def resource_usage(self) -> ResourceUsage:
+    def resource_usage(self) -> ResourceReport:
         """Observe actual pool ownership, including arrays from closed handles."""
-        return ResourceUsage(*self._handle.resource_usage())
+        return self._handle.resource_usage()
 
     def cache_usage(self) -> tuple[CacheReport, ...]:
         """Observe shared cache ownership; unavailable native counters are None."""

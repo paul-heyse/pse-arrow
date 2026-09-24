@@ -1,0 +1,18 @@
+{
+  "invariant": "runtime.release_checkpoints:unique:pk",
+  "rows": {
+    "runtime.release_checkpoints": [
+      {
+        "admission_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "base_members": "[\"list\",[]]",
+        "base_release": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "consumer_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "interpretation_version": "[\"i64\",1]",
+        "intervals": "[\"list\",[]]",
+        "target_members": "[\"list\",[]]",
+        "target_release": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

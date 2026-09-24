@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-diagnostics"
-description = "Structural and numerical diagnostics as queries and native analyses; findings relations (blueprint §3.2, §22)."
+description = "Shared diagnostic vocabulary and lossless native engine causes."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,10 +17,5 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-faer.workspace = true
-datafusion.workspace = true
-pse-relations.workspace = true
-pse-structural.workspace = true
-pse-numerics.workspace = true
 thiserror.workspace = true
 miette.workspace = true

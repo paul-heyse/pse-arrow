@@ -1,0 +1,12 @@
+crate	role	surface	task_keywords
+datafusion-tracing	Planning and physical execution instrumentation	SessionState; optimizer rule; batch stream	planning execution preview metrics fields
+instrumented-object-store	Instrumentation at the storage API boundary	Arc<dyn ObjectStore>; request; returned stream	store requests get ranges errors multipart
+tracing	Span construction and async instrumentation	Span; Future	fields parent target level await
+tracing-core	Metadata, dispatch and field recording	Subscriber; Dispatch; field set	dispatch metadata field schema
+tracing-attributes	Attribute instrumentation	async function; span	instrument skip fields arguments
+tracing-futures	Async span and subscriber adapters	Future; Stream; Instrumented	poll spawn context subscriber
+tracing-subscriber	Registry, layers, filtering and formatting	Layer; Registry; EnvFilter	stdout filter target level close
+tracing-opentelemetry	Bridge tracing spans into OpenTelemetry	OpenTelemetryLayer; Context	bridge otel.name parent exported attributes
+opentelemetry	Trace API and context	Tracer; SpanContext	context trace propagation
+opentelemetry_sdk	Provider, processor and sampling lifecycle	SdkTracerProvider; SpanExporter	sampling batch flush shutdown
+opentelemetry-otlp	Exporter transport configuration	SpanExporter; transport features	otlp http grpc endpoint timeout

@@ -1,0 +1,104 @@
+{
+  "id": "tracing.context",
+  "title": "Propagate async span and subscriber context",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "await under span",
+    "spawn task parent context",
+    "future polling subscriber",
+    "async context"
+  ],
+  "crates": [
+    "tracing",
+    "tracing-futures",
+    "tracing-attributes",
+    "tracing-core",
+    "tracing-subscriber"
+  ],
+  "input": [
+    "Future",
+    "Span",
+    "Dispatch"
+  ],
+  "output": [
+    "instrumented Future",
+    "parent relationships"
+  ],
+  "properties": [
+    "async",
+    "context",
+    "polling"
+  ],
+  "operations": [
+    "tracing::instrument::Instrument",
+    "tracing_futures::WithSubscriber",
+    "tracing::span::Span"
+  ],
+  "brief": "Async instrumentation scopes context around polling. Span context and subscriber dispatch are separate parts of a composition, especially across spawned work.",
+  "choices": [
+    {
+      "candidate": "Instrument::instrument",
+      "choose_when": "A future belongs to a particular span",
+      "tradeoff": "The wrapper enters that span as the future is polled."
+    },
+    {
+      "candidate": "WithSubscriber",
+      "choose_when": "A future must use an explicit dispatcher",
+      "tradeoff": "Carries subscriber context; does not choose the intended parent span."
+    },
+    {
+      "candidate": "synchronous in_scope",
+      "choose_when": "Work completes synchronously",
+      "tradeoff": "An entered guard held across await can misattribute concurrent work."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.context.1",
+      "aspect": "Async boundary",
+      "kind": "source_observation",
+      "statement": "The pinned Instrument docs describe entering the span whenever the future is polled. Spawn boundaries require verifying the actual propagated context.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.context.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "A spawned future carrying both the parent span and subscriber dispatch produces the expected parent ID. A separate unparented control does not acquire that parent.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Create the intended parent span before moving work; instrument the future and preserve the dispatcher where needed."
+  ],
+  "unknowns": [
+    "No blanket inheritance guarantee for all executors or spawn APIs."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/api/tracing.instrument.md",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "spawned_future_propagates_parent_and_dispatch"
+      ],
+      "scope": "A spawned future carrying both the parent span and subscriber dispatch produces the expected parent ID. A separate unparented control does not acquire that parent."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ]
+}

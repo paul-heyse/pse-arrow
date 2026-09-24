@@ -1,0 +1,47 @@
+[
+  {
+    "kind": "open",
+    "id": 1,
+    "parent": null,
+    "name": "parent",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "open",
+    "id": 2,
+    "parent": 1,
+    "name": "child",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "close",
+    "id": 2,
+    "name": "child",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "open",
+    "id": 2251799813685250,
+    "parent": null,
+    "name": "unparented",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "close",
+    "id": 2251799813685250,
+    "name": "unparented",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "close",
+    "id": 1,
+    "name": "parent",
+    "target": "contracts",
+    "fields": {}
+  }
+]

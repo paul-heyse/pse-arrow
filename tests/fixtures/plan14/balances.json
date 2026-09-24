@@ -1,0 +1,237 @@
+[
+  {
+    "balance_id": "e671be5e8b6c5277b2e71cf85ea88406",
+    "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+    "case_id": "c2b89539011b51c8b07d34e65c3914b1",
+    "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+    "accumulation": null,
+    "tolerance": 1e-07,
+    "integral_tolerance": null,
+    "provenance": "declared physical fixture contributions; empirical validity unestablished",
+    "terms": [
+      {
+        "source_id": "c9bbd1b7969d5eaebef2973377ffd380",
+        "role": "inlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "a22789b39b7c5859b15ed2b09d632f87",
+        "output": 0
+      },
+      {
+        "source_id": "c9cffcbdddbd547f9eab08cb522cfe17",
+        "role": "inlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "a22789b39b7c5859b15ed2b09d632f87",
+        "output": 1
+      },
+      {
+        "source_id": "485d1f1852c05892926311bf36281c73",
+        "role": "outlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "a22789b39b7c5859b15ed2b09d632f87",
+        "output": 2
+      }
+    ],
+    "impulses": []
+  },
+  {
+    "balance_id": "4e456ea25c4c548ca19e5470b06e902c",
+    "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+    "case_id": "c2b89539011b51c8b07d34e65c3914b1",
+    "quantity_id": "64f4fe01ca985368a6933eec87362dd9",
+    "accumulation": null,
+    "tolerance": 1e-05,
+    "integral_tolerance": null,
+    "provenance": "declared physical fixture contributions; empirical validity unestablished",
+    "terms": [
+      {
+        "source_id": "18dd03387cf85a8097f4c67f125c8bc8",
+        "role": "inlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "b726134ae60753c4a3cc8e902c85633a",
+        "output": 0
+      },
+      {
+        "source_id": "09fc0497b0a0563eb86877a4c3e5c310",
+        "role": "work_in",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "b726134ae60753c4a3cc8e902c85633a",
+        "output": 1
+      },
+      {
+        "source_id": "bd896eb25586564d95bc90c21c3d2c3b",
+        "role": "outlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "b726134ae60753c4a3cc8e902c85633a",
+        "output": 2
+      }
+    ],
+    "impulses": []
+  },
+  {
+    "balance_id": "4e1af7aaba7a54f4b35138a0b9f066e3",
+    "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+    "case_id": "b36c0918fa4059978f8e62827ef7aef6",
+    "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+    "accumulation": null,
+    "tolerance": 1e-07,
+    "integral_tolerance": null,
+    "provenance": "declared physical fixture contributions; empirical validity unestablished",
+    "terms": [
+      {
+        "source_id": "77647c8d14c358ef94c004743bfbc060",
+        "role": "inlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "233417bae07b5ad2bf9261f880754846",
+        "output": 0
+      },
+      {
+        "source_id": "c43ac475b4af530a933bc938b7cde144",
+        "role": "outlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "233417bae07b5ad2bf9261f880754846",
+        "output": 1
+      }
+    ],
+    "impulses": []
+  },
+  {
+    "balance_id": "4855225053535eccb26830fd454b9caf",
+    "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+    "case_id": "be066b9a4571560585cdfb41c2d7717f",
+    "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+    "accumulation": null,
+    "tolerance": 1e-07,
+    "integral_tolerance": null,
+    "provenance": "declared physical fixture contributions; empirical validity unestablished",
+    "terms": [
+      {
+        "source_id": "7321466504bc553d89803e057488cd6b",
+        "role": "inlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "31569f19d3b6510cb5c667db94f2735d",
+        "output": 0
+      },
+      {
+        "source_id": "b7a65f10e86d5d0093aadc8a85402945",
+        "role": "outlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "31569f19d3b6510cb5c667db94f2735d",
+        "output": 1
+      }
+    ],
+    "impulses": []
+  },
+  {
+    "balance_id": "8a493ec9edce5dd0940ae0a996fa186d",
+    "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+    "case_id": "b8efbf5c3f23510394a2067e66a15be5",
+    "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+    "accumulation": null,
+    "tolerance": 1e-07,
+    "integral_tolerance": null,
+    "provenance": "declared physical fixture contributions; empirical validity unestablished",
+    "terms": [
+      {
+        "source_id": "1381a382e9ab505aa7d5ee993a03113d",
+        "role": "inlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "860465af3b995cbb900ece113924fc6c",
+        "output": 0
+      },
+      {
+        "source_id": "903d54cb3bae56b4ba57f13cef8547b3",
+        "role": "outlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "860465af3b995cbb900ece113924fc6c",
+        "output": 1
+      }
+    ],
+    "impulses": []
+  },
+  {
+    "balance_id": "c5a18616ee815f9ab4adadd154ffecd9",
+    "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+    "case_id": "b01a16aa80fd5a26a026b12f0354ea7e",
+    "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+    "accumulation": null,
+    "tolerance": 1e-07,
+    "integral_tolerance": null,
+    "provenance": "declared physical fixture contributions; empirical validity unestablished",
+    "terms": [
+      {
+        "source_id": "38840b3100f05f698ba35e9c1c869b3d",
+        "role": "outlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "567c7a54c6b555aab42d0eb45c6da5e5",
+        "output": 0
+      },
+      {
+        "source_id": "570661f6ea38500d9ac1065e78c77cd5",
+        "role": "outlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "567c7a54c6b555aab42d0eb45c6da5e5",
+        "output": 1
+      },
+      {
+        "source_id": "263ecbae07035e2591cd43524b7c6ae8",
+        "role": "inlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "567c7a54c6b555aab42d0eb45c6da5e5",
+        "output": 2
+      }
+    ],
+    "impulses": []
+  },
+  {
+    "balance_id": "87560206e372515297ac5f42cf032b35",
+    "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+    "case_id": "b01a16aa80fd5a26a026b12f0354ea7e",
+    "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+    "accumulation": null,
+    "tolerance": 1e-07,
+    "integral_tolerance": null,
+    "provenance": "declared physical fixture contributions; empirical validity unestablished",
+    "terms": [
+      {
+        "source_id": "b692141cfdeb5c6ea8c72b284967460c",
+        "role": "outlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "97ada9f5599c5bd6a002176e7afecd90",
+        "output": 0
+      },
+      {
+        "source_id": "c8d186595080594e897ef8f8de8e1fcb",
+        "role": "outlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "97ada9f5599c5bd6a002176e7afecd90",
+        "output": 1
+      },
+      {
+        "source_id": "5fd4cd68ba1f5bfd845032fc06240c87",
+        "role": "inlet",
+        "transfer_id": null,
+        "mode": null,
+        "instance_id": "97ada9f5599c5bd6a002176e7afecd90",
+        "output": 2
+      }
+    ],
+    "impulses": []
+  }
+]

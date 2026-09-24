@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-tests-conformance"
-description = "Backend conformance tests: native, NL and Pyomo agree (blueprint §24.1)."
+description = "Library composition and native boundary conformance controls."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,25 +17,61 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+native-acceptance = ["pse-runtime/native-solvers", "dep:faer", "dep:clarabel"]
+math-composition = [
+  "dep:faer",
+  "dep:num-dual",
+  "dep:nalgebra",
+  "dep:feos",
+  "dep:feos-core",
+  "dep:quantity",
+  "dep:symbolica",
+]
+native-profiles = [
+  "dep:highs",
+  "dep:highs-sys",
+  "dep:clarabel",
+  "dep:sundials-sys",
+  "dep:diffsol",
+]
+
+[dependencies]
+faer = { workspace = true, optional = true }
+num-dual = { workspace = true, optional = true }
+nalgebra = { workspace = true, optional = true }
+feos = { workspace = true, optional = true }
+feos-core = { workspace = true, optional = true }
+quantity = { workspace = true, optional = true }
+symbolica = { workspace = true, optional = true }
+highs = { workspace = true, optional = true }
+highs-sys = { workspace = true, optional = true }
+clarabel = { workspace = true, optional = true }
+sundials-sys = { workspace = true, optional = true }
+diffsol = { workspace = true, optional = true }
+
 [dev-dependencies]
+object_store.workspace = true
+pse-runtime.workspace = true
+pse-compiler.workspace = true
+pse-structural.workspace = true
+pse-backend-native.workspace = true
+pse-engine.workspace = true
+pse-rules.workspace = true
+url.workspace = true
+pse-math.workspace = true
+pse-kernels.workspace = true
+pse-columnar.workspace = true
+pse-testkit.workspace = true
 pse-ids.workspace = true
 pse-schema.workspace = true
-pse-relations.workspace = true
-pse-catalog.workspace = true
-pse-runtime.workspace = true
+pse-relations = { workspace = true, features = ["test-support"] }
 pse-quantity = { workspace = true, features = ["fixtures"] }
-pse-mathir.workspace = true
-pse-authoring.workspace = true
 pse-material.workspace = true
-pse-rules.workspace = true
-pse-compiler.workspace = true
-arrow.workspace = true
 parquet.workspace = true
 datafusion.workspace = true
-object_store.workspace = true
 tokio.workspace = true
 proptest.workspace = true
-insta.workspace = true
 tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true

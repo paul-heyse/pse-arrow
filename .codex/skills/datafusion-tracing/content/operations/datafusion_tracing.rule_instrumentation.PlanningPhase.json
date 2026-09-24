@@ -1,0 +1,732 @@
+[
+  {
+    "id": "b64ec52bdfe3f2af5ae5f5ec",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+    "name": "PlanningPhase",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "enum",
+    "signature": "enum PlanningPhase",
+    "docs": "The phase of query planning currently active.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        92,
+        1
+      ],
+      "end": [
+        96,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          340,
+          341,
+          342
+        ],
+        "impls": [
+          344,
+          345,
+          346,
+          347,
+          348,
+          349,
+          350,
+          351,
+          352,
+          354,
+          357,
+          358,
+          359,
+          360,
+          361,
+          365,
+          367,
+          369,
+          372,
+          374,
+          376,
+          378,
+          381,
+          383,
+          384,
+          385,
+          386,
+          388,
+          389,
+          392,
+          393,
+          396,
+          398
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "343",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.json",
+    "anchor": "op-b64ec52bdfe3f2af5ae5f5ec",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8969fe748a7b5ca1cdacc699",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningPhase::Analyzer",
+    "name": "Analyzer",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "variant",
+    "signature": "Analyzer",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        93,
+        5
+      ],
+      "end": [
+        93,
+        13
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "340",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.json",
+    "anchor": "op-8969fe748a7b5ca1cdacc699",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "427b5f9f106f4125048bf9ec",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningPhase::Optimizer",
+    "name": "Optimizer",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "variant",
+    "signature": "Optimizer",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        94,
+        5
+      ],
+      "end": [
+        94,
+        14
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "341",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.json",
+    "anchor": "op-427b5f9f106f4125048bf9ec",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4f184d39db96e5fe3a596fac",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningPhase::PhysicalOptimizer",
+    "name": "PhysicalOptimizer",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "variant",
+    "signature": "PhysicalOptimizer",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        95,
+        5
+      ],
+      "end": [
+        95,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "342",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.json",
+    "anchor": "op-4f184d39db96e5fe3a596fac",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8cf4927bc54a2ec050c19e6f",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningPhase::clone",
+    "name": "clone",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> PlanningPhase",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        91,
+        10
+      ],
+      "end": [
+        91,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "PlanningPhase",
+              "id": 343,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "343": "datafusion_tracing::rule_instrumentation::PlanningPhase"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PlanningPhase",
+          "id": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          91,
+          10
+        ],
+        "end": [
+          91,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "387",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.json",
+    "anchor": "op-8cf4927bc54a2ec050c19e6f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "272c4c19f2182d6aa14e2b0e",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningPhase::eq",
+    "name": "eq",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &PlanningPhase) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        91,
+        30
+      ],
+      "end": [
+        91,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "PlanningPhase",
+                      "id": 343,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "343": "datafusion_tracing::rule_instrumentation::PlanningPhase"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PlanningPhase",
+          "id": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          91,
+          30
+        ],
+        "end": [
+          91,
+          39
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "395",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.json",
+    "anchor": "op-272c4c19f2182d6aa14e2b0e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "04bc555d48e9aac97ccf921b",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningPhase::fmt",
+    "name": "fmt",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        91,
+        23
+      ],
+      "end": [
+        91,
+        28
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 66,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 67,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "66": "core::fmt::Formatter",
+      "67": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PlanningPhase",
+          "id": "datafusion_tracing::rule_instrumentation::PlanningPhase",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          91,
+          23
+        ],
+        "end": [
+          91,
+          28
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "391",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningPhase.json",
+    "anchor": "op-04bc555d48e9aac97ccf921b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

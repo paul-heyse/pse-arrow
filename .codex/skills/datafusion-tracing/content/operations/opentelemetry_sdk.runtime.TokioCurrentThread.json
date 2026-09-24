@@ -1,0 +1,1208 @@
+[
+  {
+    "id": "e9d65f6d647d360d58183da6",
+    "path": "opentelemetry_sdk::runtime::TokioCurrentThread",
+    "name": "TokioCurrentThread",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct TokioCurrentThread",
+    "docs": "Runtime implementation, which works with Tokio's current thread runtime.",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        102,
+        1
+      ],
+      "end": [
+        102,
+        31
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(all(feature = \"experimental_async_runtime\", feature =\n\"rt-tokio-current-thread\"))]"
+      },
+      {
+        "other": "#[<cfg_attr>(docsrs,\ndoc(cfg(all(feature = \"experimental_async_runtime\", feature =\n\"rt-tokio-current-thread\"))))]"
+      },
+      {
+        "other": "#[doc(cfg(all(feature = \"experimental_async_runtime\", feature =\n\"rt-tokio-current-thread\")))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": "unit",
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2191,
+          2192,
+          2193,
+          2194,
+          2195,
+          2196,
+          2197,
+          2198,
+          2199,
+          2200,
+          2201,
+          2202,
+          2203,
+          2204,
+          2205,
+          2206,
+          2207,
+          2208,
+          2209,
+          2210,
+          2211,
+          2213,
+          2215,
+          2158,
+          2219
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2159",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.json",
+    "anchor": "op-e9d65f6d647d360d58183da6",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "61aba49aa03f4d4154c83318",
+    "path": "opentelemetry_sdk::runtime::TokioCurrentThread::Receiver",
+    "name": "Receiver",
+    "owner": "opentelemetry_sdk::runtime::TokioCurrentThread",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Receiver",
+    "docs": "",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        234,
+        5
+      ],
+      "end": [
+        234,
+        80
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Debug",
+                          "id": 72,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Send",
+                          "id": 16,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "ReceiverStream",
+            "id": 2186,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "type": {
+                      "generic": "T"
+                    }
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "72": "core::fmt::Debug",
+      "16": "core::marker::Send",
+      "2186": "tokio_stream::wrappers::mpsc_bounded::ReceiverStream"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TokioCurrentThread",
+          "id": "opentelemetry_sdk::runtime::TokioCurrentThread",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "RuntimeChannel",
+        "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::runtime::RuntimeChannel",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/runtime.rs",
+        "begin": [
+          233,
+          1
+        ],
+        "end": [
+          247,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2216",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.json",
+    "anchor": "op-61aba49aa03f4d4154c83318",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0a59cf6ae017328d63eeff22",
+    "path": "opentelemetry_sdk::runtime::TokioCurrentThread::Sender",
+    "name": "Sender",
+    "owner": "opentelemetry_sdk::runtime::TokioCurrentThread",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Sender",
+    "docs": "",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        235,
+        5
+      ],
+      "end": [
+        235,
+        65
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Debug",
+                          "id": 72,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Send",
+                          "id": 16,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "Sender",
+            "id": 2188,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "type": {
+                      "generic": "T"
+                    }
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "72": "core::fmt::Debug",
+      "16": "core::marker::Send",
+      "2188": "tokio::sync::mpsc::bounded::Sender"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TokioCurrentThread",
+          "id": "opentelemetry_sdk::runtime::TokioCurrentThread",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "RuntimeChannel",
+        "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::runtime::RuntimeChannel",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/runtime.rs",
+        "begin": [
+          233,
+          1
+        ],
+        "end": [
+          247,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2217",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.json",
+    "anchor": "op-0a59cf6ae017328d63eeff22",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "850ad9386da5a1457c294a74",
+    "path": "opentelemetry_sdk::runtime::TokioCurrentThread::batch_message_channel",
+    "name": "batch_message_channel",
+    "owner": "opentelemetry_sdk::runtime::TokioCurrentThread",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn batch_message_channel<T: Debug + Send>(&self, capacity: usize) -> (Self::Sender<T>, Self::Receiver<T>)",
+    "docs": "",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        237,
+        5
+      ],
+      "end": [
+        246,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "capacity",
+              {
+                "primitive": "usize"
+              }
+            ]
+          ],
+          "output": {
+            "tuple": [
+              {
+                "qualified_path": {
+                  "name": "Sender",
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "generic": "T"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  },
+                  "self_type": {
+                    "generic": "Self"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": 242,
+                    "args": null
+                  }
+                }
+              },
+              {
+                "qualified_path": {
+                  "name": "Receiver",
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "generic": "T"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  },
+                  "self_type": {
+                    "generic": "Self"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": 242,
+                    "args": null
+                  }
+                }
+              }
+            ]
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Debug",
+                          "id": 72,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Send",
+                          "id": 16,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "242": "opentelemetry_sdk::runtime::RuntimeChannel",
+      "72": "core::fmt::Debug",
+      "16": "core::marker::Send"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TokioCurrentThread",
+          "id": "opentelemetry_sdk::runtime::TokioCurrentThread",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "RuntimeChannel",
+        "id": "opentelemetry_sdk::runtime::RuntimeChannel",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::runtime::RuntimeChannel",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/runtime.rs",
+        "begin": [
+          233,
+          1
+        ],
+        "end": [
+          247,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2218",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.json",
+    "anchor": "op-850ad9386da5a1457c294a74",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "eeba8a01910fb320bc8874b8",
+    "path": "opentelemetry_sdk::runtime::TokioCurrentThread::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::runtime::TokioCurrentThread",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> TokioCurrentThread",
+    "docs": "",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        101,
+        17
+      ],
+      "end": [
+        101,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "TokioCurrentThread",
+              "id": 2159,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2159": "opentelemetry_sdk::runtime::TokioCurrentThread"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TokioCurrentThread",
+          "id": "opentelemetry_sdk::runtime::TokioCurrentThread",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/runtime.rs",
+        "begin": [
+          101,
+          17
+        ],
+        "end": [
+          101,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2214",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.json",
+    "anchor": "op-eeba8a01910fb320bc8874b8",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "db348ca7d5b5816f4b348fec",
+    "path": "opentelemetry_sdk::runtime::TokioCurrentThread::delay",
+    "name": "delay",
+    "owner": "opentelemetry_sdk::runtime::TokioCurrentThread",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn delay(&self, duration: Duration) -> impl Future<Output = ()> + Send + 'static",
+    "docs": "",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        135,
+        5
+      ],
+      "end": [
+        137,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "duration",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "impl_trait": [
+              {
+                "trait_bound": {
+                  "trait": {
+                    "path": "Future",
+                    "id": 203,
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [],
+                        "constraints": [
+                          {
+                            "name": "Output",
+                            "args": null,
+                            "binding": {
+                              "equality": {
+                                "type": {
+                                  "tuple": []
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "generic_params": [],
+                  "modifier": "none"
+                }
+              },
+              {
+                "trait_bound": {
+                  "trait": {
+                    "path": "Send",
+                    "id": 16,
+                    "args": null
+                  },
+                  "generic_params": [],
+                  "modifier": "none"
+                }
+              },
+              {
+                "outlives": "'static"
+              }
+            ]
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration",
+      "203": "core::future::future::Future",
+      "16": "core::marker::Send"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TokioCurrentThread",
+          "id": "opentelemetry_sdk::runtime::TokioCurrentThread",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Runtime",
+        "id": "opentelemetry_sdk::runtime::Runtime",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::runtime::Runtime",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/runtime.rs",
+        "begin": [
+          115,
+          1
+        ],
+        "end": [
+          138,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2157",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.json",
+    "anchor": "op-db348ca7d5b5816f4b348fec",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "23395f8381382df2f77094fe",
+    "path": "opentelemetry_sdk::runtime::TokioCurrentThread::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::runtime::TokioCurrentThread",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        101,
+        10
+      ],
+      "end": [
+        101,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TokioCurrentThread",
+          "id": "opentelemetry_sdk::runtime::TokioCurrentThread",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/runtime.rs",
+        "begin": [
+          101,
+          10
+        ],
+        "end": [
+          101,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2212",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.json",
+    "anchor": "op-23395f8381382df2f77094fe",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8ffa76f61ce0dc61d3c45838",
+    "path": "opentelemetry_sdk::runtime::TokioCurrentThread::spawn",
+    "name": "spawn",
+    "owner": "opentelemetry_sdk::runtime::TokioCurrentThread",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn spawn<F>(&self, future: F) where F: Future<Output = ()> + Send + 'static",
+    "docs": "",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        116,
+        5
+      ],
+      "end": [
+        133,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "future",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "F"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Future",
+                        "id": 203,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [],
+                            "constraints": [
+                              {
+                                "name": "Output",
+                                "args": null,
+                                "binding": {
+                                  "equality": {
+                                    "type": {
+                                      "tuple": []
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 16,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "203": "core::future::future::Future",
+      "16": "core::marker::Send"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TokioCurrentThread",
+          "id": "opentelemetry_sdk::runtime::TokioCurrentThread",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Runtime",
+        "id": "opentelemetry_sdk::runtime::Runtime",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::runtime::Runtime",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/runtime.rs",
+        "begin": [
+          115,
+          1
+        ],
+        "end": [
+          138,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2156",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.TokioCurrentThread.json",
+    "anchor": "op-8ffa76f61ce0dc61d3c45838",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

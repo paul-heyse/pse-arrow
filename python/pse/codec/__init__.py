@@ -25,6 +25,7 @@ import msgspec.json
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
 from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
+from pse.governance import check_class
 
 __all__ = [
     "converter",
@@ -97,6 +98,7 @@ def converter() -> cattrs.Converter:
 
 def _wire_names(cls: type) -> dict[str, str]:
     """Read the exact generated field mapping, refusing ambiguous metadata."""
+    check_class(cls)
     result: dict[str, str] = {}
     used: set[str] = set()
     for field in attrs.fields(cls):

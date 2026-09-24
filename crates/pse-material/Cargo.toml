@@ -17,9 +17,12 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+# closed_enum! expands serde implementations in this crate.
+serde.workspace = true
+strum.workspace = true
+pse-diagnostics.workspace = true
 pse-ids.workspace = true
 pse-quantity.workspace = true
-serde.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 
@@ -28,4 +31,3 @@ miette.workspace = true
 fixtures = []
 
 [dev-dependencies]
-proptest.workspace = true

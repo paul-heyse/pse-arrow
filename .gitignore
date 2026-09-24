@@ -34,6 +34,24 @@ coverage.xml
 htmlcov/
 lcov.info
 
+# Library capability skills are local-only until they move to their own repository.
+# Only the repository-process skills are tracked by rule; any new skill is ignored by default.
+# Ignoring does not untrack: skills committed or staged before this rule stay as they are.
+# The alias paths are symlinks on Linux, but `just agent-config-sync` copies the tree on
+# Windows, so the same rule covers them.
+/.codex/skills/*
+!/.codex/skills/adr/
+!/.codex/skills/design-review/
+!/.codex/skills/design-review-process-simulator/
+/.claude/skills/*
+!/.claude/skills/adr/
+!/.claude/skills/design-review/
+!/.claude/skills/design-review-process-simulator/
+/.agents/skills/*
+!/.agents/skills/adr/
+!/.agents/skills/design-review/
+!/.agents/skills/design-review-process-simulator/
+
 # Local overrides (templates are committed)
 .envrc.local
 .claude/settings.local.json

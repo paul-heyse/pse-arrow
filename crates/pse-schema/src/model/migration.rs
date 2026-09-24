@@ -8,7 +8,7 @@
 //! selects both versions through this declaration; store opening never discovers
 //! or applies a conversion path.
 
-use crate::model::cell::Cell;
+use crate::literal::NativeLiteral;
 
 /// One step of a migration.
 #[derive(Clone, Debug, PartialEq)]
@@ -18,7 +18,7 @@ pub enum MigrationStep {
         /// The new column's name, which must exist in the target version.
         name: &'static str,
         /// The value every existing row gets.
-        default: Cell,
+        default: NativeLiteral,
     },
     /// Drop a column.
     DropColumn(&'static str),
@@ -84,21 +84,21 @@ impl MigrationSpec {
             rendered.push(match step {
                 MigrationStep::AddColumn { name, default } => format!(
                     "add_column {} {}",
-                    Cell::text(*name).literal_spec(),
-                    default.literal_spec()
+                    serde_json::json!(["text", name]),
+                    default.as_json()
                 ),
                 MigrationStep::DropColumn(name) => {
-                    format!("drop_column {}", Cell::text(*name).literal_spec())
+                    format!("drop_column {}", serde_json::json!(["text", name]))
                 }
                 MigrationStep::RenameColumn { from, to } => format!(
                     "rename_column {} {}",
-                    Cell::text(*from).literal_spec(),
-                    Cell::text(*to).literal_spec()
+                    serde_json::json!(["text", from]),
+                    serde_json::json!(["text", to])
                 ),
                 MigrationStep::ChangeNullable { name, nullable } => {
                     format!(
                         "change_nullable {} {nullable}",
-                        Cell::text(*name).literal_spec()
+                        serde_json::json!(["text", name])
                     )
                 }
             });

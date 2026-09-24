@@ -15,12 +15,10 @@ mod cdf;
 mod delta;
 #[path = "../../crates/pse-catalog/tests/support/kernel_checksum.rs"]
 mod kernel_checksum;
-#[path = "native_cache/store.rs"]
-mod store;
-#[path = "native_cache/strata.rs"]
-mod strata;
-#[path = "../../crates/pse-rules/tests/support/strata_fixture.rs"]
-mod strata_fixture;
+
+#[path = "native_cache/preparation.rs"]
+mod preparation;
+
 use datafusion::{
     arrow::{
         array::{Int64Array, RecordBatch},
@@ -33,11 +31,9 @@ use datafusion::{
     functions_aggregate::expr_fn::count,
     logical_expr::{LogicalPlanBuilder, col},
 };
-use pse_catalog::{
-    cache_service::{CacheBudget, NativeCacheService},
-    session::{ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile},
-};
-use pse_ids::{CancellationToken, FixedBudget};
+use pse_catalog::cache_service::{DeltaCacheBudget, DeltaCacheService};
+use pse_columnar::CancellationToken;
+use pse_engine::session::{EngineFactory, ExecutionSettings, ThreadBudget, native_engine_profile};
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{
     RegistryBuilder,
@@ -93,10 +89,10 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
         .with_memory_pool(pool.clone())
         .build_arc()
         .unwrap();
-    let caches = NativeCacheService::new(CacheBudget::for_memory(256 << 20), &pool).unwrap();
-    let factory = SessionFactory::new(
+    let caches = DeltaCacheService::new(DeltaCacheBudget::for_memory(256 << 20), &pool).unwrap();
+    let factory = EngineFactory::new(
         runtime,
-        FixedBudget::new(256 << 20),
+        pool.clone(),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
@@ -105,7 +101,11 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
         native_engine_profile(),
     )
     .unwrap()
-    .with_cache_service(caches.clone());
+    .with_cache_service(caches.native().clone())
+    .with_extension(caches.clone())
+    .with_query_planner(Arc::new(pse_engine::session::planner::UnifiedPlanner::new(
+        pse_catalog::assembly::planners(),
+    )));
     let cancel = CancellationToken::new();
     let session = factory
         .candidate(BTreeMap::new(), registry, &cancel)
@@ -168,6 +168,7 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
         );
     }
     let counters = caches
+        .native()
         .execution_report()
         .into_iter()
         .collect::<BTreeMap<_, _>>();
@@ -193,17 +194,21 @@ async fn main() {
         .with_ansi(false)
         .with_writer(std::io::stderr)
         .init();
-    let mut planning_counts = None;
-    for nodes in if smoke { vec![3] } else { vec![3, 8, 16] } {
-        let counts = strata::measure(nodes).await;
-        if let Some(expected) = planning_counts {
-            assert_eq!(
-                counts, expected,
-                "additional inference rounds must not plan again"
-            );
-        }
-        planning_counts = Some(counts);
+    for repetition in 1..=if smoke { 1 } else { 5 } {
+        println!(
+            "{}",
+            serde_json::json!({"experiment":"repetition_begin", "repetition":repetition, "smoke":smoke})
+        );
+        preparation::measure(smoke).await;
+        matrix(smoke).await;
+        println!(
+            "{}",
+            serde_json::json!({"experiment":"repetition_end", "repetition":repetition, "smoke":smoke})
+        );
     }
+}
+
+async fn matrix(smoke: bool) {
     let sizes = if smoke {
         vec![16]
     } else {
@@ -212,7 +217,7 @@ async fn main() {
     delta::matrix(smoke).await;
     if !smoke {
         for resident_bytes in [0, 64 << 10, 8 << 20] {
-            let mut policy = CacheBudget::for_memory(256 << 20);
+            let mut policy = DeltaCacheBudget::for_memory(256 << 20);
             policy.resident_bytes = resident_bytes;
             let receipt =
                 Box::pin(cache_journey::run_policy(true, 16384, false, Some(policy))).await;

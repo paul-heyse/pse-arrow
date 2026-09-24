@@ -1,0 +1,63 @@
+[
+  {
+    "id": "50834c138a981a432f216fe1",
+    "path": "tracing::sealed::Sealed",
+    "name": "Sealed",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "trait",
+    "signature": "trait Sealed",
+    "docs": "",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        1204,
+        5
+      ],
+      "end": [
+        1204,
+        24
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "24",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.sealed.Sealed.md",
+    "record_file": "operations/tracing.sealed.Sealed.json",
+    "anchor": "op-50834c138a981a432f216fe1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

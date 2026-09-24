@@ -1,0 +1,77 @@
+[
+  {
+    "id": "f2ebdaed4a828a2d79980a2f",
+    "path": "tracing_subscriber::field",
+    "name": "field",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "module",
+    "signature": "mod field",
+    "docs": "Utilities for working with [fields] and [field visitors].\n\n[fields]: tracing_core::field\n[field visitors]: tracing_core::field::Visit",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        365,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          94,
+          163,
+          207,
+          208,
+          20,
+          85,
+          233,
+          257,
+          89,
+          93,
+          23
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "tracing_core::field::Visit": 82,
+      "tracing_core::field": 274
+    },
+    "link_paths": {
+      "tracing_core::field::Visit": "tracing_core::field::Visit",
+      "tracing_core::field": "tracing_core::field"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "275",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_subscriber.field.md",
+    "record_file": "modules/tracing_subscriber.field.json",
+    "anchor": "op-f2ebdaed4a828a2d79980a2f",
+    "aliases": [],
+    "resolved_doc_links": {
+      "tracing_core::field::Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b",
+      "tracing_core::field": "../modules/tracing_core.field.md#op-477f165c4ba5dcf863f23dd0"
+    }
+  }
+]

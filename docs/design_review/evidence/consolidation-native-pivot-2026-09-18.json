@@ -1,0 +1,121 @@
+{
+  "review": "docs/design_review/reviews/design_review_consolidation-and-native-pivot_2026-09-18.md",
+  "evidence": ["Implemented", "Interface-checked", "Measured"],
+  "status": "review complete; no code changed, no test run",
+  "source_snapshot": "main @ a46f358 (Plan 09 complete), working copy clean at review start",
+  "pins": {
+    "arrow": "59.3.0",
+    "datafusion": "55.1.0",
+    "object_store": "0.13.2",
+    "deltalake-core": "1.0.0 vendored at 58f07cd62bfbce3649a7e1c87c696288068ae184",
+    "delta-kernel": "8ba063f8f84fec222000f66d40d70911d7c79675",
+    "serde_arrow": "0.15.0",
+    "tokio-util": "0.7.19"
+  },
+  "method": "Seven parallel read-only surveys (relation codec; identity/resources/canon; catalog session; Delta layer; rules and native nodes; compiler/authoring/templates/mathir/quantity; cross-cutting errors/tests/codegen/Python). Every line cited in section 7 was re-read by the reviewer; every count below was re-measured by the reviewer with the command shown.",
+  "interface_sources": [
+    ".codex/skills/datafusion/content/{index/symbols.tsv,index/methods.tsv,api/*.md,traits/*.md,catalogs/*.md}",
+    ".codex/skills/deltalake/content/{index/symbols.tsv,api/*.md}",
+    "~/.cargo/registry/src/*/arrow-buffer-59.3.0/src/{pool.rs,bytes.rs}",
+    "~/.cargo/registry/src/*/datafusion-execution-55.1.0/src/memory_pool/arrow.rs",
+    "~/.cargo/registry/src/*/datafusion-common-55.1.0/src/scalar/mod.rs",
+    "~/.cargo/registry/src/*/serde_arrow-0.15.0/src/arrow_impl.rs",
+    "vendor/delta-rs/crates/core/src/{delta_datafusion/table_provider/data_sink.rs,kernel/transaction/mod.rs,protocol/checkpoints.rs,operations/vacuum.rs}"
+  ],
+  "measurements": [
+    {
+      "claim": "hand-written Rust lines per crate (excluding generated/)",
+      "command": "for c in crates/*/; do find $c/src -name '*.rs' -not -path '*/generated/*' | xargs cat | wc -l; done",
+      "values": {"pse-catalog": 34184, "pse-compiler": 33948, "pse-schema": 30782, "pse-authoring": 9996, "pse-rules": 6985, "pse-mathir": 6939, "pse-ids": 5623, "pse-quantity": 5155, "pse-relations": 3581, "pse-templates": 2416, "pse-backend-native": 1459, "pse-numerics": 1331, "pse-material": 1011, "pse-py": 874, "pse-runtime": 766}
+    },
+    {
+      "claim": "generated relation tree size",
+      "command": "find crates/pse-relations/src/generated -name '*.rs' | xargs cat | wc -l; du -sb crates/pse-relations/src/generated",
+      "values": {"lines": 474305, "bytes": 29000623, "relation_modules": 449}
+    },
+    {
+      "claim": "COMPILED_DECLARATION literal volume",
+      "command": "grep -rhoE 'COMPILED_DECLARATION: &str = \"[^\\n]*' crates/pse-relations/src/generated/*/*.rs | awk '{ n+=length($0) } END { print n, NR }'",
+      "values": {"bytes": 10614155, "literals": 442, "share_of_tree": 0.366}
+    },
+    {
+      "claim": "generated codec share (from the relation-codec survey, brace-depth classifier; reviewer verified the per-file structure on three samples, not the classifier)",
+      "values": {"cellcodec_lines": 56646, "arrowvalue_lines": 63572, "into_from_cells_lines": 10251, "codec_share_of_relation_files": 0.292, "estimated_share_with_view_and_builder_bodies": 0.40},
+      "label": "Measured by the survey; the 0.40 figure is Proposed"
+    },
+    {
+      "claim": "hand-written DataFusion extension-trait implementations",
+      "command": "grep -rn 'impl <Trait> for' crates/*/src --exclude-dir=generated (excluding tests)",
+      "values": {"UserDefinedLogicalNodeCore": 9, "ExtensionPlanner": 9, "ExecutionPlan": 16, "TableProvider": 12, "ScalarUDFImpl": 19, "AggregateUDFImpl": 2, "PartitionStream": 2, "TreeNodeVisitor": 4}
+    },
+    {
+      "claim": "identical apply_expressions bodies in pse-catalog",
+      "command": "grep -rn -A6 'fn apply_expressions' crates/pse-catalog/src | grep -c 'TreeNodeRecursion::Continue'",
+      "values": {"count": 15}
+    },
+    {
+      "claim": "nested-loop equality filters in compiler, templates, authoring",
+      "command": "grep -rnE '\\.filter\\(\\|[a-z_]+\\| [a-z_]+\\.[a-z_]+ == ' crates/pse-compiler/src crates/pse-templates/src crates/pse-authoring/src --exclude-dir=generated | wc -l",
+      "values": {"count": 127}
+    },
+    {
+      "claim": "diagnostic code sites and spellings versus FailureClass members",
+      "command": "grep -rPzo 'code\\(\\s*[a-z_]+(::[a-z_]+)+' crates/*/src --exclude-dir=generated | ...; awk over declare_failure_classes",
+      "values": {"inline_sites": 130, "distinct_spellings": 58, "failure_class_members": 24, "spellings_that_are_members": 12, "members_never_used_inline": 12}
+    },
+    {
+      "claim": "duplicated helper definitions",
+      "command": "grep -rn ... crates tests xtask",
+      "values": {"fn_invalid_definitions": 71, "fn_external_identical_copies": 20, "fn_id_value_u8_definitions": 20, "Cancelled_variant_copies": 3}
+    },
+    {
+      "claim": "zero-use declared dependencies",
+      "command": "grep -rn '<crate>' crates/<pkg>/src | wc -l",
+      "values": {"pse-relations/serde_arrow": 0, "pse-numerics/num_dual": 0, "pse-rules/datafusion_proto": 0, "pse-rules/serde_json": 0, "pse-rules/pse_quantity": 0, "pse-runtime/backend_native": 0}
+    },
+    {
+      "claim": "zero-caller documented entry points",
+      "values": {"pse_ids::FrameSink": "only lib.rs doc and re-export", "pse_mathir::walk::walk": "no callers", "validate_bundle": "one test caller (pse-relations/tests/admission.rs:353)", "Solve::plan": "test callers only", "ScalarMath": "pse-numerics tests only"}
+    },
+    {
+      "claim": "Arrow pool feature is off at the pin",
+      "command": "cargo tree -p arrow-buffer -e features --depth 0",
+      "values": {"output": "arrow-buffer v59.3.0 (no features listed)"}
+    },
+    {
+      "claim": "native rule SQL files",
+      "command": "grep -c 'include_str!' crates/pse-schema/src/catalog/native_rules.rs; ls crates/pse-schema/src/catalog/native_rules/*.sql | wc -l",
+      "values": {"include_str": 130, "sql_files": 130}
+    }
+  ],
+  "survey_count_disagreements": [
+    {
+      "item": "diagnostic code sites",
+      "single_line_grep": {"sites": 93, "distinct": 31},
+      "multiline_aware_grep": {"sites": 130, "distinct": 58},
+      "used": "multiline-aware (matches the survey)"
+    },
+    {
+      "item": "fn external copies",
+      "survey": 25,
+      "reviewer_exact_signature_grep": 20,
+      "used": "20 (exact signature); the survey counted variants with a different parameter spelling"
+    }
+  ],
+  "not_inspected": [
+    "crates/pse-schema/src/catalog/s6_*.rs declaration bodies beyond s6_7",
+    "crates/pse-compiler/src/passes/p6/**",
+    "crates/pse-compiler/src/passes/p3/config/* bodies",
+    "crates/pse-authoring/src/dsl/{lexer,parser}.rs",
+    "crates/pse-mathir/src/payload.rs",
+    "python/pse/parity/**",
+    "benches/",
+    "tests/structural/"
+  ],
+  "guarantees_not_attacked": [
+    "Delta member-attempt and publication recovery protocol (read only)",
+    "canonical hash stability under a lexsort_to_indices replacement (named blocker of F4)",
+    "serde_arrow nested extension-metadata round trip (named spike of F2)"
+  ],
+  "limits": "No performance claim is made. No library replacement was built. The target design in section 4 is Proposed; the policy inventory in section 10 is descriptive, not a recommendation to change any rule."
+}

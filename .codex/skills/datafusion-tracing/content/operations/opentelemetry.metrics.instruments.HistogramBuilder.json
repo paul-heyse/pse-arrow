@@ -1,0 +1,1556 @@
+[
+  {
+    "id": "0d62fd0dec4b395435e1c5d3",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "name": "HistogramBuilder",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct HistogramBuilder<'a, T>",
+    "docs": "Configuration for building a Histogram.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        35,
+        1
+      ],
+      "end": [
+        53,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "non_exhaustive"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              1161,
+              1163,
+              1164,
+              1165,
+              1166
+            ],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            },
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          1172,
+          1174,
+          1176,
+          1177,
+          1178,
+          1179,
+          1180,
+          1181,
+          1182,
+          1183,
+          1184,
+          1185,
+          1186,
+          1187,
+          1188,
+          1189,
+          1190,
+          1191,
+          1192,
+          1194
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1168",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-0d62fd0dec4b395435e1c5d3",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9eb324d21c3119a392089060",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::boundaries",
+    "name": "boundaries",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "boundaries: Option<Vec<f64>>",
+    "docs": "Bucket boundaries for the histogram.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        49,
+        5
+      ],
+      "end": [
+        49,
+        37
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 192,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "Vec",
+                      "id": 21,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "f64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "21": "alloc::vec::Vec"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1166",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-9eb324d21c3119a392089060",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::boundaries"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "48774875acf4b21281e91e82",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Histogram<f64>",
+    "docs": "Creates a new instrument.\n\nValidates the instrument configuration and creates a new instrument. In\ncase of invalid configuration, a no-op instrument is returned\nand an error is logged using internal logging.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        122,
+        5
+      ],
+      "end": [
+        124,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Histogram",
+              "id": 1077,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1077": "opentelemetry::metrics::instruments::histogram::Histogram"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "HistogramBuilder",
+          "id": "opentelemetry::metrics::instruments::HistogramBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "super::Histogram",
+                      "id": "opentelemetry::metrics::instruments::histogram::Histogram",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "f64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          116,
+          1
+        ],
+        "end": [
+          125,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1173",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-48774875acf4b21281e91e82",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b5040c6896a835c69e8c0bb1",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Histogram<u64>",
+    "docs": "Creates a new instrument.\n\nValidates the instrument configuration and creates a new instrument. In\ncase of invalid configuration, a no-op instrument is returned\nand an error is logged using internal logging.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        133,
+        5
+      ],
+      "end": [
+        135,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Histogram",
+              "id": 1077,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1077": "opentelemetry::metrics::instruments::histogram::Histogram"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "HistogramBuilder",
+          "id": "opentelemetry::metrics::instruments::HistogramBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "super::Histogram",
+                      "id": "opentelemetry::metrics::instruments::histogram::Histogram",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "u64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          127,
+          1
+        ],
+        "end": [
+          136,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1175",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-b5040c6896a835c69e8c0bb1",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d7f37b3670b6839642a8ee33",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::description",
+    "name": "description",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "description: Option<std::borrow::Cow<'static, str>>",
+    "docs": "Description of the Histogram.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        43,
+        5
+      ],
+      "end": [
+        43,
+        47
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 192,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::borrow::Cow",
+                      "id": 19,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            },
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1164",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-d7f37b3670b6839642a8ee33",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::description"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "44e9663b03bd159d5a438709",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        220,
+        5
+      ],
+      "end": [
+        231,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "HistogramBuilder",
+          "id": "opentelemetry::metrics::instruments::HistogramBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          219,
+          1
+        ],
+        "end": [
+          232,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1193",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-44e9663b03bd159d5a438709",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d56de4ae395b3a433a37dde2",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::instrument_provider",
+    "name": "instrument_provider",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "instrument_provider: &'a dyn InstrumentProvider",
+    "docs": "Instrument provider is used to create the instrument.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        37,
+        5
+      ],
+      "end": [
+        37,
+        56
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "borrowed_ref": {
+          "lifetime": "'a",
+          "is_mutable": false,
+          "type": {
+            "dyn_trait": {
+              "traits": [
+                {
+                  "trait": {
+                    "path": "InstrumentProvider",
+                    "id": 1162,
+                    "args": null
+                  },
+                  "generic_params": []
+                }
+              ],
+              "lifetime": null
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "1162": "opentelemetry::metrics::InstrumentProvider"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1161",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-d56de4ae395b3a433a37dde2",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::instrument_provider"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c077c97aeb4eb1b52c376f6f",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::name",
+    "name": "name",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "name: std::borrow::Cow<'static, str>",
+    "docs": "Name of the Histogram.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        40,
+        5
+      ],
+      "end": [
+        40,
+        32
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::borrow::Cow",
+          "id": 19,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'static"
+                },
+                {
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1163",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-c077c97aeb4eb1b52c376f6f",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::name"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "43cbdb24ea2cc6bb797c0189",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::unit",
+    "name": "unit",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "unit: Option<std::borrow::Cow<'static, str>>",
+    "docs": "Unit of the Histogram.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        46,
+        5
+      ],
+      "end": [
+        46,
+        40
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 192,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::borrow::Cow",
+                      "id": 19,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            },
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1165",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-43cbdb24ea2cc6bb797c0189",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::unit"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5eb0060e33295be8b93364f7",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::with_boundaries",
+    "name": "with_boundaries",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_boundaries(self, boundaries: Vec<f64>) -> Self",
+    "docs": "Set the boundaries for this histogram.\n\nSetting boundaries is optional. By default, the boundaries are set to:\n\n`[0.0, 5.0, 10.0, 25.0, 50.0, 75.0, 100.0, 250.0, 500.0, 750.0, 1000.0,\n2500.0, 5000.0, 7500.0, 10000.0]`\n\n# Notes\n- Boundaries must not contain `f64::NAN`, `f64::INFINITY` or\n  `f64::NEG_INFINITY`\n- Values must be in strictly increasing order (e.g., each value must be\n  greater than the previous).\n- Boundaries must not contain duplicate values.\n\nIf invalid boundaries are provided, the instrument will not report\nmeasurements.\nProviding an empty `vec![]` means no bucket information will be\ncalculated.\n\n# Warning\nUsing more buckets can improve the accuracy of percentile calculations in backends.\nHowever, this comes at a cost, including increased memory, CPU, and network usage.\nChoose the number of buckets carefully, considering your application's performance\nand resource requirements.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        110,
+        5
+      ],
+      "end": [
+        113,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "boundaries",
+              {
+                "resolved_path": {
+                  "path": "Vec",
+                  "id": 21,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "primitive": "f64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "21": "alloc::vec::Vec"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "HistogramBuilder",
+          "id": "opentelemetry::metrics::instruments::HistogramBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          55,
+          1
+        ],
+        "end": [
+          114,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1171",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-5eb0060e33295be8b93364f7",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::with_boundaries"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "40f51400c5a5eb66e8761705",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::with_description",
+    "name": "with_description",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_description<S: Into<Cow<'static, str>>>(self, description: S) -> Self",
+    "docs": "Set the description for this instrument",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        69,
+        5
+      ],
+      "end": [
+        72,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "description",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "HistogramBuilder",
+          "id": "opentelemetry::metrics::instruments::HistogramBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          55,
+          1
+        ],
+        "end": [
+          114,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1169",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-40f51400c5a5eb66e8761705",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::with_description"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "018ddc969d6c64016879c12b",
+    "path": "opentelemetry::metrics::instruments::HistogramBuilder::with_unit",
+    "name": "with_unit",
+    "owner": "opentelemetry::metrics::instruments::HistogramBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_unit<S: Into<Cow<'static, str>>>(self, unit: S) -> Self",
+    "docs": "Set the unit for this instrument.\n\nUnit is case sensitive(`kb` is not the same as `kB`).\n\nUnit must be:\n- ASCII string\n- No longer than 63 characters",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        81,
+        5
+      ],
+      "end": [
+        84,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "unit",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "HistogramBuilder",
+          "id": "opentelemetry::metrics::instruments::HistogramBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          55,
+          1
+        ],
+        "end": [
+          114,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1170",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.HistogramBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.HistogramBuilder.json",
+    "anchor": "op-018ddc969d6c64016879c12b",
+    "aliases": [
+      "opentelemetry::metrics::HistogramBuilder::with_unit"
+    ],
+    "resolved_doc_links": {}
+  }
+]

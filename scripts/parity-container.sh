@@ -13,5 +13,5 @@ docker run --rm --user "$(id -u):$(id -g)" \
   -e CARGO_HOME=/work/target/parity-container/cargo-home \
   -e CARGO_TARGET_DIR=/work/target/parity-container \
   "$image" bash -c 'set -euo pipefail
-    uv sync --locked --extra pyomo --group parity --python 3.13
+    uv sync --locked --group parity --python 3.13
     uv run --no-sync --python 3.13 pytest --parity "$@"' bash "$@"

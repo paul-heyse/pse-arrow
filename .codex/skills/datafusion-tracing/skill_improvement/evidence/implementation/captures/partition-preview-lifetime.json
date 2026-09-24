@@ -1,0 +1,24 @@
+[
+  {
+    "kind": "open",
+    "id": 274877906945,
+    "parent": null,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "close",
+    "id": 274877906945,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {
+      "datafusion.boundedness": "Bounded",
+      "datafusion.emission_type": "Incremental",
+      "datafusion.node": "DataSourceExec: partitions=2, partition_sizes=[2, 1]",
+      "datafusion.partitioning": "UnknownPartitioning(2)",
+      "datafusion.preview": "ROWS:3",
+      "otel.name": "DataSourceExec"
+    }
+  }
+]

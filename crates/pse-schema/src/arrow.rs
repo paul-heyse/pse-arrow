@@ -60,6 +60,27 @@ pub const KEY_EXTENSION_METADATA: &str = "ARROW:extension:metadata";
 /// ordinal-ref target the registry does not declare. Assembly rejects those already, so
 /// reaching this error means the spec did not come from this registry.
 pub fn relation_schema(reg: &Registry, spec: &RelationSpec) -> Result<Schema, SchemaError> {
+    Ok(relation_schema_ref(reg, spec)?.as_ref().clone())
+}
+
+/// Borrow the immutable registry's exact Arrow schema without serializing metadata.
+/// # Errors
+/// The declaration is foreign or does not match its complete resolved contract.
+pub fn relation_schema_ref(
+    reg: &Registry,
+    spec: &RelationSpec,
+) -> Result<arrow_schema::SchemaRef, SchemaError> {
+    if reg.contracts_ready() {
+        return Ok(reg.contract(spec)?.schema().clone());
+    }
+    // Bootstrap assembly precedes the frozen contract arena.
+    uncached_relation_schema(reg, spec).map(std::sync::Arc::new)
+}
+
+pub(crate) fn uncached_relation_schema(
+    reg: &Registry,
+    spec: &RelationSpec,
+) -> Result<Schema, SchemaError> {
     let mut fields = Vec::with_capacity(spec.columns.len());
     for column in &spec.columns {
         fields.push(field_for(reg, column)?);

@@ -1,0 +1,127 @@
+[
+  {
+    "id": "e4108b3f6bfa17d523d847cb",
+    "path": "datafusion_tracing::instrument_rules_with_trace_spans",
+    "name": "instrument_rules_with_trace_spans",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "macro",
+    "signature": "macro_rules! instrument_rules_with_trace_spans",
+    "docs": "Instruments a `SessionState` with TRACE-level tracing spans.\n\nThis is a convenience wrapper around [`instrument_rules_with_spans!`] that automatically\nsets the tracing level to `TRACE`.\n\nSee [`instrument_rules_with_spans!`] for detailed documentation.\n\n# Example\n\n```rust,ignore\nuse datafusion_tracing::{instrument_rules_with_trace_spans, RuleInstrumentationOptions};\n\nlet options = RuleInstrumentationOptions::full();\nlet session_state = instrument_rules_with_trace_spans!(\n    options: options,\n    state: session_state\n);\n```",
+    "span": {
+      "filename": "src/rule_instrumentation_macros.rs",
+      "begin": [
+        118,
+        1
+      ],
+      "end": [
+        137,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! instrument_rules_with_trace_spans {\n    (target: $target:expr, options: $options:expr, state: $state:expr, $($field:tt)*) => { ... };\n    (options: $options:expr, state: $state:expr, $($field:tt)*) => { ... };\n    (target: $target:expr, options: $options:expr, state: $state:expr) => { ... };\n    (options: $options:expr, state: $state:expr) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`instrument_rules_with_spans!`": 169
+    },
+    "link_paths": {
+      "`instrument_rules_with_spans!`": "datafusion_tracing::instrument_rules_with_spans"
+    },
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "170",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrument_rules_with_trace_spans.md",
+    "record_file": "operations/datafusion_tracing.instrument_rules_with_trace_spans.json",
+    "anchor": "op-e4108b3f6bfa17d523d847cb",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`instrument_rules_with_spans!`": "../operations/datafusion_tracing.instrument_rules_with_spans.md#op-1c4efa69bf309db05ebcc5cf"
+    }
+  },
+  {
+    "id": "27790040199c6c6422f91fcf",
+    "path": "datafusion_tracing::instrument_rules_with_trace_spans",
+    "name": "instrument_rules_with_trace_spans",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "macro",
+    "signature": "macro_rules! instrument_rules_with_trace_spans",
+    "docs": "Instruments a `SessionState` with TRACE-level tracing spans.\n\nThis is a convenience wrapper around [`instrument_rules_with_spans!`] that automatically\nsets the tracing level to `TRACE`.\n\nSee [`instrument_rules_with_spans!`] for detailed documentation.\n\n# Example\n\n```rust,ignore\nuse datafusion_tracing::{instrument_rules_with_trace_spans, RuleInstrumentationOptions};\n\nlet options = RuleInstrumentationOptions::full();\nlet session_state = instrument_rules_with_trace_spans!(\n    options: options,\n    state: session_state\n);\n```",
+    "span": {
+      "filename": "src/rule_instrumentation_macros.rs",
+      "begin": [
+        118,
+        1
+      ],
+      "end": [
+        137,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! instrument_rules_with_trace_spans {\n    (target: $target:expr, options: $options:expr, state: $state:expr, $($field:tt)*) => { ... };\n    (options: $options:expr, state: $state:expr, $($field:tt)*) => { ... };\n    (target: $target:expr, options: $options:expr, state: $state:expr) => { ... };\n    (options: $options:expr, state: $state:expr) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`instrument_rules_with_spans!`": 1289
+    },
+    "link_paths": {
+      "`instrument_rules_with_spans!`": "datafusion_tracing::instrument_rules_with_spans"
+    },
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1290",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrument_rules_with_trace_spans.md",
+    "record_file": "operations/datafusion_tracing.instrument_rules_with_trace_spans.json",
+    "anchor": "op-27790040199c6c6422f91fcf",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`instrument_rules_with_spans!`": "../operations/datafusion_tracing.instrument_rules_with_spans.md#op-dd96c18d1fb324be3624c5ff"
+    }
+  }
+]

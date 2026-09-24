@@ -1,0 +1,1211 @@
+[
+  {
+    "id": "d674cddddafa66c4223d1cb6",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "name": "SdkMeterProvider",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct SdkMeterProvider",
+    "docs": "Handles the creation and coordination of [Meter]s.\n\nAll `Meter`s created by a `MeterProvider` will be associated with the same\n[Resource], have the same views applied to them, and have their produced\nmetric telemetry passed to the configured [MetricReader]s. This is a\nclonable handle to the MeterProvider implementation itself, and cloning it\nwill create a new reference, not a new instance of a MeterProvider. Dropping\nthe last reference to it will trigger shutdown of the provider. Shutdown can\nalso be triggered manually by calling the `shutdown` method.\n[Meter]: opentelemetry::metrics::Meter",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        35,
+        1
+      ],
+      "end": [
+        37,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1564,
+          1565,
+          1566,
+          1567,
+          1568,
+          1569,
+          1570,
+          1571,
+          1572,
+          1573,
+          1574,
+          1575,
+          1576,
+          1577,
+          1578,
+          1579,
+          1580,
+          1581,
+          1582,
+          1583,
+          1584,
+          1585,
+          1587,
+          1589,
+          1591,
+          1594
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "Meter": 1557,
+      "Resource": 81,
+      "MetricReader": 1490
+    },
+    "link_paths": {
+      "Meter": "opentelemetry::metrics::meter::Meter",
+      "Resource": "opentelemetry_sdk::resource::Resource",
+      "MetricReader": "opentelemetry_sdk::metrics::reader::MetricReader"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1558",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-d674cddddafa66c4223d1cb6",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider"
+    ],
+    "resolved_doc_links": {
+      "Meter": "../operations/opentelemetry.metrics.meter.Meter.md#op-5e48a510d8c00731cf60cb7a",
+      "Resource": "../operations/opentelemetry_sdk.resource.Resource.md#op-6665d2e0897d180bf11ccb3b",
+      "MetricReader": "../operations/opentelemetry_sdk.metrics.reader.MetricReader.md#op-50fae5ec1b547de01d0084a6"
+    }
+  },
+  {
+    "id": "8a5f661ed631e12723c669c8",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::builder",
+    "name": "builder",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn builder() -> MeterProviderBuilder",
+    "docs": "Return default [MeterProviderBuilder]",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        54,
+        5
+      ],
+      "end": [
+        56,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "MeterProviderBuilder",
+              "id": 1559,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1559": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkMeterProvider",
+          "id": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          52,
+          1
+        ],
+        "end": [
+          125,
+          2
+        ]
+      }
+    },
+    "links": {
+      "MeterProviderBuilder": 1559
+    },
+    "link_paths": {
+      "MeterProviderBuilder": "opentelemetry_sdk::metrics::meter_provider::MeterProviderBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1560",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-8a5f661ed631e12723c669c8",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider::builder"
+    ],
+    "resolved_doc_links": {
+      "MeterProviderBuilder": "../operations/opentelemetry_sdk.metrics.meter_provider.MeterProviderBuilder.md#op-4c19a404103c7b3177855dcd"
+    }
+  },
+  {
+    "id": "0539f1e66fd484e845edfb3d",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> SdkMeterProvider",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        34,
+        10
+      ],
+      "end": [
+        34,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "SdkMeterProvider",
+              "id": 1558,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1558": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkMeterProvider",
+          "id": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          34,
+          10
+        ],
+        "end": [
+          34,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1586",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-0539f1e66fd484e845edfb3d",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f766d57822498b6178b9e184",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        47,
+        5
+      ],
+      "end": [
+        49,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkMeterProvider",
+          "id": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          46,
+          1
+        ],
+        "end": [
+          50,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1590",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-f766d57822498b6178b9e184",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cc5baf009276cda726ecf9a8",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        34,
+        17
+      ],
+      "end": [
+        34,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkMeterProvider",
+          "id": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          34,
+          17
+        ],
+        "end": [
+          34,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1588",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-cc5baf009276cda726ecf9a8",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "88d258535036e9af2f71dbac",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::force_flush",
+    "name": "force_flush",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn force_flush(&self) -> OTelSdkResult",
+    "docs": "Flushes all pending telemetry.\n\nThere is no guaranteed that all telemetry be flushed or all resources have\nbeen released on error.\n\n# Examples\n\n```\nuse opentelemetry::{global, Context};\nuse opentelemetry_sdk::metrics::SdkMeterProvider;\n\nfn init_metrics() -> SdkMeterProvider {\n    // Setup metric pipelines with readers + views, default has no\n    // readers so nothing is exported.\n    let provider = SdkMeterProvider::default();\n\n    // Set provider to be used as global meter provider\n    let _ = global::set_meter_provider(provider.clone());\n\n    provider\n}\n\nfn main() -> Result<(), Box<dyn std::error::Error>> {\n    let provider = init_metrics();\n\n    // create instruments + record measurements\n\n    // force all instruments to flush\n    provider.force_flush()?;\n\n    // record more measurements..\n\n    // shutdown ensures any cleanup required by the provider is done,\n    // and also invokes shutdown on the readers.\n    provider.shutdown()?;\n\n    Ok(())\n}\n```",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        97,
+        5
+      ],
+      "end": [
+        99,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkMeterProvider",
+          "id": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          52,
+          1
+        ],
+        "end": [
+          125,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1561",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-88d258535036e9af2f71dbac",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider::force_flush"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "be47e361a58fb5a761499930",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::meter",
+    "name": "meter",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn meter(&self, name: &'static str) -> Meter",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        186,
+        5
+      ],
+      "end": [
+        189,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Meter",
+              "id": 1557,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1557": "opentelemetry::metrics::meter::Meter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkMeterProvider",
+          "id": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MeterProvider",
+        "id": "opentelemetry::metrics::meter::MeterProvider",
+        "args": null
+      },
+      "trait_path": "opentelemetry::metrics::meter::MeterProvider",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          185,
+          1
+        ],
+        "end": [
+          228,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1592",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-be47e361a58fb5a761499930",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider::meter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d30e2311a3c0740bd37b1ea0",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::meter_with_scope",
+    "name": "meter_with_scope",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn meter_with_scope(&self, scope: InstrumentationScope) -> Meter",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        191,
+        5
+      ],
+      "end": [
+        227,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "scope",
+              {
+                "resolved_path": {
+                  "path": "InstrumentationScope",
+                  "id": 75,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Meter",
+              "id": 1557,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "75": "opentelemetry::common::InstrumentationScope",
+      "1557": "opentelemetry::metrics::meter::Meter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkMeterProvider",
+          "id": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MeterProvider",
+        "id": "opentelemetry::metrics::meter::MeterProvider",
+        "args": null
+      },
+      "trait_path": "opentelemetry::metrics::meter::MeterProvider",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          185,
+          1
+        ],
+        "end": [
+          228,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1593",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-d30e2311a3c0740bd37b1ea0",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider::meter_with_scope"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "54bcfe57b4191a69c08e73f3",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::shutdown",
+    "name": "shutdown",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown(&self) -> OTelSdkResult",
+    "docs": "shutdown with default timeout",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        122,
+        5
+      ],
+      "end": [
+        124,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkMeterProvider",
+          "id": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          52,
+          1
+        ],
+        "end": [
+          125,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1563",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-54bcfe57b4191a69c08e73f3",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider::shutdown"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e98e5800da11dc70df13ac1c",
+    "path": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider::shutdown_with_timeout",
+    "name": "shutdown_with_timeout",
+    "owner": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown_with_timeout(&self, _timeout: Duration) -> OTelSdkResult",
+    "docs": "Shuts down the meter provider flushing all pending telemetry and releasing\nany held computational resources.\n\nThis call is idempotent. The first call will perform all flush and releasing\noperations. Subsequent calls will perform no action and will return an error\nstating this.\n\nMeasurements made by instruments from meters this MeterProvider created will\nnot be exported after Shutdown is called.\n\nThere is no guaranteed that all telemetry be flushed or all resources have\nbeen released on error.",
+    "span": {
+      "filename": "src/metrics/meter_provider.rs",
+      "begin": [
+        113,
+        5
+      ],
+      "end": [
+        119,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_timeout",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration",
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SdkMeterProvider",
+          "id": "opentelemetry_sdk::metrics::meter_provider::SdkMeterProvider",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter_provider.rs",
+        "begin": [
+          52,
+          1
+        ],
+        "end": [
+          125,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1562",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.meter_provider.SdkMeterProvider.json",
+    "anchor": "op-e98e5800da11dc70df13ac1c",
+    "aliases": [
+      "opentelemetry_sdk::metrics::SdkMeterProvider::shutdown_with_timeout"
+    ],
+    "resolved_doc_links": {}
+  }
+]

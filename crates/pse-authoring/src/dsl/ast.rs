@@ -71,106 +71,8 @@ impl BinaryOp {
     }
 }
 
-/// The bounded expression-language function vocabulary (blueprint §7.7).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Function {
-    /// Exponential.
-    Exp,
-    /// Natural logarithm.
-    Log,
-    /// Base-ten logarithm.
-    Log10,
-    /// Square root.
-    Sqrt,
-    /// Absolute value.
-    Abs,
-    /// Smooth maximum.
-    SmoothMax,
-    /// Smooth minimum.
-    SmoothMin,
-    /// Smooth absolute value.
-    SmoothAbs,
-    /// Domain-safe square root.
-    SafeSqrt,
-    /// Domain-safe logarithm.
-    SafeLog,
-    /// Sine.
-    Sin,
-    /// Cosine.
-    Cos,
-    /// Tangent.
-    Tan,
-    /// Hyperbolic tangent.
-    Tanh,
-    /// Error function.
-    Erf,
-    /// Minimum; P3 refuses it until an opcode is admitted.
-    Min,
-    /// Maximum; P3 refuses it until an opcode is admitted.
-    Max,
-    /// Explicit unit conversion.
-    Convert,
-    /// Alternating ordered weight/value pairs.
-    WeightedMean,
-    /// Add one explicitly named lexical index to a value.
-    Broadcast,
-}
-
-impl Function {
-    /// All function spellings paired with their syntax variant.
-    pub const SPELLINGS: [(&'static str, Self); 20] = [
-        ("exp", Self::Exp),
-        ("log", Self::Log),
-        ("log10", Self::Log10),
-        ("sqrt", Self::Sqrt),
-        ("abs", Self::Abs),
-        ("smooth_max", Self::SmoothMax),
-        ("smooth_min", Self::SmoothMin),
-        ("smooth_abs", Self::SmoothAbs),
-        ("safe_sqrt", Self::SafeSqrt),
-        ("safe_log", Self::SafeLog),
-        ("sin", Self::Sin),
-        ("cos", Self::Cos),
-        ("tan", Self::Tan),
-        ("tanh", Self::Tanh),
-        ("erf", Self::Erf),
-        ("min", Self::Min),
-        ("max", Self::Max),
-        ("convert", Self::Convert),
-        ("weighted_mean", Self::WeightedMean),
-        ("broadcast", Self::Broadcast),
-    ];
-    /// Resolve one exact authored spelling.
-    pub fn parse(name: &str) -> Option<Self> {
-        Self::SPELLINGS
-            .iter()
-            .find(|(candidate, _)| *candidate == name)
-            .map(|(_, value)| *value)
-    }
-    /// The authored spelling.
-    pub fn as_str(self) -> &'static str {
-        Self::SPELLINGS
-            .iter()
-            .find(|(_, value)| *value == self)
-            .map_or("", |(name, _)| *name)
-    }
-    /// Whether the grammar admits a final `eps=` argument.
-    pub const fn has_epsilon(self) -> bool {
-        matches!(
-            self,
-            Self::SmoothMax | Self::SmoothMin | Self::SmoothAbs | Self::SafeSqrt | Self::SafeLog
-        )
-    }
-}
-
-/// A final named function argument.
-#[derive(Clone, Debug, PartialEq)]
-pub struct NamedArg {
-    /// Its declared name (`eps` in this language version).
-    pub name: String,
-    /// The supplied expression.
-    pub value: Expr,
-}
+// The same declaration drives parsing and typed library admission.
+pub use pse_math::Function;
 
 /// A domain reduction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -238,8 +140,6 @@ pub enum ExprKind {
         function: Function,
         /// Ordered positional arguments.
         args: Vec<Expr>,
-        /// Final named arguments.
-        named: Vec<NamedArg>,
     },
     /// An explicitly qualified kernel call.
     Kernel {

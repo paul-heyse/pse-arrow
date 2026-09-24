@@ -1,0 +1,1231 @@
+[
+  {
+    "id": "a934e2d876b09547f78e2332",
+    "path": "tracing_subscriber::registry::sharded::Data",
+    "name": "Data",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct Data<'a>",
+    "docs": "Span data stored in a [`Registry`].\n\nThe registry stores well-known data defined by tracing: span relationships,\nmetadata and reference counts. Additional user-defined data provided by\n[`Layer`s], such as formatted fields, metrics, or distributed traces should\nbe stored in the [extensions] typemap.\n\n[`Layer`s]: crate::layer::Layer\n[extensions]: Extensions",
+    "span": {
+      "filename": "src/registry/sharded.rs",
+      "begin": [
+        111,
+        1
+      ],
+      "end": [
+        114,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"registry\"), span: src/registry/sharded.rs:108:7: 108:27 (#0) }])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(all(feature = \"registry\", feature = \"std\")))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          1102,
+          1103,
+          1104,
+          1105,
+          1106,
+          1107,
+          1108,
+          1109,
+          1110,
+          1111,
+          1112,
+          1113,
+          1114,
+          1115,
+          1116,
+          1117,
+          1119,
+          1126
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::layer::Layer": 281,
+      "`Registry`": 794,
+      "Extensions": 1007
+    },
+    "link_paths": {
+      "crate::layer::Layer": "tracing_subscriber::layer::Layer",
+      "`Registry`": "tracing_subscriber::registry::sharded::Registry",
+      "Extensions": "tracing_subscriber::registry::extensions::Extensions"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1097",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.sharded.Data.md",
+    "record_file": "operations/tracing_subscriber.registry.sharded.Data.json",
+    "anchor": "op-a934e2d876b09547f78e2332",
+    "aliases": [
+      "tracing_subscriber::registry::Data"
+    ],
+    "resolved_doc_links": {
+      "crate::layer::Layer": "../operations/tracing_subscriber.layer.Layer.md#op-4c1ba1a6be909c9a1b91bff8",
+      "`Registry`": "../operations/tracing_subscriber.registry.sharded.Registry.md#op-4736e765871f1c85d718ade6",
+      "Extensions": "../operations/tracing_subscriber.registry.extensions.Extensions.md#op-3d46c3deb4031474740e0b84"
+    }
+  },
+  {
+    "id": "012cbb1f397737e36505a7f7",
+    "path": "tracing_subscriber::registry::sharded::Data::extensions",
+    "name": "extensions",
+    "owner": "tracing_subscriber::registry::sharded::Data",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn extensions(&self) -> Extensions<'_>",
+    "docs": "",
+    "span": {
+      "filename": "src/registry/sharded.rs",
+      "begin": [
+        427,
+        5
+      ],
+      "end": [
+        429,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Extensions",
+              "id": 1007,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1007": "tracing_subscriber::registry::extensions::Extensions"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Data",
+          "id": "tracing_subscriber::registry::sharded::Data",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "SpanData",
+        "id": "tracing_subscriber::registry::SpanData",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::registry::SpanData",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/registry/sharded.rs",
+        "begin": [
+          414,
+          1
+        ],
+        "end": [
+          439,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1123",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.sharded.Data.md",
+    "record_file": "operations/tracing_subscriber.registry.sharded.Data.json",
+    "anchor": "op-012cbb1f397737e36505a7f7",
+    "aliases": [
+      "tracing_subscriber::registry::Data::extensions"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ac5bd7e84bca85918c5d147b",
+    "path": "tracing_subscriber::registry::sharded::Data::extensions_mut",
+    "name": "extensions_mut",
+    "owner": "tracing_subscriber::registry::sharded::Data",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn extensions_mut(&self) -> ExtensionsMut<'_>",
+    "docs": "",
+    "span": {
+      "filename": "src/registry/sharded.rs",
+      "begin": [
+        431,
+        5
+      ],
+      "end": [
+        433,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ExtensionsMut",
+              "id": 1029,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1029": "tracing_subscriber::registry::extensions::ExtensionsMut"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Data",
+          "id": "tracing_subscriber::registry::sharded::Data",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "SpanData",
+        "id": "tracing_subscriber::registry::SpanData",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::registry::SpanData",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/registry/sharded.rs",
+        "begin": [
+          414,
+          1
+        ],
+        "end": [
+          439,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1124",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.sharded.Data.md",
+    "record_file": "operations/tracing_subscriber.registry.sharded.Data.json",
+    "anchor": "op-ac5bd7e84bca85918c5d147b",
+    "aliases": [
+      "tracing_subscriber::registry::Data::extensions_mut"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "818649889d481e94a961940c",
+    "path": "tracing_subscriber::registry::sharded::Data::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::registry::sharded::Data",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/registry/sharded.rs",
+      "begin": [
+        110,
+        10
+      ],
+      "end": [
+        110,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Data",
+          "id": "tracing_subscriber::registry::sharded::Data",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/registry/sharded.rs",
+        "begin": [
+          110,
+          10
+        ],
+        "end": [
+          110,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1118",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.sharded.Data.md",
+    "record_file": "operations/tracing_subscriber.registry.sharded.Data.json",
+    "anchor": "op-818649889d481e94a961940c",
+    "aliases": [
+      "tracing_subscriber::registry::Data::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "10e0182251c7e9c55f38dd1a",
+    "path": "tracing_subscriber::registry::sharded::Data::id",
+    "name": "id",
+    "owner": "tracing_subscriber::registry::sharded::Data",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn id(&self) -> Id",
+    "docs": "",
+    "span": {
+      "filename": "src/registry/sharded.rs",
+      "begin": [
+        415,
+        5
+      ],
+      "end": [
+        417,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Id",
+              "id": 534,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Data",
+          "id": "tracing_subscriber::registry::sharded::Data",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "SpanData",
+        "id": "tracing_subscriber::registry::SpanData",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::registry::SpanData",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/registry/sharded.rs",
+        "begin": [
+          414,
+          1
+        ],
+        "end": [
+          439,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1120",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.sharded.Data.md",
+    "record_file": "operations/tracing_subscriber.registry.sharded.Data.json",
+    "anchor": "op-10e0182251c7e9c55f38dd1a",
+    "aliases": [
+      "tracing_subscriber::registry::Data::id"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "14592e8dc0601c94cb3bebf5",
+    "path": "tracing_subscriber::registry::sharded::Data::is_enabled_for",
+    "name": "is_enabled_for",
+    "owner": "tracing_subscriber::registry::sharded::Data",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn is_enabled_for(&self, filter: FilterId) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/registry/sharded.rs",
+      "begin": [
+        436,
+        5
+      ],
+      "end": [
+        438,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "filter",
+              {
+                "resolved_path": {
+                  "path": "FilterId",
+                  "id": 795,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "795": "tracing_subscriber::filter::layer_filters::FilterId"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Data",
+          "id": "tracing_subscriber::registry::sharded::Data",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "SpanData",
+        "id": "tracing_subscriber::registry::SpanData",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::registry::SpanData",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/registry/sharded.rs",
+        "begin": [
+          414,
+          1
+        ],
+        "end": [
+          439,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1125",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.sharded.Data.md",
+    "record_file": "operations/tracing_subscriber.registry.sharded.Data.json",
+    "anchor": "op-14592e8dc0601c94cb3bebf5",
+    "aliases": [
+      "tracing_subscriber::registry::Data::is_enabled_for"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "95fd27793ec209d6f20b3ffd",
+    "path": "tracing_subscriber::registry::sharded::Data::metadata",
+    "name": "metadata",
+    "owner": "tracing_subscriber::registry::sharded::Data",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn metadata(&self) -> &'static Metadata<'static>",
+    "docs": "",
+    "span": {
+      "filename": "src/registry/sharded.rs",
+      "begin": [
+        419,
+        5
+      ],
+      "end": [
+        421,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": "'static",
+              "is_mutable": false,
+              "type": {
+                "resolved_path": {
+                  "path": "Metadata",
+                  "id": 278,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'static"
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Data",
+          "id": "tracing_subscriber::registry::sharded::Data",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "SpanData",
+        "id": "tracing_subscriber::registry::SpanData",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::registry::SpanData",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/registry/sharded.rs",
+        "begin": [
+          414,
+          1
+        ],
+        "end": [
+          439,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1121",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.sharded.Data.md",
+    "record_file": "operations/tracing_subscriber.registry.sharded.Data.json",
+    "anchor": "op-95fd27793ec209d6f20b3ffd",
+    "aliases": [
+      "tracing_subscriber::registry::Data::metadata"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ae49f5ba61a38d4c35756eba",
+    "path": "tracing_subscriber::registry::sharded::Data::parent",
+    "name": "parent",
+    "owner": "tracing_subscriber::registry::sharded::Data",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn parent(&self) -> Option<&Id>",
+    "docs": "",
+    "span": {
+      "filename": "src/registry/sharded.rs",
+      "begin": [
+        423,
+        5
+      ],
+      "end": [
+        425,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": null,
+                          "is_mutable": false,
+                          "type": {
+                            "resolved_path": {
+                              "path": "Id",
+                              "id": 534,
+                              "args": null
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "325": "core::option::Option",
+      "534": "tracing_core::span::Id"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Data",
+          "id": "tracing_subscriber::registry::sharded::Data",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "SpanData",
+        "id": "tracing_subscriber::registry::SpanData",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::registry::SpanData",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/registry/sharded.rs",
+        "begin": [
+          414,
+          1
+        ],
+        "end": [
+          439,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1122",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.sharded.Data.md",
+    "record_file": "operations/tracing_subscriber.registry.sharded.Data.json",
+    "anchor": "op-ae49f5ba61a38d4c35756eba",
+    "aliases": [
+      "tracing_subscriber::registry::Data::parent"
+    ],
+    "resolved_doc_links": {}
+  }
+]

@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-compiler"
-description = "Native process-model plans and finite typed domain algorithms."
+description = "Physically typed finite definitions compiled to reusable Symbolica bodies."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,26 +17,17 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-async-trait.workspace = true
-futures-util.workspace = true
-datafusion.workspace = true
-serde_json.workspace = true
-pse-schema.workspace = true
-pse-relations.workspace = true
-pse-authoring.workspace = true
-pse-quantity.workspace = true
-pse-material.workspace = true
-pse-mathir.workspace = true
-pse-templates.workspace = true
-pse-catalog.workspace = true
-pse-rules.workspace = true
-pse-ids.workspace = true
-petgraph.workspace = true
-rayon.workspace = true
-tokio.workspace = true
-tracing.workspace = true
+salsa.workspace = true
+pse-structural.workspace = true
+pse-buildinfo.workspace = true
+pse-diagnostics.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+pse-authoring.workspace = true
+pse-ids.workspace = true
+pse-math.workspace = true
+pse-kernels.workspace = true
+pse-quantity.workspace = true
 
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }

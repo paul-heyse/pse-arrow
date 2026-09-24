@@ -1,0 +1,113 @@
+[
+  {
+    "id": "fe7c4b8dcc803831646648e1",
+    "path": "datafusion_tracing::rule_instrumentation::OPTIMIZER_PASS_TRACKER",
+    "name": "OPTIMIZER_PASS_TRACKER",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "constant",
+    "signature": "const OPTIMIZER_PASS_TRACKER: thread::LocalKey<std::cell::RefCell<OptimizerPassTracker>> = _",
+    "docs": "Tracks optimizer pass count and the parent span ID to detect new queries.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        168,
+        1
+      ],
+      "end": [
+        173,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "constant": {
+        "type": {
+          "resolved_path": {
+            "path": "$crate::thread::LocalKey",
+            "id": 454,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "type": {
+                      "resolved_path": {
+                        "path": "std::cell::RefCell",
+                        "id": 455,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "OptimizerPassTracker",
+                                    "id": 427,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      }
+                    }
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        },
+        "const": {
+          "expr": "_",
+          "value": null,
+          "is_literal": false
+        }
+      }
+    },
+    "type_references": {
+      "454": "std::thread::local::LocalKey",
+      "455": "core::cell::RefCell",
+      "427": "datafusion_tracing::rule_instrumentation::OptimizerPassTracker"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "456",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.OPTIMIZER_PASS_TRACKER.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.OPTIMIZER_PASS_TRACKER.json",
+    "anchor": "op-fe7c4b8dcc803831646648e1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

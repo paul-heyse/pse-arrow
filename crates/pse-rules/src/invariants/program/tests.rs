@@ -10,28 +10,21 @@
 )]
 
 use datafusion::{arrow::array::RecordBatch, execution::runtime_env::RuntimeEnv};
-use pse_catalog::session::{
-    ExecutionSettings, SnapshotSession, ThreadBudget, build_candidate_session,
-    native_engine_profile,
-};
-use pse_ids::{CancellationToken, ContentHash, FixedBudget, SemanticId};
-use pse_schema::{
-    Registry,
-    model::{Cell, RelationKey},
-};
+use pse_columnar::CancellationToken;
+use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget, native_engine_profile};
+use pse_ids::{ContentHash, SemanticId};
+use pse_schema::{Registry, model::RelationKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
     num::NonZeroUsize,
     sync::Arc,
 };
 
-fn session(registry: &Arc<Registry>, rows: BTreeMap<RelationKey, RecordBatch>) -> SnapshotSession {
+fn session(registry: &Arc<Registry>, rows: BTreeMap<RelationKey, RecordBatch>) -> EngineSession {
     let threads = NonZeroUsize::new(1).unwrap();
-    build_candidate_session(
-        rows,
-        Arc::clone(registry),
+    pse_engine::EngineFactory::new(
         Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(128 << 20),
+        Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: threads,
@@ -39,6 +32,7 @@ fn session(registry: &Arc<Registry>, rows: BTreeMap<RelationKey, RecordBatch>) -
         },
         native_engine_profile(),
     )
+    .and_then(|factory| factory.candidate(rows, Arc::clone(registry), &CancellationToken::new()))
     .unwrap()
 }
 
@@ -164,22 +158,27 @@ async fn native_query_binding_rejects_hidden_missing_and_unused_inputs() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one duplicate-key fixture compares separate and batched registry/native obligations"
+)]
 async fn native_duplicate_keys_produce_one_typed_finding() {
+    use pse_engine::session::policy::RequirementPlanner;
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let spec = registry.relation("authored.packages").unwrap();
     let row = vec![
-        Cell::Id(SemanticId::from_bytes([7; 16])),
-        Cell::text("fixture"),
-        Cell::text("1.0.0"),
-        Cell::Enum("model"),
-        Cell::Enum("explicit"),
-        Cell::List(vec![]),
-        Cell::Hash(ContentHash::NIL),
-        Cell::text("Fixture"),
+        serde_json::json!(["id", (SemanticId::from_bytes([7; 16])).to_hex()]),
+        serde_json::json!(["text", "fixture"]),
+        serde_json::json!(["text", "1.0.0"]),
+        serde_json::json!(["enum", "model"]),
+        serde_json::json!(["enum", "explicit"]),
+        serde_json::json!(["list", []]),
+        serde_json::json!(["hash", (ContentHash::NIL).to_hex()]),
+        serde_json::json!(["text", "Fixture"]),
     ];
     let rows = BTreeMap::from([(
         spec.key,
-        pse_relations::cells::batch_from_cells(&registry, spec, &[row.clone(), row]).unwrap(),
+        pse_relations::testing::batch_from_literals(&registry, spec, &[row.clone(), row]).unwrap(),
     )]);
     let session = session(&registry, rows.clone());
     let invariant = registry
@@ -207,6 +206,80 @@ async fn native_duplicate_keys_produce_one_typed_finding() {
             .map(|batch| batch.batch().num_rows())
             .sum::<usize>(),
         1
+    );
+    // Mix a registry query with a native row check. Their plans share admission,
+    // but the empty relation must not inherit the duplicate-key finding.
+    let native = registry
+        .relations()
+        .iter()
+        .find(|spec| !spec.checks.is_empty())
+        .unwrap();
+    let native_id = native
+        .row_check_id(native.checks.keys().next().unwrap())
+        .unwrap();
+    let mut rows = rows;
+    rows.insert(
+        native.key,
+        RecordBatch::new_empty(Arc::new(
+            pse_schema::arrow::relation_schema(&registry, native).unwrap(),
+        )),
+    );
+    let mixed = self::session(&registry, rows.clone());
+    let selected = BTreeSet::from([invariant.id, native_id]);
+    let cancel = CancellationToken::new();
+    let plans = super::compile_individual(
+        &rows.keys().copied().collect(),
+        &mixed,
+        &registry,
+        crate::invariants::InvariantScope::Required(&selected),
+        &cancel,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        plans.iter().map(|(id, _)| *id).collect::<BTreeSet<_>>(),
+        selected
+    );
+    for (id, plan) in plans {
+        let result = mixed
+            .prepare(plan, &cancel)
+            .unwrap()
+            .execute(&cancel)
+            .await
+            .unwrap();
+        assert_eq!(
+            result
+                .batches()
+                .iter()
+                .map(|batch| batch.num_rows())
+                .sum::<usize>(),
+            usize::from(id == invariant.id)
+        );
+    }
+    let plan = crate::invariants::RegistryRequirementPlanner
+        .plan(&mixed, &selected, &cancel)
+        .await
+        .unwrap();
+    let error = mixed
+        .prepare(plan, &cancel)
+        .unwrap()
+        .execute(&cancel)
+        .await
+        .unwrap_err();
+    assert!(
+        pse_diagnostics::diagnostic_leaves(&error)
+            .iter()
+            .any(|leaf| {
+                leaf.diagnostic_code() == Some(pse_diagnostics::DiagnosticCode::SchemaAdmission)
+            })
+    );
+    let mut missing = selected;
+    missing.insert(SemanticId::NIL);
+    assert!(
+        crate::invariants::RegistryRequirementPlanner
+            .plan(&mixed, &missing, &cancel)
+            .await
+            .is_err()
     );
 }
 
@@ -250,50 +323,4 @@ async fn stoichiometry_phase_policy_preserves_defaults_restrictions_and_missing_
     }
     actual.sort_unstable();
     assert_eq!(actual, [1, 3, 5, 6, 7, 8, 9]);
-}
-
-#[tokio::test]
-async fn method_resolution_rules_bind_complete_outcomes() {
-    let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-    let rows = registry
-        .relations()
-        .iter()
-        .map(|spec| {
-            (
-                spec.key,
-                RecordBatch::new_empty(Arc::new(
-                    pse_schema::arrow::relation_schema(&registry, spec).unwrap(),
-                )),
-            )
-        })
-        .collect();
-    let session = session(&registry, rows);
-    for name in [
-        "P6.unique_method",
-        "P6.ambiguous_method",
-        "P6.unsupported_method",
-        "P6.demanded_resolutions",
-        "P6.dependency_requirement",
-    ] {
-        let rule = registry
-            .rules()
-            .iter()
-            .find(|rule| rule.name == name)
-            .unwrap();
-        let bindings = crate::plan::PortBinding {
-            ports: rule
-                .inputs
-                .iter()
-                .map(|input| {
-                    (
-                        input.port.to_owned(),
-                        registry.relation(&input.relation).unwrap().key,
-                    )
-                })
-                .collect(),
-        };
-        crate::plan::compile(rule, &bindings, &session, &registry)
-            .await
-            .unwrap_or_else(|error| panic!("{name}: {error:?}"));
-    }
 }

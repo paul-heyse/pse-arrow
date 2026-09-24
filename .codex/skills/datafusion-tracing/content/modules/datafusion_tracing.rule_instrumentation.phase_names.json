@@ -1,0 +1,74 @@
+[
+  {
+    "id": "711b354fb361fd539b78fd9e",
+    "path": "datafusion_tracing::rule_instrumentation::phase_names",
+    "name": "phase_names",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "module",
+    "signature": "mod phase_names",
+    "docs": "Phase names used for span identification in traces.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        51,
+        1
+      ],
+      "end": [
+        51,
+        16
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          328,
+          329,
+          330
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "331",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/datafusion_tracing.rule_instrumentation.phase_names.md",
+    "record_file": "modules/datafusion_tracing.rule_instrumentation.phase_names.json",
+    "anchor": "op-711b354fb361fd539b78fd9e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

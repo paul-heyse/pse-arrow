@@ -162,6 +162,105 @@ Version: 1. Snapshot class: `case`. Primary key: `case_id`.
 | `kind` | `enum:CaseKind` | false | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
 
+## `computation_models`
+
+Authoritative bounded native-model declaration. Typed builders and package documents share this contract; compiler products are derived and non-durable.
+
+Version: 2. Snapshot class: `model`. Primary key: `model_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `model_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `definitions` | `List` | false | `payload` | — | — |
+| `definitions.item` | `Struct` | false | `payload` | — | — |
+| `definitions.item.definition_id` | `semantic_id` | false | `payload` | — | — |
+| `definitions.item.sources` | `List` | false | `payload` | — | — |
+| `definitions.item.sources.item` | `Utf8` | false | `payload` | — | — |
+| `definitions.item.formals` | `List` | false | `payload` | — | — |
+| `definitions.item.formals.item` | `Struct` | false | `payload` | — | — |
+| `definitions.item.formals.item.path` | `Utf8` | false | `payload` | — | — |
+| `definitions.item.formals.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `definitions.item.domains` | `List` | false | `payload` | — | — |
+| `definitions.item.domains.item` | `Utf8` | false | `payload` | — | — |
+| `definitions.item.groups` | `List` | false | `payload` | — | — |
+| `definitions.item.groups.item` | `Utf8` | false | `payload` | — | — |
+| `definitions.item.providers` | `List` | false | `payload` | — | — |
+| `definitions.item.providers.item` | `Utf8` | false | `payload` | — | — |
+| `definitions.item.units` | `List` | false | `payload` | — | — |
+| `definitions.item.units.item` | `Struct` | false | `payload` | — | — |
+| `definitions.item.units.item.spelling` | `Utf8` | false | `payload` | — | — |
+| `definitions.item.units.item.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `definitions.item.literals` | `List` | false | `payload` | — | — |
+| `definitions.item.literals.item` | `Struct` | false | `payload` | — | — |
+| `definitions.item.literals.item.start` | `Int64` | false | `payload` | — | — |
+| `definitions.item.literals.item.end` | `Int64` | false | `payload` | — | — |
+| `definitions.item.literals.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `domains` | `List` | false | `payload` | — | — |
+| `domains.item` | `Struct` | false | `payload` | — | — |
+| `domains.item.name` | `Utf8` | false | `payload` | — | — |
+| `domains.item.domain_id` | `semantic_id` | false | `payload` | — | — |
+| `domains.item.members` | `List` | false | `payload` | — | — |
+| `domains.item.members.item` | `semantic_id` | false | `payload` | — | — |
+| `domains.item.kind` | `enum:DomainKind` | false | `payload` | — | — |
+| `groups` | `List` | false | `payload` | — | — |
+| `groups.item` | `Struct` | false | `payload` | — | — |
+| `groups.item.name` | `Utf8` | false | `payload` | — | — |
+| `groups.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `groups.item.axes` | `List` | false | `payload` | — | — |
+| `groups.item.axes.item` | `Utf8` | false | `payload` | — | — |
+| `groups.item.slots` | `List` | false | `payload` | — | — |
+| `groups.item.slots.item` | `Struct` | false | `payload` | — | — |
+| `groups.item.slots.item.members` | `List` | false | `payload` | — | — |
+| `groups.item.slots.item.members.item` | `semantic_id` | false | `payload` | — | — |
+| `groups.item.slots.item.slot` | `Int64` | false | `payload` | — | — |
+| `cases` | `List` | false | `payload` | — | — |
+| `cases.item` | `Struct` | false | `payload` | — | — |
+| `cases.item.case_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.name` | `Utf8` | false | `payload` | — | — |
+| `cases.item.variables` | `List` | false | `payload` | — | — |
+| `cases.item.variables.item` | `Struct` | false | `payload` | — | — |
+| `cases.item.variables.item.port` | `Struct` | false | `payload` | — | — |
+| `cases.item.variables.item.port.symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.variables.item.port.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.variables.item.port.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.variables.item.fixed` | `Boolean` | false | `payload` | — | — |
+| `cases.item.variables.item.domain` | `enum:NativeVariableDomain` | false | `payload` | — | — |
+| `cases.item.variables.item.lower` | `Float64` | true | `payload` | — | — |
+| `cases.item.variables.item.upper` | `Float64` | true | `payload` | — | — |
+| `cases.item.parameters` | `List` | false | `payload` | — | — |
+| `cases.item.parameters.item` | `Struct` | false | `payload` | — | — |
+| `cases.item.parameters.item.symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.parameters.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.parameters.item.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.instances` | `List` | false | `payload` | — | — |
+| `cases.item.instances.item` | `Struct` | false | `payload` | — | — |
+| `cases.item.instances.item.instance_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.instances.item.definition_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.instances.item.slots` | `List` | false | `payload` | — | — |
+| `cases.item.instances.item.slots.item` | `Struct` | false | `payload` | — | — |
+| `cases.item.instances.item.slots.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.instances.item.slots.item.formal_quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.instances.item.slots.item.formal_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.instances.item.contributions` | `List` | false | `payload` | — | — |
+| `cases.item.instances.item.contributions.item` | `Struct` | false | `payload` | — | — |
+| `cases.item.instances.item.contributions.item.output` | `Int64` | false | `payload` | — | — |
+| `cases.item.instances.item.contributions.item.row_id` | `semantic_id` | true | `payload` | — | — |
+| `cases.item.instances.item.contributions.item.scale` | `Float64` | false | `payload` | — | — |
+| `cases.item.rows` | `List` | false | `payload` | — | — |
+| `cases.item.rows.item` | `Struct` | false | `payload` | — | — |
+| `cases.item.rows.item.row_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.rows.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.rows.item.lower` | `Float64` | true | `payload` | — | — |
+| `cases.item.rows.item.upper` | `Float64` | true | `payload` | — | — |
+| `cases.item.objective` | `Struct` | true | `payload` | — | — |
+| `cases.item.objective.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.objective.sense` | `enum:NativeObjectiveSense` | false | `payload` | — | — |
+| `cases.item.values` | `List` | false | `payload` | — | — |
+| `cases.item.values.item` | `Struct` | false | `payload` | — | — |
+| `cases.item.values.item.symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `cases.item.values.item.value` | `Float64` | false | `payload` | — | — |
+
 ## `connections`
 
 blueprint §6.7 instance: connections.
@@ -225,22 +324,6 @@ Version: 1. Snapshot class: `model`. Primary key: `property_package_id, property
 | `index` | `index_tuple` | false | `key` | — | — |
 | `scaling_factor` | `Float64` | false | `payload` | — | — |
 
-## `discretization_policies`
-
-blueprint §6.11 numerical and rule: discretization_policies.
-
-Version: 1. Snapshot class: `model`. Primary key: `policy_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `policy_id` | `semantic_id` | false | `key` | — | — |
-| `package_id` | `semantic_id` | false | `payload` | — | — |
-| `name` | `Utf8` | false | `payload` | — | — |
-| `method` | `enum:DiscretizationMethod` | false | `payload` | — | — |
-| `scheme` | `enum:DiscretizationScheme` | false | `payload` | — | — |
-| `finite_elements` | `Int64` | false | `payload` | — | — |
-| `collocation_points` | `Int64` | true | `payload` | — | — |
-
 ## `document_edits`
 
 Exact document before-images and replacements for a native source edit.
@@ -298,6 +381,44 @@ Version: 1. Snapshot class: `model`. Primary key: `domain_id`.
 | `parent_domain_id` | `semantic_id` | true | `payload` | `authored.domains.domain_id` | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
 
+## `dynamic_cases`
+
+Semi-explicit dynamics over existing compiled case functions. States use canonical physical offsets/scales; algebraic rows use explicit residual scales; time is seconds.
+
+Version: 1. Snapshot class: `model`. Primary key: `dynamic_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `dynamic_id` | `semantic_id` | false | `key` | — | — |
+| `model_id` | `semantic_id` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `time_id` | `semantic_id` | false | `payload` | — | — |
+| `states` | `List` | false | `payload` | — | — |
+| `states.item` | `Struct` | false | `payload` | — | — |
+| `states.item.symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `states.item.differential` | `Boolean` | false | `payload` | — | — |
+| `states.item.initial_row` | `semantic_id` | false | `payload` | — | — |
+| `states.item.offset` | `Float64` | false | `payload` | — | — |
+| `states.item.scale` | `Float64` | false | `payload` | — | — |
+| `states.item.residual_scale` | `Float64` | false | `payload` | — | — |
+| `parameters` | `List` | false | `payload` | — | — |
+| `parameters.item` | `semantic_id` | false | `payload` | — | — |
+| `outputs` | `List` | false | `payload` | — | — |
+| `outputs.item` | `semantic_id` | false | `payload` | — | — |
+| `modes` | `List` | false | `payload` | — | — |
+| `modes.item` | `Struct` | false | `payload` | — | — |
+| `modes.item.rhs_rows` | `List` | false | `payload` | — | — |
+| `modes.item.rhs_rows.item` | `semantic_id` | false | `payload` | — | — |
+| `modes.item.events` | `List` | false | `payload` | — | — |
+| `modes.item.events.item` | `Struct` | false | `payload` | — | — |
+| `modes.item.events.item.event_id` | `semantic_id` | false | `payload` | — | — |
+| `modes.item.events.item.guard_row` | `semantic_id` | false | `payload` | — | — |
+| `modes.item.events.item.reset_rows` | `List` | false | `payload` | — | — |
+| `modes.item.events.item.reset_rows.item` | `semantic_id` | false | `payload` | — | — |
+| `modes.item.events.item.terminal` | `Boolean` | false | `payload` | — | — |
+| `modes.item.events.item.next_mode` | `Int64` | false | `payload` | — | — |
+| `modes.item.events.item.tolerance` | `Float64` | false | `payload` | — | — |
+
 ## `entities`
 
 Explicitly declared authored entities; registration validates exact declaration correspondence.
@@ -313,6 +434,38 @@ Version: 1. Snapshot class: `model`. Primary key: `entity_id`.
 | `qualified_name` | `Utf8` | false | `label` | — | — |
 | `parent_entity_id` | `semantic_id` | true | `reference` | `authored.entities.entity_id` | — |
 | `source_span` | `source_span` | true | `provenance` | — | — |
+
+## `fit_cases`
+
+Native simultaneous steady and smooth transient fitting. Measurement values, units and uncertainty remain authored.observations; elapsed time is seconds.
+
+Version: 1. Snapshot class: `case`. Primary key: `fit_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `fit_id` | `semantic_id` | false | `key` | — | — |
+| `model_id` | `semantic_id` | false | `payload` | — | — |
+| `parameters` | `List` | false | `payload` | — | — |
+| `parameters.item` | `Struct` | false | `payload` | — | — |
+| `parameters.item.symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `parameters.item.fixed` | `Boolean` | false | `payload` | — | — |
+| `parameters.item.value` | `Float64` | false | `payload` | — | — |
+| `parameters.item.lower` | `Float64` | true | `payload` | — | — |
+| `parameters.item.upper` | `Float64` | true | `payload` | — | — |
+| `parameters.item.scale` | `Float64` | false | `payload` | — | — |
+| `experiments` | `List` | false | `payload` | — | — |
+| `experiments.item` | `Struct` | false | `payload` | — | — |
+| `experiments.item.experiment_id` | `semantic_id` | false | `payload` | — | — |
+| `experiments.item.case_id` | `semantic_id` | false | `payload` | — | — |
+| `experiments.item.dynamic_id` | `semantic_id` | true | `payload` | — | — |
+| `observations` | `List` | false | `payload` | — | — |
+| `observations.item` | `Struct` | false | `payload` | — | — |
+| `observations.item.observation_id` | `semantic_id` | false | `payload` | — | — |
+| `observations.item.experiment_id` | `semantic_id` | false | `payload` | — | — |
+| `observations.item.output_id` | `semantic_id` | false | `payload` | — | — |
+| `observations.item.time` | `Float64` | true | `payload` | — | — |
+| `observations.item.included` | `Boolean` | false | `payload` | — | — |
+| `observations.item.importance` | `Float64` | false | `payload` | — | — |
 
 ## `flowsheets`
 
@@ -368,8 +521,6 @@ Version: 1. Snapshot class: `model`. Primary key: `equation_decl_id`.
 | `filter` | `expr_dsl` | true | `payload` | — | — |
 | `expression` | `expr_dsl` | false | `payload` | — | — |
 | `sense` | `enum:Sense` | false | `payload` | — | — |
-| `family_hint` | `enum:EquationFamily` | true | `payload` | — | — |
-| `role_hint` | `enum:EquationRole` | true | `payload` | — | — |
 | `guard_id` | `semantic_id` | true | `payload` | — | — |
 | `idaes_name` | `Utf8` | true | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
@@ -435,6 +586,43 @@ Version: 2. Snapshot class: `model`. Primary key: `selection_id`.
 | `options.item` | `Struct` | false | `payload` | — | — |
 | `options.item.key` | `Utf8` | false | `payload` | — | — |
 | `options.item.value` | `Utf8` | false | `payload` | — | — |
+
+## `native_providers`
+
+Explicit native factory selection; currently feos-light-hydrocarbons. No Python callback or opaque provider state is persisted.
+
+Version: 2. Snapshot class: `model`. Primary key: `model_id, name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `model_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `inputs` | `List` | false | `payload` | — | — |
+| `inputs.item` | `Struct` | false | `payload` | — | — |
+| `inputs.item.symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `inputs.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `inputs.item.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `outputs` | `List` | false | `payload` | — | — |
+| `outputs.item` | `Struct` | false | `payload` | — | — |
+| `outputs.item.symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `outputs.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `outputs.item.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `envelope` | `Struct` | false | `payload` | — | — |
+| `envelope.temperature` | `List` | false | `payload` | — | — |
+| `envelope.temperature.item` | `Float64` | false | `payload` | — | — |
+| `envelope.density` | `List` | false | `payload` | — | — |
+| `envelope.density.item` | `Float64` | false | `payload` | — | — |
+| `envelope.pressure` | `List` | false | `payload` | — | — |
+| `envelope.pressure.item` | `Float64` | false | `payload` | — | — |
+| `envelope.composition` | `List` | false | `payload` | — | — |
+| `envelope.composition.item` | `List` | false | `payload` | — | — |
+| `envelope.composition.item.item` | `Float64` | false | `payload` | — | — |
+| `envelope.provenance` | `Utf8` | false | `payload` | — | — |
+| `caloric_reference` | `semantic_id` | false | `payload` | — | — |
+| `components` | `List` | false | `payload` | — | — |
+| `components.item` | `semantic_id` | false | `payload` | — | — |
+| `output` | `Int64` | false | `payload` | — | — |
 
 ## `observation_targets`
 
@@ -568,6 +756,35 @@ Version: 1. Snapshot class: `model`. Primary key: `phase_id`.
 | `is_solvent_phase` | `Boolean` | false | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
 
+## `physical_balances`
+
+Authoritative signed physical contributions in canonical quantity coordinates. A balance derives one zero-equality steady row or one dynamic flux row. Accumulation and event impulses use the conserved state's canonical units. Declared tolerances and provenance are not empirical certification.
+
+Version: 1. Snapshot class: `model`. Primary key: `balance_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `balance_id` | `semantic_id` | false | `key` | — | — |
+| `model_id` | `semantic_id` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `accumulation` | `semantic_id` | true | `payload` | — | — |
+| `tolerance` | `Float64` | false | `payload` | — | — |
+| `integral_tolerance` | `Float64` | true | `payload` | — | — |
+| `provenance` | `Utf8` | false | `payload` | — | — |
+| `terms` | `List` | false | `payload` | — | — |
+| `terms.item` | `Struct` | false | `payload` | — | — |
+| `terms.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `terms.item.role` | `enum:BalanceRole` | false | `payload` | — | — |
+| `terms.item.transfer_id` | `semantic_id` | true | `payload` | — | — |
+| `terms.item.mode` | `Int64` | true | `payload` | — | — |
+| `terms.item.instance_id` | `semantic_id` | false | `payload` | — | — |
+| `terms.item.output` | `Int64` | false | `payload` | — | — |
+| `impulses` | `List` | false | `payload` | — | — |
+| `impulses.item` | `Struct` | false | `payload` | — | — |
+| `impulses.item.event_id` | `semantic_id` | false | `payload` | — | — |
+| `impulses.item.value` | `Float64` | false | `payload` | — | — |
+
 ## `property_packages`
 
 blueprint §6.5 property: property_packages.
@@ -694,26 +911,6 @@ Version: 2. Snapshot class: `model`. Primary key: `term_id`.
 | `entity_kind` | `enum:EntityKind` | true | `payload` | — | — |
 | `tag` | `Utf8` | true | `payload` | — | — |
 | `parameter_name` | `Utf8` | true | `payload` | — | — |
-
-## `solver_profiles`
-
-blueprint §6.11 numerical and rule: solver_profiles.
-
-Version: 1. Snapshot class: `model`. Primary key: `profile_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `profile_id` | `semantic_id` | false | `key` | — | — |
-| `package_id` | `semantic_id` | false | `payload` | — | — |
-| `name` | `Utf8` | false | `payload` | — | — |
-| `backend` | `enum:Backend` | false | `payload` | — | — |
-| `solver` | `Utf8` | false | `payload` | — | — |
-| `options` | `List` | false | `payload` | — | — |
-| `options.item` | `Struct` | false | `payload` | — | — |
-| `options.item.key` | `Utf8` | false | `payload` | — | — |
-| `options.item.value` | `Utf8` | false | `payload` | — | — |
-| `scaling_mode` | `enum:ScalingMode` | false | `payload` | — | — |
-| `derivative_mode` | `enum:DerivativeMode` | false | `payload` | — | — |
 
 ## `species`
 
@@ -959,8 +1156,6 @@ Version: 1. Snapshot class: `model`. Primary key: `equation_decl_id`.
 | `filter` | `expr_dsl` | true | `payload` | — | — |
 | `expression` | `expr_dsl` | false | `payload` | — | — |
 | `sense` | `enum:Sense` | false | `payload` | — | — |
-| `family_hint` | `enum:EquationFamily` | true | `payload` | — | — |
-| `role_hint` | `enum:EquationRole` | true | `payload` | — | — |
 | `guard_id` | `semantic_id` | true | `payload` | — | — |
 | `idaes_name` | `Utf8` | true | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |

@@ -4,7 +4,7 @@
 //! The declaration types: what a catalog module is allowed to say.
 //!
 //! Every type here is a *declaration*, never a runtime value. `RelationSpec` describes a
-//! relation; `Cell` is a registry row, which is the one place the registry is data about
+//! relation; `serde_json::Value` is a registry row, which is the one place the registry is data about
 //! itself (blueprint §4.1). Nothing in this module reads an artifact or touches a session.
 //!
 //! - [`relation`] — relations, columns, keys, quantity contracts.
@@ -15,16 +15,12 @@
 //! - [`migration`] — schema migrations.
 //! - [`algorithm`] — finite algorithm contracts, typed arguments and results.
 //! - [`rule`] — native inference queries and domain policies.
-//! - [`cell`] — the registry's own row model.
 //! - [`document`] — authoring document shapes.
 
 pub mod algorithm;
-pub mod cell;
-mod cell_codec;
 pub mod collection;
 pub mod document;
 pub mod enums;
-pub mod expression_path;
 pub mod extension;
 pub mod field;
 pub mod integer_range;
@@ -33,7 +29,6 @@ pub mod migration;
 pub mod provider;
 pub mod reference;
 pub mod relation;
-pub mod rule;
 pub mod tagged_alternative;
 
 pub use field::ROW_KEY_ENCODING;
@@ -41,7 +36,6 @@ pub use field::ROW_KEY_ENCODING;
 pub use crate::model::algorithm::{
     AlgorithmDecl, AlgorithmSpec, ArgumentSpec, Determinism, ResultSpec,
 };
-pub use crate::model::cell::Cell;
 pub use crate::model::document::{
     DocumentKind, DocumentSection, DocumentSpec, DslSyntax, ExpressionOwnerKind, SourceColumn,
 };
@@ -57,11 +51,7 @@ pub use crate::model::migration::{MigrationSpec, MigrationStep};
 pub use crate::model::relation::{
     ForeignKey, QuantityContract, RelationDecl, RelationKey, RelationSpec,
 };
-pub use crate::model::rule::{
-    ConflictPolicy, DependencyMode, NON_DERIVABLE_NAMESPACES, NegationPolicy, RuleDecl,
-    RuleDependency, RuleInput, RuleQuery, RuleSpec,
-};
-pub use expression_path::ExpressionPathSegmentKind;
+pub use pse_ids::source_path::ExpressionPathSegmentKind;
 
 pub use collection::{CollectionContract, CollectionOrder};
 pub use field::FieldContract;

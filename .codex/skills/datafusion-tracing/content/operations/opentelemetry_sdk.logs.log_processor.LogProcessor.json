@@ -1,0 +1,759 @@
+[
+  {
+    "id": "006d2a495c0f4272e9c3d480",
+    "path": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+    "name": "LogProcessor",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait LogProcessor: Send + Sync + Debug",
+    "docs": "The interface for plugging into a [`SdkLogger`].\n\n[`SdkLogger`]: crate::logs::SdkLogger",
+    "span": {
+      "filename": "src/logs/log_processor.rs",
+      "begin": [
+        42,
+        1
+      ],
+      "end": [
+        76,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          216,
+          217,
+          218,
+          219,
+          220,
+          221
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Send",
+                "id": 16,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Sync",
+                "id": 18,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Debug",
+                "id": 72,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          82,
+          228,
+          235,
+          241
+        ]
+      }
+    },
+    "type_references": {
+      "16": "core::marker::Send",
+      "18": "core::marker::Sync",
+      "72": "core::fmt::Debug"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::logs::SdkLogger": 222
+    },
+    "link_paths": {
+      "crate::logs::SdkLogger": "opentelemetry_sdk::logs::logger::SdkLogger"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "83",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.json",
+    "anchor": "op-006d2a495c0f4272e9c3d480",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogProcessor"
+    ],
+    "resolved_doc_links": {
+      "crate::logs::SdkLogger": "../operations/opentelemetry_sdk.logs.logger.SdkLogger.md#op-5cdec15e2917ca4714194deb"
+    }
+  },
+  {
+    "id": "1574ea14d76366f4d31fcb77",
+    "path": "opentelemetry_sdk::logs::log_processor::LogProcessor::emit",
+    "name": "emit",
+    "owner": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn emit(&self, data: &mut SdkLogRecord, instrumentation: &InstrumentationScope)",
+    "docs": "Called when a log record is ready to processed and exported.\n\nThis method receives a mutable reference to `LogRecord`. If the processor\nneeds to handle the export asynchronously, it should clone the data to\nensure it can be safely processed without lifetime issues. Any changes\nmade to the log data in this method will be reflected in the next log\nprocessor in the chain.\n\n# Parameters\n- `record`: A mutable reference to `LogRecord` representing the log record.\n- `instrumentation`: The instrumentation scope associated with the log record.",
+    "span": {
+      "filename": "src/logs/log_processor.rs",
+      "begin": [
+        54,
+        5
+      ],
+      "end": [
+        54,
+        85
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "data",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "SdkLogRecord",
+                      "id": 74,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "instrumentation",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "InstrumentationScope",
+                      "id": 75,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "74": "opentelemetry_sdk::logs::record::SdkLogRecord",
+      "75": "opentelemetry::common::InstrumentationScope"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "216",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.json",
+    "anchor": "op-1574ea14d76366f4d31fcb77",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogProcessor::emit"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2ae4632e52dab136dc50ebf0",
+    "path": "opentelemetry_sdk::logs::log_processor::LogProcessor::event_enabled",
+    "name": "event_enabled",
+    "owner": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn event_enabled(&self, _level: Severity, _target: &str, _name: Option<&str>) -> bool",
+    "docs": "Check if logging is enabled",
+    "span": {
+      "filename": "src/logs/log_processor.rs",
+      "begin": [
+        69,
+        5
+      ],
+      "end": [
+        72,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"spec_unstable_logs_enabled\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_level",
+              {
+                "resolved_path": {
+                  "path": "Severity",
+                  "id": 207,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "_target",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ],
+            [
+              "_name",
+              {
+                "resolved_path": {
+                  "path": "Option",
+                  "id": 208,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "borrowed_ref": {
+                              "lifetime": null,
+                              "is_mutable": false,
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "207": "opentelemetry::logs::record::Severity",
+      "208": "core::option::Option"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "220",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.json",
+    "anchor": "op-2ae4632e52dab136dc50ebf0",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogProcessor::event_enabled"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0366827982c1b3791c7c729b",
+    "path": "opentelemetry_sdk::logs::log_processor::LogProcessor::force_flush",
+    "name": "force_flush",
+    "owner": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn force_flush(&self) -> OTelSdkResult",
+    "docs": "Force the logs lying in the cache to be exported.",
+    "span": {
+      "filename": "src/logs/log_processor.rs",
+      "begin": [
+        56,
+        5
+      ],
+      "end": [
+        56,
+        44
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "217",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.json",
+    "anchor": "op-0366827982c1b3791c7c729b",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogProcessor::force_flush"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3d18e7708ed22e5ac1c32dda",
+    "path": "opentelemetry_sdk::logs::log_processor::LogProcessor::set_resource",
+    "name": "set_resource",
+    "owner": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn set_resource(&mut self, _resource: &Resource)",
+    "docs": "Set the resource for the log processor.",
+    "span": {
+      "filename": "src/logs/log_processor.rs",
+      "begin": [
+        75,
+        5
+      ],
+      "end": [
+        75,
+        56
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_resource",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Resource",
+                      "id": 81,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "81": "opentelemetry_sdk::resource::Resource"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "221",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.json",
+    "anchor": "op-3d18e7708ed22e5ac1c32dda",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogProcessor::set_resource"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2544b000c57bcfd9ed5f8d2f",
+    "path": "opentelemetry_sdk::logs::log_processor::LogProcessor::shutdown",
+    "name": "shutdown",
+    "owner": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown(&self) -> OTelSdkResult",
+    "docs": "Shuts down the processor with default timeout.",
+    "span": {
+      "filename": "src/logs/log_processor.rs",
+      "begin": [
+        64,
+        5
+      ],
+      "end": [
+        66,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "219",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.json",
+    "anchor": "op-2544b000c57bcfd9ed5f8d2f",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogProcessor::shutdown"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e1e40c55f907613c7cbb1d64",
+    "path": "opentelemetry_sdk::logs::log_processor::LogProcessor::shutdown_with_timeout",
+    "name": "shutdown_with_timeout",
+    "owner": "opentelemetry_sdk::logs::log_processor::LogProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown_with_timeout(&self, _timeout: Duration) -> OTelSdkResult",
+    "docs": "Shuts down the processor.\nAfter shutdown returns the log processor should stop processing any logs.\nIt's up to the implementation on when to drop the LogProcessor.",
+    "span": {
+      "filename": "src/logs/log_processor.rs",
+      "begin": [
+        60,
+        5
+      ],
+      "end": [
+        62,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_timeout",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration",
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "218",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.logs.log_processor.LogProcessor.json",
+    "anchor": "op-e1e40c55f907613c7cbb1d64",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogProcessor::shutdown_with_timeout"
+    ],
+    "resolved_doc_links": {}
+  }
+]

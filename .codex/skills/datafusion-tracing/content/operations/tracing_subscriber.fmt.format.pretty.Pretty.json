@@ -1,0 +1,1109 @@
+[
+  {
+    "id": "9ae7afec101d61be119e29f4",
+    "path": "tracing_subscriber::fmt::format::pretty::Pretty",
+    "name": "Pretty",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct Pretty",
+    "docs": "An excessively pretty, human-readable event formatter.\n\nUnlike the [`Full`], [`Compact`], and [`Json`] formatters, this is a\nmulti-line output format. Each individual event may output multiple lines of\ntext.\n\n# Example Output\n\n<pre><font color=\"#4E9A06\"><b>:;</b></font> <font color=\"#4E9A06\">cargo</font> run --example fmt-pretty\n<font color=\"#4E9A06\"><b>    Finished</b></font> dev [unoptimized + debuginfo] target(s) in 0.08s\n<font color=\"#4E9A06\"><b>     Running</b></font> `target/debug/examples/fmt-pretty`\n  2022-02-15T18:44:24.535324Z <font color=\"#4E9A06\"> INFO</font> <font color=\"#4E9A06\"><b>fmt_pretty</b></font><font color=\"#4E9A06\">: preparing to shave yaks, </font><font color=\"#4E9A06\"><b>number_of_yaks</b></font><font color=\"#4E9A06\">: 3</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt-pretty.rs:16 <font color=\"#AAAAAA\"><i>on</i></font> main\n\n  2022-02-15T18:44:24.535403Z <font color=\"#4E9A06\"> INFO</font> <font color=\"#4E9A06\"><b>fmt_pretty::yak_shave</b></font><font color=\"#4E9A06\">: shaving yaks</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:41 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535442Z <font color=\"#75507B\">TRACE</font> <font color=\"#75507B\"><b>fmt_pretty::yak_shave</b></font><font color=\"#75507B\">: hello! I&apos;m gonna shave a yak, </font><font color=\"#75507B\"><b>excitement</b></font><font color=\"#75507B\">: &quot;yay!&quot;</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:16 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shave</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yak</b>: 1\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535469Z <font color=\"#75507B\">TRACE</font> <font color=\"#75507B\"><b>fmt_pretty::yak_shave</b></font><font color=\"#75507B\">: yak shaved successfully</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:25 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shave</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yak</b>: 1\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535502Z <font color=\"#3465A4\">DEBUG</font> <font color=\"#3465A4\"><b>yak_events</b></font><font color=\"#3465A4\">: </font><font color=\"#3465A4\"><b>yak</b></font><font color=\"#3465A4\">: 1, </font><font color=\"#3465A4\"><b>shaved</b></font><font color=\"#3465A4\">: true</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:46 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535524Z <font color=\"#75507B\">TRACE</font> <font color=\"#75507B\"><b>fmt_pretty::yak_shave</b></font><font color=\"#75507B\">: </font><font color=\"#75507B\"><b>yaks_shaved</b></font><font color=\"#75507B\">: 1</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:55 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535551Z <font color=\"#75507B\">TRACE</font> <font color=\"#75507B\"><b>fmt_pretty::yak_shave</b></font><font color=\"#75507B\">: hello! I&apos;m gonna shave a yak, </font><font color=\"#75507B\"><b>excitement</b></font><font color=\"#75507B\">: &quot;yay!&quot;</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:16 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shave</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yak</b>: 2\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535573Z <font color=\"#75507B\">TRACE</font> <font color=\"#75507B\"><b>fmt_pretty::yak_shave</b></font><font color=\"#75507B\">: yak shaved successfully</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:25 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shave</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yak</b>: 2\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535600Z <font color=\"#3465A4\">DEBUG</font> <font color=\"#3465A4\"><b>yak_events</b></font><font color=\"#3465A4\">: </font><font color=\"#3465A4\"><b>yak</b></font><font color=\"#3465A4\">: 2, </font><font color=\"#3465A4\"><b>shaved</b></font><font color=\"#3465A4\">: true</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:46 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535618Z <font color=\"#75507B\">TRACE</font> <font color=\"#75507B\"><b>fmt_pretty::yak_shave</b></font><font color=\"#75507B\">: </font><font color=\"#75507B\"><b>yaks_shaved</b></font><font color=\"#75507B\">: 2</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:55 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535644Z <font color=\"#75507B\">TRACE</font> <font color=\"#75507B\"><b>fmt_pretty::yak_shave</b></font><font color=\"#75507B\">: hello! I&apos;m gonna shave a yak, </font><font color=\"#75507B\"><b>excitement</b></font><font color=\"#75507B\">: &quot;yay!&quot;</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:16 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shave</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yak</b>: 3\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535670Z <font color=\"#C4A000\"> WARN</font> <font color=\"#C4A000\"><b>fmt_pretty::yak_shave</b></font><font color=\"#C4A000\">: could not locate yak</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:18 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shave</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yak</b>: 3\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535698Z <font color=\"#3465A4\">DEBUG</font> <font color=\"#3465A4\"><b>yak_events</b></font><font color=\"#3465A4\">: </font><font color=\"#3465A4\"><b>yak</b></font><font color=\"#3465A4\">: 3, </font><font color=\"#3465A4\"><b>shaved</b></font><font color=\"#3465A4\">: false</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:46 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535720Z <font color=\"#CC0000\">ERROR</font> <font color=\"#CC0000\"><b>fmt_pretty::yak_shave</b></font><font color=\"#CC0000\">: failed to shave yak, </font><font color=\"#CC0000\"><b>yak</b></font><font color=\"#CC0000\">: 3, </font><font color=\"#CC0000\"><b>error</b></font><font color=\"#CC0000\">: missing yak, </font><font color=\"#CC0000\"><b>error.sources</b></font><font color=\"#CC0000\">: [out of space, out of cash]</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:51 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535742Z <font color=\"#75507B\">TRACE</font> <font color=\"#75507B\"><b>fmt_pretty::yak_shave</b></font><font color=\"#75507B\">: </font><font color=\"#75507B\"><b>yaks_shaved</b></font><font color=\"#75507B\">: 2</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt/yak_shave.rs:55 <font color=\"#AAAAAA\"><i>on</i></font> main\n    <font color=\"#AAAAAA\"><i>in</i></font> fmt_pretty::yak_shave::<b>shaving_yaks</b> <font color=\"#AAAAAA\"><i>with</i></font> <b>yaks</b>: 3\n\n  2022-02-15T18:44:24.535765Z <font color=\"#4E9A06\"> INFO</font> <font color=\"#4E9A06\"><b>fmt_pretty</b></font><font color=\"#4E9A06\">: yak shaving completed, </font><font color=\"#4E9A06\"><b>all_yaks_shaved</b></font><font color=\"#4E9A06\">: false</font>\n    <font color=\"#AAAAAA\"><i>at</i></font> examples/examples/fmt-pretty.rs:19 <font color=\"#AAAAAA\"><i>on</i></font> main\n</pre>",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        99,
+        1
+      ],
+      "end": [
+        101,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1895,
+          1896,
+          1897,
+          1898,
+          1899,
+          1900,
+          1901,
+          1902,
+          1903,
+          1904,
+          1905,
+          1906,
+          1907,
+          1908,
+          1909,
+          1910,
+          1911,
+          1912,
+          1913,
+          1915,
+          1917,
+          1918,
+          1919,
+          1921,
+          1923,
+          1926
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Compact`": 1688,
+      "`Json`": 1692,
+      "`Full`": 1649
+    },
+    "link_paths": {
+      "`Compact`": "tracing_subscriber::fmt::format::Compact",
+      "`Json`": "tracing_subscriber::fmt::format::json::Json",
+      "`Full`": "tracing_subscriber::fmt::format::Full"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1690",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.Pretty.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.Pretty.json",
+    "anchor": "op-9ae7afec101d61be119e29f4",
+    "aliases": [
+      "tracing_subscriber::fmt::format::Pretty"
+    ],
+    "resolved_doc_links": {
+      "`Compact`": "../operations/tracing_subscriber.fmt.format.Compact.md#op-b150ae7b416c1fdd163391ea",
+      "`Json`": "../operations/tracing_subscriber.fmt.format.json.Json.md#op-8e1265e43c2726c9a4be086c",
+      "`Full`": "../operations/tracing_subscriber.fmt.format.Full.md#op-b6feb895c3a5317d8f8397fd"
+    }
+  },
+  {
+    "id": "ba34c232d31dafb639502850",
+    "path": "tracing_subscriber::fmt::format::pretty::Pretty::add_fields",
+    "name": "add_fields",
+    "owner": "tracing_subscriber::fmt::format::pretty::Pretty",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn add_fields(&self, current: &'writer mut FormattedFields<Self>, fields: &span::Record<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        344,
+        5
+      ],
+      "end": [
+        354,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "current",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'writer",
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "FormattedFields",
+                      "id": 1727,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "fields",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Record",
+                      "id": 245,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1727": "tracing_subscriber::fmt::fmt_layer::FormattedFields",
+      "245": "tracing_core::span::Record",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Pretty",
+          "id": "tracing_subscriber::fmt::format::pretty::Pretty",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FormatFields",
+        "id": "tracing_subscriber::fmt::format::FormatFields",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'writer"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::format::FormatFields",
+      "generics": {
+        "params": [
+          {
+            "name": "'writer",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          337,
+          1
+        ],
+        "end": [
+          355,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1925",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.Pretty.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.Pretty.json",
+    "anchor": "op-ba34c232d31dafb639502850",
+    "aliases": [
+      "tracing_subscriber::fmt::format::Pretty::add_fields"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e926ec44619a1fddeb0f7294",
+    "path": "tracing_subscriber::fmt::format::pretty::Pretty::clone",
+    "name": "clone",
+    "owner": "tracing_subscriber::fmt::format::pretty::Pretty",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Pretty",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        98,
+        17
+      ],
+      "end": [
+        98,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Pretty",
+              "id": 1690,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1690": "tracing_subscriber::fmt::format::pretty::Pretty"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Pretty",
+          "id": "tracing_subscriber::fmt::format::pretty::Pretty",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          98,
+          17
+        ],
+        "end": [
+          98,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1916",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.Pretty.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.Pretty.json",
+    "anchor": "op-e926ec44619a1fddeb0f7294",
+    "aliases": [
+      "tracing_subscriber::fmt::format::Pretty::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "09bf5526d43e3547b087a2f0",
+    "path": "tracing_subscriber::fmt::format::pretty::Pretty::default",
+    "name": "default",
+    "owner": "tracing_subscriber::fmt::format::pretty::Pretty",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        136,
+        5
+      ],
+      "end": [
+        140,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Pretty",
+          "id": "tracing_subscriber::fmt::format::pretty::Pretty",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          135,
+          1
+        ],
+        "end": [
+          141,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1922",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.Pretty.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.Pretty.json",
+    "anchor": "op-09bf5526d43e3547b087a2f0",
+    "aliases": [
+      "tracing_subscriber::fmt::format::Pretty::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "de08132849fc650a0d5619f1",
+    "path": "tracing_subscriber::fmt::format::pretty::Pretty::eq",
+    "name": "eq",
+    "owner": "tracing_subscriber::fmt::format::pretty::Pretty",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &Pretty) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        98,
+        28
+      ],
+      "end": [
+        98,
+        37
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Pretty",
+                      "id": 1690,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1690": "tracing_subscriber::fmt::format::pretty::Pretty"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Pretty",
+          "id": "tracing_subscriber::fmt::format::pretty::Pretty",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          98,
+          28
+        ],
+        "end": [
+          98,
+          37
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1920",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.Pretty.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.Pretty.json",
+    "anchor": "op-de08132849fc650a0d5619f1",
+    "aliases": [
+      "tracing_subscriber::fmt::format::Pretty::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "511025ceba6b75e9264da4dd",
+    "path": "tracing_subscriber::fmt::format::pretty::Pretty::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::format::pretty::Pretty",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        98,
+        10
+      ],
+      "end": [
+        98,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Pretty",
+          "id": "tracing_subscriber::fmt::format::pretty::Pretty",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          98,
+          10
+        ],
+        "end": [
+          98,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1914",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.Pretty.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.Pretty.json",
+    "anchor": "op-511025ceba6b75e9264da4dd",
+    "aliases": [
+      "tracing_subscriber::fmt::format::Pretty::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f2c11560284fcc89a996036e",
+    "path": "tracing_subscriber::fmt::format::pretty::Pretty::format_fields",
+    "name": "format_fields",
+    "owner": "tracing_subscriber::fmt::format::pretty::Pretty",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn format_fields<R: RecordFields>(&self, writer: Writer<'writer>, fields: R) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        338,
+        5
+      ],
+      "end": [
+        342,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "writer",
+              {
+                "resolved_path": {
+                  "path": "Writer",
+                  "id": 218,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'writer"
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "fields",
+              {
+                "generic": "R"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "R",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "RecordFields",
+                          "id": 233,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "218": "tracing_subscriber::fmt::format::Writer",
+      "66": "core::fmt::Result",
+      "233": "tracing_subscriber::field::RecordFields"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Pretty",
+          "id": "tracing_subscriber::fmt::format::pretty::Pretty",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FormatFields",
+        "id": "tracing_subscriber::fmt::format::FormatFields",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'writer"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::format::FormatFields",
+      "generics": {
+        "params": [
+          {
+            "name": "'writer",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          337,
+          1
+        ],
+        "end": [
+          355,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1924",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.Pretty.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.Pretty.json",
+    "anchor": "op-f2c11560284fcc89a996036e",
+    "aliases": [
+      "tracing_subscriber::fmt::format::Pretty::format_fields"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a7ec1c58bc260ec59c28427f",
+    "path": "tracing_subscriber::fmt::format::pretty::Pretty::with_source_location",
+    "name": "with_source_location",
+    "owner": "tracing_subscriber::fmt::format::pretty::Pretty",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_source_location(self, display_location: bool) -> Self",
+    "docs": "Sets whether the event's source code location is displayed.\n\nThis defaults to `true`.",
+    "span": {
+      "filename": "src/fmt/format/pretty.rs",
+      "begin": [
+        161,
+        5
+      ],
+      "end": [
+        166,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": {
+      "since": "0.3.6",
+      "note": "all formatters now support configurable source locations. Use `Format::with_source_location` instead."
+    },
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "display_location",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Pretty",
+          "id": "tracing_subscriber::fmt::format::pretty::Pretty",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/format/pretty.rs",
+        "begin": [
+          143,
+          1
+        ],
+        "end": [
+          167,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1894",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.pretty.Pretty.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.pretty.Pretty.json",
+    "anchor": "op-a7ec1c58bc260ec59c28427f",
+    "aliases": [
+      "tracing_subscriber::fmt::format::Pretty::with_source_location"
+    ],
+    "resolved_doc_links": {}
+  }
+]

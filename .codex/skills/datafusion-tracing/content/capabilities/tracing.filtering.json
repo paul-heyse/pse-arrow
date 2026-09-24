@@ -1,0 +1,117 @@
+{
+  "id": "tracing.filtering",
+  "title": "Distinguish local filtering and SDK sampling",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "stdout works collector empty",
+    "local layer receives OTEL missing",
+    "sampling filtering",
+    "multiple layers"
+  ],
+  "crates": [
+    "tracing-subscriber",
+    "tracing-opentelemetry",
+    "opentelemetry_sdk"
+  ],
+  "input": [
+    "layer filters",
+    "sampler",
+    "spans"
+  ],
+  "output": [
+    "branch-specific observations"
+  ],
+  "properties": [
+    "filter",
+    "sampling",
+    "export"
+  ],
+  "operations": [
+    "tracing_subscriber::layer::Layer",
+    "opentelemetry_sdk::trace::sampler::Sampler"
+  ],
+  "brief": "Different layers can accept different telemetry. A local formatted span is evidence for that output branch, not proof that an SDK exported it.",
+  "choices": [
+    {
+      "candidate": "per-layer filter",
+      "choose_when": "Different destinations need different selection",
+      "tradeoff": "Preserve a positive observation on another branch."
+    },
+    {
+      "candidate": "SDK sampler",
+      "choose_when": "Trace recording/export policy is the distinction",
+      "tradeoff": "Sampling is downstream of some tracing work; not a universal zero-cost switch."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.filtering.1",
+      "aspect": "Diagnosis",
+      "kind": "source_observation",
+      "statement": "Separate dispatch, layer admission, SDK sampling, span completion and export when tracing output diverges.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.filtering.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "AlwaysOn and AlwaysOff SDK sampling produce one and zero exported spans respectively while the independent local capture records both. This does not qualify every per-layer filter combination.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Observe both local span capture and SDK exporter records under the same controlled span construction."
+  ],
+  "unknowns": [
+    "SDK export is not collector receipt. Filtering/sampling cost needs its own measurement."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/examples/otlp.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "local_layer_and_otel_sampling_are_independent"
+      ],
+      "scope": "AlwaysOn and AlwaysOff SDK sampling produce one and zero exported spans respectively while the independent local capture records both. This does not qualify every per-layer filter combination."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ],
+  "resolved_operations": [
+    {
+      "path": "tracing_subscriber::layer::Layer",
+      "id": "4c1ba1a6be909c9a1b91bff8",
+      "kind": "trait",
+      "crate": "tracing-subscriber",
+      "record": "operations/tracing_subscriber.layer.Layer.json",
+      "page": "operations/tracing_subscriber.layer.Layer.md#op-4c1ba1a6be909c9a1b91bff8",
+      "signature": "trait Layer<S> where S: Subscriber, Self: 'static"
+    },
+    {
+      "path": "opentelemetry_sdk::trace::sampler::Sampler",
+      "id": "18207afc94b6ea2d542774ef",
+      "kind": "enum",
+      "crate": "opentelemetry_sdk",
+      "record": "operations/opentelemetry_sdk.trace.sampler.Sampler.json",
+      "page": "operations/opentelemetry_sdk.trace.sampler.Sampler.md#op-18207afc94b6ea2d542774ef",
+      "signature": "enum Sampler"
+    }
+  ],
+  "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+  "source": "authoring/capabilities/tracing.filtering.json"
+}

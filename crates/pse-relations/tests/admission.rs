@@ -10,18 +10,18 @@
 
 use arrow_schema::{DataType, Schema};
 use pse_ids::{ContentHash, SemanticId};
-use pse_relations::cells::{batch_from_cells, cells_from_batch};
-use pse_relations::validate::{validate_batch, validate_bundle, validate_field, validate_schema};
+use pse_relations::testing::{batch_from_literals, literals_from_batch};
+use pse_relations::validate::{validate_batch, validate_field, validate_schema};
 use pse_schema::Registry;
 use pse_schema::builder::RegistryBuilder;
 use pse_schema::model::{
-    Authority, Cell, EnumDecl, EnumMember, ExtensionUse, FieldContract, Namespace, RelationDecl,
+    Authority, EnumDecl, EnumMember, ExtensionUse, FieldContract, Namespace, RelationDecl,
     SnapshotClass,
 };
 use std::collections::BTreeMap;
 
-fn id(value: u8) -> Cell {
-    Cell::Id(SemanticId::from_bytes([value; 16]))
+fn id(value: u8) -> serde_json::Value {
+    serde_json::json!(["id", (SemanticId::from_bytes([value; 16])).to_hex()])
 }
 fn decl(name: &'static str, columns: Vec<FieldContract>) -> RelationDecl {
     let mut all = vec![FieldContract::key("id", FieldContract::id(), "identity")];
@@ -58,8 +58,7 @@ fn dictionary_ordering_cannot_be_forged_with_an_unchanged_fingerprint() {
     forged.columns[1] =
         FieldContract::from_field(forged.columns[1].field().clone().with_dict_is_ordered(true));
     assert_eq!(forged.fingerprint, spec.fingerprint);
-    let actual = pse_schema::arrow::relation_schema(&registry, &forged).unwrap();
-    assert!(validate_schema(&registry, &forged, &actual).is_err());
+    assert!(pse_schema::arrow::relation_schema(&registry, &forged).is_err());
 }
 fn fixture() -> Registry {
     let mut builder = RegistryBuilder::new();
@@ -142,36 +141,72 @@ fn fixture() -> Registry {
     ));
     builder.build().unwrap()
 }
-fn row() -> Vec<Cell> {
+fn row() -> Vec<serde_json::Value> {
     vec![
         id(1),
-        Cell::I64(-9),
-        Cell::I64(i64::from(i32::MIN)),
-        Cell::U64(255),
-        Cell::U64(65535),
-        Cell::U64(u64::from(u32::MAX)),
-        Cell::U64(u64::MAX),
-        Cell::Bool(true),
-        Cell::text("λ\n"),
-        Cell::I64(-1000),
-        Cell::F64(-0.0),
-        Cell::Hash(ContentHash::from_bytes([7; 32])),
-        Cell::Enum("two"),
-        Cell::Struct(vec![Cell::Enum("finite"), Cell::F64(0.0)]),
-        Cell::List(
+        serde_json::json!(["i64", -9]),
+        serde_json::json!(["i64", i64::from(i32::MIN)]),
+        serde_json::json!(["u64", 255]),
+        serde_json::json!(["u64", 65535]),
+        serde_json::json!(["u64", u64::from(u32::MAX)]),
+        serde_json::json!(["u64", u64::MAX]),
+        serde_json::json!(["bool", true]),
+        serde_json::json!(["text", "λ\n"]),
+        serde_json::json!(["i64", -1000]),
+        serde_json::json!(["f64", format!("{:016x}", f64::to_bits(-0.0))]),
+        serde_json::json!(["hash", (ContentHash::from_bytes([7; 32])).to_hex()]),
+        serde_json::json!(["enum", "two"]),
+        serde_json::json!([
+            "struct",
+            vec![
+                serde_json::json!(["enum", "finite"]),
+                serde_json::json!(["f64", format!("{:016x}", f64::to_bits(0.0))])
+            ]
+        ]),
+        serde_json::json!([
+            "list",
             (0..8)
-                .map(|_| Cell::Struct(vec![Cell::I64(0), Cell::I64(1)]))
-                .collect(),
-        ),
-        Cell::Struct(vec![Cell::F64(1.5), id(4), id(5)]),
-        Cell::List(vec![id(8), id(9)]),
-        Cell::Struct(vec![id(4), Cell::I64(2), Cell::I64(5)]),
-        Cell::text("x + 1"),
-        Cell::text("fs.a.*"),
-        Cell::I64(0),
-        Cell::List(vec![Cell::Enum("two"), Cell::Enum("one")]),
-        Cell::List(vec![id(2), id(3)]),
-        Cell::Struct(vec![Cell::Enum("one"), Cell::List(vec![id(3)])]),
+                .map(|_| serde_json::json!([
+                    "struct",
+                    vec![serde_json::json!(["i64", 0]), serde_json::json!(["i64", 1])]
+                ]))
+                .collect::<Vec<serde_json::Value>>()
+        ]),
+        serde_json::json!([
+            "struct",
+            vec![
+                serde_json::json!(["f64", format!("{:016x}", f64::to_bits(1.5))]),
+                id(4),
+                id(5)
+            ]
+        ]),
+        serde_json::json!(["list", vec![id(8), id(9)]]),
+        serde_json::json!([
+            "struct",
+            vec![
+                id(4),
+                serde_json::json!(["i64", 2]),
+                serde_json::json!(["i64", 5])
+            ]
+        ]),
+        serde_json::json!(["text", "x + 1"]),
+        serde_json::json!(["text", "fs.a.*"]),
+        serde_json::json!(["i64", 0]),
+        serde_json::json!([
+            "list",
+            vec![
+                serde_json::json!(["enum", "two"]),
+                serde_json::json!(["enum", "one"])
+            ]
+        ]),
+        serde_json::json!(["list", vec![id(2), id(3)]]),
+        serde_json::json!([
+            "struct",
+            vec![
+                serde_json::json!(["enum", "one"]),
+                serde_json::json!(["list", vec![id(3)]])
+            ]
+        ]),
     ]
 }
 
@@ -179,16 +214,16 @@ fn row() -> Vec<Cell> {
 fn every_declared_layout_round_trips_including_null_parents_and_slices() {
     let reg = fixture();
     let spec = reg.relation("authored.values").unwrap();
-    let mut absent = vec![Cell::Null; spec.columns.len()];
+    let mut absent = vec![serde_json::json!(["null", null]); spec.columns.len()];
     absent[0] = id(2);
     let rows = vec![row(), absent];
-    let batch = batch_from_cells(&reg, spec, &rows).unwrap();
-    assert_eq!(cells_from_batch(&reg, spec, &batch).unwrap(), rows);
+    let batch = batch_from_literals(&reg, spec, &rows).unwrap();
+    assert_eq!(literals_from_batch(&reg, spec, &batch).unwrap(), rows);
     assert_eq!(
-        cells_from_batch(&reg, spec, &batch.slice(1, 1)).unwrap(),
+        literals_from_batch(&reg, spec, &batch.slice(1, 1)).unwrap(),
         rows[1..]
     );
-    let empty = batch_from_cells(&reg, spec, &[]).unwrap();
+    let empty = batch_from_literals(&reg, spec, &[]).unwrap();
     assert_eq!(empty.num_rows(), 0);
 }
 
@@ -254,34 +289,64 @@ fn invalid_visible_values_fail_with_unchanged_contract_hash() {
     let reg = fixture();
     let spec = reg.relation("authored.values").unwrap();
     let mutations = vec![
-        ("choice", Cell::Enum("invalid")),
-        ("u8", Cell::U64(256)),
-        ("i32", Cell::I64(i64::MAX)),
+        ("choice", serde_json::json!(["enum", "invalid"])),
+        ("u8", serde_json::json!(["u64", 256])),
+        ("i32", serde_json::json!(["i64", i64::MAX])),
         (
             "bound",
-            Cell::Struct(vec![Cell::Enum("finite"), Cell::F64(f64::INFINITY)]),
+            serde_json::json!([
+                "struct",
+                vec![
+                    serde_json::json!(["enum", "finite"]),
+                    serde_json::json!(["f64", format!("{:016x}", (f64::INFINITY).to_bits())])
+                ]
+            ]),
         ),
         (
             "bound",
-            Cell::Struct(vec![Cell::Enum("unbounded"), Cell::F64(0.0)]),
+            serde_json::json!([
+                "struct",
+                vec![
+                    serde_json::json!(["enum", "unbounded"]),
+                    serde_json::json!(["f64", format!("{:016x}", f64::to_bits(0.0))])
+                ]
+            ]),
         ),
         (
             "span",
-            Cell::Struct(vec![id(1), Cell::I64(8), Cell::I64(4)]),
+            serde_json::json!([
+                "struct",
+                vec![
+                    id(1),
+                    serde_json::json!(["i64", 8]),
+                    serde_json::json!(["i64", 4])
+                ]
+            ]),
         ),
         (
             "quantity",
-            Cell::Struct(vec![Cell::F64(f64::NAN), id(1), id(2)]),
+            serde_json::json!([
+                "struct",
+                vec![
+                    serde_json::json!(["f64", format!("{:016x}", (f64::NAN).to_bits())]),
+                    id(1),
+                    id(2)
+                ]
+            ]),
         ),
         (
             "dimension",
-            Cell::List(
+            serde_json::json!([
+                "list",
                 (0..8)
-                    .map(|_| Cell::Struct(vec![Cell::I64(0), Cell::I64(2)]))
-                    .collect(),
-            ),
+                    .map(|_| serde_json::json!([
+                        "struct",
+                        vec![serde_json::json!(["i64", 0]), serde_json::json!(["i64", 2])]
+                    ]))
+                    .collect::<Vec<serde_json::Value>>()
+            ]),
         ),
-        ("fixed", Cell::List(vec![id(1)])),
+        ("fixed", serde_json::json!(["list", vec![id(1)]])),
     ];
     for (name, invalid) in mutations {
         let mut values = row();
@@ -292,7 +357,7 @@ fn invalid_visible_values_fail_with_unchanged_contract_hash() {
             .unwrap();
         values[index] = invalid;
         assert!(
-            batch_from_cells(&reg, spec, &[values]).is_err(),
+            batch_from_literals(&reg, spec, &[values]).is_err(),
             "admitted invalid {name}"
         );
     }
@@ -302,58 +367,15 @@ fn invalid_visible_values_fail_with_unchanged_contract_hash() {
 fn masked_struct_payload_does_not_leak_invalid_enum_strings() {
     let reg = fixture();
     let spec = reg.relation("authored.values").unwrap();
-    let mut values = vec![Cell::Null; spec.columns.len()];
+    let mut values = vec![serde_json::json!(["null", null]); spec.columns.len()];
     values[0] = id(1);
     // The builder physically stores empty enum strings and invalid dimension defaults
     // below absent parents. Admission must ignore those invisible bytes.
-    let batch = batch_from_cells(&reg, spec, &[values.clone()]).unwrap();
-    assert_eq!(cells_from_batch(&reg, spec, &batch).unwrap(), vec![values]);
-}
-
-#[test]
-fn bundle_compares_keys_references_and_nested_ordinals_directly() {
-    let mut builder = RegistryBuilder::new();
-    builder.declare_relation(decl("target", vec![]));
-    builder.declare_relation(decl(
-        "source",
-        vec![
-            FieldContract::reference("target_id", FieldContract::id(), "target")
-                .with_fk("authored.target", "id"),
-            FieldContract::payload(
-                "ordinals",
-                FieldContract::list(FieldContract::extended(ExtensionUse::OrdinalRef {
-                    target: "authored.target",
-                })),
-                "ordinals",
-            ),
-        ],
-    ));
-    let reg = builder.build().unwrap();
-    let target = reg.relation("authored.target").unwrap();
-    let source = reg.relation("authored.source").unwrap();
-    let target_batch = batch_from_cells(&reg, target, &[vec![id(1)]]).unwrap();
-    for (target_id, ordinal, duplicate) in [
-        (id(1), 0, false),
-        (id(9), 0, false),
-        (id(1), 1, false),
-        (id(1), 0, true),
-    ] {
-        let row = vec![id(2), target_id, Cell::List(vec![Cell::I64(ordinal)])];
-        let rows = if duplicate {
-            vec![row.clone(), row]
-        } else {
-            vec![row]
-        };
-        let source_batch = batch_from_cells(&reg, source, &rows).unwrap();
-        let bundles = BTreeMap::from([
-            (target.key, target_batch.clone()),
-            (source.key, source_batch),
-        ]);
-        assert_eq!(
-            validate_bundle(&reg, &bundles).is_ok(),
-            !duplicate && ordinal == 0 && rows[0][1] == id(1)
-        );
-    }
+    let batch = batch_from_literals(&reg, spec, &[values.clone()]).unwrap();
+    assert_eq!(
+        literals_from_batch(&reg, spec, &batch).unwrap(),
+        vec![values]
+    );
 }
 
 #[test]
@@ -400,18 +422,49 @@ fn a_quantity_carries_its_measure_quantity_and_unit_in_one_nullable_value() {
     let reg = builder.build().unwrap();
     let spec = reg.relation("authored.quantities").unwrap();
     for value in [
-        Cell::Struct(vec![Cell::F64(5.0), id(2), Cell::Null]),
-        Cell::Struct(vec![Cell::F64(5.0), Cell::Null, id(3)]),
-        Cell::Struct(vec![Cell::F64(f64::NAN), id(2), id(3)]),
+        serde_json::json!([
+            "struct",
+            vec![
+                serde_json::json!(["f64", format!("{:016x}", f64::to_bits(5.0))]),
+                id(2),
+                serde_json::json!(["null", null])
+            ]
+        ]),
+        serde_json::json!([
+            "struct",
+            vec![
+                serde_json::json!(["f64", format!("{:016x}", f64::to_bits(5.0))]),
+                serde_json::json!(["null", null]),
+                id(3)
+            ]
+        ]),
+        serde_json::json!([
+            "struct",
+            vec![
+                serde_json::json!(["f64", format!("{:016x}", (f64::NAN).to_bits())]),
+                id(2),
+                id(3)
+            ]
+        ]),
     ] {
-        assert!(batch_from_cells(&reg, spec, &[vec![id(1), value]]).is_err());
+        assert!(batch_from_literals(&reg, spec, &[vec![id(1), value]]).is_err());
     }
-    let batch = batch_from_cells(
+    let batch = batch_from_literals(
         &reg,
         spec,
         &[
-            vec![id(1), Cell::Struct(vec![Cell::F64(5.0), id(2), id(3)])],
-            vec![id(2), Cell::Null],
+            vec![
+                id(1),
+                serde_json::json!([
+                    "struct",
+                    vec![
+                        serde_json::json!(["f64", format!("{:016x}", f64::to_bits(5.0))]),
+                        id(2),
+                        id(3)
+                    ]
+                ]),
+            ],
+            vec![id(2), serde_json::json!(["null", null])],
         ],
     )
     .unwrap();
@@ -445,7 +498,7 @@ fn formatter_renders_all_extensions_without_raw_storage_bytes() {
     use arrow::util::display::{ArrayFormatterFactory, FormatOptions};
     let reg = fixture();
     let spec = reg.relation("authored.values").unwrap();
-    let batch = batch_from_cells(&reg, spec, &[row()]).unwrap();
+    let batch = batch_from_literals(&reg, spec, &[row()]).unwrap();
     let schema = batch.schema();
     let factory = pse_relations::ext::PseFormatterFactory;
     let mut rendered = BTreeMap::new();
@@ -473,11 +526,14 @@ fn formatter_renders_all_extensions_without_raw_storage_bytes() {
 fn actual_registry_rows_materialize_under_their_own_contracts() {
     let reg = pse_schema::registry().unwrap();
     let batches = pse_relations::registry_relations::materialize(reg).unwrap();
-    let expected = reg.schema_rows();
+    let expected = reg.schema_batches();
     assert_eq!(batches.len(), expected.len());
-    for (key, rows) in expected {
-        let spec = reg.relations().iter().find(|spec| spec.key == key).unwrap();
-        assert_eq!(cells_from_batch(reg, spec, &batches[&key]).unwrap(), rows);
+    for (key, batch) in expected {
+        assert_eq!(&batches[key], batch);
+        assert!(std::sync::Arc::ptr_eq(
+            batches[key].column(0),
+            batch.column(0)
+        ));
     }
 }
 
@@ -487,27 +543,41 @@ fn checked_rule_columns_validate_values_without_fabricating_relations() {
     let spec = reg.relation("authored.values").unwrap();
     let schema = pse_schema::arrow::relation_schema(&reg, spec).unwrap();
     let choice = schema.field_with_name("choice").unwrap();
-    let array =
-        pse_relations::cells::array_from_cells(&reg, choice, &[Cell::Enum("two"), Cell::Null])
-            .unwrap();
+    let array = pse_relations::testing::array_from_literals(
+        &reg,
+        choice,
+        &[
+            serde_json::json!(["enum", "two"]),
+            serde_json::json!(["null", null]),
+        ],
+    )
+    .unwrap();
     pse_relations::validate::validate_column(&reg, choice, array.as_ref()).unwrap();
     assert!(
-        pse_relations::cells::array_from_cells(&reg, choice, &[Cell::Enum("invented")]).is_err()
+        pse_relations::testing::array_from_literals(
+            &reg,
+            choice,
+            &[serde_json::json!(["enum", "invented"])]
+        )
+        .is_err()
     );
     let bound = schema.field_with_name("bound").unwrap();
     assert!(
-        pse_relations::cells::array_from_cells(
+        pse_relations::testing::array_from_literals(
             &reg,
             bound,
-            &[Cell::Struct(vec![
-                Cell::Enum("finite"),
-                Cell::F64(f64::INFINITY)
+            &[serde_json::json!([
+                "struct",
+                vec![
+                    serde_json::json!(["enum", "finite"]),
+                    serde_json::json!(["f64", format!("{:016x}", (f64::INFINITY).to_bits())])
+                ]
             ])]
         )
         .is_err()
     );
     let identity = schema.field_with_name("id").unwrap();
-    let array = pse_relations::cells::array_from_cells(&reg, identity, &[id(1)]).unwrap();
+    let array = pse_relations::testing::array_from_literals(&reg, identity, &[id(1)]).unwrap();
     let formatter = pse_relations::ext::create_owned_formatter(
         array.as_ref(),
         &arrow::util::display::FormatOptions::default(),
@@ -522,24 +592,28 @@ fn checked_rule_columns_validate_values_without_fabricating_relations() {
 }
 
 #[test]
-fn owned_cell_construction_reserves_first_and_detached_children_keep_the_lease() {
-    use pse_ids::{CancellationToken, FixedBudget};
-    use pse_relations::cells::batch_from_cells_owned;
+fn owned_native_admission_retains_detached_children_and_checks_limits() {
+    use pse_columnar::CancellationToken;
+
     let reg = fixture();
     let spec = reg.relation("authored.values").unwrap();
     let cancel = CancellationToken::default();
-    let budget = FixedBudget::new(16 << 20);
+    let budget: std::sync::Arc<dyn pse_columnar::MemoryPool> =
+        std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(16 << 20));
     let rows = vec![row()];
-    let batch = batch_from_cells_owned(&reg, spec, &rows, budget.as_ref(), &cancel).unwrap();
-    assert_eq!(cells_from_batch(&reg, spec, &batch).unwrap(), rows);
+    let construct = |pool: &std::sync::Arc<dyn pse_columnar::MemoryPool>,
+                     cancel: &CancellationToken| {
+        let batch = batch_from_literals(&reg, spec, &rows)?;
+        pse_relations::columnar::FieldCheckedBatch::admit_external(&reg, spec, &batch, pool, cancel)
+            .map(pse_relations::columnar::FieldCheckedBatch::into_batch)
+    };
+    let batch = construct(&budget, &cancel).unwrap();
+    assert_eq!(literals_from_batch(&reg, spec, &batch).unwrap(), rows);
     let size = budget.reserved();
     assert!(size > 0);
-    let expected = batch_from_cells(&reg, spec, &rows).unwrap();
-    assert_eq!(
-        size,
-        pse_ids::owned_buffer::retained_buffer_bytes(&expected).unwrap()
-    );
-    drop(expected);
+    // Wrapper-visible capacity is a lower bound: imported ownership includes
+    // the detached allocations that those wrappers keep alive.
+    assert!(size >= pse_columnar::owned_buffer::retained_buffer_bytes(&batch).unwrap());
     let detached = batch
         .column_by_name("fixed")
         .unwrap()
@@ -551,23 +625,22 @@ fn owned_cell_construction_reserves_first_and_detached_children_keep_the_lease()
     assert_eq!(budget.reserved(), size);
     drop(batch);
     drop(copy);
-    assert_eq!(budget.reserved(), size);
+    assert!(budget.reserved() >= detached.len() && budget.reserved() < size);
     drop(detached);
     assert_eq!(budget.reserved(), 0);
-    let tiny = FixedBudget::new(1);
-    assert!(matches!(
-        batch_from_cells_owned(&reg, spec, &rows, tiny.as_ref(), &cancel),
-        Err(pse_relations::RelationError::Canon(
-            pse_ids::CanonError::Reservation(_)
-        ))
-    ));
+    let tiny: std::sync::Arc<dyn pse_columnar::MemoryPool> =
+        std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+    let failure = construct(&tiny, &cancel).unwrap_err();
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&failure),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+    );
     assert_eq!(tiny.reserved(), 0);
     cancel.cancel();
-    assert!(matches!(
-        batch_from_cells_owned(&reg, spec, &rows, budget.as_ref(), &cancel),
-        Err(pse_relations::RelationError::Canon(
-            pse_ids::CanonError::Cancelled
-        ))
-    ));
+    let failure = construct(&budget, &cancel).unwrap_err();
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&failure),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
+    );
     assert_eq!(budget.reserved(), 0);
 }

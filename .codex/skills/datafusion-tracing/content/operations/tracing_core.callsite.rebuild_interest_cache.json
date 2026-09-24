@@ -1,0 +1,91 @@
+[
+  {
+    "id": "514604dfb2bc1df5b1a3e933",
+    "path": "tracing_core::callsite::rebuild_interest_cache",
+    "name": "rebuild_interest_cache",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn rebuild_interest_cache()",
+    "docs": "Clear and reregister interest on every [`Callsite`]\n\nThis function is intended for runtime reconfiguration of filters on traces\nwhen the filter recalculation is much less frequent than trace events are.\nThe alternative is to have the [`Subscriber`] that supports runtime\nreconfiguration of filters always return [`Interest::sometimes()`] so that\n[`enabled`] is evaluated for every event.\n\nThis function will also re-compute the global maximum level as determined by\nthe [`max_level_hint`] method. If a [`Subscriber`]\nimplementation changes the value returned by its `max_level_hint`\nimplementation at runtime, then it **must** call this function after that\nvalue changes, in order for the change to be reflected.\n\nSee the [documentation on callsite interest caching][cache-docs] for\nadditional information on this function's usage.\n\n[`max_level_hint`]: super::subscriber::Subscriber::max_level_hint\n[`Callsite`]: super::callsite::Callsite\n[`enabled`]: super::subscriber::Subscriber#tymethod.enabled\n[`Interest::sometimes()`]: super::subscriber::Interest::sometimes\n[`Subscriber`]: super::subscriber::Subscriber\n[cache-docs]: crate::callsite#rebuilding-cached-interest",
+    "span": {
+      "filename": "src/callsite.rs",
+      "begin": [
+        222,
+        1
+      ],
+      "end": [
+        224,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "super::subscriber::Subscriber::max_level_hint": 114,
+      "super::subscriber::Subscriber": 112,
+      "super::callsite::Callsite": 16,
+      "super::subscriber::Subscriber#tymethod.enabled": 112,
+      "super::subscriber::Interest::sometimes": 113,
+      "crate::callsite#rebuilding-cached-interest": 11
+    },
+    "link_paths": {
+      "super::subscriber::Subscriber::max_level_hint": "tracing_core::subscriber::Subscriber::max_level_hint",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::callsite::Callsite": "tracing_core::callsite::Callsite",
+      "super::subscriber::Subscriber#tymethod.enabled": "tracing_core::subscriber::Subscriber",
+      "super::subscriber::Interest::sometimes": "tracing_core::subscriber::Interest::sometimes",
+      "crate::callsite#rebuilding-cached-interest": "tracing_core::callsite"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "115",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.callsite.rebuild_interest_cache.md",
+    "record_file": "operations/tracing_core.callsite.rebuild_interest_cache.json",
+    "anchor": "op-514604dfb2bc1df5b1a3e933",
+    "aliases": [],
+    "resolved_doc_links": {
+      "super::subscriber::Subscriber::max_level_hint": "../operations/tracing_core.subscriber.Subscriber.md#op-17a8b58b6971d63f15fa6763",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::callsite::Callsite": "../operations/tracing_core.callsite.Callsite.md#op-f2f04985f5653f1f8f822082",
+      "super::subscriber::Subscriber#tymethod.enabled": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::subscriber::Interest::sometimes": "../operations/tracing_core.subscriber.Interest.md#op-70a63c4ee71956d505bbc48d",
+      "crate::callsite#rebuilding-cached-interest": "../modules/tracing_core.callsite.md#op-1740ba2098821878828cbb38"
+    }
+  }
+]

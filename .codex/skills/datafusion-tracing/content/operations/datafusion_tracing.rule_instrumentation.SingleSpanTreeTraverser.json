@@ -1,0 +1,830 @@
+[
+  {
+    "id": "333ad5faa55ba99d8f9d3d8f",
+    "path": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+    "name": "SingleSpanTreeTraverser",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct SingleSpanTreeTraverser<'a>",
+    "docs": "Applies an optimizer rule across the tree manually, keeping all work under a single span.\n\nWhen a rule specifies `apply_order()` as `Some(TopDown)` or `Some(BottomUp)`, the optimizer\nframework would normally handle tree traversal, calling the rule's `rewrite` method on each\nnode. This would result in one span per node if we simply wrapped the inner rule.\n\nInstead, `SingleSpanTreeTraverser` takes over tree traversal so that the entire rule\napplication (across all nodes) is consolidated under a single tracing span. This gives\ncleaner traces that show one span per rule rather than one span per (rule × node) combination.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        538,
+        1
+      ],
+      "end": [
+        542,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              636,
+              637,
+              638
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          641,
+          642,
+          643,
+          644,
+          645,
+          646,
+          647,
+          648,
+          649,
+          650,
+          651,
+          652,
+          653,
+          654,
+          655,
+          656,
+          657,
+          658,
+          659,
+          660,
+          661,
+          665
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "639",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.json",
+    "anchor": "op-333ad5faa55ba99d8f9d3d8f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ce59643d8d59c438a4f6de6d",
+    "path": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser::Node",
+    "name": "Node",
+    "owner": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "assoc_type",
+    "signature": "Node",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        559,
+        5
+      ],
+      "end": [
+        559,
+        29
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "LogicalPlan",
+            "id": 336,
+            "args": null
+          }
+        },
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "336": "datafusion_expr::logical_plan::plan::LogicalPlan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SingleSpanTreeTraverser",
+          "id": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "TreeNodeRewriter",
+        "id": "datafusion_common::tree_node::TreeNodeRewriter",
+        "args": null
+      },
+      "trait_path": "datafusion_common::tree_node::TreeNodeRewriter",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          558,
+          1
+        ],
+        "end": [
+          576,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "662",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.json",
+    "anchor": "op-ce59643d8d59c438a4f6de6d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dea794bf70901628c8dc4dd3",
+    "path": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser::apply_order",
+    "name": "apply_order",
+    "owner": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "apply_order: datafusion::optimizer::optimizer::ApplyOrder",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        539,
+        5
+      ],
+      "end": [
+        539,
+        28
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "datafusion::optimizer::optimizer::ApplyOrder",
+          "id": 516,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "516": "datafusion_optimizer::optimizer::ApplyOrder"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "636",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.json",
+    "anchor": "op-dea794bf70901628c8dc4dd3",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5c3963981c644bf4551a1954",
+    "path": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser::config",
+    "name": "config",
+    "owner": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "config: &'a dyn OptimizerConfig",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        541,
+        5
+      ],
+      "end": [
+        541,
+        36
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "borrowed_ref": {
+          "lifetime": "'a",
+          "is_mutable": false,
+          "type": {
+            "dyn_trait": {
+              "traits": [
+                {
+                  "trait": {
+                    "path": "OptimizerConfig",
+                    "id": 519,
+                    "args": null
+                  },
+                  "generic_params": []
+                }
+              ],
+              "lifetime": null
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "519": "datafusion_optimizer::optimizer::OptimizerConfig"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "638",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.json",
+    "anchor": "op-5c3963981c644bf4551a1954",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f963d64a74ea547c3a80cf2e",
+    "path": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser::f_down",
+    "name": "f_down",
+    "owner": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn f_down(&mut self, node: LogicalPlan) -> Result<Transformed<LogicalPlan>>",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        561,
+        5
+      ],
+      "end": [
+        567,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "node",
+              {
+                "resolved_path": {
+                  "path": "LogicalPlan",
+                  "id": 336,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 73,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Transformed",
+                          "id": 520,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "LogicalPlan",
+                                      "id": 336,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "336": "datafusion_expr::logical_plan::plan::LogicalPlan",
+      "73": "datafusion_common::error::Result",
+      "520": "datafusion_common::tree_node::Transformed"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SingleSpanTreeTraverser",
+          "id": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "TreeNodeRewriter",
+        "id": "datafusion_common::tree_node::TreeNodeRewriter",
+        "args": null
+      },
+      "trait_path": "datafusion_common::tree_node::TreeNodeRewriter",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          558,
+          1
+        ],
+        "end": [
+          576,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "663",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.json",
+    "anchor": "op-f963d64a74ea547c3a80cf2e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b7d7ed0daa3bf4ab888da76f",
+    "path": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser::f_up",
+    "name": "f_up",
+    "owner": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn f_up(&mut self, node: LogicalPlan) -> Result<Transformed<LogicalPlan>>",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        569,
+        5
+      ],
+      "end": [
+        575,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "node",
+              {
+                "resolved_path": {
+                  "path": "LogicalPlan",
+                  "id": 336,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 73,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Transformed",
+                          "id": 520,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "LogicalPlan",
+                                      "id": 336,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "336": "datafusion_expr::logical_plan::plan::LogicalPlan",
+      "73": "datafusion_common::error::Result",
+      "520": "datafusion_common::tree_node::Transformed"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SingleSpanTreeTraverser",
+          "id": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "TreeNodeRewriter",
+        "id": "datafusion_common::tree_node::TreeNodeRewriter",
+        "args": null
+      },
+      "trait_path": "datafusion_common::tree_node::TreeNodeRewriter",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_instrumentation.rs",
+        "begin": [
+          558,
+          1
+        ],
+        "end": [
+          576,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "664",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.json",
+    "anchor": "op-b7d7ed0daa3bf4ab888da76f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e96aa0311374c79b7abed9e9",
+    "path": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser::rule",
+    "name": "rule",
+    "owner": "datafusion_tracing::rule_instrumentation::SingleSpanTreeTraverser",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "rule: &'a dyn OptimizerRule",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        540,
+        5
+      ],
+      "end": [
+        540,
+        32
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "borrowed_ref": {
+          "lifetime": "'a",
+          "is_mutable": false,
+          "type": {
+            "dyn_trait": {
+              "traits": [
+                {
+                  "trait": {
+                    "path": "OptimizerRule",
+                    "id": 522,
+                    "args": null
+                  },
+                  "generic_params": []
+                }
+              ],
+              "lifetime": null
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "522": "datafusion_optimizer::optimizer::OptimizerRule"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "637",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.SingleSpanTreeTraverser.json",
+    "anchor": "op-e96aa0311374c79b7abed9e9",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

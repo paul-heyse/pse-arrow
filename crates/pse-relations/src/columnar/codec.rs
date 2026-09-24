@@ -257,3 +257,18 @@ pub(crate) fn read_string(input: &dyn Array, index: usize) -> Result<&str, Relat
     visible(input, index)?;
     Ok(array::<StringArray>(input)?.value(index))
 }
+
+/// Construct a native column from borrowed generated values using one typed builder.
+/// This is representation conversion; callers apply their prepared admission contract.
+/// # Errors
+/// A value is incompatible with the exact native storage.
+pub fn array_from_values<T: ArrowValue>(
+    field: &arrow_schema::Field,
+    values: &[T],
+) -> Result<arrow_array::ArrayRef, RelationError> {
+    let mut output = super::storage::make(field.data_type(), values.len())?;
+    for value in values {
+        value.append(output.as_mut())?;
+    }
+    Ok(output.finish())
+}

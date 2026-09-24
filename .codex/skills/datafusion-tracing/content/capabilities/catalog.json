@@ -1,0 +1,1960 @@
+[
+  {
+    "id": "tracing.compatibility",
+    "title": "Match dependency and feature profiles",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "opentelemetry versions trait bound error",
+      "uncharacterized version combination",
+      "Cargo lock features compatibility"
+    ],
+    "crates": [
+      "datafusion-tracing",
+      "tracing-opentelemetry",
+      "opentelemetry",
+      "opentelemetry_sdk",
+      "opentelemetry-otlp"
+    ],
+    "input": [
+      "Cargo manifest",
+      "resolved lock and features"
+    ],
+    "output": [
+      "scoped compatibility evidence"
+    ],
+    "properties": [
+      "versions",
+      "features",
+      "compilation"
+    ],
+    "operations": [
+      "opentelemetry_sdk::trace::provider::SdkTracerProvider"
+    ],
+    "brief": "The historical release table records declared combinations. Resolved dependencies, features, successful compilation and delivery are different evidence levels.",
+    "choices": [
+      {
+        "candidate": "recorded profile",
+        "choose_when": "The consumer matches the qualified composition",
+        "tradeoff": "Transfer only the assertions actually executed."
+      },
+      {
+        "candidate": "different profile",
+        "choose_when": "Versions, targets or features differ",
+        "tradeoff": "Inspect resolution and compile the relevant composition; absence from the table is not incompatibility."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.compatibility.1",
+        "aspect": "Version evidence",
+        "kind": "source_observation",
+        "statement": "The retained wiring profile uses tracing-opentelemetry 0.32.0 and OpenTelemetry 0.31.0. Version arithmetic is not a compatibility contract.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.compatibility.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "The retained locked consumer compiles and exports locally with bridge 0.32.0, API/SDK 0.31.0, tracing 0.1.44 and the recorded features. This does not generalize to uncharacterized combinations.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Inspect actual resolved packages and duplicate crate versions at the trait boundary.",
+      "Qualify compile and runtime separately; do not silently upgrade the consumer."
+    ],
+    "unknowns": [
+      "No universal matrix of arbitrary versions/features/targets."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/index/compatibility.tsv",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "local_layer_and_otel_sampling_are_independent"
+        ],
+        "scope": "The retained locked consumer compiles and exports locally with bridge 0.32.0, API/SDK 0.31.0, tracing 0.1.44 and the recorded features. This does not generalize to uncharacterized combinations."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "opentelemetry_sdk::trace::provider::SdkTracerProvider",
+        "id": "68f8d3c6d535fa6ce330056b",
+        "kind": "struct",
+        "crate": "opentelemetry_sdk",
+        "record": "operations/opentelemetry_sdk.trace.provider.SdkTracerProvider.json",
+        "page": "operations/opentelemetry_sdk.trace.provider.SdkTracerProvider.md#op-68f8d3c6d535fa6ce330056b",
+        "signature": "struct SdkTracerProvider"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.compatibility.json"
+  },
+  {
+    "id": "tracing.context",
+    "title": "Propagate async span and subscriber context",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "await under span",
+      "spawn task parent context",
+      "future polling subscriber",
+      "async context"
+    ],
+    "crates": [
+      "tracing",
+      "tracing-futures",
+      "tracing-attributes",
+      "tracing-core",
+      "tracing-subscriber"
+    ],
+    "input": [
+      "Future",
+      "Span",
+      "Dispatch"
+    ],
+    "output": [
+      "instrumented Future",
+      "parent relationships"
+    ],
+    "properties": [
+      "async",
+      "context",
+      "polling"
+    ],
+    "operations": [
+      "tracing::instrument::Instrument",
+      "tracing_futures::WithSubscriber",
+      "tracing::span::Span"
+    ],
+    "brief": "Async instrumentation scopes context around polling. Span context and subscriber dispatch are separate parts of a composition, especially across spawned work.",
+    "choices": [
+      {
+        "candidate": "Instrument::instrument",
+        "choose_when": "A future belongs to a particular span",
+        "tradeoff": "The wrapper enters that span as the future is polled."
+      },
+      {
+        "candidate": "WithSubscriber",
+        "choose_when": "A future must use an explicit dispatcher",
+        "tradeoff": "Carries subscriber context; does not choose the intended parent span."
+      },
+      {
+        "candidate": "synchronous in_scope",
+        "choose_when": "Work completes synchronously",
+        "tradeoff": "An entered guard held across await can misattribute concurrent work."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.context.1",
+        "aspect": "Async boundary",
+        "kind": "source_observation",
+        "statement": "The pinned Instrument docs describe entering the span whenever the future is polled. Spawn boundaries require verifying the actual propagated context.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.context.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "A spawned future carrying both the parent span and subscriber dispatch produces the expected parent ID. A separate unparented control does not acquire that parent.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Create the intended parent span before moving work; instrument the future and preserve the dispatcher where needed."
+    ],
+    "unknowns": [
+      "No blanket inheritance guarantee for all executors or spawn APIs."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/api/tracing.instrument.md",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "spawned_future_propagates_parent_and_dispatch"
+        ],
+        "scope": "A spawned future carrying both the parent span and subscriber dispatch produces the expected parent ID. A separate unparented control does not acquire that parent."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "tracing::instrument::Instrument",
+        "id": "f3255b14b518b17fdbec7041",
+        "kind": "trait",
+        "crate": "tracing",
+        "record": "operations/tracing.instrument.Instrument.json",
+        "page": "operations/tracing.instrument.Instrument.md#op-f3255b14b518b17fdbec7041",
+        "signature": "trait Instrument: Sized"
+      },
+      {
+        "path": "tracing_futures::WithSubscriber",
+        "id": "c39af7ca2f96032e131f7149",
+        "kind": "trait",
+        "crate": "tracing-futures",
+        "record": "operations/tracing_futures.WithSubscriber.json",
+        "page": "operations/tracing_futures.WithSubscriber.md#op-c39af7ca2f96032e131f7149",
+        "signature": "trait WithSubscriber: Sized"
+      },
+      {
+        "path": "tracing::span::Span",
+        "id": "1283b08586edf8ae3649f1c6",
+        "kind": "struct",
+        "crate": "tracing",
+        "record": "operations/tracing.span.Span.json",
+        "page": "operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6",
+        "signature": "struct Span"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.context.json"
+  },
+  {
+    "id": "tracing.execution",
+    "title": "Instrument physical query execution",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "trace physical operators",
+      "query execution spans",
+      "optimizer rule registration last",
+      "later plan rewrite"
+    ],
+    "crates": [
+      "datafusion-tracing"
+    ],
+    "input": [
+      "InstrumentationOptions",
+      "physical plan"
+    ],
+    "output": [
+      "PhysicalOptimizerRule",
+      "execution spans"
+    ],
+    "properties": [
+      "execution",
+      "registration",
+      "plan-rewrite"
+    ],
+    "operations": [
+      "datafusion_tracing::instrument_with_info_spans",
+      "datafusion_tracing::options::InstrumentationOptions"
+    ],
+    "brief": "Execution macros construct an optimizer rule that wraps the physical plan it receives. Later plan rewrites can change which work is represented.",
+    "choices": [
+      {
+        "candidate": "execution rule",
+        "choose_when": "Physical operators need spans",
+        "tradeoff": "Register at the point where the plan to observe is established."
+      },
+      {
+        "candidate": "planning macros",
+        "choose_when": "Planning phases or optimizer rules need observation",
+        "tradeoff": "These wrap session state and describe different work."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.execution.1",
+        "aspect": "Inputs and output",
+        "kind": "source_observation",
+        "statement": "The INFO macro accepts a default or explicit target, required options, and optional declared fields and yields an Arc<dyn PhysicalOptimizerRule>.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.execution.2",
+        "aspect": "Registration",
+        "kind": "source_observation",
+        "statement": "The rule recursively wraps nodes. A later rule may preserve, replace or add nodes; blanket claims that every later rule loses spans are too strong.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.execution.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "A controlled optimizer adds GlobalLimitExec before or after instrumentation. Both return three rows; the added node has a completed span only when instrumentation sees it.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Build options and declare custom keys at the macro invocation.",
+      "Add the returned rule to SessionStateBuilder. Execute and consume the resulting query; plan construction alone does not prove execution spans."
+    ],
+    "unknowns": [
+      "No universal query-overhead bound; actual later rewrites need their own observation."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "later_rewrite_changes_observed_node_coverage"
+        ],
+        "scope": "A controlled optimizer adds GlobalLimitExec before or after instrumentation. Both return three rows; the added node has a completed span only when instrumentation sees it."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "datafusion_tracing::instrument_with_info_spans",
+        "id": "8596983b2e498bf8b81a1b42",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_with_info_spans.md#op-8596983b2e498bf8b81a1b42",
+        "signature": "macro_rules! instrument_with_info_spans"
+      },
+      {
+        "path": "datafusion_tracing::instrument_with_info_spans",
+        "id": "c802d29699964499eb5192a3",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_with_info_spans.md#op-c802d29699964499eb5192a3",
+        "signature": "macro_rules! instrument_with_info_spans"
+      },
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptions",
+        "id": "07a1777b923d8d00bd1e5318",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptions.md#op-07a1777b923d8d00bd1e5318",
+        "signature": "struct InstrumentationOptions"
+      },
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptions",
+        "id": "e8a1e87352fc8239e55d0d93",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptions.md#op-e8a1e87352fc8239e55d0d93",
+        "signature": "struct InstrumentationOptions"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.execution.json"
+  },
+  {
+    "id": "tracing.export",
+    "title": "Own the bridge, provider and export lifecycle",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "OTLP exporter wiring",
+      "flush buffered spans shutdown",
+      "collector receipt",
+      "batch versus simple exporter"
+    ],
+    "crates": [
+      "tracing-opentelemetry",
+      "opentelemetry",
+      "opentelemetry_sdk",
+      "opentelemetry-otlp"
+    ],
+    "input": [
+      "subscriber layer",
+      "tracer provider",
+      "finished spans"
+    ],
+    "output": [
+      "SDK exporter records",
+      "OTLP attempts"
+    ],
+    "properties": [
+      "export",
+      "shutdown",
+      "features"
+    ],
+    "operations": [
+      "tracing_opentelemetry::layer::OpenTelemetryLayer",
+      "opentelemetry_sdk::trace::provider::SdkTracerProvider",
+      "opentelemetry_sdk::trace::span_processor::SimpleSpanProcessor",
+      "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+      "opentelemetry_otlp::span::SpanExporterBuilder"
+    ],
+    "brief": "The bridge connects tracing spans to an SDK tracer. Provider/processor lifetime and span completion govern export; transport success and collector retention are further observations.",
+    "choices": [
+      {
+        "candidate": "local formatting",
+        "choose_when": "Only local tracing output is required",
+        "tradeoff": "No SDK or OTLP transport needed."
+      },
+      {
+        "candidate": "simple processor",
+        "choose_when": "Immediate local export behavior is useful",
+        "tradeoff": "Invokes exporter on completed spans."
+      },
+      {
+        "candidate": "batch processor",
+        "choose_when": "Buffering is useful",
+        "tradeoff": "Queue, timer, flush and shutdown affect delivery."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.export.1",
+        "aspect": "Ownership",
+        "kind": "source_observation",
+        "statement": "Keep the provider and any required runtime alive through completed work, then inspect force_flush/shutdown results.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.export.2",
+        "aspect": "Boundary",
+        "kind": "source_observation",
+        "statement": "An in-memory exporter establishes local SDK output only. OTLP transport and backend persistence need separately recorded evidence.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.export.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "An in-memory batch exporter has no completed record while the span lives. Dropping the span and force-flushing makes one record available; successful default shutdown clears the in-memory records. No OTLP transport or collector is involved.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Select exporter transport features compatible with the runtime and endpoint.",
+      "Use a tracer from the provider in tracing_opentelemetry::layer().with_tracer(tracer)."
+    ],
+    "unknowns": [
+      "No collector deployment, delivery SLA, queue-loss bound or backend persistence qualification."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/examples/otlp.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "batch_flush_exports_completed_spans_and_shutdown_is_observed",
+          "local_layer_and_otel_sampling_are_independent"
+        ],
+        "scope": "An in-memory batch exporter has no completed record while the span lives. Dropping the span and force-flushing makes one record available; successful default shutdown clears the in-memory records. No OTLP transport or collector is involved."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+        "id": "62abbc216c2acb69ef65794a",
+        "kind": "struct",
+        "crate": "tracing-opentelemetry",
+        "record": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+        "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md#op-62abbc216c2acb69ef65794a",
+        "signature": "struct OpenTelemetryLayer<S, T>"
+      },
+      {
+        "path": "opentelemetry_sdk::trace::provider::SdkTracerProvider",
+        "id": "68f8d3c6d535fa6ce330056b",
+        "kind": "struct",
+        "crate": "opentelemetry_sdk",
+        "record": "operations/opentelemetry_sdk.trace.provider.SdkTracerProvider.json",
+        "page": "operations/opentelemetry_sdk.trace.provider.SdkTracerProvider.md#op-68f8d3c6d535fa6ce330056b",
+        "signature": "struct SdkTracerProvider"
+      },
+      {
+        "path": "opentelemetry_sdk::trace::span_processor::SimpleSpanProcessor",
+        "id": "251eecc5a13ec3fb5a757796",
+        "kind": "struct",
+        "crate": "opentelemetry_sdk",
+        "record": "operations/opentelemetry_sdk.trace.span_processor.SimpleSpanProcessor.json",
+        "page": "operations/opentelemetry_sdk.trace.span_processor.SimpleSpanProcessor.md#op-251eecc5a13ec3fb5a757796",
+        "signature": "struct SimpleSpanProcessor<T: SpanExporter>"
+      },
+      {
+        "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+        "id": "7b6dded2e02e9c652c240628",
+        "kind": "struct",
+        "crate": "opentelemetry_sdk",
+        "record": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+        "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md#op-7b6dded2e02e9c652c240628",
+        "signature": "struct BatchSpanProcessor"
+      },
+      {
+        "path": "opentelemetry_otlp::span::SpanExporterBuilder",
+        "id": "065d94718617452bd0b1b303",
+        "kind": "struct",
+        "crate": "opentelemetry-otlp",
+        "record": "operations/opentelemetry_otlp.span.SpanExporterBuilder.json",
+        "page": "operations/opentelemetry_otlp.span.SpanExporterBuilder.md#op-065d94718617452bd0b1b303",
+        "signature": "struct SpanExporterBuilder<C>"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.export.json"
+  },
+  {
+    "id": "tracing.fields",
+    "title": "Declare and record custom span fields",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "attach query identifier",
+      "custom field missing",
+      "undeclared key",
+      "span attributes"
+    ],
+    "crates": [
+      "datafusion-tracing",
+      "tracing",
+      "tracing-core"
+    ],
+    "input": [
+      "macro field declaration",
+      "custom_fields map"
+    ],
+    "output": [
+      "span fields"
+    ],
+    "properties": [
+      "field-schema",
+      "recording"
+    ],
+    "operations": [
+      "datafusion_tracing::options::InstrumentationOptions",
+      "datafusion_tracing::options::InstrumentationOptionsBuilder::add_custom_field",
+      "tracing::span::Span"
+    ],
+    "brief": "A custom field value and its declaration are separate inputs. Tracing fixes a span's field set at creation.",
+    "choices": [
+      {
+        "candidate": "macro field plus options value",
+        "choose_when": "Custom metadata belongs on instrumented node spans",
+        "tradeoff": "The key must exist in the macro-created field set."
+      },
+      {
+        "candidate": "parent span field",
+        "choose_when": "Metadata belongs on the parent operation",
+        "tradeoff": "Backend presentation of parent attributes is distinct from copying them to children."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.fields.1",
+        "aspect": "Field schema",
+        "kind": "source_observation",
+        "statement": "add_custom_field inserts a value into the options map; it does not add a new field to a span after creation.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.fields.2",
+        "aspect": "Construction",
+        "kind": "source_observation",
+        "statement": "InstrumentationOptions also exposes custom_fields publicly; a struct literal can supply a map. The builder is a convenience, not the only way to configure values.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.fields.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "The declared query_id field receives its configured value; an undeclared key is absent on the execution spans. The comparison also isolates metrics enablement.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Declare env = tracing::field::Empty in the macro and set env in the options.",
+      "Distinguish span metadata name/target from exported otel.name and other attributes."
+    ],
+    "unknowns": [
+      "No assumption that arbitrary dynamic keys are exportable or inherited by child spans."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/datafusion-tracing/options.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "metrics_and_custom_fields_have_separate_controls"
+        ],
+        "scope": "The declared query_id field receives its configured value; an undeclared key is absent on the execution spans. The comparison also isolates metrics enablement."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptions",
+        "id": "07a1777b923d8d00bd1e5318",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptions.md#op-07a1777b923d8d00bd1e5318",
+        "signature": "struct InstrumentationOptions"
+      },
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptions",
+        "id": "e8a1e87352fc8239e55d0d93",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptions.md#op-e8a1e87352fc8239e55d0d93",
+        "signature": "struct InstrumentationOptions"
+      },
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptionsBuilder::add_custom_field",
+        "id": "d0d5bef2332c095ef38fac56",
+        "kind": "function",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.md#op-d0d5bef2332c095ef38fac56",
+        "signature": "fn add_custom_field<K: Into<String>, V: Into<String>>(self, key: K, value: V) -> Self"
+      },
+      {
+        "path": "tracing::span::Span",
+        "id": "1283b08586edf8ae3649f1c6",
+        "kind": "struct",
+        "crate": "tracing",
+        "record": "operations/tracing.span.Span.json",
+        "page": "operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6",
+        "signature": "struct Span"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.fields.json"
+  },
+  {
+    "id": "tracing.filtering",
+    "title": "Distinguish local filtering and SDK sampling",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "stdout works collector empty",
+      "local layer receives OTEL missing",
+      "sampling filtering",
+      "multiple layers"
+    ],
+    "crates": [
+      "tracing-subscriber",
+      "tracing-opentelemetry",
+      "opentelemetry_sdk"
+    ],
+    "input": [
+      "layer filters",
+      "sampler",
+      "spans"
+    ],
+    "output": [
+      "branch-specific observations"
+    ],
+    "properties": [
+      "filter",
+      "sampling",
+      "export"
+    ],
+    "operations": [
+      "tracing_subscriber::layer::Layer",
+      "opentelemetry_sdk::trace::sampler::Sampler"
+    ],
+    "brief": "Different layers can accept different telemetry. A local formatted span is evidence for that output branch, not proof that an SDK exported it.",
+    "choices": [
+      {
+        "candidate": "per-layer filter",
+        "choose_when": "Different destinations need different selection",
+        "tradeoff": "Preserve a positive observation on another branch."
+      },
+      {
+        "candidate": "SDK sampler",
+        "choose_when": "Trace recording/export policy is the distinction",
+        "tradeoff": "Sampling is downstream of some tracing work; not a universal zero-cost switch."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.filtering.1",
+        "aspect": "Diagnosis",
+        "kind": "source_observation",
+        "statement": "Separate dispatch, layer admission, SDK sampling, span completion and export when tracing output diverges.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.filtering.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "AlwaysOn and AlwaysOff SDK sampling produce one and zero exported spans respectively while the independent local capture records both. This does not qualify every per-layer filter combination.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Observe both local span capture and SDK exporter records under the same controlled span construction."
+    ],
+    "unknowns": [
+      "SDK export is not collector receipt. Filtering/sampling cost needs its own measurement."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/examples/otlp.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "local_layer_and_otel_sampling_are_independent"
+        ],
+        "scope": "AlwaysOn and AlwaysOff SDK sampling produce one and zero exported spans respectively while the independent local capture records both. This does not qualify every per-layer filter combination."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "tracing_subscriber::layer::Layer",
+        "id": "4c1ba1a6be909c9a1b91bff8",
+        "kind": "trait",
+        "crate": "tracing-subscriber",
+        "record": "operations/tracing_subscriber.layer.Layer.json",
+        "page": "operations/tracing_subscriber.layer.Layer.md#op-4c1ba1a6be909c9a1b91bff8",
+        "signature": "trait Layer<S> where S: Subscriber, Self: 'static"
+      },
+      {
+        "path": "opentelemetry_sdk::trace::sampler::Sampler",
+        "id": "18207afc94b6ea2d542774ef",
+        "kind": "enum",
+        "crate": "opentelemetry_sdk",
+        "record": "operations/opentelemetry_sdk.trace.sampler.Sampler.json",
+        "page": "operations/opentelemetry_sdk.trace.sampler.Sampler.md#op-18207afc94b6ea2d542774ef",
+        "signature": "enum Sampler"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.filtering.json"
+  },
+  {
+    "id": "tracing.lifecycle",
+    "title": "Follow execution and recorder lifetimes",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "trace ends before fields appear",
+      "keep plan alive",
+      "early drop error partial partitions",
+      "repeat concurrent execution"
+    ],
+    "crates": [
+      "datafusion-tracing",
+      "tracing"
+    ],
+    "input": [
+      "execution streams",
+      "task context",
+      "parent span"
+    ],
+    "output": [
+      "recording and close events"
+    ],
+    "properties": [
+      "lifecycle",
+      "errors",
+      "repeated-execution"
+    ],
+    "operations": [
+      "datafusion_tracing::instrumented_exec::InstrumentedExec"
+    ],
+    "brief": "The implementation groups active execution streams and holds recording state through stream ownership. Plan handles, stream handles and exported spans have distinct lifetimes.",
+    "choices": [
+      {
+        "candidate": "consume to end",
+        "choose_when": "Complete stream work is needed",
+        "tradeoff": "In the resolved DataFusion 55.1.0 profile, EOF drops the inner recording stream even if its public adapter handle remains alive."
+      },
+      {
+        "candidate": "early drop",
+        "choose_when": "Only partial results are consumed",
+        "tradeoff": "Finalized telemetry may describe partial work."
+      },
+      {
+        "candidate": "retained plan",
+        "choose_when": "The plan is reused",
+        "tradeoff": "Retaining a plan is distinct from retaining its active streams."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.lifecycle.1",
+        "aspect": "Evidence boundary",
+        "kind": "source_observation",
+        "statement": "InstrumentedExec is internal; its source is evidence, not a constructible consumer API.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.lifecycle.2",
+        "aspect": "Ownership",
+        "kind": "source_observation",
+        "statement": "ExecutionRecordingStream releases its reservation in PinnedDrop. The returned DataFusion RecordBatchStreamAdapter can trigger that destruction on EOF; internal wrapper lifetime and the public handle lifetime differ.",
+        "evidence": [
+          "source",
+          "stream-adapter"
+        ]
+      },
+      {
+        "id": "tracing.lifecycle.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "Two partitions containing three batches keep spans open before consumption. In the resolved DataFusion 55.1.0 profile, reaching EOF closes spans while the public stream adapters and plan clone remain alive. Dropping exhausted adapters adds no close events; the preview is capped across the group.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Use public instrumentation macros in consumers.",
+      "Record identities and lifecycle callbacks to distinguish independent executions and parents."
+    ],
+    "unknowns": [
+      "Arbitrary custom ExecutionPlan implementations and cancellation timing remain workload-specific.",
+      "Other resolved DataFusion versions or custom adapters may release their inner streams at a different boundary. Internal PinnedDrop alone cannot establish public EOF behavior."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "partition_preview_cap_and_live_stream_lifetime",
+          "early_drop_partial_partition_and_repeated_execution",
+          "independent_execution_groups_do_not_mix_previews"
+        ],
+        "scope": "Two partitions containing three batches keep spans open before consumption. In the resolved DataFusion 55.1.0 profile, reaching EOF closes spans while the public stream adapters and plan clone remain alive. Dropping exhausted adapters adds no close events; the preview is capped across the group."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      },
+      {
+        "id": "stream-adapter",
+        "kind": "source_observation",
+        "path": "skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs",
+        "scope": "RecordBatchStreamAdapter stores Option<S> and drops the inner stream on None. This is a boundary source from the resolved consumer profile, not an additional indexed crate."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "datafusion_tracing::instrumented_exec::InstrumentedExec",
+        "id": "6b12316c8f26fe0ad5f029de",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrumented_exec.InstrumentedExec.json",
+        "page": "operations/datafusion_tracing.instrumented_exec.InstrumentedExec.md#op-6b12316c8f26fe0ad5f029de",
+        "signature": "struct InstrumentedExec"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.lifecycle.json"
+  },
+  {
+    "id": "tracing.metrics",
+    "title": "Record native plan metrics",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "record query measurements",
+      "missing metric field",
+      "output rows metrics",
+      "metric units aggregation"
+    ],
+    "crates": [
+      "datafusion-tracing"
+    ],
+    "input": [
+      "native MetricsSet",
+      "record_metrics option"
+    ],
+    "output": [
+      "datafusion.metrics.* fields"
+    ],
+    "properties": [
+      "metrics",
+      "completion",
+      "open-vocabulary"
+    ],
+    "operations": [
+      "datafusion_tracing::options::InstrumentationOptionsBuilder::record_metrics"
+    ],
+    "brief": "The recorder reads native plan metrics, aggregates by name, and records dynamic datafusion.metrics.* fields when its recorder is dropped.",
+    "choices": [
+      {
+        "candidate": "metrics disabled",
+        "choose_when": "Only structure or other fields matter",
+        "tradeoff": "No metric recording requested."
+      },
+      {
+        "candidate": "metrics enabled",
+        "choose_when": "Native node measurements are useful",
+        "tradeoff": "Available fields depend on the node and span field schema."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.metrics.1",
+        "aspect": "Recording",
+        "kind": "source_observation",
+        "statement": "MetricsRecorder::drop reads execution_plan.metrics(), returns when absent, and visits aggregate_by_name().",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.metrics.2",
+        "aspect": "Interpretation",
+        "kind": "source_observation",
+        "statement": "Native metric meanings, units and aggregation come from DataFusion. Snapshot catalogs list observations, not all available names.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.metrics.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "With metrics enabled the completed plan exposes output_rows; disabling metrics removes metric fields in this workload. This is not a complete metric vocabulary or an early-drop value guarantee.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Enable record_metrics and observe the relevant completion boundary.",
+      "Compare values only with compatible units, execution scope and native metric semantics."
+    ],
+    "unknowns": [
+      "No exhaustive field list or proof of per-execution metric isolation for every reusable plan."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/datafusion-tracing/metrics.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "metrics_and_custom_fields_have_separate_controls"
+        ],
+        "scope": "With metrics enabled the completed plan exposes output_rows; disabling metrics removes metric fields in this workload. This is not a complete metric vocabulary or an early-drop value guarantee."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptionsBuilder::record_metrics",
+        "id": "a779b20995ab3ffb96b8b687",
+        "kind": "struct_field",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.md#op-a779b20995ab3ffb96b8b687",
+        "signature": "record_metrics: bool"
+      },
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptionsBuilder::record_metrics",
+        "id": "d9e4c09853923f411cd2ac0b",
+        "kind": "function",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.md#op-d9e4c09853923f411cd2ac0b",
+        "signature": "fn record_metrics(self, record: bool) -> Self"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.metrics.json"
+  },
+  {
+    "id": "tracing.preview",
+    "title": "Preview rows and choose formatting",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "preview a few rows",
+      "positive limit omitted formatter",
+      "default preview",
+      "multiple batches partitions preview",
+      "custom formatter error"
+    ],
+    "crates": [
+      "datafusion-tracing"
+    ],
+    "input": [
+      "preview_limit",
+      "optional formatter",
+      "batch streams"
+    ],
+    "output": [
+      "datafusion.preview string"
+    ],
+    "properties": [
+      "preview",
+      "completion",
+      "retention",
+      "errors"
+    ],
+    "operations": [
+      "datafusion_tracing::options::InstrumentationOptions::preview_fn",
+      "datafusion_tracing::options::InstrumentationOptionsBuilder::preview_limit",
+      "datafusion_tracing::preview_utils::pretty_format_compact_batch"
+    ],
+    "brief": "A positive preview limit enables the recorder. An omitted formatter selects the default pretty formatter; a custom callback changes presentation.",
+    "choices": [
+      {
+        "candidate": "limit zero",
+        "choose_when": "No row preview is needed",
+        "tradeoff": "Recorder disabled."
+      },
+      {
+        "candidate": "positive limit with None formatter",
+        "choose_when": "Default table rendering is sufficient",
+        "tradeoff": "No custom callback required."
+      },
+      {
+        "candidate": "custom formatter",
+        "choose_when": "A different rendering is needed",
+        "tradeoff": "Formatting can fail and adds work to completion."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.preview.1",
+        "aspect": "Accumulation",
+        "kind": "source_observation",
+        "statement": "Each partition stream retains slices up to its limit. On recorder drop, available partition previews are concatenated and the final batch is capped before formatting.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.preview.2",
+        "aspect": "Failure",
+        "kind": "source_observation",
+        "statement": "Formatter Err emits a warning; preview concatenation failure in the final recorder omits output. Concatenation in poll_next can return an error through the stream.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.preview.3",
+        "aspect": "Resource scope",
+        "kind": "source_observation",
+        "statement": "A displayed row cap is not a byte or peak-memory bound: partitions, concatenation, and shared sliced buffers matter.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.preview.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "Positive limit with no callback produces default formatted rows, limited to the requested display count; a callback changes formatting, zero disables preview, and a formatter error emits a warning without failing the query.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Set preview_limit; optionally supply Arc<dyn Fn(&RecordBatch) -> Result<String, ArrowError> + Send + Sync> through inference.",
+      "Relate recording to recorder/stream lifetime and inspect the declared preview field."
+    ],
+    "unknowns": [
+      "Preview is neither a complete result nor a random sample.",
+      "No measured allocation/overhead bound across arbitrary schemas or partition counts."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/datafusion-tracing/preview.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "preview_default_custom_disabled_and_error",
+          "partition_preview_cap_and_live_stream_lifetime"
+        ],
+        "scope": "Positive limit with no callback produces default formatted rows, limited to the requested display count; a callback changes formatting, zero disables preview, and a formatter error emits a warning without failing the query."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptions::preview_fn",
+        "id": "9a19b737593814d4c01ca326",
+        "kind": "struct_field",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptions.md#op-9a19b737593814d4c01ca326",
+        "signature": "preview_fn: Option<std::sync::Arc<dyn Fn(&datafusion::arrow::record_batch::RecordBatch) -> Result<String, datafusion::arrow::error::ArrowError> + Send + Sync>>"
+      },
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptions::preview_fn",
+        "id": "a7e49b396c5d69f07388e5ff",
+        "kind": "struct_field",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptions.md#op-a7e49b396c5d69f07388e5ff",
+        "signature": "preview_fn: Option<std::sync::Arc<dyn Fn(&datafusion::arrow::record_batch::RecordBatch) -> Result<String, datafusion::arrow::error::ArrowError> + Send + Sync>>"
+      },
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptionsBuilder::preview_limit",
+        "id": "10115deab09736db979aa497",
+        "kind": "struct_field",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.md#op-10115deab09736db979aa497",
+        "signature": "preview_limit: usize"
+      },
+      {
+        "path": "datafusion_tracing::options::InstrumentationOptionsBuilder::preview_limit",
+        "id": "d4b2d47b13c9aa255d85e495",
+        "kind": "function",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.json",
+        "page": "operations/datafusion_tracing.options.InstrumentationOptionsBuilder.md#op-d4b2d47b13c9aa255d85e495",
+        "signature": "fn preview_limit(self, limit: usize) -> Self"
+      },
+      {
+        "path": "datafusion_tracing::preview_utils::pretty_format_compact_batch",
+        "id": "5a8fa15e2bb92e83eed1b7b8",
+        "kind": "function",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.preview_utils.pretty_format_compact_batch.json",
+        "page": "operations/datafusion_tracing.preview_utils.pretty_format_compact_batch.md#op-5a8fa15e2bb92e83eed1b7b8",
+        "signature": "fn pretty_format_compact_batch(batch: &datafusion::arrow::array::RecordBatch, max_width: usize, max_row_height: usize, min_compacted_col_width: usize) -> Result<impl Display, datafusion::arrow::error::ArrowError>"
+      },
+      {
+        "path": "datafusion_tracing::preview_utils::pretty_format_compact_batch",
+        "id": "cc2a4e58ce947d96244e03f2",
+        "kind": "function",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.preview_utils.pretty_format_compact_batch.json",
+        "page": "operations/datafusion_tracing.preview_utils.pretty_format_compact_batch.md#op-cc2a4e58ce947d96244e03f2",
+        "signature": "fn pretty_format_compact_batch(batch: &datafusion::arrow::array::RecordBatch, max_width: usize, max_row_height: usize, min_compacted_col_width: usize) -> Result<impl Display, datafusion::arrow::error::ArrowError>"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.preview.json"
+  },
+  {
+    "id": "tracing.rules.full",
+    "title": "Planning instrumentation: full",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "identify optimizer rule changes plan",
+      "planning is slow but execution is fast",
+      "full"
+    ],
+    "crates": [
+      "datafusion-tracing"
+    ],
+    "input": [
+      "SessionState",
+      "RuleInstrumentationOptions"
+    ],
+    "output": [
+      "SessionState",
+      "Phase spans"
+    ],
+    "properties": [
+      "planning",
+      "full",
+      "state-transform"
+    ],
+    "operations": [
+      "datafusion_tracing::instrument_rules_with_info_spans",
+      "datafusion_tracing::rule_options::RuleInstrumentationOptions"
+    ],
+    "brief": "Per-rule detail increases observable activity; volume depends on the plan.",
+    "choices": [
+      {
+        "candidate": "phase_only()",
+        "choose_when": "Phase duration is the question",
+        "tradeoff": "No individual Rule detail."
+      },
+      {
+        "candidate": "full()",
+        "choose_when": "Individual rule activity is useful",
+        "tradeoff": "More spans; no fixed volume multiplier."
+      },
+      {
+        "candidate": "builder()",
+        "choose_when": "A subset of planning activity matters",
+        "tradeoff": "Builder is returned through a public call, but has no public import path."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.rules.full.1",
+        "aspect": "Composition",
+        "kind": "source_observation",
+        "statement": "instrument_rules_with_info_spans!(options: options, state: state) returns the wrapped SessionState.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.rules.full.2",
+        "aspect": "Selection",
+        "kind": "source_observation",
+        "statement": "The builder has analyzer, optimizer and physical_optimizer selectors plus phase-only variants. Exact selected phases should be checked against the emitted structure.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.rules.full.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "Full instrumentation emits per-rule spans parented to the observed phases; phase-only emits no Rule spans for the same query.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Apply planning instrumentation to the configured state before creating SessionContext.",
+      "Execution instrumentation is a separate optimizer rule; combine when both observations matter."
+    ],
+    "unknowns": [
+      "Individual optimizer semantics and cost belong to DataFusion.",
+      "Plan diffs and volume are workload-dependent."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/datafusion-tracing/rule_options.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "phase_selection_and_rule_parentage"
+        ],
+        "scope": "Full instrumentation emits per-rule spans parented to the observed phases; phase-only emits no Rule spans for the same query."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "datafusion_tracing::instrument_rules_with_info_spans",
+        "id": "01e5687a47e5f7757a71a3ce",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_rules_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_rules_with_info_spans.md#op-01e5687a47e5f7757a71a3ce",
+        "signature": "macro_rules! instrument_rules_with_info_spans"
+      },
+      {
+        "path": "datafusion_tracing::instrument_rules_with_info_spans",
+        "id": "dead3b541632d01ee6f1caec",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_rules_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_rules_with_info_spans.md#op-dead3b541632d01ee6f1caec",
+        "signature": "macro_rules! instrument_rules_with_info_spans"
+      },
+      {
+        "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+        "id": "a12428b574074fc1e6db1e0d",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md#op-a12428b574074fc1e6db1e0d",
+        "signature": "struct RuleInstrumentationOptions"
+      },
+      {
+        "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+        "id": "a1e41f5dc1584eed32cb9de8",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md#op-a1e41f5dc1584eed32cb9de8",
+        "signature": "struct RuleInstrumentationOptions"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.rules.full.json"
+  },
+  {
+    "id": "tracing.rules.phase",
+    "title": "Planning instrumentation: phase",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "total planning phase duration",
+      "planning is slow but execution is fast",
+      "phase_only"
+    ],
+    "crates": [
+      "datafusion-tracing"
+    ],
+    "input": [
+      "SessionState",
+      "RuleInstrumentationOptions"
+    ],
+    "output": [
+      "SessionState",
+      "Phase spans"
+    ],
+    "properties": [
+      "planning",
+      "phase",
+      "state-transform"
+    ],
+    "operations": [
+      "datafusion_tracing::instrument_rules_with_info_spans",
+      "datafusion_tracing::rule_options::RuleInstrumentationOptions"
+    ],
+    "brief": "Phase-level observation omits individual Rule spans.",
+    "choices": [
+      {
+        "candidate": "phase_only()",
+        "choose_when": "Phase duration is the question",
+        "tradeoff": "No individual Rule detail."
+      },
+      {
+        "candidate": "full()",
+        "choose_when": "Individual rule activity is useful",
+        "tradeoff": "More spans; no fixed volume multiplier."
+      },
+      {
+        "candidate": "builder()",
+        "choose_when": "A subset of planning activity matters",
+        "tradeoff": "Builder is returned through a public call, but has no public import path."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.rules.phase.1",
+        "aspect": "Composition",
+        "kind": "source_observation",
+        "statement": "instrument_rules_with_info_spans!(options: options, state: state) returns the wrapped SessionState.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.rules.phase.2",
+        "aspect": "Selection",
+        "kind": "source_observation",
+        "statement": "The builder has analyzer, optimizer and physical_optimizer selectors plus phase-only variants. Exact selected phases should be checked against the emitted structure.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.rules.phase.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "Phase-only and full instrumentation have equal phase membership for the VALUES workload. Only full instrumentation emits Rule spans; their recorded parent IDs are Phase spans.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Apply planning instrumentation to the configured state before creating SessionContext.",
+      "Execution instrumentation is a separate optimizer rule; combine when both observations matter."
+    ],
+    "unknowns": [
+      "Individual optimizer semantics and cost belong to DataFusion.",
+      "Plan diffs and volume are workload-dependent."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/datafusion-tracing/rule_options.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "phase_selection_and_rule_parentage"
+        ],
+        "scope": "Phase-only and full instrumentation have equal phase membership for the VALUES workload. Only full instrumentation emits Rule spans; their recorded parent IDs are Phase spans."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "datafusion_tracing::instrument_rules_with_info_spans",
+        "id": "01e5687a47e5f7757a71a3ce",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_rules_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_rules_with_info_spans.md#op-01e5687a47e5f7757a71a3ce",
+        "signature": "macro_rules! instrument_rules_with_info_spans"
+      },
+      {
+        "path": "datafusion_tracing::instrument_rules_with_info_spans",
+        "id": "dead3b541632d01ee6f1caec",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_rules_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_rules_with_info_spans.md#op-dead3b541632d01ee6f1caec",
+        "signature": "macro_rules! instrument_rules_with_info_spans"
+      },
+      {
+        "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+        "id": "a12428b574074fc1e6db1e0d",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md#op-a12428b574074fc1e6db1e0d",
+        "signature": "struct RuleInstrumentationOptions"
+      },
+      {
+        "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+        "id": "a1e41f5dc1584eed32cb9de8",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md#op-a1e41f5dc1584eed32cb9de8",
+        "signature": "struct RuleInstrumentationOptions"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.rules.phase.json"
+  },
+  {
+    "id": "tracing.rules.selected",
+    "title": "Planning instrumentation: selected",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "only physical optimization",
+      "planning is slow but execution is fast",
+      "builder"
+    ],
+    "crates": [
+      "datafusion-tracing"
+    ],
+    "input": [
+      "SessionState",
+      "RuleInstrumentationOptions"
+    ],
+    "output": [
+      "SessionState",
+      "Phase spans"
+    ],
+    "properties": [
+      "planning",
+      "selected",
+      "state-transform"
+    ],
+    "operations": [
+      "datafusion_tracing::instrument_rules_with_info_spans",
+      "datafusion_tracing::rule_options::RuleInstrumentationOptions"
+    ],
+    "brief": "Builder selectors choose particular phase and rule detail.",
+    "choices": [
+      {
+        "candidate": "phase_only()",
+        "choose_when": "Phase duration is the question",
+        "tradeoff": "No individual Rule detail."
+      },
+      {
+        "candidate": "full()",
+        "choose_when": "Individual rule activity is useful",
+        "tradeoff": "More spans; no fixed volume multiplier."
+      },
+      {
+        "candidate": "builder()",
+        "choose_when": "A subset of planning activity matters",
+        "tradeoff": "Builder is returned through a public call, but has no public import path."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.rules.selected.1",
+        "aspect": "Composition",
+        "kind": "source_observation",
+        "statement": "instrument_rules_with_info_spans!(options: options, state: state) returns the wrapped SessionState.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.rules.selected.2",
+        "aspect": "Selection",
+        "kind": "source_observation",
+        "statement": "The builder has analyzer, optimizer and physical_optimizer selectors plus phase-only variants. Exact selected phases should be checked against the emitted structure.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.rules.selected.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "The publicly reached phase builder restricted to physical optimization emits exactly optimize_physical_plan for the workload.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Apply planning instrumentation to the configured state before creating SessionContext.",
+      "Execution instrumentation is a separate optimizer rule; combine when both observations matter."
+    ],
+    "unknowns": [
+      "Individual optimizer semantics and cost belong to DataFusion.",
+      "Plan diffs and volume are workload-dependent."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/datafusion-tracing/rule_options.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "phase_selection_and_rule_parentage"
+        ],
+        "scope": "The publicly reached phase builder restricted to physical optimization emits exactly optimize_physical_plan for the workload."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "datafusion_tracing::instrument_rules_with_info_spans",
+        "id": "01e5687a47e5f7757a71a3ce",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_rules_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_rules_with_info_spans.md#op-01e5687a47e5f7757a71a3ce",
+        "signature": "macro_rules! instrument_rules_with_info_spans"
+      },
+      {
+        "path": "datafusion_tracing::instrument_rules_with_info_spans",
+        "id": "dead3b541632d01ee6f1caec",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_rules_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_rules_with_info_spans.md#op-dead3b541632d01ee6f1caec",
+        "signature": "macro_rules! instrument_rules_with_info_spans"
+      },
+      {
+        "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+        "id": "a12428b574074fc1e6db1e0d",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md#op-a12428b574074fc1e6db1e0d",
+        "signature": "struct RuleInstrumentationOptions"
+      },
+      {
+        "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+        "id": "a1e41f5dc1584eed32cb9de8",
+        "kind": "struct",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+        "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md#op-a1e41f5dc1584eed32cb9de8",
+        "signature": "struct RuleInstrumentationOptions"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.rules.selected.json"
+  },
+  {
+    "id": "tracing.storage",
+    "title": "Instrument storage requests and returned streams",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "see storage requests",
+      "wrap object store register",
+      "get ranges bytes stream list multipart errors"
+    ],
+    "crates": [
+      "instrumented-object-store",
+      "tracing-futures"
+    ],
+    "input": [
+      "Arc<dyn ObjectStore>",
+      "store name"
+    ],
+    "output": [
+      "Arc<dyn ObjectStore>",
+      "storage spans"
+    ],
+    "properties": [
+      "storage",
+      "errors",
+      "lazy-stream"
+    ],
+    "operations": [
+      "instrumented_object_store::instrumented_object_store::instrument_object_store"
+    ],
+    "brief": "The returned wrapper observes calls made through it. Registration and use of the wrapped instance determine whether query I/O reaches that boundary.",
+    "choices": [
+      {
+        "candidate": "wrapped instance",
+        "choose_when": "Object-store call observations are required",
+        "tradeoff": "The consumer must actually use this instance."
+      },
+      {
+        "candidate": "underlying instance",
+        "choose_when": "No wrapper observations are requested",
+        "tradeoff": "Query results can be the same with a different trace."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.storage.1",
+        "aspect": "API",
+        "kind": "source_observation",
+        "statement": "instrument_object_store takes an Arc<dyn ObjectStore> and &str name and returns Arc<dyn ObjectStore>.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.storage.2",
+        "aspect": "Lifecycle",
+        "kind": "source_observation",
+        "statement": "Method completion and consumption of returned streams are distinct. Inspect each method: a span around returning GetResult is not proof of payload-transfer coverage.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.storage.3",
+        "aspect": "Errors",
+        "kind": "source_observation",
+        "statement": "instrument_result records result metadata or error text and returns the original Result.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.storage.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "Direct wrapped and underlying in-memory store calls return identical bytes/ranges; only the wrapper emits store spans. Missing-path errors are recorded, get closes before bytes consumption, and list stays live until consumed. Registration into a DataFusion runtime is not exercised.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Wrap the store before passing it to the consuming storage registration point.",
+      "Check target and concrete method; lazy streams/multipart operations need their own boundary evidence."
+    ],
+    "unknowns": [
+      "Local controlled storage does not qualify cloud retries, authentication or network traffic."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "storage_wrapper_result_error_and_lazy_lifetime"
+        ],
+        "scope": "Direct wrapped and underlying in-memory store calls return identical bytes/ranges; only the wrapper emits store spans. Missing-path errors are recorded, get closes before bytes consumption, and list stays live until consumed. Registration into a DataFusion runtime is not exercised."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "instrumented_object_store::instrumented_object_store::instrument_object_store",
+        "id": "10b0281459aa2e972c143f48",
+        "kind": "function",
+        "crate": "instrumented-object-store",
+        "record": "operations/instrumented_object_store.instrumented_object_store.instrument_object_store.json",
+        "page": "operations/instrumented_object_store.instrumented_object_store.instrument_object_store.md#op-10b0281459aa2e972c143f48",
+        "signature": "fn instrument_object_store(store: std::sync::Arc<dyn ObjectStore>, name: &str) -> std::sync::Arc<dyn ObjectStore>"
+      },
+      {
+        "path": "instrumented_object_store::instrumented_object_store::instrument_object_store",
+        "id": "4eafbb6f5c51434957c89e55",
+        "kind": "function",
+        "crate": "instrumented-object-store",
+        "record": "operations/instrumented_object_store.instrumented_object_store.instrument_object_store.json",
+        "page": "operations/instrumented_object_store.instrumented_object_store.instrument_object_store.md#op-4eafbb6f5c51434957c89e55",
+        "signature": "fn instrument_object_store(store: std::sync::Arc<dyn ObjectStore>, name: &str) -> std::sync::Arc<dyn ObjectStore>"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.storage.json"
+  },
+  {
+    "id": "tracing.targets",
+    "title": "Match macro targets and levels",
+    "reviewed": "2026-09-18",
+    "task_aliases": [
+      "empty trace EnvFilter",
+      "default caller target",
+      "explicit target",
+      "INFO DEBUG missing spans"
+    ],
+    "crates": [
+      "datafusion-tracing",
+      "tracing",
+      "tracing-subscriber"
+    ],
+    "input": [
+      "macro invocation",
+      "filter"
+    ],
+    "output": [
+      "selected spans"
+    ],
+    "properties": [
+      "target",
+      "level",
+      "filter"
+    ],
+    "operations": [
+      "datafusion_tracing::instrument_with_info_spans",
+      "tracing_subscriber::filter::env::EnvFilter"
+    ],
+    "brief": "The default macro target comes from module_path!() at the call site; explicit target and macro level change filter selection.",
+    "choices": [
+      {
+        "candidate": "default target",
+        "choose_when": "Call-site module identity is useful",
+        "tradeoff": "A datafusion_tracing-only directive need not select it."
+      },
+      {
+        "candidate": "explicit target",
+        "choose_when": "A stable chosen target is useful",
+        "tradeoff": "Filter that exact target and an enabled level."
+      }
+    ],
+    "claims": [
+      {
+        "id": "tracing.targets.1",
+        "aspect": "Target",
+        "kind": "source_observation",
+        "statement": "Macro arms forward an explicit target or module_path!() to tracing span construction.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.targets.2",
+        "aspect": "Level",
+        "kind": "source_observation",
+        "statement": "INFO/DEBUG and other macro families choose their emission level. A layer can exclude spans at that level.",
+        "evidence": [
+          "source"
+        ]
+      },
+      {
+        "id": "tracing.targets.observed",
+        "aspect": "Executed scope",
+        "kind": "runtime_observation",
+        "statement": "A matching explicit-target filter captures execution spans; a nonmatching filter captures none. The call-site target contracts is separately observed under its matching filter.",
+        "evidence": [
+          "consumer"
+        ]
+      }
+    ],
+    "implementation": [
+      "Inspect the actual invocation and installed filter scope.",
+      "Object-store spans use their own source target; test that branch separately."
+    ],
+    "unknowns": [
+      "A missing capture alone cannot distinguish filtering from work that did not run."
+    ],
+    "evidence": [
+      {
+        "id": "source",
+        "kind": "source_observation",
+        "path": "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs",
+        "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+      },
+      {
+        "id": "consumer",
+        "kind": "runtime_observation",
+        "path": "skill_improvement/evidence/implementation/probe-results.json",
+        "tests": [
+          "explicit_target_and_filter_control"
+        ],
+        "scope": "A matching explicit-target filter captures execution spans; a nonmatching filter captures none. The call-site target contracts is separately observed under its matching filter."
+      },
+      {
+        "id": "fixture",
+        "kind": "source_observation",
+        "path": "build/fixtures/probe-crate/tests/contracts.rs",
+        "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+      }
+    ],
+    "resolved_operations": [
+      {
+        "path": "datafusion_tracing::instrument_with_info_spans",
+        "id": "8596983b2e498bf8b81a1b42",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_with_info_spans.md#op-8596983b2e498bf8b81a1b42",
+        "signature": "macro_rules! instrument_with_info_spans"
+      },
+      {
+        "path": "datafusion_tracing::instrument_with_info_spans",
+        "id": "c802d29699964499eb5192a3",
+        "kind": "macro",
+        "crate": "datafusion-tracing",
+        "record": "operations/datafusion_tracing.instrument_with_info_spans.json",
+        "page": "operations/datafusion_tracing.instrument_with_info_spans.md#op-c802d29699964499eb5192a3",
+        "signature": "macro_rules! instrument_with_info_spans"
+      },
+      {
+        "path": "tracing_subscriber::filter::env::EnvFilter",
+        "id": "f18b1a3b867d9bc485e30055",
+        "kind": "struct",
+        "crate": "tracing-subscriber",
+        "record": "operations/tracing_subscriber.filter.env.EnvFilter.json",
+        "page": "operations/tracing_subscriber.filter.env.EnvFilter.md#op-f18b1a3b867d9bc485e30055",
+        "signature": "struct EnvFilter"
+      }
+    ],
+    "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+    "source": "authoring/capabilities/tracing.targets.json"
+  }
+]

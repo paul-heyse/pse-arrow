@@ -9,11 +9,9 @@ use super::{
     stream::TableStream,
 };
 use datafusion::common::ResolvedTableReference;
-use pse_catalog::{
-    CatalogError,
-    delta::publication::{Publication as NativePublication, PublicationRoot},
-};
-use pse_ids::CancellationToken;
+use pse_catalog::delta::publication::{Publication as NativePublication, PublicationRoot};
+use pse_columnar::CancellationToken;
+use pse_engine::EngineError;
 use pyo3::prelude::*;
 use std::{
     num::NonZeroUsize,
@@ -28,7 +26,7 @@ pub(crate) struct Publication {
     runtime: Arc<Runtime>,
 }
 impl Publication {
-    fn selected(&self) -> Result<Arc<NativePublication>, CatalogError> {
+    fn selected(&self) -> Result<Arc<NativePublication>, EngineError> {
         self.publication
             .lock()
             .map_err(|_| errors::invalid("publication lock poisoned"))?
@@ -56,12 +54,15 @@ impl Publication {
             .root()
             .version)
     }
-    fn tables(&self, py: Python<'_>) -> PyResult<Vec<(String, String, String)>> {
+    fn tables(&self, py: Python<'_>) -> PyResult<Vec<super::TableName>> {
         Ok(self
             .selected()
             .map_err(|error| errors::diagnostic(py, &error))?
             .session()
-            .inspection_tables())
+            .inspection_tables()
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
     fn table(
         &self,
@@ -91,7 +92,7 @@ impl Publication {
                     ))?;
             Ok(TableStream::new(reader, Arc::clone(&self.runtime)))
         })
-        .map_err(|error: CatalogError| errors::diagnostic(py, &error))
+        .map_err(|error: EngineError| errors::diagnostic(py, &error))
     }
     fn cache_usage(&self, py: Python<'_>) -> PyResult<Vec<super::CacheReport>> {
         let report = self
@@ -101,34 +102,31 @@ impl Publication {
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(report.caches.into_iter().map(Into::into).collect())
     }
-    fn resource_usage(&self, py: Python<'_>) -> PyResult<(usize, usize, usize, Option<u64>)> {
-        let report = self
-            .runtime
+    fn resource_usage(&self, py: Python<'_>) -> PyResult<super::ResourceReport> {
+        self.runtime
             .shared
             .report()
-            .map_err(|error| errors::diagnostic(py, &error))?;
-        Ok((
-            report.limit_bytes,
-            report.pool_reserved_now,
-            report.pool_peak_bytes,
-            report.process_peak_rss_bytes,
-        ))
+            .map(Into::into)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
     fn close(&self, py: Python<'_>) -> PyResult<()> {
-        self.publication
-            .lock()
-            .map_err(|_| errors::diagnostic(py, &errors::invalid("publication lock poisoned")))?
-            .take();
-        Ok(())
+        py.detach(|| {
+            self.publication
+                .lock()
+                .map_err(|_| errors::invalid("publication lock poisoned"))?
+                .take();
+            Ok(())
+        })
+        .map_err(|error: EngineError| errors::diagnostic(py, &error))
     }
 }
 /// Open one explicit existing Delta publication. No latest-version lookup is implicit.
 #[pyfunction]
-#[pyo3(signature = (location, version, settings))]
+#[pyo3(signature = (location, version: "int", settings))]
 pub(crate) fn open_publication(
     py: Python<'_>,
     location: &str,
-    version: i64,
+    #[pyo3(from_py_with = super::inputs::extract)] version: i64,
     settings: &EngineSettings,
 ) -> PyResult<Publication> {
     py.detach(|| {
@@ -149,5 +147,5 @@ pub(crate) fn open_publication(
             runtime,
         })
     })
-    .map_err(|error: CatalogError| errors::diagnostic(py, &error))
+    .map_err(|error: EngineError| errors::diagnostic(py, &error))
 }

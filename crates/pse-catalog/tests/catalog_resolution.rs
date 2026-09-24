@@ -4,9 +4,6 @@
 //! Remote resolution uses actual native handles, bounded discovery and explicit coverage.
 #![allow(clippy::unwrap_used, reason = "fixed native resolver fixtures")]
 
-#[path = "../../../tests/support/session_factory.rs"]
-mod session_factory;
-
 use datafusion::{
     arrow::{
         array::{RecordBatch, UInt64Array},
@@ -16,14 +13,14 @@ use datafusion::{
     common::{DataFusionError, Result as NativeResult, TableReference},
     datasource::MemTable,
 };
-use pse_catalog::{
-    BoxFut, CatalogError,
+use pse_columnar::CancellationToken;
+use pse_engine::{
+    BoxFut, EngineError,
     session::{
-        SnapshotSession,
+        EngineSession,
         resolution::{CatalogRevision, CatalogSource, ResolutionConsistency, ResolutionRequest},
     },
 };
-use pse_ids::{CancellationToken, FixedBudget};
 use std::{
     collections::BTreeMap,
     sync::{
@@ -60,16 +57,16 @@ impl CatalogSource for Source {
     fn open<'a>(
         &'a self,
         consistency: ResolutionConsistency,
-        _: &'a SnapshotSession,
+        _: &'a EngineSession,
         _: &'a CancellationToken,
-    ) -> BoxFut<'a, Result<Arc<dyn CatalogRevision>, CatalogError>> {
+    ) -> BoxFut<'a, Result<Arc<dyn CatalogRevision>, EngineError>> {
         Box::pin(async move {
             self.counts.opens.fetch_add(1, Ordering::SeqCst);
             if self.pending {
                 futures_util::future::pending::<()>().await;
             }
             if consistency == ResolutionConsistency::Snapshot && !self.supports_snapshot {
-                return Err(CatalogError::Admission {
+                return Err(EngineError::Admission {
                     path: "fixture.revision".into(),
                     reason: "coherent revision unavailable".into(),
                 });
@@ -167,8 +164,10 @@ impl AsyncSchemaProvider for Revision {
         })
     }
 }
-fn session() -> SnapshotSession {
-    session_factory::factory(FixedBudget::new(64 << 20))
+fn session() -> EngineSession {
+    pse_testkit::NativeFixture::new((64 << 20).try_into().unwrap())
+        .unwrap()
+        .into_factory()
         .candidate(
             BTreeMap::new(),
             Arc::new(pse_schema::RegistryBuilder::new().build().unwrap()),
@@ -179,7 +178,7 @@ fn session() -> SnapshotSession {
 fn reference(name: &str) -> TableReference {
     TableReference::full("remote", "data", name.to_owned())
 }
-async fn values(session: &SnapshotSession) -> Vec<u64> {
+async fn values(session: &EngineSession) -> Vec<u64> {
     let cancel = CancellationToken::new();
     session
         .prepare_sql(
@@ -352,11 +351,8 @@ async fn backend_failure_cancellation_and_unavailable_revision_never_publish_par
         .await
         .unwrap()
         .unwrap_err();
-    assert!(
-        matches!(
-            error,
-            CatalogError::Cancelled | CatalogError::Canon(pse_ids::CanonError::Cancelled)
-        ),
-        "{error:?}"
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
     );
 }

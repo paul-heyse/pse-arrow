@@ -1,0 +1,1314 @@
+[
+  {
+    "id": "481ea1f068c0b153049e9a92",
+    "path": "opentelemetry_sdk::trace::export::SpanData",
+    "name": "SpanData",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct SpanData",
+    "docs": "`SpanData` contains all the information collected by a `Span` and can be used\nby exporters as a standard input.",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        80,
+        1
+      ],
+      "end": [
+        108,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              2448,
+              2449,
+              2450,
+              2451,
+              2453,
+              2454,
+              2455,
+              2456,
+              2457,
+              2458,
+              2459,
+              2461,
+              2463
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2464,
+          2465,
+          2466,
+          2467,
+          2468,
+          2469,
+          2470,
+          2471,
+          2472,
+          2473,
+          2474,
+          2475,
+          2476,
+          2477,
+          2478,
+          2479,
+          2480,
+          2481,
+          2482,
+          2483,
+          2484,
+          2486,
+          2488,
+          2489,
+          2491
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2438",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-481ea1f068c0b153049e9a92",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9be60330ca6c6c5d14ee1e37",
+    "path": "opentelemetry_sdk::trace::export::SpanData::attributes",
+    "name": "attributes",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "attributes: Vec<opentelemetry::KeyValue>",
+    "docs": "Span attributes",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        96,
+        5
+      ],
+      "end": [
+        96,
+        34
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Vec",
+          "id": 493,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "opentelemetry::KeyValue",
+                      "id": 930,
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "493": "alloc::vec::Vec",
+      "930": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2456",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-9be60330ca6c6c5d14ee1e37",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::attributes"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b799957fb051429dd4f63f51",
+    "path": "opentelemetry_sdk::trace::export::SpanData::clone",
+    "name": "clone",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> SpanData",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        79,
+        10
+      ],
+      "end": [
+        79,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "SpanData",
+              "id": 2438,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2438": "opentelemetry_sdk::trace::export::SpanData"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SpanData",
+          "id": "opentelemetry_sdk::trace::export::SpanData",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/export.rs",
+        "begin": [
+          79,
+          10
+        ],
+        "end": [
+          79,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2485",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-b799957fb051429dd4f63f51",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f99ab006c1393013c889bbad",
+    "path": "opentelemetry_sdk::trace::export::SpanData::dropped_attributes_count",
+    "name": "dropped_attributes_count",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "dropped_attributes_count: u32",
+    "docs": "The number of attributes that were above the configured limit, and thus\ndropped.",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        99,
+        5
+      ],
+      "end": [
+        99,
+        38
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "u32"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2457",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-f99ab006c1393013c889bbad",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::dropped_attributes_count"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fd279976ea7b1d69a928de48",
+    "path": "opentelemetry_sdk::trace::export::SpanData::end_time",
+    "name": "end_time",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "end_time: std::time::SystemTime",
+    "docs": "Span end time",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        94,
+        5
+      ],
+      "end": [
+        94,
+        29
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::time::SystemTime",
+          "id": 370,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "370": "std::time::SystemTime"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2455",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-fd279976ea7b1d69a928de48",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::end_time"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "95a7d53a9e938581d00cdce8",
+    "path": "opentelemetry_sdk::trace::export::SpanData::eq",
+    "name": "eq",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &SpanData) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        79,
+        24
+      ],
+      "end": [
+        79,
+        33
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "SpanData",
+                      "id": 2438,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2438": "opentelemetry_sdk::trace::export::SpanData"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SpanData",
+          "id": "opentelemetry_sdk::trace::export::SpanData",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/export.rs",
+        "begin": [
+          79,
+          24
+        ],
+        "end": [
+          79,
+          33
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2490",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-95a7d53a9e938581d00cdce8",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e13161727f99f9001a51a3f4",
+    "path": "opentelemetry_sdk::trace::export::SpanData::events",
+    "name": "events",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "events: trace::SpanEvents",
+    "docs": "Span events",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        101,
+        5
+      ],
+      "end": [
+        101,
+        41
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "crate::trace::SpanEvents",
+          "id": 2393,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "2393": "opentelemetry_sdk::trace::events::SpanEvents"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2458",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-e13161727f99f9001a51a3f4",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::events"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e9af2b363c07d72286e5cb72",
+    "path": "opentelemetry_sdk::trace::export::SpanData::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        79,
+        17
+      ],
+      "end": [
+        79,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SpanData",
+          "id": "opentelemetry_sdk::trace::export::SpanData",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/export.rs",
+        "begin": [
+          79,
+          17
+        ],
+        "end": [
+          79,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2487",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-e9af2b363c07d72286e5cb72",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "154dd5874c2da2ecb36aa366",
+    "path": "opentelemetry_sdk::trace::export::SpanData::instrumentation_scope",
+    "name": "instrumentation_scope",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "instrumentation_scope: opentelemetry::InstrumentationScope",
+    "docs": "Instrumentation scope that produced this span",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        107,
+        5
+      ],
+      "end": [
+        107,
+        52
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "opentelemetry::InstrumentationScope",
+          "id": 75,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "75": "opentelemetry::common::InstrumentationScope"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2463",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-154dd5874c2da2ecb36aa366",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::instrumentation_scope"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7867171ce2fb0d51d04b0ad7",
+    "path": "opentelemetry_sdk::trace::export::SpanData::links",
+    "name": "links",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "links: trace::SpanLinks",
+    "docs": "Span Links",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        103,
+        5
+      ],
+      "end": [
+        103,
+        39
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "crate::trace::SpanLinks",
+          "id": 2460,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "2460": "opentelemetry_sdk::trace::links::SpanLinks"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2459",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-7867171ce2fb0d51d04b0ad7",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::links"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "af5d60db8b7b29addf95938a",
+    "path": "opentelemetry_sdk::trace::export::SpanData::name",
+    "name": "name",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "name: std::borrow::Cow<'static, str>",
+    "docs": "Span name",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        90,
+        5
+      ],
+      "end": [
+        90,
+        32
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::borrow::Cow",
+          "id": 322,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'static"
+                },
+                {
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "322": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2453",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-af5d60db8b7b29addf95938a",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::name"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fc230f2bdca0490e24703e62",
+    "path": "opentelemetry_sdk::trace::export::SpanData::parent_span_id",
+    "name": "parent_span_id",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "parent_span_id: opentelemetry::trace::SpanId",
+    "docs": "Span parent id",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        84,
+        5
+      ],
+      "end": [
+        84,
+        31
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "opentelemetry::trace::SpanId",
+          "id": 423,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "423": "opentelemetry::trace_context::SpanId"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2449",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-fc230f2bdca0490e24703e62",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::parent_span_id"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d01134f2de0689c776b3e6a0",
+    "path": "opentelemetry_sdk::trace::export::SpanData::parent_span_is_remote",
+    "name": "parent_span_is_remote",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "parent_span_is_remote: bool",
+    "docs": "Parent span is remote flag (for span flags)",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        86,
+        5
+      ],
+      "end": [
+        86,
+        36
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "bool"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2450",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-d01134f2de0689c776b3e6a0",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::parent_span_is_remote"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "68edda179aa3083259533f8a",
+    "path": "opentelemetry_sdk::trace::export::SpanData::span_context",
+    "name": "span_context",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "span_context: opentelemetry::trace::SpanContext",
+    "docs": "Exportable `SpanContext`",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        82,
+        5
+      ],
+      "end": [
+        82,
+        34
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "opentelemetry::trace::SpanContext",
+          "id": 458,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "458": "opentelemetry::trace::span_context::SpanContext"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2448",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-68edda179aa3083259533f8a",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::span_context"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fb69eb15c9c15e0cc14d698f",
+    "path": "opentelemetry_sdk::trace::export::SpanData::span_kind",
+    "name": "span_kind",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "span_kind: opentelemetry::trace::SpanKind",
+    "docs": "Span kind",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        88,
+        5
+      ],
+      "end": [
+        88,
+        28
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "opentelemetry::trace::SpanKind",
+          "id": 2452,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "2452": "opentelemetry::trace::span::SpanKind"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2451",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-fb69eb15c9c15e0cc14d698f",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::span_kind"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "40bcfd90cc9b25b301533ad6",
+    "path": "opentelemetry_sdk::trace::export::SpanData::start_time",
+    "name": "start_time",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "start_time: std::time::SystemTime",
+    "docs": "Span start time",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        92,
+        5
+      ],
+      "end": [
+        92,
+        31
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::time::SystemTime",
+          "id": 370,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "370": "std::time::SystemTime"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2454",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-40bcfd90cc9b25b301533ad6",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::start_time"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "75bbdf8b9d7be6cfcc452d21",
+    "path": "opentelemetry_sdk::trace::export::SpanData::status",
+    "name": "status",
+    "owner": "opentelemetry_sdk::trace::export::SpanData",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "status: opentelemetry::trace::Status",
+    "docs": "Span status",
+    "span": {
+      "filename": "src/trace/export.rs",
+      "begin": [
+        105,
+        5
+      ],
+      "end": [
+        105,
+        23
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "opentelemetry::trace::Status",
+          "id": 2462,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "2462": "opentelemetry::trace::span::Status"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2461",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.export.SpanData.md",
+    "record_file": "operations/opentelemetry_sdk.trace.export.SpanData.json",
+    "anchor": "op-75bbdf8b9d7be6cfcc452d21",
+    "aliases": [
+      "opentelemetry_sdk::trace::SpanData::status"
+    ],
+    "resolved_doc_links": {}
+  }
+]

@@ -6,16 +6,17 @@ use datafusion::arrow::array::RecordBatch;
 use datafusion::datasource::source_as_provider;
 use datafusion::execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
 use datafusion::logical_expr::LogicalPlanBuilder;
-use miette::Diagnostic;
-use pse_catalog::session::{
-    ExecutionSettings, ThreadBudget, admission::admit_plan, build_candidate_session_with_cancel,
-    native_engine_profile,
+use pse_columnar::PlanOrigin;
+use pse_diagnostics::{DiagnosticCode, TypedDiagnostic};
+use pse_engine::EngineError;
+use pse_engine::session::{
+    ExecutionSettings, ThreadBudget, admission::admit_plan, native_engine_profile,
 };
-use pse_catalog::{CatalogError, PlanOrigin};
-use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, Reservation, ReserveError};
+
+use pse_columnar::{CancellationToken, MemoryPool};
 use pse_schema::{
     Registry, RegistryBuilder,
-    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
+    model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
@@ -54,12 +55,15 @@ fn input() -> (Arc<Registry>, RecordBatch) {
     );
     let registry = Arc::new(builder.build().expect("registry"));
     let spec = registry.relation("authored.nested").expect("relation");
-    let batch = pse_relations::cells::batch_from_cells(
+    let batch = pse_relations::testing::batch_from_literals(
         &registry,
         spec,
         &[vec![
-            Cell::U64(0),
-            Cell::List(vec![Cell::text("x".repeat(64 << 10)); 8]),
+            serde_json::json!(["u64", 0]),
+            serde_json::json!([
+                "list",
+                vec![serde_json::json!(["text", "x".repeat(64 << 10)]); 8]
+            ]),
         ]],
     )
     .expect("caller-owned input");
@@ -85,40 +89,38 @@ fn thread_budget() -> ThreadBudget {
 fn build(
     registry: Arc<Registry>,
     batch: RecordBatch,
-    reserver: Arc<dyn MemoryReserver>,
+    pool: Arc<dyn MemoryPool>,
     cancel: &CancellationToken,
-) -> Result<pse_catalog::session::SnapshotSession, CatalogError> {
+) -> Result<pse_engine::session::EngineSession, EngineError> {
     let key = registry.relation("authored.nested").expect("relation").key;
     let runtime: Arc<RuntimeEnv> = Arc::new(RuntimeEnvBuilder::new().build().expect("runtime"));
-    build_candidate_session_with_cancel(
-        BTreeMap::from([(key, batch)]),
-        registry,
+    pse_engine::EngineFactory::new(
         runtime,
-        reserver,
+        pool,
         ExecutionSettings::default(),
         thread_budget(),
         native_engine_profile(),
-        cancel,
     )
+    .and_then(|factory| factory.candidate(BTreeMap::from([(key, batch)]), registry, cancel))
 }
 
 #[expect(
     clippy::expect_used,
     reason = "test fixture helper requires valid declared setup"
 )]
-fn code(error: &CatalogError) -> String {
-    error.code().expect("typed diagnostic").to_string()
+fn code(error: &EngineError) -> DiagnosticCode {
+    error.diagnostic_code().expect("typed diagnostic")
 }
 
 #[test]
 fn candidate_nested_decode_is_refused_before_allocation_with_a_tiny_budget() {
     let (registry, batch) = input();
-    let budget = FixedBudget::new(1024);
-    let reserver: Arc<dyn MemoryReserver> = budget.clone();
-    let Err(error) = build(registry, batch, reserver, &CancellationToken::default()) else {
+    let budget: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1024));
+    let pool: Arc<dyn MemoryPool> = budget.clone();
+    let Err(error) = build(registry, batch, pool, &CancellationToken::default()) else {
         panic!("large candidate cannot fit its validation scratch");
     };
-    assert_eq!(code(&error), "runtime::resource_limit");
+    assert_eq!(code(&error), DiagnosticCode::RuntimeResourceLimit);
     assert!(error.to_string().contains("relations:raw-admission"));
     assert_eq!(budget.reserved(), 0);
 }
@@ -126,13 +128,13 @@ fn candidate_nested_decode_is_refused_before_allocation_with_a_tiny_budget() {
 #[test]
 fn repeated_plan_admission_reuses_immutable_input_without_value_scratch() {
     let (registry, batch) = input();
-    let extent = pse_ids::validation_extent(&batch).expect("extent");
-    let budget = FixedBudget::new(extent * 2);
-    let reserver: Arc<dyn MemoryReserver> = budget.clone();
+    let extent = pse_columnar::algorithm_decode_extent(&batch).expect("extent");
+    let budget: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(extent * 2));
+    let pool: Arc<dyn MemoryPool> = budget.clone();
     let session = build(
         Arc::clone(&registry),
         batch,
-        reserver,
+        pool,
         &CancellationToken::default(),
     )
     .expect("candidate");
@@ -147,59 +149,40 @@ fn repeated_plan_admission_reuses_immutable_input_without_value_scratch() {
     assert!(retained > 0);
     let cancel = CancellationToken::default();
     for _ in 0..16 {
-        admit_plan(
-            &plan,
-            &registry,
-            &[Arc::clone(&table)],
-            budget.as_ref(),
-            &cancel,
-        )
-        .expect("admission");
+        admit_plan(&plan, &registry, &[Arc::clone(&table)], &budget, &cancel).expect("admission");
         assert_eq!(budget.reserved(), retained);
     }
-    let mut pressure = budget.open("test:other-live-consumer");
+    let pressure = pse_columnar::MemoryConsumer::new("test:other-live-consumer").register(&budget);
     // Admission charges its native plan/control memo, but must not decode the
     // half-megabyte immutable value again. Zero headroom must refuse honestly.
     pressure
-        .try_grow(budget.limit_bytes() - retained)
+        .try_grow(extent * 2 - retained)
         .expect("other consumer");
-    let errors = pse_catalog::failure::classify(
-        admit_plan(
-            &plan,
-            &registry,
-            &[Arc::clone(&table)],
-            budget.as_ref(),
-            &cancel,
-        )
-        .expect_err("zero plan-control headroom"),
+    let errors = pse_columnar::classify(
+        admit_plan(&plan, &registry, &[Arc::clone(&table)], &budget, &cancel)
+            .expect_err("zero plan-control headroom"),
         PlanOrigin::RuleCompiler,
     );
-    assert_eq!(code(&errors[0]), "runtime::resource_limit");
+    assert_eq!(
+        code(&EngineError::from(errors)),
+        DiagnosticCode::RuntimeResourceLimit
+    );
     pressure.shrink(8 << 10);
     let baseline = budget.reserved();
-    admit_plan(
-        &plan,
-        &registry,
-        &[Arc::clone(&table)],
-        budget.as_ref(),
-        &cancel,
-    )
-    .expect("bound immutable providers need no repeated value scratch");
+    admit_plan(&plan, &registry, &[Arc::clone(&table)], &budget, &cancel)
+        .expect("bound immutable providers need no repeated value scratch");
     assert_eq!(budget.reserved(), baseline);
-    pressure.release();
+    pressure.free();
     cancel.cancel();
-    let errors = pse_catalog::failure::classify(
-        admit_plan(
-            &plan,
-            &registry,
-            &[Arc::clone(&table)],
-            budget.as_ref(),
-            &cancel,
-        )
-        .expect_err("cancelled"),
+    let errors = pse_columnar::classify(
+        admit_plan(&plan, &registry, &[Arc::clone(&table)], &budget, &cancel)
+            .expect_err("cancelled"),
         PlanOrigin::RuleCompiler,
     );
-    assert_eq!(code(&errors[0]), "runtime::cancelled");
+    assert_eq!(
+        code(&EngineError::from(errors)),
+        DiagnosticCode::RuntimeCancelled
+    );
     assert_eq!(budget.reserved(), retained);
     drop(plan);
     drop(table);
@@ -209,52 +192,60 @@ fn repeated_plan_admission_reuses_immutable_input_without_value_scratch() {
 
 #[derive(Debug)]
 struct CancelOnReserve {
-    budget: Arc<FixedBudget>,
+    budget: Arc<dyn MemoryPool>,
     cancel: CancellationToken,
 }
-#[derive(Debug)]
-struct CancellingReservation {
-    inner: Box<dyn Reservation>,
-    cancel: CancellationToken,
-}
-impl MemoryReserver for CancelOnReserve {
-    fn open(&self, owner: &str) -> Box<dyn Reservation> {
-        Box::new(CancellingReservation {
-            inner: self.budget.open(owner),
-            cancel: self.cancel.clone(),
-        })
+impl std::fmt::Display for CancelOnReserve {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CancelOnReserve")
     }
 }
-impl Reservation for CancellingReservation {
-    fn try_grow(&mut self, bytes: usize) -> Result<(), ReserveError> {
-        self.inner.try_grow(bytes)?;
+impl MemoryPool for CancelOnReserve {
+    fn name(&self) -> &'static str {
+        "CancelOnReserve"
+    }
+    fn register(&self, c: &pse_columnar::MemoryConsumer) {
+        self.budget.register(c);
+    }
+    fn unregister(&self, c: &pse_columnar::MemoryConsumer) {
+        self.budget.unregister(c);
+    }
+    fn grow(&self, r: &pse_columnar::MemoryReservation, n: usize) {
+        self.budget.grow(r, n);
+    }
+    fn shrink(&self, r: &pse_columnar::MemoryReservation, n: usize) {
+        self.budget.shrink(r, n);
+    }
+    fn try_grow(
+        &self,
+        r: &pse_columnar::MemoryReservation,
+        n: usize,
+    ) -> datafusion::common::Result<()> {
+        self.budget.try_grow(r, n)?;
         self.cancel.cancel();
         Ok(())
     }
-    fn shrink(&mut self, bytes: usize) {
-        self.inner.shrink(bytes);
+    fn reserved(&self) -> usize {
+        self.budget.reserved()
     }
-    fn size(&self) -> usize {
-        self.inner.size()
-    }
-    fn release(&mut self) {
-        self.inner.release();
+    fn memory_limit(&self) -> datafusion::execution::memory_pool::MemoryLimit {
+        self.budget.memory_limit()
     }
 }
 
 #[test]
 fn cancellation_after_validation_reservation_releases_the_entire_scratch_claim() {
     let (registry, batch) = input();
-    let budget = FixedBudget::new(64 << 20);
+    let budget: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
     let cancel = CancellationToken::default();
-    let reserver: Arc<dyn MemoryReserver> = Arc::new(CancelOnReserve {
+    let pool: Arc<dyn MemoryPool> = Arc::new(CancelOnReserve {
         budget: Arc::clone(&budget),
         cancel: cancel.clone(),
     });
-    let Err(error) = build(registry, batch, reserver, &cancel) else {
+    let Err(error) = build(registry, batch, pool, &cancel) else {
         panic!("cancellation must stop candidate validation");
     };
-    assert_eq!(code(&error), "runtime::cancelled");
+    assert_eq!(code(&error), DiagnosticCode::RuntimeCancelled);
     assert_eq!(budget.reserved(), 0);
 }
 
@@ -292,15 +283,21 @@ fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratc
     );
     let registry = Arc::new(builder.build().expect("registry"));
     let spec = registry.relation("authored.nested").expect("relation");
-    let row = Cell::Struct(vec![
-        Cell::Id(pse_ids::SemanticId::NIL),
-        Cell::I64(0),
-        Cell::I64(1),
+    let row = serde_json::json!([
+        "struct",
+        vec![
+            serde_json::json!(["id", (pse_ids::SemanticId::NIL).to_hex()]),
+            serde_json::json!(["i64", 0]),
+            serde_json::json!(["i64", 1]),
+        ]
     ]);
-    let valid = pse_relations::cells::batch_from_cells(
+    let valid = pse_relations::testing::batch_from_literals(
         &registry,
         spec,
-        &[vec![Cell::U64(0), Cell::List(vec![row; 1024])]],
+        &[vec![
+            serde_json::json!(["u64", 0]),
+            serde_json::json!(["list", vec![row; 1024]]),
+        ]],
     )
     .expect("valid spans");
     let list = valid
@@ -333,41 +330,50 @@ fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratc
     ));
     let invalid = RecordBatch::try_new(valid.schema(), vec![Arc::clone(valid.column(0)), invalid])
         .expect("valid physical storage with invalid semantic values");
-    let budget = FixedBudget::new(64 << 20);
-    let reserver: Arc<dyn MemoryReserver> = budget.clone();
+    let budget: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+    let pool: Arc<dyn MemoryPool> = budget.clone();
     let Err(error) = build(
         Arc::clone(&registry),
         invalid.clone(),
-        reserver,
+        pool,
         &CancellationToken::default(),
     ) else {
         panic!("invalid spans must refuse");
     };
-    assert_eq!(code(&error), "schema::admission");
-    let CatalogError::Relation(relation) = &error else {
+    assert_eq!(code(&error), DiagnosticCode::ValidationInvariant);
+    let EngineError::Relation(relation) = &error else {
         panic!("expected structured relation diagnostics: {error:?}");
     };
-    let pse_relations::RelationError::Validation { errors } = relation.as_ref() else {
-        panic!("expected independent value violations: {relation:?}");
+    let pse_relations::RelationError::LocalFindings { report } = relation.as_ref() else {
+        panic!("expected one native validation report: {relation:?}");
     };
-    assert_eq!(errors.len(), 1024);
-    for (index, finding) in errors.iter().enumerate() {
-        let pse_relations::RelationError::Value { field, row, reason } = finding else {
-            panic!("expected span value violation: {finding:?}");
-        };
-        assert_eq!(field, &format!("members[{index}]"));
-        assert_eq!(*row, 0);
-        assert_eq!(
-            reason,
-            "source span requires bounded nonnegative offsets and start <= end"
-        );
+    assert_eq!(report.violations, 1024);
+    assert!(report.truncated);
+    assert_eq!(report.findings.num_rows(), 256);
+    let paths = report
+        .findings
+        .column_by_name("path")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<datafusion::arrow::array::StringArray>()
+        .unwrap();
+    let rows = report
+        .findings
+        .column_by_name("row")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<datafusion::arrow::array::UInt64Array>()
+        .unwrap();
+    for index in 0..256 {
+        assert_eq!(paths.value(index), format!("/members/{index}"));
+        assert_eq!(rows.value(index), 0);
     }
     assert_eq!(budget.reserved(), 0);
-    let tiny = FixedBudget::new(1024);
-    let reserver: Arc<dyn MemoryReserver> = tiny.clone();
-    let Err(error) = build(registry, invalid, reserver, &CancellationToken::default()) else {
+    let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1024));
+    let pool: Arc<dyn MemoryPool> = tiny.clone();
+    let Err(error) = build(registry, invalid, pool, &CancellationToken::default()) else {
         panic!("scratch must be reserved before semantic diagnostics");
     };
-    assert_eq!(code(&error), "runtime::resource_limit");
+    assert_eq!(code(&error), DiagnosticCode::RuntimeResourceLimit);
     assert_eq!(tiny.reserved(), 0);
 }

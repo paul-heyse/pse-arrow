@@ -183,109 +183,11 @@ class ReferenceEngineProfilesRow:
 
 
 @attrs.frozen(kw_only=True)
-class ReferenceKernelSpecsFieldInputsItem:
+class ReferenceFunctionCapabilitiesRow:
     """Declared relation row or nested value."""
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    natural_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    nullable: b.bool = attrs.field(validator=v.exact_type(b.bool))
-    shape: b.tuple[e.DomainKind, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.DomainKind), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceKernelSpecsFieldOutputsItem:
-    """Declared relation row or nested value."""
-
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    natural_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    shape: b.tuple[e.DomainKind, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.DomainKind), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceKernelSpecsFieldParametersItem:
-    """Declared relation row or nested value."""
-
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    natural_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    indexed_by: b.tuple[e.DomainKind, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.DomainKind), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceKernelSpecsFieldValidityItem:
-    """Declared relation row or nested value."""
-
-    input: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    lower: v.Bound = attrs.field(validator=attrs.validators.instance_of(v.Bound))
-    upper: v.Bound = attrs.field(validator=attrs.validators.instance_of(v.Bound))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceKernelSpecsFieldMonotonicityItem:
-    """Declared relation row or nested value."""
-
-    input: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    direction: e.Monotonicity = attrs.field(validator=attrs.validators.instance_of(e.Monotonicity))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceKernelSpecsFieldDerivativeBindingsItem:
-    """Declared relation row or nested value."""
-
-    kind: e.DerivativeKind = attrs.field(validator=attrs.validators.instance_of(e.DerivativeKind))
-    implementation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    validity_invariant_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceKernelSpecsFieldExecutionFormsItem:
-    """Declared relation row or nested value."""
-
-    form: e.ExecutionForm = attrs.field(validator=attrs.validators.instance_of(e.ExecutionForm))
-    implementation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceKernelSpecsFieldBindingsItem:
-    """Declared relation row or nested value."""
-
-    backend: e.BackendBinding = attrs.field(validator=attrs.validators.instance_of(e.BackendBinding))
-    implementation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    conformance_suite: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceKernelSpecsRow:
-    """Declared relation row or nested value."""
-
-    kernel_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    provider: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    artifact_digest: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    behavior: e.KernelBehavior = attrs.field(validator=attrs.validators.instance_of(e.KernelBehavior))
-    inputs: b.tuple[ReferenceKernelSpecsFieldInputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceKernelSpecsFieldInputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    outputs: b.tuple[ReferenceKernelSpecsFieldOutputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceKernelSpecsFieldOutputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    parameters: b.tuple[ReferenceKernelSpecsFieldParametersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceKernelSpecsFieldParametersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    null_input_policy: e.KernelNullPolicy = attrs.field(validator=attrs.validators.instance_of(e.KernelNullPolicy))
-    failure_policy: e.KernelFailurePolicy = attrs.field(validator=attrs.validators.instance_of(e.KernelFailurePolicy))
-    tolerant_batch: b.bool = attrs.field(validator=v.exact_type(b.bool))
-    effects: e.KernelEffects = attrs.field(validator=attrs.validators.instance_of(e.KernelEffects))
-    argument_evaluation: e.ArgumentEvaluation = attrs.field(validator=attrs.validators.instance_of(e.ArgumentEvaluation))
-    smoothness: e.Differentiability = attrs.field(validator=attrs.validators.instance_of(e.Differentiability))
-    validity: b.tuple[ReferenceKernelSpecsFieldValidityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceKernelSpecsFieldValidityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    monotonicity: b.tuple[ReferenceKernelSpecsFieldMonotonicityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceKernelSpecsFieldMonotonicityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    convexity: e.Convexity = attrs.field(validator=attrs.validators.instance_of(e.Convexity))
-    derivative_bindings: b.tuple[ReferenceKernelSpecsFieldDerivativeBindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceKernelSpecsFieldDerivativeBindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    execution_forms: b.tuple[ReferenceKernelSpecsFieldExecutionFormsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceKernelSpecsFieldExecutionFormsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    thread_safe: b.bool = attrs.field(validator=v.exact_type(b.bool))
-    failure_classes: b.tuple[e.KernelFailure, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.KernelFailure), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    bindings: b.tuple[ReferenceKernelSpecsFieldBindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceKernelSpecsFieldBindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    nl_function_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    test_suite: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    implementation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
@@ -512,55 +414,6 @@ class ReferenceMethodStateParametersRow:
 
 
 @attrs.frozen(kw_only=True)
-class ReferenceNumericalPoliciesRow:
-    """Declared relation row or nested value."""
-
-    policy_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    reassociation: e.ReassociationPolicy = attrs.field(validator=attrs.validators.instance_of(e.ReassociationPolicy))
-    fma: e.FmaPolicy = attrs.field(validator=attrs.validators.instance_of(e.FmaPolicy))
-    nonfinite: e.NonfinitePolicy = attrs.field(validator=attrs.validators.instance_of(e.NonfinitePolicy))
-    rewrite_mode: e.RewriteMode = attrs.field(validator=attrs.validators.instance_of(e.RewriteMode))
-    absolute_tolerance: b.float = attrs.field(validator=v.finite_float)
-    relative_tolerance: b.float = attrs.field(validator=v.finite_float)
-    signed_zero_equal: b.bool = attrs.field(validator=v.exact_type(b.bool))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceOperatorSpecsFieldDomainRestrictionsItem:
-    """Declared relation row or nested value."""
-
-    argument: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    relation: e.RelationOp = attrs.field(validator=attrs.validators.instance_of(e.RelationOp))
-    bound: b.float = attrs.field(validator=v.finite_float)
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceOperatorSpecsRow:
-    """Declared relation row or nested value."""
-
-    opcode: e.Opcode = attrs.field(validator=attrs.validators.instance_of(e.Opcode))
-    arity: e.Arity = attrs.field(validator=attrs.validators.instance_of(e.Arity))
-    fixed_arity: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 255)))
-    quantity_operation_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    shape_rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    derivative_rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    argument_evaluation: e.ArgumentEvaluation = attrs.field(validator=attrs.validators.instance_of(e.ArgumentEvaluation))
-    failure_classes: b.tuple[e.KernelFailure, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.KernelFailure), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    domain_restrictions: b.tuple[ReferenceOperatorSpecsFieldDomainRestrictionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceOperatorSpecsFieldDomainRestrictionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    domain_rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    smoothness: e.Differentiability = attrs.field(validator=attrs.validators.instance_of(e.Differentiability))
-    convexity_rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    monotonicity_rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    sparsity_rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    rewrite_conditions: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    lowering: b.tuple[e.BackendBinding, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.BackendBinding), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    family: e.OperatorFamily = attrs.field(validator=attrs.validators.instance_of(e.OperatorFamily))
-    foldable: b.bool = attrs.field(validator=v.exact_type(b.bool))
-
-
-@attrs.frozen(kw_only=True)
 class ReferencePropertyKindsRow:
     """Declared relation row or nested value."""
 
@@ -665,41 +518,6 @@ class ReferenceReferenceStatesRow:
     include_enthalpy_of_formation: b.bool = attrs.field(validator=v.exact_type(b.bool))
     phase_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceRuleDependenciesRow:
-    """Declared relation row or nested value."""
-
-    rule_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    input_port: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    mode: e.DependencyMode = attrs.field(validator=attrs.validators.instance_of(e.DependencyMode))
-    stratum: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceRuleSpecsFieldQueriesItem:
-    """Declared relation row or nested value."""
-
-    truth: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    sql: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class ReferenceRuleSpecsRow:
-    """Declared relation row or nested value."""
-
-    rule_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    stratum: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    head_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    assertion_relation_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    queries: b.tuple[ReferenceRuleSpecsFieldQueriesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceRuleSpecsFieldQueriesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    negation: e.NegationPolicy = attrs.field(validator=attrs.validators.instance_of(e.NegationPolicy))
-    monotonic: b.bool = attrs.field(validator=v.exact_type(b.bool))
-    conflict_policy: e.ConflictPolicy = attrs.field(validator=attrs.validators.instance_of(e.ConflictPolicy))
 
 
 @attrs.frozen(kw_only=True)

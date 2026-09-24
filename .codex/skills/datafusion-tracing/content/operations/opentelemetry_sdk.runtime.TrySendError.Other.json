@@ -1,0 +1,106 @@
+[
+  {
+    "id": "de9b0269d8f625424435cb79",
+    "path": "opentelemetry_sdk::runtime::TrySendError::Other::0",
+    "name": "0",
+    "owner": "opentelemetry_sdk::runtime::TrySendError::Other",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "0: Box<dyn std::error::Error + Send + Sync + 'static>",
+    "docs": "",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        171,
+        19
+      ],
+      "end": [
+        171,
+        69
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[from]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Box",
+          "id": 1423,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "std::error::Error",
+                            "id": 1424,
+                            "args": null
+                          },
+                          "generic_params": []
+                        },
+                        {
+                          "trait": {
+                            "path": "Send",
+                            "id": 16,
+                            "args": null
+                          },
+                          "generic_params": []
+                        },
+                        {
+                          "trait": {
+                            "path": "Sync",
+                            "id": 18,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": "'static"
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "1423": "alloc::boxed::Box",
+      "1424": "core::error::Error",
+      "16": "core::marker::Send",
+      "18": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2228",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.TrySendError.Other.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.TrySendError.Other.json",
+    "anchor": "op-de9b0269d8f625424435cb79",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

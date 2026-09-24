@@ -15,7 +15,7 @@ pub(crate) fn physical_texts(registry: &Registry) -> std::collections::BTreeMap<
         .unwrap()
         .parent()
         .unwrap();
-    pse_authoring::document::load_package(
+    pse_runtime::authoring_driver::document::load_package(
         &root.join("tests/fixtures/packages/physical-primitives"),
         registry,
         pse_authoring::ParseBudget::default(),

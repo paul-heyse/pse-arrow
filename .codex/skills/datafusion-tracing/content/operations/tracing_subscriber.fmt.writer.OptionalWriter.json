@@ -1,0 +1,109 @@
+[
+  {
+    "id": "aca5124df0ea38cd4409ff35",
+    "path": "tracing_subscriber::fmt::writer::OptionalWriter",
+    "name": "OptionalWriter",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "type_alias",
+    "signature": "type OptionalWriter<T> = EitherWriter<T, std::io::Sink>",
+    "docs": "A [writer] which may or may not be enabled.\n\nThis may be used by [`MakeWriter`] implementations that wish to\nconditionally enable or disable the returned writer based on a span or\nevent's [`Metadata`].\n\n[writer]: std::io::Write",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        574,
+        1
+      ],
+      "end": [
+        574,
+        61
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "type_alias": {
+        "type": {
+          "resolved_path": {
+            "path": "EitherWriter",
+            "id": 2602,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "type": {
+                      "generic": "T"
+                    }
+                  },
+                  {
+                    "type": {
+                      "resolved_path": {
+                        "path": "std::io::Sink",
+                        "id": 2603,
+                        "args": null
+                      }
+                    }
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        }
+      }
+    },
+    "type_references": {
+      "2602": "tracing_subscriber::fmt::writer::EitherWriter",
+      "2603": "core::io::util::Sink"
+    },
+    "impl_context": null,
+    "links": {
+      "`Metadata`": 278,
+      "std::io::Write": 87,
+      "`MakeWriter`": 1443
+    },
+    "link_paths": {
+      "`Metadata`": "tracing_core::metadata::Metadata",
+      "std::io::Write": "std::io::Write",
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2627",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.OptionalWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.OptionalWriter.json",
+    "anchor": "op-aca5124df0ea38cd4409ff35",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`Metadata`": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a"
+    }
+  }
+]

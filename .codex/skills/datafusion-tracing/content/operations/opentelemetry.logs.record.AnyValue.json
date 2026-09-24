@@ -1,0 +1,3354 @@
+[
+  {
+    "id": "f344d1ff8e3a1a11fc46dfb1",
+    "path": "opentelemetry::logs::record::AnyValue",
+    "name": "AnyValue",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "enum",
+    "signature": "enum AnyValue",
+    "docs": "Value types for representing arbitrary values in a log record.\nNote: The `tracing` and `log` crates only support basic types that can be\nconverted to these core variants: `i64`, `f64`, `StringValue`, and `bool`.\nAny complex and custom types are supported through their Debug implementation,\nand converted to String. More complex types (`Bytes`, `ListAny`, and `Map`) are\nincluded here to meet specification requirements and are available to support\ncustom appenders that may be implemented for other logging crates.\nThese types allow for handling dynamic data structures, so keep in mind the\npotential performance overhead of using boxed vectors and maps in appenders.",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        72,
+        1
+      ],
+      "end": [
+        87,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "non_exhaustive"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          2046,
+          2048,
+          2050,
+          2052,
+          2054,
+          2056,
+          2058
+        ],
+        "impls": [
+          2059,
+          2060,
+          2061,
+          2062,
+          2063,
+          2064,
+          2065,
+          2066,
+          2067,
+          2068,
+          2069,
+          2070,
+          2071,
+          2072,
+          2073,
+          2074,
+          2075,
+          2076,
+          2078,
+          2080,
+          2081,
+          2083,
+          2085,
+          2087,
+          2089,
+          2091,
+          2093,
+          2095,
+          2097,
+          2099,
+          2101,
+          2103,
+          2105,
+          2107,
+          857,
+          2109,
+          2111,
+          2113,
+          2115
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "856",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-f344d1ff8e3a1a11fc46dfb1",
+    "aliases": [
+      "opentelemetry::logs::AnyValue"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3c63a817b2900f88fb1426a4",
+    "path": "opentelemetry::logs::record::AnyValue::Boolean",
+    "name": "Boolean",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Boolean",
+    "docs": "A boolean value",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        80,
+        5
+      ],
+      "end": [
+        80,
+        18
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            2051
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2052",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-3c63a817b2900f88fb1426a4",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::Boolean"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7edea7e7a9e102e3facebcfa",
+    "path": "opentelemetry::logs::record::AnyValue::Bytes",
+    "name": "Bytes",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Bytes",
+    "docs": "A byte array",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        82,
+        5
+      ],
+      "end": [
+        82,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            2053
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2054",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-7edea7e7a9e102e3facebcfa",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::Bytes"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d29c81481cd10dc40ee0674e",
+    "path": "opentelemetry::logs::record::AnyValue::Double",
+    "name": "Double",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Double",
+    "docs": "A double value",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        76,
+        5
+      ],
+      "end": [
+        76,
+        16
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            2047
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2048",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-d29c81481cd10dc40ee0674e",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::Double"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9cd5fd482b9d2e1a78f6429f",
+    "path": "opentelemetry::logs::record::AnyValue::Int",
+    "name": "Int",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Int",
+    "docs": "An integer value",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        74,
+        5
+      ],
+      "end": [
+        74,
+        13
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            2045
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2046",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-9cd5fd482b9d2e1a78f6429f",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::Int"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0c5a06d848b9665dc0347ba4",
+    "path": "opentelemetry::logs::record::AnyValue::ListAny",
+    "name": "ListAny",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "ListAny",
+    "docs": "An array of `Any` values",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        84,
+        5
+      ],
+      "end": [
+        84,
+        32
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            2055
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2056",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-0c5a06d848b9665dc0347ba4",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::ListAny"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cad53515f05db2c2f90f1cea",
+    "path": "opentelemetry::logs::record::AnyValue::Map",
+    "name": "Map",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Map",
+    "docs": "A map of string keys to `Any` values, arbitrarily nested.",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        86,
+        5
+      ],
+      "end": [
+        86,
+        37
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            2057
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2058",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-cad53515f05db2c2f90f1cea",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::Map"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2defa5f89ebd8364d008d03f",
+    "path": "opentelemetry::logs::record::AnyValue::String",
+    "name": "String",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "String",
+    "docs": "A string value",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        78,
+        5
+      ],
+      "end": [
+        78,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            2049
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2050",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-2defa5f89ebd8364d008d03f",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::String"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b5304ebb24868189e5b2ee66",
+    "path": "opentelemetry::logs::record::AnyValue::clone",
+    "name": "clone",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        70,
+        17
+      ],
+      "end": [
+        70,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          70,
+          17
+        ],
+        "end": [
+          70,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2079",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-b5304ebb24868189e5b2ee66",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9d9adf770a8bc721c44671e8",
+    "path": "opentelemetry::logs::record::AnyValue::eq",
+    "name": "eq",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &AnyValue) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        70,
+        24
+      ],
+      "end": [
+        70,
+        33
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "AnyValue",
+                      "id": 856,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          70,
+          24
+        ],
+        "end": [
+          70,
+          33
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2082",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-9d9adf770a8bc721c44671e8",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2c2304c8d8fb8295acedaf23",
+    "path": "opentelemetry::logs::record::AnyValue::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        70,
+        10
+      ],
+      "end": [
+        70,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          70,
+          10
+        ],
+        "end": [
+          70,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2077",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-2c2304c8d8fb8295acedaf23",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1c3ca6ff71d55be27343e5bb",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: u16) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        105,
+        1
+      ],
+      "end": [
+        105,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "u16"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "u16"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          105,
+          1
+        ],
+        "end": [
+          105,
+          39
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2094",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-1c3ca6ff71d55be27343e5bb",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "21feb281139848e74fa137df",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: &'static str) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        113,
+        1
+      ],
+      "end": [
+        113,
+        51
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "borrowed_ref": {
+                    "lifetime": "'static",
+                    "is_mutable": false,
+                    "type": {
+                      "primitive": "str"
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          113,
+          1
+        ],
+        "end": [
+          113,
+          51
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2106",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-21feb281139848e74fa137df",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "24741213c749d48404b48949",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: String) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        111,
+        1
+      ],
+      "end": [
+        111,
+        45
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "resolved_path": {
+                  "path": "String",
+                  "id": 222,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "222": "alloc::string::String",
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "String",
+                    "id": "alloc::string::String",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          111,
+          1
+        ],
+        "end": [
+          111,
+          45
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2102",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-24741213c749d48404b48949",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "272038999f54418e1ecd4e94",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: f64) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        108,
+        1
+      ],
+      "end": [
+        108,
+        42
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "f64"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "f64"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          108,
+          1
+        ],
+        "end": [
+          108,
+          42
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2098",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-272038999f54418e1ecd4e94",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "273de7f144704aea1bdaa29a",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: Cow<'static, str>) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        112,
+        1
+      ],
+      "end": [
+        112,
+        56
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "resolved_path": {
+                  "path": "Cow",
+                  "id": 19,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'static"
+                        },
+                        {
+                          "type": {
+                            "primitive": "str"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "19": "alloc::borrow::Cow",
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "Cow",
+                    "id": "alloc::borrow::Cow",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "lifetime": "'static"
+                          },
+                          {
+                            "type": {
+                              "primitive": "str"
+                            }
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          112,
+          1
+        ],
+        "end": [
+          112,
+          56
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2104",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-273de7f144704aea1bdaa29a",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2b5572127b23e5bd2e17956e",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: i64) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        102,
+        1
+      ],
+      "end": [
+        102,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "i64"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "i64"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          102,
+          1
+        ],
+        "end": [
+          102,
+          39
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2090",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-2b5572127b23e5bd2e17956e",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2d1e4ad0cee7d39a5a526bec",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: i32) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        101,
+        1
+      ],
+      "end": [
+        101,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "i32"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "i32"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          101,
+          1
+        ],
+        "end": [
+          101,
+          39
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2088",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-2d1e4ad0cee7d39a5a526bec",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5a0941eea857ac93f89cb2a3",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: i16) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        100,
+        1
+      ],
+      "end": [
+        100,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "i16"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "i16"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          100,
+          1
+        ],
+        "end": [
+          100,
+          39
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2086",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-5a0941eea857ac93f89cb2a3",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5a40d78217a88570c58fa4e5",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: u32) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        106,
+        1
+      ],
+      "end": [
+        106,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "u32"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "u32"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          106,
+          1
+        ],
+        "end": [
+          106,
+          39
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2096",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-5a40d78217a88570c58fa4e5",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "67d4a714d39ce6fa639823d4",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: &[u8]) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        119,
+        5
+      ],
+      "end": [
+        121,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "slice": {
+                      "primitive": "u8"
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "borrowed_ref": {
+                    "lifetime": null,
+                    "is_mutable": false,
+                    "type": {
+                      "slice": {
+                        "primitive": "u8"
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          118,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2110",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-67d4a714d39ce6fa639823d4",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a7689db84239c834fd0386b2",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: u8) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        104,
+        1
+      ],
+      "end": [
+        104,
+        38
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "u8"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "u8"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          104,
+          1
+        ],
+        "end": [
+          104,
+          38
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2092",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-a7689db84239c834fd0386b2",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a7f0c2f856a3eb04ed1f1d4f",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: bool) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        116,
+        1
+      ],
+      "end": [
+        116,
+        44
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "bool"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          116,
+          1
+        ],
+        "end": [
+          116,
+          44
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2108",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-a7f0c2f856a3eb04ed1f1d4f",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c4da74effed0d95a870dc199",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: StringValue) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        114,
+        1
+      ],
+      "end": [
+        114,
+        50
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "resolved_path": {
+                  "path": "StringValue",
+                  "id": 193,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "193": "opentelemetry::common::StringValue",
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "StringValue",
+                    "id": "opentelemetry::common::StringValue",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          114,
+          1
+        ],
+        "end": [
+          114,
+          50
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "855",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-c4da74effed0d95a870dc199",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d3c47814d2542bb46858bdc2",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: i8) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        99,
+        1
+      ],
+      "end": [
+        99,
+        38
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "i8"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "i8"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          99,
+          1
+        ],
+        "end": [
+          99,
+          38
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2084",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-d3c47814d2542bb46858bdc2",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f0c0542cd231e5e084169ef2",
+    "path": "opentelemetry::logs::record::AnyValue::from",
+    "name": "from",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(val: f32) -> AnyValue",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        109,
+        1
+      ],
+      "end": [
+        109,
+        42
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "val",
+              {
+                "primitive": "f32"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AnyValue",
+              "id": 856,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "856": "opentelemetry::logs::record::AnyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "f32"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          109,
+          1
+        ],
+        "end": [
+          109,
+          42
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2100",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-f0c0542cd231e5e084169ef2",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a3674e9b2425608c8ad5afb4",
+    "path": "opentelemetry::logs::record::AnyValue::from_iter",
+    "name": "from_iter",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self",
+    "docs": "Creates an [`AnyValue::ListAny`] value from a sequence of `Into<AnyValue>` values.",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        126,
+        5
+      ],
+      "end": [
+        128,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "iter",
+              {
+                "generic": "I"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "I",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "IntoIterator",
+                          "id": 236,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [],
+                              "constraints": [
+                                {
+                                  "name": "Item",
+                                  "args": null,
+                                  "binding": {
+                                    "equality": {
+                                      "type": {
+                                        "generic": "T"
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "236": "core::iter::traits::collect::IntoIterator"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FromIterator",
+        "id": "core::iter::traits::collect::FromIterator",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "T"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::iter::traits::collect::FromIterator",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": "core::convert::Into",
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "AnyValue",
+                                    "id": "opentelemetry::logs::record::AnyValue",
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          124,
+          1
+        ],
+        "end": [
+          129,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`AnyValue::ListAny`": 2056
+    },
+    "link_paths": {
+      "`AnyValue::ListAny`": "opentelemetry::logs::record::AnyValue::ListAny"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2112",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-a3674e9b2425608c8ad5afb4",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from_iter"
+    ],
+    "resolved_doc_links": {
+      "`AnyValue::ListAny`": "../operations/opentelemetry.logs.record.AnyValue.md#op-0c5a06d848b9665dc0347ba4"
+    }
+  },
+  {
+    "id": "ae4411cdb6e21c850f050b62",
+    "path": "opentelemetry::logs::record::AnyValue::from_iter",
+    "name": "from_iter",
+    "owner": "opentelemetry::logs::record::AnyValue",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self",
+    "docs": "Creates an [`AnyValue::Map`] value from a sequence of key-value pairs\nthat can be converted into a `Key` and `AnyValue` respectively.",
+    "span": {
+      "filename": "src/logs/record.rs",
+      "begin": [
+        134,
+        5
+      ],
+      "end": [
+        138,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "iter",
+              {
+                "generic": "I"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "I",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "IntoIterator",
+                          "id": 236,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [],
+                              "constraints": [
+                                {
+                                  "name": "Item",
+                                  "args": null,
+                                  "binding": {
+                                    "equality": {
+                                      "type": {
+                                        "tuple": [
+                                          {
+                                            "generic": "K"
+                                          },
+                                          {
+                                            "generic": "V"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "236": "core::iter::traits::collect::IntoIterator"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AnyValue",
+          "id": "opentelemetry::logs::record::AnyValue",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FromIterator",
+        "id": "core::iter::traits::collect::FromIterator",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "tuple": [
+                    {
+                      "generic": "K"
+                    },
+                    {
+                      "generic": "V"
+                    }
+                  ]
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::iter::traits::collect::FromIterator",
+      "generics": {
+        "params": [
+          {
+            "name": "K",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": "core::convert::Into",
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::Key",
+                                    "id": "opentelemetry::common::Key",
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "V",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": "core::convert::Into",
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "AnyValue",
+                                    "id": "opentelemetry::logs::record::AnyValue",
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/record.rs",
+        "begin": [
+          131,
+          1
+        ],
+        "end": [
+          139,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`AnyValue::Map`": 2058
+    },
+    "link_paths": {
+      "`AnyValue::Map`": "opentelemetry::logs::record::AnyValue::Map"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2114",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.logs.record.AnyValue.md",
+    "record_file": "operations/opentelemetry.logs.record.AnyValue.json",
+    "anchor": "op-ae4411cdb6e21c850f050b62",
+    "aliases": [
+      "opentelemetry::logs::AnyValue::from_iter"
+    ],
+    "resolved_doc_links": {
+      "`AnyValue::Map`": "../operations/opentelemetry.logs.record.AnyValue.md#op-cad53515f05db2c2f90f1cea"
+    }
+  }
+]

@@ -6,8 +6,8 @@
 use super::{Check, InvariantScope, applies, engine, finding, internal};
 use crate::RuleError;
 use datafusion::logical_expr::{LogicalPlan, LogicalPlanBuilder, Projection, col};
-use pse_catalog::session::SnapshotSession;
-use pse_ids::CancellationToken;
+use pse_columnar::CancellationToken;
+use pse_engine::session::EngineSession;
 use pse_schema::{
     Registry,
     model::{RelationKey, Severity},
@@ -16,17 +16,14 @@ use std::{collections::BTreeSet, sync::Arc};
 
 pub(super) fn compile(
     candidates: &BTreeSet<RelationKey>,
-    session: &SnapshotSession,
+    session: &EngineSession,
     registry: &Registry,
     scope: InvariantScope<'_>,
     cancel: &CancellationToken,
-) -> Result<(Vec<LogicalPlan>, usize), RuleError> {
+) -> Result<Vec<(pse_ids::SemanticId, LogicalPlan)>, RuleError> {
     let mut branches = Vec::new();
-    let mut count = 0;
     for key in candidates {
-        cancel
-            .checkpoint()
-            .map_err(pse_catalog::CatalogError::from)?;
+        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         let spec = registry
             .relation_by_key(*key)
             .ok_or_else(|| internal("native check relation absent"))?;
@@ -71,22 +68,24 @@ pub(super) fn compile(
                 )
                 .map_err(engine)?,
             );
-            branches.push(finding(
-                violations,
-                Check {
-                    id,
-                    relation: &spec.qualified_name(),
-                    severity: Severity::Error,
-                },
-                "violation",
-                &format!(
-                    "{}: native check {name} requires SQL true",
-                    spec.qualified_name()
-                ),
-                registry,
-            )?);
-            count += 1;
+            branches.push((
+                id,
+                finding(
+                    violations,
+                    Check {
+                        id,
+                        relation: &spec.qualified_name(),
+                        severity: Severity::Error,
+                    },
+                    "violation",
+                    &format!(
+                        "{}: native check {name} requires SQL true",
+                        spec.qualified_name()
+                    ),
+                    registry,
+                )?,
+            ));
         }
     }
-    Ok((branches, count))
+    Ok(branches)
 }

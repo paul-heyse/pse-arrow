@@ -1,0 +1,63 @@
+[
+  {
+    "id": "e5087748c6a6f0b873cbbd6a",
+    "path": "opentelemetry_sdk::trace::span_processor_with_async_runtime",
+    "name": "span_processor_with_async_runtime",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod span_processor_with_async_runtime",
+    "docs": "Experimental feature to use async runtime with batch span processor.",
+    "span": {
+      "filename": "src/trace/span_processor_with_async_runtime.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        706,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature =\n\"experimental_trace_batch_span_processor_with_async_runtime\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          2888,
+          3045
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3096",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry_sdk.trace.span_processor_with_async_runtime.md",
+    "record_file": "modules/opentelemetry_sdk.trace.span_processor_with_async_runtime.json",
+    "anchor": "op-e5087748c6a6f0b873cbbd6a",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

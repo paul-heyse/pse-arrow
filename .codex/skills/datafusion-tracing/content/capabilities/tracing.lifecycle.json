@@ -1,0 +1,131 @@
+{
+  "id": "tracing.lifecycle",
+  "title": "Follow execution and recorder lifetimes",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "trace ends before fields appear",
+    "keep plan alive",
+    "early drop error partial partitions",
+    "repeat concurrent execution"
+  ],
+  "crates": [
+    "datafusion-tracing",
+    "tracing"
+  ],
+  "input": [
+    "execution streams",
+    "task context",
+    "parent span"
+  ],
+  "output": [
+    "recording and close events"
+  ],
+  "properties": [
+    "lifecycle",
+    "errors",
+    "repeated-execution"
+  ],
+  "operations": [
+    "datafusion_tracing::instrumented_exec::InstrumentedExec"
+  ],
+  "brief": "The implementation groups active execution streams and holds recording state through stream ownership. Plan handles, stream handles and exported spans have distinct lifetimes.",
+  "choices": [
+    {
+      "candidate": "consume to end",
+      "choose_when": "Complete stream work is needed",
+      "tradeoff": "In the resolved DataFusion 55.1.0 profile, EOF drops the inner recording stream even if its public adapter handle remains alive."
+    },
+    {
+      "candidate": "early drop",
+      "choose_when": "Only partial results are consumed",
+      "tradeoff": "Finalized telemetry may describe partial work."
+    },
+    {
+      "candidate": "retained plan",
+      "choose_when": "The plan is reused",
+      "tradeoff": "Retaining a plan is distinct from retaining its active streams."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.lifecycle.1",
+      "aspect": "Evidence boundary",
+      "kind": "source_observation",
+      "statement": "InstrumentedExec is internal; its source is evidence, not a constructible consumer API.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.lifecycle.2",
+      "aspect": "Ownership",
+      "kind": "source_observation",
+      "statement": "ExecutionRecordingStream releases its reservation in PinnedDrop. The returned DataFusion RecordBatchStreamAdapter can trigger that destruction on EOF; internal wrapper lifetime and the public handle lifetime differ.",
+      "evidence": [
+        "source",
+        "stream-adapter"
+      ]
+    },
+    {
+      "id": "tracing.lifecycle.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "Two partitions containing three batches keep spans open before consumption. In the resolved DataFusion 55.1.0 profile, reaching EOF closes spans while the public stream adapters and plan clone remain alive. Dropping exhausted adapters adds no close events; the preview is capped across the group.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Use public instrumentation macros in consumers.",
+    "Record identities and lifecycle callbacks to distinguish independent executions and parents."
+  ],
+  "unknowns": [
+    "Arbitrary custom ExecutionPlan implementations and cancellation timing remain workload-specific.",
+    "Other resolved DataFusion versions or custom adapters may release their inner streams at a different boundary. Internal PinnedDrop alone cannot establish public EOF behavior."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "partition_preview_cap_and_live_stream_lifetime",
+        "early_drop_partial_partition_and_repeated_execution",
+        "independent_execution_groups_do_not_mix_previews"
+      ],
+      "scope": "Two partitions containing three batches keep spans open before consumption. In the resolved DataFusion 55.1.0 profile, reaching EOF closes spans while the public stream adapters and plan clone remain alive. Dropping exhausted adapters adds no close events; the preview is capped across the group."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    },
+    {
+      "id": "stream-adapter",
+      "kind": "source_observation",
+      "path": "skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs",
+      "scope": "RecordBatchStreamAdapter stores Option<S> and drops the inner stream on None. This is a boundary source from the resolved consumer profile, not an additional indexed crate."
+    }
+  ],
+  "resolved_operations": [
+    {
+      "path": "datafusion_tracing::instrumented_exec::InstrumentedExec",
+      "id": "6b12316c8f26fe0ad5f029de",
+      "kind": "struct",
+      "crate": "datafusion-tracing",
+      "record": "operations/datafusion_tracing.instrumented_exec.InstrumentedExec.json",
+      "page": "operations/datafusion_tracing.instrumented_exec.InstrumentedExec.md#op-6b12316c8f26fe0ad5f029de",
+      "signature": "struct InstrumentedExec"
+    }
+  ],
+  "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+  "source": "authoring/capabilities/tracing.lifecycle.json"
+}

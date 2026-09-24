@@ -1,0 +1,555 @@
+[
+  {
+    "id": "0f6ada0fe415846eb0ca71fa",
+    "path": "tracing_subscriber::field::MakeExt",
+    "name": "MakeExt",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait MakeExt<T> where Self: MakeVisitor<T> + Sized + sealed::Sealed<MakeExtMarker<T>>",
+    "docs": "Extension trait providing `MakeVisitor` combinators.",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        130,
+        1
+      ],
+      "end": [
+        156,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          270,
+          271,
+          272
+        ],
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "MakeVisitor",
+                        "id": 20,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "generic": "T"
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "crate::sealed::Sealed",
+                        "id": 21,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "MakeExtMarker",
+                                    "id": 22,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "type": {
+                                              "generic": "T"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "bounds": [],
+        "implementations": [
+          273
+        ]
+      }
+    },
+    "type_references": {
+      "20": "tracing_subscriber::field::MakeVisitor",
+      "26": "core::marker::Sized",
+      "21": "tracing_subscriber::sealed::Sealed",
+      "22": null
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "23",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.MakeExt.md",
+    "record_file": "operations/tracing_subscriber.field.MakeExt.json",
+    "anchor": "op-0f6ada0fe415846eb0ca71fa",
+    "aliases": [
+      "tracing_subscriber::prelude::__tracing_subscriber_field_MakeExt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e7598f72ca112adefe8aa9ca",
+    "path": "tracing_subscriber::field::MakeExt::debug_alt",
+    "name": "debug_alt",
+    "owner": "tracing_subscriber::field::MakeExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn debug_alt(self) -> debug::Alt<Self>",
+    "docs": "Wraps `self` so that any `fmt::Debug` fields are recorded using the\nalternate formatter (`{:#?}`).",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        137,
+        5
+      ],
+      "end": [
+        139,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "debug::Alt",
+              "id": 2,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2": "tracing_subscriber::field::debug::Alt"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "270",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.MakeExt.md",
+    "record_file": "operations/tracing_subscriber.field.MakeExt.json",
+    "anchor": "op-e7598f72ca112adefe8aa9ca",
+    "aliases": [
+      "tracing_subscriber::prelude::__tracing_subscriber_field_MakeExt::debug_alt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e8f75a95bd9d36a35076a553",
+    "path": "tracing_subscriber::field::MakeExt::delimited",
+    "name": "delimited",
+    "owner": "tracing_subscriber::field::MakeExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn delimited<D>(self, delimiter: D) -> delimited::Delimited<D, Self> where D: AsRef<str> + Clone, Self::Visitor: VisitFmt",
+    "docs": "Wraps `self` so that when fields are formatted to a writer, they are\nseparated by the provided `delimiter`.",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        149,
+        5
+      ],
+      "end": [
+        155,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "delimiter",
+              {
+                "generic": "D"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "delimited::Delimited",
+              "id": 97,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "D"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "D",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "D"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "AsRef",
+                        "id": 127,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "primitive": "str"
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Clone",
+                        "id": 33,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "qualified_path": {
+                    "name": "Visitor",
+                    "args": null,
+                    "self_type": {
+                      "generic": "Self"
+                    },
+                    "trait": {
+                      "path": "",
+                      "id": 20,
+                      "args": null
+                    }
+                  }
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "VisitFmt",
+                        "id": 93,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "97": "tracing_subscriber::field::delimited::Delimited",
+      "127": "core::convert::AsRef",
+      "33": "core::clone::Clone",
+      "20": "tracing_subscriber::field::MakeVisitor",
+      "93": "tracing_subscriber::field::VisitFmt"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "272",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.MakeExt.md",
+    "record_file": "operations/tracing_subscriber.field.MakeExt.json",
+    "anchor": "op-e8f75a95bd9d36a35076a553",
+    "aliases": [
+      "tracing_subscriber::prelude::__tracing_subscriber_field_MakeExt::delimited"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4424b536241d52a0449bf4bc",
+    "path": "tracing_subscriber::field::MakeExt::display_messages",
+    "name": "display_messages",
+    "owner": "tracing_subscriber::field::MakeExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn display_messages(self) -> display::Messages<Self>",
+    "docs": "Wraps `self` so that any string fields named \"message\" are recorded\nusing `fmt::Display`.",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        143,
+        5
+      ],
+      "end": [
+        145,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "display::Messages",
+              "id": 165,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "165": "tracing_subscriber::field::display::Messages"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "271",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.MakeExt.md",
+    "record_file": "operations/tracing_subscriber.field.MakeExt.json",
+    "anchor": "op-4424b536241d52a0449bf4bc",
+    "aliases": [
+      "tracing_subscriber::prelude::__tracing_subscriber_field_MakeExt::display_messages"
+    ],
+    "resolved_doc_links": {}
+  }
+]

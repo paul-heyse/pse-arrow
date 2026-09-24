@@ -17,8 +17,7 @@
 //! they are the preimage of the registry fingerprint.
 
 use pse_schema::model::{
-    Authority, Cell, DerivationGranularity, EXTENSION_TYPES, ExtensionUse, FieldContract,
-    RelationSpec, SnapshotClass, render_data_type,
+    EXTENSION_TYPES, ExtensionUse, FieldContract, RelationSpec, render_data_type,
 };
 use pse_schema::{catalog, registry};
 
@@ -40,21 +39,21 @@ fn enumeration_types_supply_unique_targets_for_member_and_law_references() {
         .relation("reference.schema_enum_types")
         .expect("enum types");
     let (_, rows) = registry
-        .schema_rows_ref()
+        .schema_batches()
         .iter()
         .find(|(key, _)| *key == spec.key)
         .expect("type rows");
-    let identities: std::collections::BTreeSet<_> = rows
+    let array = rows
+        .column(0)
+        .as_any()
+        .downcast_ref::<arrow_array::FixedSizeBinaryArray>()
+        .unwrap();
+    let identities = array
         .iter()
-        .map(|row| {
-            let Cell::Id(id) = row[0] else {
-                panic!("enumeration key must be typed");
-            };
-            id
-        })
-        .collect();
-    assert_eq!(rows.len(), registry.enums().len());
-    assert_eq!(identities.len(), rows.len());
+        .map(|value| pse_ids::SemanticId::from_bytes(value.unwrap().try_into().unwrap()))
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(rows.num_rows(), registry.enums().len());
+    assert_eq!(identities.len(), rows.num_rows());
     for enumeration in registry.enums() {
         assert!(identities.contains(&enumeration.id));
     }
@@ -89,81 +88,6 @@ fn the_registry_assembles() {
         "the fingerprint is filled at assembly"
     );
     assert_eq!(reg.package_id(), *pse_schema::REGISTRY_PACKAGE_ID);
-}
-
-#[test]
-fn inference_contracts_preserve_actual_instance_members_and_indexed_products() {
-    let reg = registry().expect("the shipped catalog assembles");
-    let id = FieldContract::id();
-    for (name, keys, columns) in [
-        (
-            "inferred.state_flash_required",
-            vec!["state_instance"],
-            vec![("state_instance", id.clone())],
-        ),
-        (
-            "inferred.connection_equations",
-            vec!["connection_id", "member_ordinal"],
-            vec![
-                ("connection_id", id.clone()),
-                (
-                    "member_ordinal",
-                    reg.relation("inferred.port_members")
-                        .unwrap()
-                        .column("ordinal")
-                        .unwrap()
-                        .value_type()
-                        .clone(),
-                ),
-                ("product_id", id.clone()),
-                ("equation_id", id.clone()),
-            ],
-        ),
-        (
-            "inferred.initialization_order",
-            vec!["instance"],
-            vec![
-                ("instance", id),
-                (
-                    "ordinal",
-                    reg.relation("compiled.init_stages")
-                        .unwrap()
-                        .column("ordinal")
-                        .unwrap()
-                        .value_type()
-                        .clone(),
-                ),
-            ],
-        ),
-    ] {
-        let spec = reg.relation(name).unwrap();
-        assert_eq!(spec.primary_key, keys, "{name}");
-        assert_eq!(spec.authority, Authority::Derived, "{name}");
-        assert_eq!(spec.snapshot_class, SnapshotClass::Derived, "{name}");
-        assert_eq!(
-            spec.derivation_granularity,
-            Some(DerivationGranularity::Row),
-            "{name}"
-        );
-        assert_eq!(
-            spec.columns
-                .iter()
-                .map(|column| (column.name(), column.value_type().clone()))
-                .collect::<Vec<_>>(),
-            columns,
-            "{name} retains complete declared values"
-        );
-        assert!(spec.columns.iter().all(|column| !column.nullable()));
-        assert!(
-            reg.invariants()
-                .iter()
-                .any(|invariant| { invariant.relation == name && invariant.name == "unique:pk" })
-        );
-    }
-    let connection = reg.relation("inferred.connection_equations").unwrap();
-    let reference = connection.column("connection_id").unwrap().fk().unwrap();
-    assert_eq!(reference.relation, "authored.connections");
-    assert_eq!(reference.column, "connection_id");
 }
 
 #[test]
@@ -376,50 +300,54 @@ fn the_logical_type_catalog_covers_every_declared_column() {
 }
 
 #[test]
-fn schema_rows_are_primary_key_sorted() {
-    let reg = registry().expect("the shipped catalog assembles");
-    for (key, rows) in reg.schema_rows() {
-        let Some(spec) = reg.relation(&key.qualified_name()) else {
-            assert!(
-                rows.is_empty(),
-                "{key} emits rows before the relation describing them is declared"
-            );
-            continue;
-        };
+fn schema_batches_are_primary_key_sorted() {
+    let reg = registry().expect("registry");
+    for (key, batch) in reg.schema_batches() {
+        let spec = reg.relation(&key.qualified_name()).unwrap();
         let positions = pk_positions(spec);
-        let keys: Vec<Vec<String>> = rows
-            .iter()
-            .map(|row| positions.iter().map(|at| order_key(&row[*at])).collect())
-            .collect();
-        let mut sorted = keys.clone();
-        sorted.sort();
-        assert_eq!(keys, sorted, "{key} rows are not primary-key sorted");
-        let before = sorted.len();
-        sorted.dedup();
-        assert_eq!(before, sorted.len(), "{key} has a duplicate primary key");
-    }
-}
-
-#[test]
-fn schema_rows_have_the_declared_width() {
-    let reg = registry().expect("the shipped catalog assembles");
-    for (key, rows) in reg.schema_rows() {
-        let Some(spec) = reg.relation(&key.qualified_name()) else {
-            assert!(
-                rows.is_empty(),
-                "{key} emits rows before the relation describing them is declared"
-            );
-            continue;
-        };
-        for row in &rows {
-            assert_eq!(
-                row.len(),
-                spec.columns.len(),
-                "{key} emits {} cells for {} declared columns",
-                row.len(),
-                spec.columns.len()
-            );
-        }
+        let keys = (0..batch.num_rows())
+            .map(|row| {
+                positions
+                    .iter()
+                    .map(|at| {
+                        let array = batch.column(*at);
+                        match array.data_type() {
+                            arrow_schema::DataType::FixedSizeBinary(_) => array
+                                .as_any()
+                                .downcast_ref::<arrow_array::FixedSizeBinaryArray>()
+                                .unwrap()
+                                .value(row)
+                                .to_vec(),
+                            arrow_schema::DataType::Utf8 => array
+                                .as_any()
+                                .downcast_ref::<arrow_array::StringArray>()
+                                .unwrap()
+                                .value(row)
+                                .as_bytes()
+                                .to_vec(),
+                            arrow_schema::DataType::Int64 => (array
+                                .as_any()
+                                .downcast_ref::<arrow_array::Int64Array>()
+                                .unwrap()
+                                .value(row)
+                                ^ i64::MIN)
+                                .to_be_bytes()
+                                .to_vec(),
+                            other => panic!("unexpected intrinsic key {other}"),
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            keys.windows(2).all(|pair| pair[0] < pair[1]),
+            "{key}: keys must be strictly increasing"
+        );
+        assert_eq!(batch.num_columns(), spec.columns.len());
+        assert_eq!(
+            batch.schema().as_ref(),
+            &pse_schema::arrow::relation_schema(reg, spec).unwrap()
+        );
     }
 }
 
@@ -428,8 +356,8 @@ fn two_assemblies_produce_the_same_rows() {
     let first = catalog::assemble().expect("the shipped catalog assembles");
     let second = catalog::assemble().expect("the shipped catalog assembles");
     assert_eq!(
-        first.schema_rows(),
-        second.schema_rows(),
+        first.schema_batches(),
+        second.schema_batches(),
         "assembly is a pure function of the declarations"
     );
 }
@@ -445,21 +373,6 @@ fn pk_positions(spec: &RelationSpec) -> Vec<usize> {
                 .unwrap_or_else(|| panic!("{} has no column {name}", spec.key))
         })
         .collect()
-}
-
-/// An order-preserving rendering of a key cell, written independently of the registry's
-/// own sort key so that the test checks the order rather than restating it.
-fn order_key(cell: &Cell) -> String {
-    match cell {
-        Cell::Id(value) => value.to_hex(),
-        Cell::Hash(value) => value.to_hex(),
-        Cell::U64(value) => format!("{value:020}"),
-        Cell::I64(value) => format!("{:020}", i128::from(*value) - i128::from(i64::MIN)),
-        Cell::Text(value) => value.clone(),
-        Cell::Enum(value) => (*value).to_owned(),
-        Cell::Null => String::new(),
-        other => panic!("{other:?} is not a key cell shape"),
-    }
 }
 
 /// A local re-derivation of `FieldContract`'s child walk, so a test failure is about the

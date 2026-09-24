@@ -1,0 +1,1030 @@
+[
+  {
+    "id": "6a8f81daa049c40c19442579",
+    "path": "tracing_core::subscriber::Interest",
+    "name": "Interest",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "struct",
+    "signature": "struct Interest",
+    "docs": "Indicates a [`Subscriber`]'s interest in a particular callsite.\n\n`Subscriber`s return an `Interest` from their [`register_callsite`] methods\nin order to determine whether that span should be enabled or disabled.\n\n[`Subscriber`]: super::Subscriber\n[`register_callsite`]: super::Subscriber::register_callsite",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        589,
+        1
+      ],
+      "end": [
+        589,
+        35
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "tuple": [
+            null
+          ]
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1053,
+          1054,
+          1055,
+          1056,
+          1057,
+          1058,
+          1059,
+          1060,
+          1061,
+          1062,
+          1063,
+          1064,
+          1065,
+          1066,
+          1067,
+          1068,
+          1069,
+          1071,
+          1073
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "super::Subscriber::register_callsite": 116,
+      "super::Subscriber": 112
+    },
+    "link_paths": {
+      "super::Subscriber::register_callsite": "tracing_core::subscriber::Subscriber::register_callsite",
+      "super::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "10",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Interest.md",
+    "record_file": "operations/tracing_core.subscriber.Interest.json",
+    "anchor": "op-6a8f81daa049c40c19442579",
+    "aliases": [
+      "tracing::subscriber::Interest",
+      "tracing_core::Interest"
+    ],
+    "resolved_doc_links": {
+      "super::Subscriber::register_callsite": "../operations/tracing_core.subscriber.Subscriber.md#op-19b9abf22f078e184d986225",
+      "super::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "639d56d212d8cbe7e6adf31f",
+    "path": "tracing_core::subscriber::Interest::always",
+    "name": "always",
+    "owner": "tracing_core::subscriber::Interest",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn always() -> Self",
+    "docs": "Returns an `Interest` indicating the subscriber is always interested in\nbeing notified about a callsite.\n\nIf any subscriber expresses that it is `always()` interested in a given\ncallsite, then the callsite will always be enabled.",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        627,
+        5
+      ],
+      "end": [
+        629,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Interest",
+          "id": "tracing_core::subscriber::Interest",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/subscriber.rs",
+        "begin": [
+          598,
+          1
+        ],
+        "end": [
+          665,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "117",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Interest.md",
+    "record_file": "operations/tracing_core.subscriber.Interest.json",
+    "anchor": "op-639d56d212d8cbe7e6adf31f",
+    "aliases": [
+      "tracing::subscriber::Interest::always",
+      "tracing_core::Interest::always"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e9d84655e3c40182ab9929e9",
+    "path": "tracing_core::subscriber::Interest::clone",
+    "name": "clone",
+    "owner": "tracing_core::subscriber::Interest",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Interest",
+    "docs": "",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        588,
+        10
+      ],
+      "end": [
+        588,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Interest",
+              "id": 10,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "10": "tracing_core::subscriber::Interest"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Interest",
+          "id": "tracing_core::subscriber::Interest",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/subscriber.rs",
+        "begin": [
+          588,
+          10
+        ],
+        "end": [
+          588,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1070",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Interest.md",
+    "record_file": "operations/tracing_core.subscriber.Interest.json",
+    "anchor": "op-e9d84655e3c40182ab9929e9",
+    "aliases": [
+      "tracing::subscriber::Interest::clone",
+      "tracing_core::Interest::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "559502603c3c48c85019c76b",
+    "path": "tracing_core::subscriber::Interest::fmt",
+    "name": "fmt",
+    "owner": "tracing_core::subscriber::Interest",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        588,
+        17
+      ],
+      "end": [
+        588,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 79,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 80,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "79": "core::fmt::Formatter",
+      "80": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Interest",
+          "id": "tracing_core::subscriber::Interest",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/subscriber.rs",
+        "begin": [
+          588,
+          17
+        ],
+        "end": [
+          588,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1072",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Interest.md",
+    "record_file": "operations/tracing_core.subscriber.Interest.json",
+    "anchor": "op-559502603c3c48c85019c76b",
+    "aliases": [
+      "tracing::subscriber::Interest::fmt",
+      "tracing_core::Interest::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f16a56e96127b795d4ac48e2",
+    "path": "tracing_core::subscriber::Interest::is_always",
+    "name": "is_always",
+    "owner": "tracing_core::subscriber::Interest",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is_always(&self) -> bool",
+    "docs": "Returns `true` if the subscriber is always interested in being notified\nabout this callsite.",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        648,
+        5
+      ],
+      "end": [
+        650,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Interest",
+          "id": "tracing_core::subscriber::Interest",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/subscriber.rs",
+        "begin": [
+          598,
+          1
+        ],
+        "end": [
+          665,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1052",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Interest.md",
+    "record_file": "operations/tracing_core.subscriber.Interest.json",
+    "anchor": "op-f16a56e96127b795d4ac48e2",
+    "aliases": [
+      "tracing::subscriber::Interest::is_always",
+      "tracing_core::Interest::is_always"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "56b5318120db6cccd4a4a681",
+    "path": "tracing_core::subscriber::Interest::is_never",
+    "name": "is_never",
+    "owner": "tracing_core::subscriber::Interest",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is_never(&self) -> bool",
+    "docs": "Returns `true` if the subscriber is never interested in being notified\nabout this callsite.",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        634,
+        5
+      ],
+      "end": [
+        636,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Interest",
+          "id": "tracing_core::subscriber::Interest",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/subscriber.rs",
+        "begin": [
+          598,
+          1
+        ],
+        "end": [
+          665,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1050",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Interest.md",
+    "record_file": "operations/tracing_core.subscriber.Interest.json",
+    "anchor": "op-56b5318120db6cccd4a4a681",
+    "aliases": [
+      "tracing::subscriber::Interest::is_never",
+      "tracing_core::Interest::is_never"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "baf8b1ff537cf4185e59e743",
+    "path": "tracing_core::subscriber::Interest::is_sometimes",
+    "name": "is_sometimes",
+    "owner": "tracing_core::subscriber::Interest",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is_sometimes(&self) -> bool",
+    "docs": "Returns `true` if the subscriber is sometimes interested in being notified\nabout this callsite.",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        641,
+        5
+      ],
+      "end": [
+        643,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Interest",
+          "id": "tracing_core::subscriber::Interest",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/subscriber.rs",
+        "begin": [
+          598,
+          1
+        ],
+        "end": [
+          665,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1051",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Interest.md",
+    "record_file": "operations/tracing_core.subscriber.Interest.json",
+    "anchor": "op-baf8b1ff537cf4185e59e743",
+    "aliases": [
+      "tracing::subscriber::Interest::is_sometimes",
+      "tracing_core::Interest::is_sometimes"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5f92faeb5615c3cbdac0637d",
+    "path": "tracing_core::subscriber::Interest::never",
+    "name": "never",
+    "owner": "tracing_core::subscriber::Interest",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn never() -> Self",
+    "docs": "Returns an `Interest` indicating that the subscriber is never interested\nin being notified about a callsite.\n\nIf all active subscribers are `never()` interested in a callsite, it will\nbe completely disabled unless a new subscriber becomes active.",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        605,
+        5
+      ],
+      "end": [
+        607,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Interest",
+          "id": "tracing_core::subscriber::Interest",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/subscriber.rs",
+        "begin": [
+          598,
+          1
+        ],
+        "end": [
+          665,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "118",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Interest.md",
+    "record_file": "operations/tracing_core.subscriber.Interest.json",
+    "anchor": "op-5f92faeb5615c3cbdac0637d",
+    "aliases": [
+      "tracing::subscriber::Interest::never",
+      "tracing_core::Interest::never"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "70a63c4ee71956d505bbc48d",
+    "path": "tracing_core::subscriber::Interest::sometimes",
+    "name": "sometimes",
+    "owner": "tracing_core::subscriber::Interest",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn sometimes() -> Self",
+    "docs": "Returns an `Interest` indicating the subscriber is sometimes interested\nin being notified about a callsite.\n\nIf all active subscribers are `sometimes` or `never` interested in a\ncallsite, the currently active subscriber will be asked to filter that\ncallsite every time it creates a span. This will be the case until a new\nsubscriber expresses that it is `always` interested in the callsite.",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        617,
+        5
+      ],
+      "end": [
+        619,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Interest",
+          "id": "tracing_core::subscriber::Interest",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/subscriber.rs",
+        "begin": [
+          598,
+          1
+        ],
+        "end": [
+          665,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "113",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Interest.md",
+    "record_file": "operations/tracing_core.subscriber.Interest.json",
+    "anchor": "op-70a63c4ee71956d505bbc48d",
+    "aliases": [
+      "tracing::subscriber::Interest::sometimes",
+      "tracing_core::Interest::sometimes"
+    ],
+    "resolved_doc_links": {}
+  }
+]

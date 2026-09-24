@@ -11,19 +11,23 @@
 use pse_ids::ContentHash;
 
 /// A batch, field or metadata value that does not meet its declared contract.
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[derive(Debug, thiserror::Error)]
 pub enum RelationError {
+    /// Failed local obligations, with typed findings and explicit truncation state.
+    #[error("{} local validation violations", report.violations)]
+    LocalFindings {
+        /// Actual native findings from the prepared validator.
+        report: Box<crate::validate::ValidationReport>,
+    },
+    /// Native preparation or evaluation failure retaining the original causes.
+    #[error(transparent)]
+    Engine(#[from] pse_columnar::EngineError),
     /// Accounted construction exceeded an envelope, was cancelled or failed ownership.
     #[error(transparent)]
-    #[diagnostic(transparent)]
-    Canon(#[from] pse_ids::CanonError),
+    Canon(#[from] pse_columnar::CanonError),
 
     /// The batch's `pse.contract.fingerprint` is not the one this view was generated for.
     #[error("relation `{relation}` expects fingerprint {expected} but the batch carries {actual}")]
-    #[diagnostic(
-        code(schema::fingerprint_mismatch),
-        help("the artifact was written under a different registry; migrate it or recompile")
-    )]
     FingerprintMismatch {
         /// The relation, as `<namespace>.<name>@<version>`.
         relation: String,
@@ -35,12 +39,6 @@ pub enum RelationError {
 
     /// The batch claims a relation the runtime registry does not declare.
     #[error("relation `{relation}` is not declared by this registry")]
-    #[diagnostic(
-        code(schema::unknown_registry),
-        help(
-            "the artifact predates a relation rename or removal; read it through its own registry"
-        )
-    )]
     UnknownRegistry {
         /// The relation the batch claims, as its identity or qualified name.
         relation: String,
@@ -48,12 +46,6 @@ pub enum RelationError {
 
     /// A field's Arrow storage is not the declared one.
     #[error("field `{field}` is stored as {actual}, and the contract declares {expected}")]
-    #[diagnostic(
-        code(schema::storage),
-        help(
-            "an unknown layout is rejected, never decoded opportunistically (blueprint §5.3 step 2)"
-        )
-    )]
     Storage {
         /// The field path, for example `columns.0.item`.
         field: String,
@@ -65,10 +57,6 @@ pub enum RelationError {
 
     /// A field's `ARROW:extension:name` is missing, unknown, or not the declared one.
     #[error("field `{field}` claims extension `{name}`: {reason}")]
-    #[diagnostic(
-        code(schema::extension_type),
-        help("registration is passive; the validator is what admits a value (blueprint §4.4)")
-    )]
     ExtensionType {
         /// The field path.
         field: String,
@@ -81,12 +69,6 @@ pub enum RelationError {
     /// A field's `ARROW:extension:metadata` is missing, malformed, or of an unknown
     /// generation.
     #[error("field `{field}` carries extension metadata `{found}` for `{name}`: {reason}")]
-    #[diagnostic(
-        code(schema::extension_metadata),
-        help(
-            "the shapes are exactly `{{\"v\":1}}`, `{{\"v\":1,\"enum_id\":…}}` and `{{\"v\":1,\"target_relation_id\":…}}` (blueprint §4.4)"
-        )
-    )]
     ExtensionMetadata {
         /// The field path.
         field: String,
@@ -100,12 +82,6 @@ pub enum RelationError {
 
     /// A field carries a metadata key nothing declares.
     #[error("field `{field}` carries the undeclared metadata key `{key}`")]
-    #[diagnostic(
-        code(schema::unknown_metadata),
-        help(
-            "`SERDE_ARROW:*` and other unregistered keys are errors, not values to discard silently (blueprint §4.3)"
-        )
-    )]
     UnknownMetadata {
         /// The field path, or the empty string for schema-level metadata.
         field: String,
@@ -115,12 +91,6 @@ pub enum RelationError {
 
     /// A non-nullable field holds a null, or a nullable one is declared non-null.
     #[error("field `{field}` is declared {declared} and the batch is {actual}")]
-    #[diagnostic(
-        code(schema::nullability),
-        help(
-            "required visible values must be non-null; null parents mask their payload (blueprint §5.3 step 2)"
-        )
-    )]
     Nullability {
         /// The field path.
         field: String,
@@ -132,12 +102,6 @@ pub enum RelationError {
 
     /// A string value is not a member of the declared enumeration.
     #[error("field `{field}` holds `{value}`, which is not a member of `{enumeration}`")]
-    #[diagnostic(
-        code(schema::enum_member),
-        help(
-            "an enumeration has a declared member domain; add the member to the registry or correct the value"
-        )
-    )]
     EnumMember {
         /// The field path.
         field: String,
@@ -149,12 +113,6 @@ pub enum RelationError {
 
     /// An ordinal reference points outside its target relation.
     #[error("field `{field}` references ordinal {ordinal} of `{target}`, which has {rows} rows")]
-    #[diagnostic(
-        code(schema::ordinal_range),
-        help(
-            "an ordinal is artifact-local; only bundle admission can check that it is in range (blueprint §4.4)"
-        )
-    )]
     OrdinalRange {
         /// The field path.
         field: String,
@@ -168,7 +126,6 @@ pub enum RelationError {
 
     /// A declared relation contract or metadata value does not match the offered data.
     #[error("relation `{relation}` violates its contract: {reason}")]
-    #[diagnostic(code(schema::contract_mismatch))]
     Contract {
         /// The relation or field being admitted.
         relation: String,
@@ -178,7 +135,6 @@ pub enum RelationError {
 
     /// A visible row value violates its declared logical meaning.
     #[error("field `{field}` in row {row}: {reason}")]
-    #[diagnostic(code(validation::invariant))]
     Value {
         /// The complete field path.
         field: String,
@@ -190,20 +146,79 @@ pub enum RelationError {
 
     /// All violations found at an admission boundary.
     #[error("relation admission found {} violations", .errors.len())]
-    #[diagnostic(code(schema::admission))]
     Validation {
         /// Independently actionable findings.
-        #[related]
         errors: Vec<RelationError>,
     },
 
     /// The bound registry declaration could not produce its contract.
     #[error(transparent)]
-    #[diagnostic(transparent)]
     Schema(#[from] pse_schema::SchemaError),
 
     /// Arrow itself rejected the operation.
     #[error(transparent)]
-    #[diagnostic(code(schema::arrow))]
     Arrow(#[from] arrow_schema::ArrowError),
+}
+
+pse_diagnostics::impl_diagnostic! {
+    RelationError,
+    code(this) { match this {
+            Self::LocalFindings { .. } | Self::Value { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
+            Self::FingerprintMismatch { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaFingerprintMismatch),
+            Self::UnknownRegistry { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaUnknownRegistry),
+            Self::Storage { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaStorage),
+            Self::ExtensionType { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaExtensionType),
+            Self::ExtensionMetadata { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaExtensionMetadata),
+            Self::UnknownMetadata { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaUnknownMetadata),
+            Self::Nullability { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaNullability),
+            Self::EnumMember { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaEnumMember),
+            Self::OrdinalRange { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaOrdinalRange),
+            Self::Contract { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaContractMismatch),
+
+            Self::Validation { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaAdmission),
+            Self::Arrow(..) => Some(pse_diagnostics::DiagnosticCode::SchemaArrow),
+            _ => None,
+        } },
+    forward(this) { match this {
+            Self::Engine(error) => Some(error),
+            Self::Canon(value) => Some(value),
+            Self::Schema(value) => Some(value),
+            _ => None,
+        } },
+    help(this) { match this {
+            Self::FingerprintMismatch { .. } => Some(Box::new("the artifact was written under a different registry; migrate it or recompile")),
+            Self::UnknownRegistry { .. } => Some(Box::new("the artifact predates a relation rename or removal; read it through its own registry")),
+            Self::Storage { .. } => Some(Box::new("an unknown layout is rejected, never decoded opportunistically (blueprint §5.3 step 2)")),
+            Self::ExtensionType { .. } => Some(Box::new("registration is passive; the validator is what admits a value (blueprint §4.4)")),
+            Self::ExtensionMetadata { .. } => Some(Box::new("the shapes are exactly `{\"v\":1}`, `{\"v\":1,\"enum_id\":…}` and `{\"v\":1,\"target_relation_id\":…}` (blueprint §4.4)")),
+            Self::UnknownMetadata { .. } => Some(Box::new("`SERDE_ARROW:*` and other unregistered keys are errors, not values to discard silently (blueprint §4.3)")),
+            Self::Nullability { .. } => Some(Box::new("required visible values must be non-null; null parents mask their payload (blueprint §5.3 step 2)")),
+            Self::EnumMember { .. } => Some(Box::new("an enumeration has a declared member domain; add the member to the registry or correct the value")),
+            Self::OrdinalRange { .. } => Some(Box::new("an ordinal is artifact-local; only bundle admission can check that it is in range (blueprint §4.4)")),
+            _ => None,
+        } },
+    related(this) { match this {
+            Self::Validation { errors, .. } => Some(Box::new(errors.iter().map(|value| -> &dyn pse_diagnostics::TypedDiagnostic { value }))),
+            _ => None,
+        } },
+    source(_this) { None }
+}
+
+pse_columnar::impl_native_error!(RelationError);
+
+impl From<pse_model::ModelError> for RelationError {
+    fn from(error: pse_model::ModelError) -> Self {
+        match error {
+            pse_model::ModelError::Malformed(message) => crate::columnar::mismatch(&message),
+            pse_model::ModelError::EnumMember {
+                field,
+                enumeration,
+                value,
+            } => Self::EnumMember {
+                field,
+                enumeration,
+                value,
+            },
+        }
+    }
 }

@@ -1,0 +1,63 @@
+[
+  {
+    "id": "d0b6144994e5fd89bc202893",
+    "path": "tracing_subscriber::prelude",
+    "name": "prelude",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "module",
+    "signature": "mod prelude",
+    "docs": "The `tracing-subscriber` prelude.\n\nThis brings into scope a number of extension traits that define methods on\ntypes defined here and in other crates.",
+    "span": {
+      "filename": "src/prelude.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        19,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          996,
+          997,
+          998,
+          999,
+          1001,
+          1003
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1005",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_subscriber.prelude.md",
+    "record_file": "modules/tracing_subscriber.prelude.json",
+    "anchor": "op-d0b6144994e5fd89bc202893",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -20,11 +20,11 @@ pub(crate) fn run(path: &Path) -> Result<()> {
     executor.block_on(async {
         let environment = Environment::new(path)?;
         let plan = environment
-            .source_plan(&[], false)
+            .source_plan(&[])
             .await
             .context("compose native inspection source plan")?;
         let root = environment
-            .publish(path, &plan, PublicationKind::Source)
+            .publish(path, &plan, PublicationKind::Relations)
             .await
             .context("publish native inspection source plan")?;
         drop((plan, environment));
@@ -48,13 +48,18 @@ pub(crate) fn run(path: &Path) -> Result<()> {
 pub(crate) fn python_tests(root: &Path, args: &[String]) -> Result<()> {
     let scratch = tempfile::tempdir()?;
     let path = scratch.path().join("inspection");
-    run(&path)?;
+    let fixture = run(&path);
+    if let Err(error) = &fixture {
+        eprintln!("inspection fixture failed; continuing independent Python tests: {error:#}");
+    }
     let status = Command::new("uv")
         .current_dir(root)
         .args([
             "run",
             "--no-sync",
             "pytest",
+            "--maxfail=0",
+            "--continue-on-collection-errors",
             "-m",
             "unit or component",
             "-n",
@@ -64,7 +69,10 @@ pub(crate) fn python_tests(root: &Path, args: &[String]) -> Result<()> {
         .env("PSE_INSPECTION_PUBLICATION", &path)
         .status()
         .context("running Python tests against fresh native Delta publication")?;
-    ensure!(status.success(), "Python tests failed: {status}");
+    ensure!(
+        fixture.is_ok() && status.success(),
+        "Python tests: {status}; fixture: {fixture:?}"
+    );
     Ok(())
 }
 
@@ -77,7 +85,7 @@ mod tests {
     async fn empty_source_outputs_have_executable_declared_native_fields() {
         let directory = tempfile::tempdir().unwrap();
         let environment = Environment::new(directory.path()).unwrap();
-        let plan = environment.source_plan(&[], false).await.unwrap();
+        let plan = environment.source_plan(&[]).await.unwrap();
         for (name, output) in plan.outputs() {
             let prepared = plan.prepare(name, &environment.cancel).unwrap();
             let completed = prepared
@@ -92,6 +100,11 @@ mod tests {
                 pse_schema::arrow::relation_schema(&environment.registry, spec).unwrap(),
             ))
             .unwrap();
+            assert_eq!(
+                output.plan.schema().as_arrow(),
+                layout.execution_schema().as_ref(),
+                "source output {name} retains its complete declaration"
+            );
             let encoded = layout.encode(output.plan.clone()).unwrap();
             let encoded = plan
                 .session()

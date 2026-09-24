@@ -17,8 +17,10 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+pse-diagnostics.workspace = true
 pse-ids.workspace = true
 serde.workspace = true
+strum.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 
@@ -29,4 +31,3 @@ fixtures = []
 
 [dev-dependencies]
 proptest.workspace = true
-insta.workspace = true

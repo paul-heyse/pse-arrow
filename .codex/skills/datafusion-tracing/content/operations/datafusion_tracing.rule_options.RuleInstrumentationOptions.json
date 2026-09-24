@@ -1,0 +1,2099 @@
+[
+  {
+    "id": "a1e41f5dc1584eed32cb9de8",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "name": "RuleInstrumentationOptions",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct RuleInstrumentationOptions",
+    "docs": "Configuration options for instrumented DataFusion rules (Analyzer, Optimizer, Physical Optimizer).",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        52,
+        1
+      ],
+      "end": [
+        64,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          121,
+          122,
+          123,
+          124,
+          125,
+          126,
+          127,
+          128,
+          129,
+          130,
+          131,
+          132,
+          133,
+          134,
+          135,
+          136,
+          137,
+          138,
+          140,
+          141,
+          142,
+          143,
+          144,
+          145,
+          147,
+          149,
+          151
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "115",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-a1e41f5dc1584eed32cb9de8",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "daaf23f760defdebcc1d8b4b",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::builder",
+    "name": "builder",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn builder() -> RuleInstrumentationOptionsBuilder",
+    "docs": "Creates a new builder for `RuleInstrumentationOptions`.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        79,
+        5
+      ],
+      "end": [
+        81,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "RuleInstrumentationOptionsBuilder",
+              "id": 117,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "117": "datafusion_tracing::rule_options::RuleInstrumentationOptionsBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          77,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "116",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-daaf23f760defdebcc1d8b4b",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::builder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "96198aa6af8d941595e9683c",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::clone",
+    "name": "clone",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> RuleInstrumentationOptions",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        51,
+        10
+      ],
+      "end": [
+        51,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "RuleInstrumentationOptions",
+              "id": 115,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "115": "datafusion_tracing::rule_options::RuleInstrumentationOptions"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          51,
+          10
+        ],
+        "end": [
+          51,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "146",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-96198aa6af8d941595e9683c",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f27cda21ac2394829d8eae59",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::default",
+    "name": "default",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        67,
+        5
+      ],
+      "end": [
+        74,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          66,
+          1
+        ],
+        "end": [
+          75,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "150",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-f27cda21ac2394829d8eae59",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bf567ff563f892ec3ea7ed30",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::fmt",
+    "name": "fmt",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        51,
+        17
+      ],
+      "end": [
+        51,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 97,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 98,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "97": "core::fmt::Formatter",
+      "98": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          51,
+          17
+        ],
+        "end": [
+          51,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "148",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-bf567ff563f892ec3ea7ed30",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "392fb4512b1910709e771fbb",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::full",
+    "name": "full",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn full() -> Self",
+    "docs": "Creates options with all phases enabled at `Full` level.\n\nThis is a convenience constructor for the common case of enabling\nfull instrumentation for all rule phases.\n\n# Example\n\n```\nuse datafusion_tracing::RuleInstrumentationOptions;\n\nlet options = RuleInstrumentationOptions::full();\n```",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        95,
+        5
+      ],
+      "end": [
+        102,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          77,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "118",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-392fb4512b1910709e771fbb",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::full"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3981e7ea144a7d3992d7bda7",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::phase_only",
+    "name": "phase_only",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn phase_only() -> Self",
+    "docs": "Creates options with all phases enabled at `PhaseOnly` level.\n\nThis creates phase-level spans without individual rule spans,\nuseful for reducing trace verbosity while still tracking phase timing.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        108,
+        5
+      ],
+      "end": [
+        115,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          77,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "119",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-3981e7ea144a7d3992d7bda7",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::phase_only"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6a915984f44989988626a359",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::with_plan_diff",
+    "name": "with_plan_diff",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn with_plan_diff(self) -> Self",
+    "docs": "Returns a new options with plan diff enabled.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        118,
+        5
+      ],
+      "end": [
+        121,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          77,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "120",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-6a915984f44989988626a359",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::with_plan_diff"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a12428b574074fc1e6db1e0d",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "name": "RuleInstrumentationOptions",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct RuleInstrumentationOptions",
+    "docs": "Configuration options for instrumented DataFusion rules (Analyzer, Optimizer, Physical Optimizer).",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        52,
+        1
+      ],
+      "end": [
+        64,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              1172,
+              1173,
+              1174,
+              1175
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1181,
+          1182,
+          1183,
+          1184,
+          1185,
+          1186,
+          1187,
+          1188,
+          1189,
+          1190,
+          1191,
+          1192,
+          1193,
+          1194,
+          1195,
+          1196,
+          1197,
+          1198,
+          1199,
+          1200,
+          1201,
+          1202,
+          1203,
+          1204,
+          1206,
+          1208,
+          1210
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "672",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-a12428b574074fc1e6db1e0d",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "25cd9b167135f31f615e08cb",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::analyzer",
+    "name": "analyzer",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "analyzer: InstrumentationLevel",
+    "docs": "Instrumentation level for analyzer rules.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        57,
+        5
+      ],
+      "end": [
+        57,
+        46
+      ]
+    },
+    "visibility": "crate",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "InstrumentationLevel",
+          "id": 1130,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "1130": "datafusion_tracing::rule_options::InstrumentationLevel"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1173",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-25cd9b167135f31f615e08cb",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::analyzer"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "056b759ba7ea07dfb303eeb0",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::builder",
+    "name": "builder",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn builder() -> RuleInstrumentationOptionsBuilder",
+    "docs": "Creates a new builder for `RuleInstrumentationOptions`.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        79,
+        5
+      ],
+      "end": [
+        81,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "RuleInstrumentationOptionsBuilder",
+              "id": 1177,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "1177": "datafusion_tracing::rule_options::RuleInstrumentationOptionsBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          77,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1176",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-056b759ba7ea07dfb303eeb0",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::builder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "841a602b1a3518a6b0b85a03",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::clone",
+    "name": "clone",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> RuleInstrumentationOptions",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        51,
+        10
+      ],
+      "end": [
+        51,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "RuleInstrumentationOptions",
+              "id": 672,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "672": "datafusion_tracing::rule_options::RuleInstrumentationOptions"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          51,
+          10
+        ],
+        "end": [
+          51,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1205",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-841a602b1a3518a6b0b85a03",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "447e6da1a6043bcdb81dccd9",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::default",
+    "name": "default",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        67,
+        5
+      ],
+      "end": [
+        74,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          66,
+          1
+        ],
+        "end": [
+          75,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1209",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-447e6da1a6043bcdb81dccd9",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "19b65d9b2b41c010a09e3176",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::fmt",
+    "name": "fmt",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        51,
+        17
+      ],
+      "end": [
+        51,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 66,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 67,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "66": "core::fmt::Formatter",
+      "67": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          51,
+          17
+        ],
+        "end": [
+          51,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1207",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-19b65d9b2b41c010a09e3176",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fef31c77d56a696919037276",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::full",
+    "name": "full",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn full() -> Self",
+    "docs": "Creates options with all phases enabled at `Full` level.\n\nThis is a convenience constructor for the common case of enabling\nfull instrumentation for all rule phases.\n\n# Example\n\n```\nuse datafusion_tracing::RuleInstrumentationOptions;\n\nlet options = RuleInstrumentationOptions::full();\n```",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        95,
+        5
+      ],
+      "end": [
+        102,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          77,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1178",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-fef31c77d56a696919037276",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::full"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3991e3185f171990f08664fe",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::optimizer",
+    "name": "optimizer",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "optimizer: InstrumentationLevel",
+    "docs": "Instrumentation level for logical optimizer rules.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        60,
+        5
+      ],
+      "end": [
+        60,
+        47
+      ]
+    },
+    "visibility": "crate",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "InstrumentationLevel",
+          "id": 1130,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "1130": "datafusion_tracing::rule_options::InstrumentationLevel"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1174",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-3991e3185f171990f08664fe",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::optimizer"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fdc9a5f002b41627af02d1ba",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::phase_only",
+    "name": "phase_only",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn phase_only() -> Self",
+    "docs": "Creates options with all phases enabled at `PhaseOnly` level.\n\nThis creates phase-level spans without individual rule spans,\nuseful for reducing trace verbosity while still tracking phase timing.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        108,
+        5
+      ],
+      "end": [
+        115,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          77,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1179",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-fdc9a5f002b41627af02d1ba",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::phase_only"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "42b653962da7caf8a38988c6",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::physical_optimizer",
+    "name": "physical_optimizer",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "physical_optimizer: InstrumentationLevel",
+    "docs": "Instrumentation level for physical optimizer rules.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        63,
+        5
+      ],
+      "end": [
+        63,
+        56
+      ]
+    },
+    "visibility": "crate",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "InstrumentationLevel",
+          "id": 1130,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "1130": "datafusion_tracing::rule_options::InstrumentationLevel"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1175",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-42b653962da7caf8a38988c6",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::physical_optimizer"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bc9f3aa8893419c9a0bfee1a",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::plan_diff",
+    "name": "plan_diff",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "plan_diff: bool",
+    "docs": "Whether to include a unified diff of plan changes in the span.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        54,
+        5
+      ],
+      "end": [
+        54,
+        31
+      ]
+    },
+    "visibility": "crate",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "bool"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1172",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-bc9f3aa8893419c9a0bfee1a",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::plan_diff"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a4ac22da6984eb7127b79c0e",
+    "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions::with_plan_diff",
+    "name": "with_plan_diff",
+    "owner": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn with_plan_diff(self) -> Self",
+    "docs": "Returns a new options with plan diff enabled.",
+    "span": {
+      "filename": "src/rule_options.rs",
+      "begin": [
+        118,
+        5
+      ],
+      "end": [
+        121,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "RuleInstrumentationOptions",
+          "id": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/rule_options.rs",
+        "begin": [
+          77,
+          1
+        ],
+        "end": [
+          122,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1180",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md",
+    "record_file": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+    "anchor": "op-a4ac22da6984eb7127b79c0e",
+    "aliases": [
+      "datafusion_tracing::RuleInstrumentationOptions::with_plan_diff"
+    ],
+    "resolved_doc_links": {}
+  }
+]

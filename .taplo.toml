@@ -10,9 +10,10 @@ exclude = [
   "build/**",
   "docs/book/**",
   "docs/capability-maps/evidence/**",
-  # Captured upstream manifests and reference examples are evidence, not project TOML.
-  ".*/skills/*/content/**",
-  ".*/skills/*/build/acquired/**",
+  # Entire skill bundles are outside the product lint/format scope.
+  ".codex/skills/**",
+  ".claude/skills/**",
+  ".agents/skills/**",
   "tooling/dfarrow-apiex/target/**",
   "tooling/dfarrow-apiex/verify/target/**",
 ]

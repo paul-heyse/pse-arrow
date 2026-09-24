@@ -1,0 +1,378 @@
+[
+  {
+    "id": "7a1acd3379cd90991465958d",
+    "path": "tracing_subscriber::util::SubscriberInitExt",
+    "name": "SubscriberInitExt",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait SubscriberInitExt where Self: Into<tracing_core::dispatcher::Dispatch>",
+    "docs": "Extension trait adding utility methods for subscriber initialization.\n\nThis trait provides extension methods to make configuring and setting a\n[default subscriber] more ergonomic. It is automatically implemented for all\ntypes that can be converted into a [trace dispatcher]. Since `Dispatch`\nimplements `From<T>` for all `T: Subscriber`, all `Subscriber`\nimplementations will implement this extension trait as well. Types which\ncan be converted into `Subscriber`s, such as builders that construct a\n`Subscriber`, may implement `Into<Dispatch>`, and will also receive an\nimplementation of this trait.\n\n[default subscriber]: https://docs.rs/tracing/0.1.21/tracing/dispatcher/index.html#setting-the-default-subscriber\n[trace dispatcher]: https://docs.rs/tracing/0.1.21/tracing/dispatcher/index.html",
+    "span": {
+      "filename": "src/util.rs",
+      "begin": [
+        26,
+        1
+      ],
+      "end": [
+        96,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          1526,
+          1528,
+          1530
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 38,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::dispatcher::Dispatch",
+                                    "id": 776,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "bounds": [],
+        "implementations": [
+          1531
+        ]
+      }
+    },
+    "type_references": {
+      "38": "core::convert::Into",
+      "776": "tracing_core::dispatcher::Dispatch"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1002",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.util.SubscriberInitExt.md",
+    "record_file": "operations/tracing_subscriber.util.SubscriberInitExt.json",
+    "anchor": "op-7a1acd3379cd90991465958d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9358fe6ab79166d0f2a32f7d",
+    "path": "tracing_subscriber::util::SubscriberInitExt::init",
+    "name": "init",
+    "owner": "tracing_subscriber::util::SubscriberInitExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn init(self)",
+    "docs": "Attempts to set `self` as the [global default subscriber] in the current\nscope, panicking if this fails.\n\nIf the \"tracing-log\" feature flag is enabled, this will also attempt to\ninitialize a [`log`] compatibility layer. This allows the subscriber to\nconsume `log::Record`s as though they were `tracing` `Event`s.\n\nThis method panics if a global default subscriber has already been set,\nor if a `log` logger has already been set (when the \"tracing-log\"\nfeature is enabled).\n\n[global default subscriber]: https://docs.rs/tracing/0.1.21/tracing/dispatcher/index.html#setting-the-default-subscriber\n[`log`]: https://crates.io/log",
+    "span": {
+      "filename": "src/util.rs",
+      "begin": [
+        92,
+        5
+      ],
+      "end": [
+        95,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1530",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.util.SubscriberInitExt.md",
+    "record_file": "operations/tracing_subscriber.util.SubscriberInitExt.json",
+    "anchor": "op-9358fe6ab79166d0f2a32f7d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "785efa145602da6205bcfff8",
+    "path": "tracing_subscriber::util::SubscriberInitExt::set_default",
+    "name": "set_default",
+    "owner": "tracing_subscriber::util::SubscriberInitExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn set_default(self) -> dispatcher::DefaultGuard",
+    "docs": "Sets `self` as the [default subscriber] in the current scope, returning a\nguard that will unset it when dropped.\n\nIf the \"tracing-log\" feature flag is enabled, this will also initialize\na [`log`] compatibility layer. This allows the subscriber to consume\n`log::Record`s as though they were `tracing` `Event`s.\n\n[default subscriber]: https://docs.rs/tracing/0.1.21/tracing/dispatcher/index.html#setting-the-default-subscriber\n[`log`]: https://crates.io/log",
+    "span": {
+      "filename": "src/util.rs",
+      "begin": [
+        41,
+        5
+      ],
+      "end": [
+        46,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: src/util.rs:39:11: 39:26 (#0) }])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"std\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "dispatcher::DefaultGuard",
+              "id": 1527,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1527": "tracing_core::dispatcher::DefaultGuard"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1526",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.util.SubscriberInitExt.md",
+    "record_file": "operations/tracing_subscriber.util.SubscriberInitExt.json",
+    "anchor": "op-785efa145602da6205bcfff8",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "48915ac76d0003b08ded34ee",
+    "path": "tracing_subscriber::util::SubscriberInitExt::try_init",
+    "name": "try_init",
+    "owner": "tracing_subscriber::util::SubscriberInitExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn try_init(self) -> Result<(), TryInitError>",
+    "docs": "Attempts to set `self` as the [global default subscriber] in the current\nscope, returning an error if one is already set.\n\nIf the \"tracing-log\" feature flag is enabled, this will also attempt to\ninitialize a [`log`] compatibility layer. This allows the subscriber to\nconsume `log::Record`s as though they were `tracing` `Event`s.\n\nThis method returns an error if a global default subscriber has already\nbeen set, or if a `log` logger has already been set (when the\n\"tracing-log\" feature is enabled).\n\n[global default subscriber]: https://docs.rs/tracing/0.1.21/tracing/dispatcher/index.html#setting-the-default-subscriber\n[`log`]: https://crates.io/log",
+    "span": {
+      "filename": "src/util.rs",
+      "begin": [
+        61,
+        5
+      ],
+      "end": [
+        77,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 44,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "tuple": []
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "TryInitError",
+                          "id": 1529,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "44": "core::result::Result",
+      "1529": "tracing_subscriber::util::TryInitError"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1528",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.util.SubscriberInitExt.md",
+    "record_file": "operations/tracing_subscriber.util.SubscriberInitExt.json",
+    "anchor": "op-48915ac76d0003b08ded34ee",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

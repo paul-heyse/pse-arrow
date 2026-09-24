@@ -1,0 +1,228 @@
+[
+  {
+    "id": "4dcdd0d53fb0523d2b659e19",
+    "path": "tracing::subscriber::with_default",
+    "name": "with_default",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn with_default<T, S>(subscriber: S, f: impl FnOnce() -> T) -> T where S: Subscriber + Send + Sync + 'static",
+    "docs": "Sets this [`Subscriber`] as the default for the current thread for the\nduration of a closure.\n\nThe default subscriber is used when creating a new [`Span`] or\n[`Event`].\n\n\n[`Span`]: super::span::Span\n[`Subscriber`]: super::subscriber::Subscriber\n[`Event`]: super::event::Event",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        25,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: src/subscriber.rs:18:7: 18:22 (#0) }])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace([NameValue { name: \"docsrs\", value: None, span: src/subscriber.rs:19:12: 19:18 (#0) }])]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"std\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "subscriber",
+              {
+                "generic": "S"
+              }
+            ],
+            [
+              "f",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "FnOnce",
+                        "id": 217,
+                        "args": {
+                          "parenthesized": {
+                            "inputs": [],
+                            "output": {
+                              "generic": "T"
+                            }
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "generic": "T"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "impl FnOnce() -> T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "FnOnce",
+                          "id": 217,
+                          "args": {
+                            "parenthesized": {
+                              "inputs": [],
+                              "output": {
+                                "generic": "T"
+                              }
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Subscriber",
+                        "id": 17,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 76,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sync",
+                        "id": 78,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "217": "core::ops::function::FnOnce",
+      "17": "tracing_core::subscriber::Subscriber",
+      "76": "core::marker::Send",
+      "78": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {
+      "super::event::Event": 35,
+      "super::span::Span": 46,
+      "super::subscriber::Subscriber": 17
+    },
+    "link_paths": {
+      "super::event::Event": "tracing_core::event::Event",
+      "super::span::Span": "tracing::span::Span",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "332",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.subscriber.with_default.md",
+    "record_file": "operations/tracing.subscriber.with_default.json",
+    "anchor": "op-4dcdd0d53fb0523d2b659e19",
+    "aliases": [],
+    "resolved_doc_links": {
+      "super::event::Event": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039",
+      "super::span::Span": "../operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  }
+]

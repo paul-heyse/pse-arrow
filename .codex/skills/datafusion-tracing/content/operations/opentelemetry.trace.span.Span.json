@@ -1,0 +1,1573 @@
+[
+  {
+    "id": "7e58380e085740d966fa45c8",
+    "path": "opentelemetry::trace::span::Span",
+    "name": "Span",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait Span",
+    "docs": "The interface for a single operation within a trace.\n\nSpans can be nested to form a trace tree. Each trace contains a root span,\nwhich typically describes the entire operation and, optionally, one or more\nsub-spans for its sub-operations.\n\nThe span `name` concisely identifies the work represented by the span, for\nexample, an RPC method name, a function name, or the name of a subtask or\nstage within a larger computation. The span name should be the most general\nstring that identifies a (statistically) interesting class of spans, rather\nthan individual span instances while still being human-readable. That is,\n`\"get_user\"` is a reasonable name, while `\"get_user/314159\"`, where `\"314159\"` is\na user ID, is not a good name due to its high cardinality. _Generality_\nshould be prioritized over _human-readability_.\n\nFor example, here are potential span names for an endpoint that gets a\nhypothetical account information:\n\n| Span Name         | Guidance     |\n| ----------------- | ------------ |\n| `get`             | Too general  |\n| `get_account/42`  | Too specific |\n| `get_account`     | Good, and account_id=42 would make a nice Span attribute |\n| `get_account/{accountId}` | Also good (using the \"HTTP route\") |\n\nThe span's start and end timestamps reflect the elapsed real time of the\noperation.\n\nFor example, if a span represents a request-response cycle (e.g. HTTP or an\nRPC), the span should have a start time that corresponds to the start time\nof the first sub-operation, and an end time of when the final sub-operation\nis complete. This includes:\n\n* receiving the data from the request\n* parsing of the data (e.g. from a binary or json format)\n* any middleware or additional processing logic\n* business logic\n* construction of the response\n* sending of the response\n\nChild spans (or in some cases events) may be created to represent\nsub-operations which require more detailed observability. Child spans should\nmeasure the timing of the respective sub-operation, and may add additional\nattributes.",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        50,
+        1
+      ],
+      "end": [
+        180,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          1610,
+          1611,
+          1612,
+          1613,
+          1614,
+          1615,
+          1616,
+          1443,
+          1617,
+          1618,
+          32,
+          1619
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          105,
+          1554
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "34",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-7e58380e085740d966fa45c8",
+    "aliases": [
+      "opentelemetry::trace::Span"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "081e989fbc7405226872b7a0",
+    "path": "opentelemetry::trace::span::Span::add_event",
+    "name": "add_event",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn add_event<T>(&mut self, name: T, attributes: Vec<KeyValue>) where T: Into<Cow<'static, str>>",
+    "docs": "Record an event in the context this span.\n\nNote that the OpenTelemetry project documents certain \"[standard\nattributes]\" that have prescribed semantic meanings and are available via\nthe [opentelemetry_semantic_conventions] crate.\n\n[standard attributes]: https://github.com/open-telemetry/opentelemetry-specification/blob/v1.9.0/specification/trace/semantic_conventions/README.md\n[opentelemetry_semantic_conventions]: https://docs.rs/opentelemetry-semantic-conventions",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        59,
+        5
+      ],
+      "end": [
+        64,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "generic": "T"
+              }
+            ],
+            [
+              "attributes",
+              {
+                "resolved_path": {
+                  "path": "Vec",
+                  "id": 21,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "KeyValue",
+                              "id": 22,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "T"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "21": "alloc::vec::Vec",
+      "22": "opentelemetry::common::KeyValue",
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1610",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-081e989fbc7405226872b7a0",
+    "aliases": [
+      "opentelemetry::trace::Span::add_event"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ceb29f172396181158adad93",
+    "path": "opentelemetry::trace::span::Span::add_event_with_timestamp",
+    "name": "add_event_with_timestamp",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn add_event_with_timestamp<T>(&mut self, name: T, timestamp: SystemTime, attributes: Vec<KeyValue>) where T: Into<Cow<'static, str>>",
+    "docs": "Record an event with a timestamp in the context this span.\n\nNote that the OpenTelemetry project documents certain \"[standard\nattributes]\" that have prescribed semantic meanings and are available via\nthe [opentelemetry_semantic_conventions] crate.\n\n[standard attributes]: https://github.com/open-telemetry/opentelemetry-specification/blob/v1.9.0/specification/trace/semantic_conventions/README.md\n[opentelemetry_semantic_conventions]: https://docs.rs/opentelemetry-semantic-conventions",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        87,
+        5
+      ],
+      "end": [
+        93,
+        36
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "generic": "T"
+              }
+            ],
+            [
+              "timestamp",
+              {
+                "resolved_path": {
+                  "path": "SystemTime",
+                  "id": 20,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "attributes",
+              {
+                "resolved_path": {
+                  "path": "Vec",
+                  "id": 21,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "KeyValue",
+                              "id": 22,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "T"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "20": "std::time::SystemTime",
+      "21": "alloc::vec::Vec",
+      "22": "opentelemetry::common::KeyValue",
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1612",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-ceb29f172396181158adad93",
+    "aliases": [
+      "opentelemetry::trace::Span::add_event_with_timestamp"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "27cd90da6e4e06cab00b2139",
+    "path": "opentelemetry::trace::span::Span::add_link",
+    "name": "add_link",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn add_link(&mut self, span_context: SpanContext, attributes: Vec<KeyValue>)",
+    "docs": "Adds [`Link`] to another [`SpanContext`].\n\nThis method allows linking the current span to another span, identified by its `SpanContext`. Links can be used\nto connect spans from different traces or within the same trace. Attributes can be attached to the link to\nprovide additional context or metadata.\n\n# Arguments\n\n* `span_context` - The `SpanContext` of the span to link to. This represents the target span's unique identifiers\n  and trace information.\n* `attributes` - A vector of `KeyValue` pairs that describe additional attributes of the link. These attributes\n  can include any contextual information relevant to the link between the spans.\n\n[`Link`]: crate::trace::Link",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        171,
+        5
+      ],
+      "end": [
+        171,
+        82
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span_context",
+              {
+                "resolved_path": {
+                  "path": "SpanContext",
+                  "id": 24,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "attributes",
+              {
+                "resolved_path": {
+                  "path": "Vec",
+                  "id": 21,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "KeyValue",
+                              "id": 22,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "24": "opentelemetry::trace::span_context::SpanContext",
+      "21": "alloc::vec::Vec",
+      "22": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": null,
+    "links": {
+      "`SpanContext`": 24,
+      "crate::trace::Link": 1454
+    },
+    "link_paths": {
+      "`SpanContext`": "opentelemetry::trace::span_context::SpanContext",
+      "crate::trace::Link": "opentelemetry::trace::Link"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1618",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-27cd90da6e4e06cab00b2139",
+    "aliases": [
+      "opentelemetry::trace::Span::add_link"
+    ],
+    "resolved_doc_links": {
+      "`SpanContext`": "../operations/opentelemetry.trace.span_context.SpanContext.md#op-f21a0f1d9f45c44092215518",
+      "crate::trace::Link": "../operations/opentelemetry.trace.Link.md#op-412ecb298a74ff9ab354c6ff"
+    }
+  },
+  {
+    "id": "9cdcfd7cbcf9418f60ab6b02",
+    "path": "opentelemetry::trace::span::Span::end",
+    "name": "end",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn end(&mut self)",
+    "docs": "Signals that the operation described by this span has now ended.",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        174,
+        5
+      ],
+      "end": [
+        176,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "32",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-9cdcfd7cbcf9418f60ab6b02",
+    "aliases": [
+      "opentelemetry::trace::Span::end"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2ac4a8d0479b245c9a7e9a90",
+    "path": "opentelemetry::trace::span::Span::end_with_timestamp",
+    "name": "end_with_timestamp",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn end_with_timestamp(&mut self, timestamp: SystemTime)",
+    "docs": "Signals that the operation described by this span ended at the given time.",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        179,
+        5
+      ],
+      "end": [
+        179,
+        61
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "timestamp",
+              {
+                "resolved_path": {
+                  "path": "SystemTime",
+                  "id": 20,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "20": "std::time::SystemTime"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1619",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-2ac4a8d0479b245c9a7e9a90",
+    "aliases": [
+      "opentelemetry::trace::Span::end_with_timestamp"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "010500dd840aee0d4261b86d",
+    "path": "opentelemetry::trace::span::Span::is_recording",
+    "name": "is_recording",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn is_recording(&self) -> bool",
+    "docs": "Returns `true` if this span is recording information.\n\nSpans will not be recording information after they have ended.\n\nThis flag may be `true` despite the entire trace being sampled out. This\nallows recording and processing of information about the individual\nspans without sending it to the backend. An example of this scenario may\nbe recording and processing of all incoming requests for the processing\nand building of SLA/SLO latency charts while sending only a subset -\nsampled spans - to the backend.",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        108,
+        5
+      ],
+      "end": [
+        108,
+        36
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1614",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-010500dd840aee0d4261b86d",
+    "aliases": [
+      "opentelemetry::trace::Span::is_recording"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a3a1a7ac4f08057418fcb4fd",
+    "path": "opentelemetry::trace::span::Span::record_error",
+    "name": "record_error",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn record_error(&mut self, err: &dyn Error)",
+    "docs": "Record an error as an event for this span.\n\nAn additional call to [Span::set_status] is required if the status of the\nspan should be set to error, as this method does not change the span status.\n\nIf this span is not being recorded then this method does nothing.",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        72,
+        5
+      ],
+      "end": [
+        77,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "err",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Error",
+                            "id": 1445,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1445": "core::error::Error"
+    },
+    "impl_context": null,
+    "links": {
+      "Span::set_status": 1443
+    },
+    "link_paths": {
+      "Span::set_status": null
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1611",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-a3a1a7ac4f08057418fcb4fd",
+    "aliases": [
+      "opentelemetry::trace::Span::record_error"
+    ],
+    "resolved_doc_links": {
+      "Span::set_status": "../operations/opentelemetry.trace.span.Span.md#op-34e9986133a52903c09bfdb7"
+    }
+  },
+  {
+    "id": "ac95a9373428b5d3c97bd374",
+    "path": "opentelemetry::trace::span::Span::set_attribute",
+    "name": "set_attribute",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn set_attribute(&mut self, attribute: KeyValue)",
+    "docs": "Set an attribute of this span.\n\nSetting an attribute with the same key as an existing attribute\nresults in both being stored as attribute, without any de-duplication\nperformed.\n\nNote that the OpenTelemetry project documents certain \"[standard\nattributes]\" that have prescribed semantic meanings and are available via\nthe [opentelemetry_semantic_conventions] crate.\n\n[standard attributes]: https://github.com/open-telemetry/opentelemetry-specification/blob/v1.9.0/specification/trace/semantic_conventions/README.md\n[opentelemetry_semantic_conventions]: https://docs.rs/opentelemetry-semantic-conventions",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        122,
+        5
+      ],
+      "end": [
+        122,
+        54
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "attribute",
+              {
+                "resolved_path": {
+                  "path": "KeyValue",
+                  "id": 22,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "22": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1615",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-ac95a9373428b5d3c97bd374",
+    "aliases": [
+      "opentelemetry::trace::Span::set_attribute"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cd3cad395d4f384410f02ab2",
+    "path": "opentelemetry::trace::span::Span::set_attributes",
+    "name": "set_attributes",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn set_attributes(&mut self, attributes: impl IntoIterator<Item = KeyValue>)",
+    "docs": "Set multiple attributes of this span.\n\nSetting an attribute with the same key as an existing attribute\nresults in both being stored as attribute, without any de-duplication\nperformed.\n\nNote that the OpenTelemetry project documents certain \"[standard\nattributes]\" that have prescribed semantic meanings and are available via\nthe [opentelemetry_semantic_conventions] crate.\n\n[standard attributes]: https://github.com/open-telemetry/opentelemetry-specification/blob/v1.9.0/specification/trace/semantic_conventions/README.md\n[opentelemetry_semantic_conventions]: https://docs.rs/opentelemetry-semantic-conventions",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        136,
+        5
+      ],
+      "end": [
+        142,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "attributes",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "IntoIterator",
+                        "id": 236,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [],
+                            "constraints": [
+                              {
+                                "name": "Item",
+                                "args": null,
+                                "binding": {
+                                  "equality": {
+                                    "type": {
+                                      "resolved_path": {
+                                        "path": "KeyValue",
+                                        "id": 22,
+                                        "args": null
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl IntoIterator<Item = KeyValue>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "IntoIterator",
+                          "id": 236,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [],
+                              "constraints": [
+                                {
+                                  "name": "Item",
+                                  "args": null,
+                                  "binding": {
+                                    "equality": {
+                                      "type": {
+                                        "resolved_path": {
+                                          "path": "KeyValue",
+                                          "id": 22,
+                                          "args": null
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "236": "core::iter::traits::collect::IntoIterator",
+      "22": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1616",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-cd3cad395d4f384410f02ab2",
+    "aliases": [
+      "opentelemetry::trace::Span::set_attributes"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "34e9986133a52903c09bfdb7",
+    "path": "opentelemetry::trace::span::Span::set_status",
+    "name": "set_status",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn set_status(&mut self, status: Status)",
+    "docs": "Sets the status of this `Span`.\n\nIf used, this will override the default span status, which is [`Status::Unset`].",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        147,
+        5
+      ],
+      "end": [
+        147,
+        46
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "status",
+              {
+                "resolved_path": {
+                  "path": "Status",
+                  "id": 28,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "28": "opentelemetry::trace::span::Status"
+    },
+    "impl_context": null,
+    "links": {
+      "`Status::Unset`": 1451
+    },
+    "link_paths": {
+      "`Status::Unset`": "opentelemetry::trace::span::Status::Unset"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1443",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-34e9986133a52903c09bfdb7",
+    "aliases": [
+      "opentelemetry::trace::Span::set_status"
+    ],
+    "resolved_doc_links": {
+      "`Status::Unset`": "../operations/opentelemetry.trace.span.Status.md#op-52ed2013c1fc5d1bbf601a20"
+    }
+  },
+  {
+    "id": "df469898a74cf293da6c515d",
+    "path": "opentelemetry::trace::span::Span::span_context",
+    "name": "span_context",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn span_context(&self) -> &SpanContext",
+    "docs": "A reference to the [`SpanContext`] for this span.",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        96,
+        5
+      ],
+      "end": [
+        96,
+        44
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "resolved_path": {
+                  "path": "SpanContext",
+                  "id": 24,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "24": "opentelemetry::trace::span_context::SpanContext"
+    },
+    "impl_context": null,
+    "links": {
+      "`SpanContext`": 24
+    },
+    "link_paths": {
+      "`SpanContext`": "opentelemetry::trace::span_context::SpanContext"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1613",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-df469898a74cf293da6c515d",
+    "aliases": [
+      "opentelemetry::trace::Span::span_context"
+    ],
+    "resolved_doc_links": {
+      "`SpanContext`": "../operations/opentelemetry.trace.span_context.SpanContext.md#op-f21a0f1d9f45c44092215518"
+    }
+  },
+  {
+    "id": "f5dc823eb60279e2e6f2260c",
+    "path": "opentelemetry::trace::span::Span::update_name",
+    "name": "update_name",
+    "owner": "opentelemetry::trace::span::Span",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn update_name<T>(&mut self, new_name: T) where T: Into<Cow<'static, str>>",
+    "docs": "Updates the span's name.\n\nAfter this update, any sampling behavior based on the name will depend on\nthe implementation.",
+    "span": {
+      "filename": "src/trace/span.rs",
+      "begin": [
+        153,
+        5
+      ],
+      "end": [
+        155,
+        36
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "new_name",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "T"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1617",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span.Span.md",
+    "record_file": "operations/opentelemetry.trace.span.Span.json",
+    "anchor": "op-f5dc823eb60279e2e6f2260c",
+    "aliases": [
+      "opentelemetry::trace::Span::update_name"
+    ],
+    "resolved_doc_links": {}
+  }
+]

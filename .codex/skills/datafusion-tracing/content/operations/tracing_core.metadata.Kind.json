@@ -1,0 +1,1226 @@
+[
+  {
+    "id": "5b51e1e6e775e20fd1957368",
+    "path": "tracing_core::metadata::Kind",
+    "name": "Kind",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "struct",
+    "signature": "struct Kind",
+    "docs": "Indicates whether the callsite is a span or event.",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        90,
+        1
+      ],
+      "end": [
+        90,
+        21
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "tuple": [
+            null
+          ]
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          679,
+          680,
+          681,
+          682,
+          683,
+          684,
+          685,
+          686,
+          687,
+          688,
+          689,
+          690,
+          691,
+          692,
+          693,
+          694,
+          695,
+          697,
+          698,
+          699,
+          701,
+          703
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "649",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-5b51e1e6e775e20fd1957368",
+    "aliases": [
+      "tracing_core::Kind"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1c171b8957f2562ee572d2ef",
+    "path": "tracing_core::metadata::Kind::EVENT",
+    "name": "EVENT",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "assoc_const",
+    "signature": "EVENT",
+    "docs": "`Event` callsite",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        382,
+        5
+      ],
+      "end": [
+        382,
+        51
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_const": {
+        "type": {
+          "resolved_path": {
+            "path": "Kind",
+            "id": 649,
+            "args": null
+          }
+        },
+        "value": "_",
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "649": "tracing_core::metadata::Kind"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          376,
+          1
+        ],
+        "end": [
+          414,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "672",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-1c171b8957f2562ee572d2ef",
+    "aliases": [
+      "tracing_core::Kind::EVENT"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f3c43de18ec79131d120d8a9",
+    "path": "tracing_core::metadata::Kind::HINT",
+    "name": "HINT",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "assoc_const",
+    "signature": "HINT",
+    "docs": "`enabled!` callsite. [`Subscriber`][`crate::subscriber::Subscriber`]s can assume\nthis `Kind` means they will never receive a\nfull event with this [`Metadata`].",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        390,
+        5
+      ],
+      "end": [
+        390,
+        49
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_const": {
+        "type": {
+          "resolved_path": {
+            "path": "Kind",
+            "id": 649,
+            "args": null
+          }
+        },
+        "value": "_",
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "649": "tracing_core::metadata::Kind"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          376,
+          1
+        ],
+        "end": [
+          414,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`crate::subscriber::Subscriber`": 112,
+      "`Metadata`": 13
+    },
+    "link_paths": {
+      "`crate::subscriber::Subscriber`": "tracing_core::subscriber::Subscriber",
+      "`Metadata`": "tracing_core::metadata::Metadata"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "674",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-f3c43de18ec79131d120d8a9",
+    "aliases": [
+      "tracing_core::Kind::HINT"
+    ],
+    "resolved_doc_links": {
+      "`crate::subscriber::Subscriber`": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "`Metadata`": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c"
+    }
+  },
+  {
+    "id": "93da2d51c5f1d9babceb16ad",
+    "path": "tracing_core::metadata::Kind::SPAN",
+    "name": "SPAN",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "assoc_const",
+    "signature": "SPAN",
+    "docs": "`Span` callsite",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        385,
+        5
+      ],
+      "end": [
+        385,
+        49
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_const": {
+        "type": {
+          "resolved_path": {
+            "path": "Kind",
+            "id": 649,
+            "args": null
+          }
+        },
+        "value": "_",
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "649": "tracing_core::metadata::Kind"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          376,
+          1
+        ],
+        "end": [
+          414,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "673",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-93da2d51c5f1d9babceb16ad",
+    "aliases": [
+      "tracing_core::Kind::SPAN"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "59260984f4bbad5168f5043c",
+    "path": "tracing_core::metadata::Kind::clone",
+    "name": "clone",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Kind",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        89,
+        10
+      ],
+      "end": [
+        89,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Kind",
+              "id": 649,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "649": "tracing_core::metadata::Kind"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          89,
+          10
+        ],
+        "end": [
+          89,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "696",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-59260984f4bbad5168f5043c",
+    "aliases": [
+      "tracing_core::Kind::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6b79d36acb6f9ed7b875829a",
+    "path": "tracing_core::metadata::Kind::eq",
+    "name": "eq",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &Kind) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        89,
+        21
+      ],
+      "end": [
+        89,
+        30
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Kind",
+                      "id": 649,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "649": "tracing_core::metadata::Kind"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          89,
+          21
+        ],
+        "end": [
+          89,
+          30
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "700",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-6b79d36acb6f9ed7b875829a",
+    "aliases": [
+      "tracing_core::Kind::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a3836f82b6d2e4a3e731e108",
+    "path": "tracing_core::metadata::Kind::fmt",
+    "name": "fmt",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        417,
+        5
+      ],
+      "end": [
+        448,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 79,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 80,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "79": "core::fmt::Formatter",
+      "80": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          416,
+          1
+        ],
+        "end": [
+          449,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "702",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-a3836f82b6d2e4a3e731e108",
+    "aliases": [
+      "tracing_core::Kind::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "464586741ea34724c52d32be",
+    "path": "tracing_core::metadata::Kind::hint",
+    "name": "hint",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "const fn hint(self) -> Self",
+    "docs": "Sets that this `Kind` is a [hint](Self::HINT).\n\nThis can be called on [`SPAN`](Self::SPAN) and [`EVENT`](Self::EVENT)\nkinds to construct a hint callsite that also counts as a span or event.",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        411,
+        5
+      ],
+      "end": [
+        413,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": true,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          376,
+          1
+        ],
+        "end": [
+          414,
+          2
+        ]
+      }
+    },
+    "links": {
+      "Self::HINT": 674,
+      "Self::SPAN": 673,
+      "Self::EVENT": 672
+    },
+    "link_paths": {
+      "Self::HINT": "tracing_core::metadata::Kind::HINT",
+      "Self::SPAN": "tracing_core::metadata::Kind::SPAN",
+      "Self::EVENT": "tracing_core::metadata::Kind::EVENT"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "678",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-464586741ea34724c52d32be",
+    "aliases": [
+      "tracing_core::Kind::hint"
+    ],
+    "resolved_doc_links": {
+      "Self::HINT": "../operations/tracing_core.metadata.Kind.md#op-f3c43de18ec79131d120d8a9",
+      "Self::SPAN": "../operations/tracing_core.metadata.Kind.md#op-93da2d51c5f1d9babceb16ad",
+      "Self::EVENT": "../operations/tracing_core.metadata.Kind.md#op-1c171b8957f2562ee572d2ef"
+    }
+  },
+  {
+    "id": "b9ea9069d059d95cc07d5258",
+    "path": "tracing_core::metadata::Kind::is_event",
+    "name": "is_event",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is_event(&self) -> bool",
+    "docs": "Return true if the callsite kind is `Event`",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        398,
+        5
+      ],
+      "end": [
+        400,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          376,
+          1
+        ],
+        "end": [
+          414,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "676",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-b9ea9069d059d95cc07d5258",
+    "aliases": [
+      "tracing_core::Kind::is_event"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e7433e76b01a3c216eae2a3f",
+    "path": "tracing_core::metadata::Kind::is_hint",
+    "name": "is_hint",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is_hint(&self) -> bool",
+    "docs": "Return true if the callsite kind is `Hint`",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        403,
+        5
+      ],
+      "end": [
+        405,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          376,
+          1
+        ],
+        "end": [
+          414,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "677",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-e7433e76b01a3c216eae2a3f",
+    "aliases": [
+      "tracing_core::Kind::is_hint"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1669e3f8e35e195dbf5fddef",
+    "path": "tracing_core::metadata::Kind::is_span",
+    "name": "is_span",
+    "owner": "tracing_core::metadata::Kind",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is_span(&self) -> bool",
+    "docs": "Return true if the callsite kind is `Span`",
+    "span": {
+      "filename": "src/metadata.rs",
+      "begin": [
+        393,
+        5
+      ],
+      "end": [
+        395,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Kind",
+          "id": "tracing_core::metadata::Kind",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metadata.rs",
+        "begin": [
+          376,
+          1
+        ],
+        "end": [
+          414,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "675",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.metadata.Kind.md",
+    "record_file": "operations/tracing_core.metadata.Kind.json",
+    "anchor": "op-1669e3f8e35e195dbf5fddef",
+    "aliases": [
+      "tracing_core::Kind::is_span"
+    ],
+    "resolved_doc_links": {}
+  }
+]

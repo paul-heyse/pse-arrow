@@ -1,0 +1,747 @@
+{
+  "reference_root": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline",
+  "task_file": "/home/paul/.cache/datafusion-tracing-improvement-20260918/tasks.json",
+  "evaluation": "Independent baseline forward test; reference and task file only",
+  "run": {
+    "started_at_utc": "2026-09-19T01:39:34Z",
+    "answers_completed_at_utc": "2026-09-19T01:49:26Z",
+    "elapsed_seconds_to_answer_completion": 592,
+    "elapsed_basis": "Wall-clock timestamps from initial date command and clock.curr_time; excludes subsequent serialization verification.",
+    "answer_count": 32,
+    "answer_word_count": 3984,
+    "word_count_method": "Whitespace split of answer strings, including inline code and citations.",
+    "token_count": null,
+    "context_count": null,
+    "usage_note": "Token/context counts are not exposed and were not estimated.",
+    "upstream_code_executed": false,
+    "external_documentation_fetched": false,
+    "live_skill_read": false,
+    "skill_modified": false
+  },
+  "reference_limitations": [
+    "Summary pages incorrectly say a custom preview_fn is required; frozen preview.rs supplies a default pretty_format_batches callback.",
+    "The preview seam's one-batch wording omits accumulation across batches and recorder-group aggregation across partitions.",
+    "The retained probe set has 12 probes: 11 confirmed and 1 recorded; it does not exercise most async, stream-lifetime, store-routing, or exporter-delivery contrasts.",
+    "Object-store question routing names S008, but S008 is actually a physical-optimizer selection probe.",
+    "Inspected source tests are not reported as executed tests; citations distinguish source, recorded snapshot, and confirmed probe evidence.",
+    "The object-store snapshot has a named repair described in reference.md.",
+    "The reference says DataFusion, Arrow, and object_store themselves are outside its index; no missing capability was inferred from that boundary.",
+    "Compatibility history was captured 2026-09-17; unlisted profiles remain unverified, not known incompatible.",
+    "Initial inventory and broad source reads were truncated; focused follow-up reads supplied the cited source ranges."
+  ],
+  "tool_call_log": {
+    "scope": "Every evidence-read exec_command is recorded below. Additional orchestration, output-writing, and verification calls are separately described.",
+    "read_calls": [
+      {
+        "ordinal": 1,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "date -u +%Y-%m-%dT%H:%M:%SZ\nrg --files /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline\ncat /home/paul/.cache/datafusion-tracing-improvement-20260918/tasks.json",
+        "exit_code": 0,
+        "note": "Output truncated; later focused reads used."
+      },
+      {
+        "ordinal": 2,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "cat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/SKILL.md\ncat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/probes/00-index.md\nrg --files /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/references /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/build/probes",
+        "exit_code": 2,
+        "note": "Two guessed directories did not exist; skill and probe content plus corpus inventory were returned."
+      },
+      {
+        "ordinal": 3,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "cat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/topics/00-map.md\ncat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/index/questions.tsv\ncat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/reference.md\ncat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/catalogs/options.md\ncat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/catalogs/compatibility.md",
+        "exit_code": 0,
+        "note": ""
+      },
+      {
+        "ordinal": 4,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "cat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/seams/*.md\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/rule_options.rs\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/options.rs\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "exit_code": 0,
+        "note": "Output truncated; later focused reads used."
+      },
+      {
+        "ordinal": 5,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "nl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/options.rs | sed -n '20,200p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/preview.rs | sed -n '1,240p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/instrumented_exec.rs | sed -n '20,245p'",
+        "exit_code": 0,
+        "note": ""
+      },
+      {
+        "ordinal": 6,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "nl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/instrumented_exec.rs | sed -n '425,810p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/instrumented-object-store/instrumented_object_store.rs | sed -n '20,380p'",
+        "exit_code": 0,
+        "note": ""
+      },
+      {
+        "ordinal": 7,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "nl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/rule_options.rs | sed -n '95,290p'\nrg -n 'Phase|Rule|plan_diff|diff|phase_span|instrument_session|InstrumentedQueryPlanner|enter|Start|End' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/rule_instrumentation.rs\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/rule_instrumentation_macros.rs | sed -n '20,245p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/planner.rs | sed -n '20,130p'",
+        "exit_code": 0,
+        "note": ""
+      },
+      {
+        "ordinal": 8,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "nl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/rule_instrumentation.rs | sed -n '200,220p;578,627p;884,930p;948,994p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/exec_instrument_macros.rs | sed -n '20,145p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/exec_instrument_rule.rs | sed -n '20,145p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/examples/otlp.rs | sed -n '20,240p'\nrg -n 'tokio|tracing|opentelemetry|object_store|datafusion' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/examples/Cargo.toml /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/docs/Cargo.toml",
+        "exit_code": 0,
+        "note": ""
+      },
+      {
+        "ordinal": 9,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "rg -n 'in_current_span|fn instrument|spawn|poll|drop|subscriber|dispatch' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/tracing.instrument.md /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/tracing_futures.md\nrg -n 'per-layer|per layer|with_filter|global|enabled|disabled' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/tracing_subscriber.layer.md | head -40\nrg -n 'AlwaysOff|AlwaysOn|ParentBased|TraceIdRatio|sampling' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/opentelemetry_sdk.trace.sampler.md | head -35\nrg -n 'shutdown|force_flush|runtime|Tokio|batch|thread' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/opentelemetry_sdk.trace.provider.md /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/opentelemetry_sdk.trace.span_processor.md | head -80\ncat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/catalogs/not-reachable.md\nrg -n 'InstrumentationOptionsBuilder|RuleInstrumentationOptionsBuilder|InstrumentedExec|new_instrument_rule' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/index/symbols.tsv",
+        "exit_code": 0,
+        "note": ""
+      },
+      {
+        "ordinal": 10,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "sed -n '82,138p' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/tracing.instrument.md\nsed -n '180,236p' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/tracing_futures.md\nsed -n '58,145p' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/tracing_subscriber.layer.md\ncat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/opentelemetry_sdk.trace.provider.md\nsed -n '48,113p' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/opentelemetry_sdk.trace.span_processor.md\nsed -n '1,130p' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/opentelemetry_sdk.trace.sampler.md\nrg -n 'InstrumentedExec|record|is_recording|sampling|sample|close|with_tracer|inactive' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/tracing_opentelemetry.layer.md | head -40\nrg -n 'register_object_store|instrument_object_store|instrument_rules|instrument_with_info|with_physical_optimizer' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/examples/integration-utils/src/lib.rs",
+        "exit_code": 0,
+        "note": ""
+      },
+      {
+        "ordinal": 11,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "nl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/exec_instrument_macros.rs | sed -n '195,242p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/instrumented_exec.rs | sed -n '802,890p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/metrics.rs | sed -n '20,155p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/examples/integration-utils/src/lib.rs | sed -n '146,235p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/lib.rs | tail -50\nrg -n 'last|private|plan_diff' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/docs/README.md /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/tests/integration_tests.rs\n date -u +%Y-%m-%dT%H:%M:%SZ",
+        "exit_code": 0,
+        "note": ""
+      },
+      {
+        "ordinal": 12,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "rg -n 'spawn|poll|every|entered|subscriber|future' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/model/tracing.instrument.json | head -35\nrg --files /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/build/acquired | rg 'tracing.*json|probe|observation|behavior' | head -30\ncat /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/index/behaviors.tsv\nsed -n '156,189p' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/docs/README.md\nsed -n '1,150p' /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/PROVENANCE.json",
+        "exit_code": 0,
+        "note": ""
+      },
+      {
+        "ordinal": 13,
+        "outer_tool": "functions.exec",
+        "nested_tool": "tools.exec_command",
+        "command": "zstd -dc /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/build/acquired/rustdoc/tracing@0.1.44.json.zst | python3 -c 'import json,sys; d=json.load(sys.stdin); names={\"instrument\",\"in_current_span\",\"with_current_subscriber\",\"with_subscriber\"}; print(\"\\n\\n\".join(str(k)+\" \"+str(v.get(\"name\"))+\"\\n\"+(v.get(\"docs\") or \"\") for k,v in d[\"index\"].items() if v.get(\"name\") in names and \"function\" in v.get(\"inner\",{})))'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/opentelemetry_sdk.trace.sampler.md | sed -n '94,120p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/tracing_subscriber.layer.md | sed -n '45,70p'\nnl -ba /home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/corpus/source/datafusion-tracing/exec_instrument_macros.rs | sed -n '187,199p'",
+        "exit_code": 0,
+        "note": ""
+      }
+    ],
+    "other_calls": [
+      {
+        "tool": "collaboration.send_message",
+        "purpose": "Sent parent a progress note about frozen-reference preview contradictions; no sibling outputs or live-skill material requested."
+      },
+      {
+        "tool": "functions.exec",
+        "purpose": "Assembled and stored answers E01A-E08B; counted words in memory; no file or upstream-code reads."
+      },
+      {
+        "tool": "functions.exec",
+        "purpose": "Assembled and stored answers E09A-E16B; counted words in memory; no file or upstream-code reads."
+      },
+      {
+        "tool": "functions.exec / tools.clock__curr_time",
+        "purpose": "Recorded answer-completion wall-clock time."
+      },
+      {
+        "tool": "functions.exec / tools.apply_patch",
+        "purpose": "Serialized the newly authored baseline-answers.json; a later result-only patch records actual validation evidence."
+      }
+    ],
+    "verification": {
+      "tool": "functions.exec / tools.exec_command",
+      "command": "python3 - <<'PY'\nimport json\nimport re\nfrom pathlib import Path\nroot = Path('/home/paul/.cache/datafusion-tracing-improvement-20260918')\ndoc = json.loads((root / 'baseline-answers.json').read_text())\ntasks = json.loads((root / 'tasks.json').read_text())['tasks']\nassert [a['id'] for a in doc['answers']] == [t['id'] for t in tasks]\ncounts = {a['id']: len(a['answer'].split()) for a in doc['answers']}\nassert all(100 <= n <= 180 for n in counts.values()), counts\nmissing = []\nfor a in doc['answers']:\n    assert a['answer'] and a['evidence_paths'] and a['unknowns']\n    for citation in a['evidence_paths']:\n        file = re.sub(r':\\d+(?:-\\d+)?$', '', citation.split('#')[0])\n        if not (root / 'baseline' / file).is_file():\n            missing.append((a['id'], citation))\nassert not missing, missing\nprint(json.dumps({'task_ids_match': True, 'answers': len(counts), 'word_count_min': min(counts.values()), 'word_count_max': max(counts.values()), 'all_evidence_files_exist': True, 'read_commands_recorded': len(doc['tool_call_log']['read_calls']), 'elapsed_seconds_to_answer_completion': doc['run']['elapsed_seconds_to_answer_completion']}))\nPY",
+      "exit_code": 0,
+      "result": {
+        "task_ids_match": true,
+        "answers": 32,
+        "word_count_min": 106,
+        "word_count_max": 137,
+        "all_evidence_files_exist": true,
+        "read_commands_recorded": 13
+      },
+      "limitation": "Checks authored artifact structure and evidence file existence only; does not run upstream code or validate snippets by compilation."
+    },
+    "verification_note": "A subsequent read-only Python validation of the authored result checks task IDs, word counts, and evidence path existence. Its result is reported to the parent rather than retrospectively represented as an upstream probe."
+  },
+  "answers": [
+    {
+      "id": "E01A",
+      "answer": "Use planning instrumentation with RuleInstrumentationOptions::phase_only() and pass the resulting SessionState to the context: instrument_rules_with_info_spans!(options: RuleInstrumentationOptions::phase_only(), state: state). This yields phase timing without per-rule spans; full() remains available if attribution is later needed. The phases are analyzer, logical optimizer, and physical optimizer, with physical-plan creation automatically wrapped too. Evidence: content/corpus/source/datafusion-tracing/rule_options.rs:104-114, rule_instrumentation_macros.rs:20-27, and rule_instrumentation.rs:948-990. Probe S007 confirms the full-versus-phase-only Rule-span difference, not numerical timing accuracy. Read durations from completed spans; logical optimization may have multiple passes, and nested physical-plan creation should not be summed with its children. For total wall time including work outside those phases, add an application span around the complete planning future. No retained probe establishes that these phase spans cover SQL parsing or all application planning work.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/rule_options.rs:104-114",
+        "content/corpus/source/datafusion-tracing/rule_instrumentation_macros.rs:20-27",
+        "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:948-990",
+        "content/probes/00-index.md#S007"
+      ],
+      "unknowns": [
+        "No numerical phase-duration or complete SQL-planning coverage probe is retained.",
+        "Caller must define whether total includes parsing, application work, and nested phases."
+      ],
+      "probe_ids": [
+        "S007"
+      ]
+    },
+    {
+      "id": "E01B",
+      "answer": "Switch to RuleInstrumentationOptions::full().with_plan_diff() through instrument_rules_with_info_spans!. Full mode creates a Rule span for each rule; when its formatted plan changes, the implementation updates otel.name to '<rule> (modified)', records datafusion.plan_diff when enabled, and adds the rule name to the enclosing phase's datafusion.effective_rules. Evidence: content/corpus/source/datafusion-tracing/rule_instrumentation.rs:599-627 and 200-215; rule_instrumentation_macros.rs:60-84 declares those fields. full() alone still identifies detected modifications; with_plan_diff() adds the before/after textual evidence. Detection is observational: for physical rules it first requires a different Arc, then a changed formatted plan (lines 889-917), so it is not proof of arbitrary semantic equivalence or difference. Probe S007 confirms Rule-span presence only. The integration tests disable plan diffs for nondeterministic output (tests/integration_tests.rs:229), and no retained probe confirms every modification-detection branch.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:200-215",
+        "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:599-627",
+        "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:889-917",
+        "content/corpus/source/datafusion-tracing/rule_instrumentation_macros.rs:60-84",
+        "content/corpus/tests/integration_tests.rs:229",
+        "content/probes/00-index.md#S007"
+      ],
+      "unknowns": [
+        "Textual change detection is not an engineering or semantic validity judgment.",
+        "No executed retained plan-diff discrimination probe is identified."
+      ],
+      "probe_ids": [
+        "S007"
+      ]
+    },
+    {
+      "id": "E02A",
+      "answer": "Compose the planning macro with the completed session configuration: let state = instrument_rules_with_info_spans!(options: RuleInstrumentationOptions::full(), state: state); then construct SessionContext from that returned state. full() enables analyzer, logical-optimizer, and physical-optimizer Phase and Rule spans. Use phase_only() if all phases are needed but per-rule detail is unnecessary. Physical instrumentation also wraps the existing query planner and emits create_physical_plan; it preserves a custom planner by delegation. Evidence: content/corpus/source/datafusion-tracing/rule_options.rs:95-114, rule_instrumentation.rs:948-990, and planner.rs:62-104. Probe S007 confirms that full adds Rule spans, while S008 distinguishes physical-only selection. Admit the caller's macro target and the planner's datafusion_tracing::planner target in filters. These options do not independently add execution-node or object-store spans, and an absent/empty rule list or unexecuted phase does not promise an observed span.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/rule_options.rs:95-114",
+        "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:948-990",
+        "content/corpus/source/datafusion-tracing/planner.rs:62-104",
+        "content/probes/00-index.md#S007",
+        "content/probes/00-index.md#S008"
+      ],
+      "unknowns": [
+        "Actual phase invocation and rule-list contents depend on the caller's DataFusion session.",
+        "No collector-delivery guarantee follows from enabling phases."
+      ],
+      "probe_ids": [
+        "S007",
+        "S008"
+      ]
+    },
+    {
+      "id": "E02B",
+      "answer": "Use the reachable builder: RuleInstrumentationOptions::builder().physical_optimizer().build(), supplied to instrument_rules_with_info_spans!(options: options, state: state). The default builder disables all phases, so this selects physical-optimizer Phase and Rule spans without analyzer or logical-optimizer instrumentation. If only coarse duration matters, physical_optimizer_phase_only() is the narrower alternative. These methods are reachable through RuleInstrumentationOptions::builder() although their builder type is not publicly nameable; content/catalogs/options.md documents the route and rule_options.rs:180-199 implements it. Probe S008 confirms the physical-only construction differs from full(). One important composition detail: physical selection also automatically wraps query-plan creation (rule_instrumentation.rs:986-990), so 'only physical optimization' does not literally mean the trace has no create_physical_plan span. That extra span uses the planner module's target; filters can distinguish it. No retained probe establishes strict exclusion under every custom planner or rule registration sequence.",
+      "evidence_paths": [
+        "content/catalogs/options.md",
+        "content/corpus/source/datafusion-tracing/rule_options.rs:180-199",
+        "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:986-990",
+        "content/corpus/source/datafusion-tracing/planner.rs:86-104",
+        "content/probes/00-index.md#S008"
+      ],
+      "unknowns": [
+        "Physical-only options also instrument physical-plan creation.",
+        "Custom-planner and filter behavior has not been independently executed here."
+      ],
+      "probe_ids": [
+        "S008"
+      ]
+    },
+    {
+      "id": "E03A",
+      "answer": "Construct the supported execution rule with instrument_with_info_spans!(options: InstrumentationOptions::default()) and append it after the actual physical optimizer rules: builder.with_physical_optimizer_rule(custom_rule).with_physical_optimizer_rule(instrument_rule). The rule traverses the plan it receives with transform_down, wraps each uninstrumented node, and avoids wrapping an existing InstrumentedExec twice. Evidence: content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:64-85 and content/corpus/docs/README.md:164-187. Registering it last is what makes the observed plan the final optimized one and keeps subsequent optimizers from encountering instrumentation wrappers. Probe S001 confirms node spans versus a bare control, but does not establish complete coverage of an arbitrary consumer's pipeline. Execution still has to occur under an enabled subscriber; configuration alone produces no execution evidence. InstrumentedExec is internal, so use the macro-generated optimizer rule and normal ExecutionPlan introspection rather than constructing the wrapper directly.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:64-85",
+        "content/corpus/docs/README.md:164-187",
+        "content/catalogs/not-reachable.md",
+        "content/probes/00-index.md#S001"
+      ],
+      "unknowns": [
+        "S001 proves node-span presence, not complete arbitrary-plan coverage.",
+        "Consumer rule ordering and later rewrites must be inspected."
+      ],
+      "probe_ids": [
+        "S001"
+      ]
+    },
+    {
+      "id": "E03B",
+      "answer": "Move the instrumentation rule after that rewrite in the effective optimizer chain. A rule created by instrument_with_info_spans! wraps the plan available when it runs; a later rewrite can introduce nodes without instrumentation, even when the program still compiles and produces some spans. The decisive guidance is content/corpus/docs/README.md:164-184; the traversal is exec_instrument_rule.rs:64-85. Existing wrapper methods can preserve instrumentation when they rebuild their own inner plans, and README.md:189 describes that behavior, but this does not establish coverage for arbitrary nodes a later optimizer creates. Prefer builder.with_physical_optimizer_rule(rewrite).with_physical_optimizer_rule(instrument_rule). If registration order cannot be controlled, report final-plan coverage as unverified rather than treating observed spans as completeness. Probe S001 only compares an instrumented query to a bare query; no retained probe specifically tests this later-rewrite case. The syntax rule project-instrument-rule-not-last is a useful clue, not semantic pipeline validation.",
+      "evidence_paths": [
+        "content/corpus/docs/README.md:164-189",
+        "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:64-85",
+        "content/probes/00-index.md#S001",
+        "reference.md#Known limits"
+      ],
+      "unknowns": [
+        "No later-rewrite behavioral probe is retained.",
+        "Preserving existing wrappers does not prove instrumentation of arbitrary new nodes."
+      ],
+      "probe_ids": [
+        "S001"
+      ]
+    },
+    {
+      "id": "E04A",
+      "answer": "Omit target: when the calling module's target is the intended contract: instrument_with_info_spans!(options: options). The macro forwards to module_path!() at its invocation site, so a consumer module such as my_app::queries emits that target, rather than datafusion_tracing. Configure the subscriber accordingly, for example a my_app=info directive, and ensure the macro's level is admitted. Exact source: content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:202-209; the planning macro has the same default at rule_instrumentation_macros.rs:91-95. S006 records target 'probe' and absence of target 'datafusion_tracing' in one construction, so its verdict is recorded rather than a discriminating confirmed control. S009 separately confirms DEBUG instrumentation is lost under an INFO filter. Object-store instrumentation and the physical query planner have their own module targets, so one consumer-target directive may not include the entire query trace.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:202-209",
+        "content/corpus/source/datafusion-tracing/rule_instrumentation_macros.rs:91-95",
+        "content/probes/00-index.md#S006",
+        "content/probes/00-index.md#S009",
+        "content/seams/object-store.md",
+        "content/corpus/source/datafusion-tracing/planner.rs:34-41"
+      ],
+      "unknowns": [
+        "S006 is a recorded shape observation, not a two-construction target-filter probe.",
+        "The consumer's actual module path and installed filter are unspecified."
+      ],
+      "probe_ids": [
+        "S006",
+        "S009"
+      ]
+    },
+    {
+      "id": "E04B",
+      "answer": "Give the execution macro a stable literal target matching the narrow filter: instrument_with_info_spans!(target: \"query_exec\", options: options), with an EnvFilter directive such as query_exec=info. The explicit target is forwarded into tracing::span!; source evidence is content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:107-121 and 202-209, with accepted forms listed in content/index/macros.tsv. This avoids depending on a changing caller module path, but target matching and level admission are separate requirements. S009 confirms an INFO filter rejects DEBUG spans, so merely changing target does not repair a level mismatch. S006 only records the default-target case; the frozen probes contain no explicit-target/narrow-filter control. Apply an explicit target separately to planning macros if wanted. The automatically wrapped planner and instrumented-object-store do not inherit this macro target, so their module targets require their own directives when those observations are needed.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:107-121",
+        "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:202-209",
+        "content/index/macros.tsv",
+        "content/probes/00-index.md#S006",
+        "content/probes/00-index.md#S009",
+        "content/corpus/source/datafusion-tracing/planner.rs:34-41"
+      ],
+      "unknowns": [
+        "Explicit-target filtering is source-backed but not directly probed in the retained set.",
+        "The narrow target does not automatically cover planner or store spans."
+      ],
+      "probe_ids": [
+        "S006",
+        "S009"
+      ]
+    },
+    {
+      "id": "E05A",
+      "answer": "Use both declaration and value configuration: let options = InstrumentationOptions::builder().add_custom_field(\"env\", \"production\").build(); let rule = instrument_with_info_spans!(options: options, env = tracing::field::Empty);. The macro declares the fixed tracing field set when constructing each span, then iterates the options map and records values into those declared fields. Evidence: content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:107-121 and 192-199, options.rs:100-108, and the upstream integration example at examples/integration-utils/src/lib.rs:207-225. Probe S004 confirms the declared-versus-undeclared contrast under otherwise identical options. This builder is usable through InstrumentationOptions::builder() despite missing published builder-method documentation; B001/B002 explain the documentation gap. Keys must match exactly, and the configured subscriber still has to receive the span. This mechanism adds span fields; it does not independently prove the exporter or downstream backend retained them.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:107-121",
+        "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:192-199",
+        "content/corpus/source/datafusion-tracing/options.rs:100-108",
+        "content/corpus/examples/integration-utils/src/lib.rs:207-225",
+        "content/probes/00-index.md#S004",
+        "content/probes/00-index.md#B001",
+        "content/probes/00-index.md#B002"
+      ],
+      "unknowns": [
+        "Exporter attribute limits and backend retention are outside S004's local observation."
+      ],
+      "probe_ids": [
+        "S004",
+        "B001",
+        "B002"
+      ]
+    },
+    {
+      "id": "E05B",
+      "answer": "The same add_custom_field(\"env\", \"production\") call does not create an undeclared tracing field. If the macro invocation lacks env = tracing::field::Empty, the subsequent span.record call silently has no matching field to update. Preserve the options builder and add the declaration to the macro, or provide the value directly in the macro if dynamic map configuration is unnecessary. The exact implementation declares fields before iterating custom_fields (content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:192-199), and options.rs:100-108 only inserts into a HashMap. Probe S004 is a confirmed discriminating control: both constructions set the same map key, while only the declared construction emits env. The absence therefore does not show that custom fields are unsupported or that the builder failed. Even after fixing the declaration, filtering, sampling, and export remain independent conditions for a backend observation.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:192-199",
+        "content/corpus/source/datafusion-tracing/options.rs:100-108",
+        "content/probes/00-index.md#S004"
+      ],
+      "unknowns": [
+        "Successful local field recording does not guarantee backend delivery or retention."
+      ],
+      "probe_ids": [
+        "S004"
+      ]
+    },
+    {
+      "id": "E06A",
+      "answer": "A positive preview_limit works without a custom preview_fn in the frozen source: InstrumentationOptions::builder().preview_limit(5).build() is sufficient configuration. InstrumentedExec creates a PreviewRecorder whenever the limit is greater than zero (content/corpus/source/datafusion-tracing/instrumented_exec.rs:154-160). PreviewRecorderBuilder::preview_fn(None) explicitly chooses default_preview_fn, which uses pretty_format_batches (preview.rs:167-200). Formatting happens when the recorder drops, after preview rows have been gathered; empty observed input or a formatting failure can still leave no preview field. This directly contradicts content/seams/preview.md and topics/00-map.md, which say no formatter means no readable preview. I follow the concrete implementation, also documented in exec_instrument_macros.rs:30-34. S002 confirms zero-limit suppression versus a preview-enabled control, but does not isolate the default-formatter case. The default fallback is therefore source-backed here, not independently re-executed or promoted to a new confirmed probe.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:154-160",
+        "content/corpus/source/datafusion-tracing/preview.rs:46-76",
+        "content/corpus/source/datafusion-tracing/preview.rs:167-200",
+        "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:30-34",
+        "content/seams/preview.md",
+        "content/topics/00-map.md",
+        "content/probes/00-index.md#S002"
+      ],
+      "unknowns": [
+        "Frozen summary guidance contradicts its source on the default formatter.",
+        "No retained discriminating default-versus-custom formatter probe was executed here."
+      ],
+      "probe_ids": [
+        "S002"
+      ]
+    },
+    {
+      "id": "E06B",
+      "answer": "Keep the positive limit and replace the default renderer with an Arc-wrapped Send + Sync closure: InstrumentationOptions::builder().preview_limit(5).preview_fn(Arc::new(|batch| pretty_format_compact_batch(batch, 64, 3, 10).map(|table| table.to_string()))).build(). The callback accepts &RecordBatch and returns Result<String, ArrowError>; it changes rendering rather than the sampling limit. Evidence: content/corpus/source/datafusion-tracing/options.rs:89-97, preview.rs:36 and 190-202, and examples/integration-utils/src/lib.rs:207-219. At recorder drop, gathered rows are sliced to the configured limit and the callback runs; errors generate a warning instead of a preview field (preview.rs:46-76). S005 confirms the compact formatter's characteristic header in its pinned construction. A zero limit still disables capture even with this callback, as S002 demonstrates. Unlike the summary's claim, a custom renderer is optional; the default fallback exists in preview.rs:167-200.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/options.rs:89-97",
+        "content/corpus/source/datafusion-tracing/preview.rs:36",
+        "content/corpus/source/datafusion-tracing/preview.rs:46-76",
+        "content/corpus/source/datafusion-tracing/preview.rs:167-202",
+        "content/corpus/examples/integration-utils/src/lib.rs:207-219",
+        "content/probes/00-index.md#S005",
+        "content/probes/00-index.md#S002"
+      ],
+      "unknowns": [
+        "The exact rendered width/content depends on the input schema and callback.",
+        "S005 does not establish arbitrary callback correctness or performance."
+      ],
+      "probe_ids": [
+        "S005",
+        "S002"
+      ]
+    },
+    {
+      "id": "E07A",
+      "answer": "With one successfully polled batch in one partition, preview_limit(L) stores a slice of at most min(L, batch.num_rows()) rows while returning the original batch to the caller unchanged. It is observation, not a query-result limit. Use the execution rule with a positive limit and either the built-in formatter or a custom callback, then release the stream so its preview transfers to the recorder. content/corpus/source/datafusion-tracing/preview.rs:111-138 shows bounded storage and forwarding; lines 142-156 publish the accumulated partition preview on stream drop; lines 46-76 format on recorder drop. For a batch with fewer than L rows, the implementation does not invent missing rows. S002 confirms the zero-versus-positive preview switch, while S005 checks one compact rendering. Those probes do not establish a general single-batch completeness claim, and stream errors or an empty batch may leave less evidence than the configured maximum.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/preview.rs:46-76",
+        "content/corpus/source/datafusion-tracing/preview.rs:111-156",
+        "content/probes/00-index.md#S002",
+        "content/probes/00-index.md#S005"
+      ],
+      "unknowns": [
+        "No retained probe isolates every single-batch boundary and error condition.",
+        "A preview is bounded observed data, not evidence of complete query execution."
+      ],
+      "probe_ids": [
+        "S002",
+        "S005"
+      ]
+    },
+    {
+      "id": "E07B",
+      "answer": "The same display limit is not restricted to one input batch. Each PreviewRecordingStream accumulates slices across successful batches until it stores L rows; dropping it publishes one combined preview for its partition. At recorder drop, partition previews are concatenated in partition-vector order and the combined result is sliced again to L rows before formatting. Exact evidence: content/corpus/source/datafusion-tracing/preview.rs:46-65, 111-156, and 207-214. Thus displayed rows are bounded by L per recorder group, while interim retained rows can scale with participating partitions; this is not random or globally ordered sampling. Concurrent distinct partitions can share a group; separate contexts, parents, or repeated partitions can create separate spans (instrumented_exec.rs:133-173, 536-556). The summary's 'one batch' statement is too narrow. S002/S005 cover enabling/rendering, not multi-batch or multi-partition aggregation. The retained source tests describe grouping behavior, but I have not executed them.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/preview.rs:46-65",
+        "content/corpus/source/datafusion-tracing/preview.rs:111-156",
+        "content/corpus/source/datafusion-tracing/preview.rs:207-214",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:133-173",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:536-556",
+        "content/seams/preview.md",
+        "content/probes/00-index.md#S002",
+        "content/probes/00-index.md#S005"
+      ],
+      "unknowns": [
+        "No retained confirmed multi-batch/partition preview probe is listed.",
+        "Global query ordering and a query-wide preview budget are not established."
+      ],
+      "probe_ids": [
+        "S002",
+        "S005"
+      ]
+    },
+    {
+      "id": "E08A",
+      "answer": "Fully consume all intended partition streams and then drop them before treating close-time fields as final for that execution. A typical shape is while let Some(batch) = stream.next().await { batch?; } followed by drop(stream), repeated for the intended streams. The execution wrapper forwards polls and releases recorder ownership in its pinned Drop, not in an EOF branch (content/corpus/source/datafusion-tracing/instrumented_exec.rs:595-608). When the last active stream in a recorder group is released, that group is removed (lines 559-578); preview and metrics recorders then finalize their fields. MetricsRecorder::drop aggregates the native metrics currently available (metrics.rs:51-63). The source regression span_closes_when_stream_finishes_not_when_plan_drops at lines 802-846 demonstrates the intended retained-plan lifecycle, but is source evidence, not a freshly executed probe. S003 only confirms the metrics option switch. Backend export still depends on later provider processing and shutdown.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-608",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:802-846",
+        "content/corpus/source/datafusion-tracing/metrics.rs:51-63",
+        "content/probes/00-index.md#S003"
+      ],
+      "unknowns": [
+        "EOF while retaining the stream is not the same lifecycle event as dropping it.",
+        "Source regression tests were inspected but not run in this evaluation."
+      ],
+      "probe_ids": [
+        "S003"
+      ]
+    },
+    {
+      "id": "E08B",
+      "answer": "Reading one item and dropping the streams still triggers recorder cleanup and may close execution spans, but the resulting evidence describes partial consumption. Sketch: let first = stream.next().await; drop(stream); handle first explicitly. PreviewRecordingStream only accumulates successfully polled batches (content/corpus/source/datafusion-tracing/preview.rs:111-138), publishes whatever it captured on drop (142-156), and formats when its recorder is released (46-76). MetricsRecorder similarly reads native metrics at drop (metrics.rs:51-63); those numbers are not automatically full-query totals, and upstream operators may have done more work than the single output item reveals. ExecutionRecorders releases the final group when its active stream count reaches zero (instrumented_exec.rs:559-578). A closed span is therefore not a success or exhaustion certificate. The frozen S002/S003 probes cover option switches, not early cancellation; no retained confirmed partial-consumption probe establishes exact row counts or cancellation propagation.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/preview.rs:46-76",
+        "content/corpus/source/datafusion-tracing/preview.rs:111-156",
+        "content/corpus/source/datafusion-tracing/metrics.rs:51-63",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-578",
+        "content/probes/00-index.md#S002",
+        "content/probes/00-index.md#S003"
+      ],
+      "unknowns": [
+        "Exact work performed upstream before early drop is DataFusion/operator dependent.",
+        "No retained confirmed early-drop probe establishes cancellation or metric totals."
+      ],
+      "probe_ids": [
+        "S002",
+        "S003"
+      ]
+    },
+    {
+      "id": "E09A",
+      "answer": "Retaining an Arc to the plan after execution need not keep its finished execution spans open. The frozen implementation groups recorder state around active streams; dropping the last stream removes its group from the plan's recorder list (content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-578). The regression test span_closes_when_stream_finishes_not_when_plan_drops explicitly holds plan_clone, drains streams, observes closed spans, and verifies dropping the clone adds no closures (lines 802-846). This is stronger source evidence than a generic assumption that plan ownership controls span lifetime. Retain the plan for inspection or reuse, but release the execution streams and other span clones before expecting closure. The test includes a historical note about older plan-owned recorders; do not apply that historical behavior to this source. No retained S-series probe directly verifies this lifecycle, and the regression was inspected rather than run here. Export completion remains a separate SDK concern.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-578",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:802-846",
+        "content/probes/00-index.md"
+      ],
+      "unknowns": [
+        "Lifecycle evidence is inspected source/test code, not an executed evaluator probe.",
+        "Other outstanding span handles or recorder streams can still delay closure."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E09B",
+      "answer": "Keeping the execution stream alive is materially different from retaining only the plan. The stream owns recorder references and an instrumented span, so dropping the plan alone does not release them. Even after a poll returns None, ExecutionRecordingStream::poll_next only forwards the result; its pinned Drop performs finish_stream (content/corpus/source/datafusion-tracing/instrumented_exec.rs:595-608). Therefore explicitly drop an exhausted stream if close-time previews, metrics, or export are needed promptly. The source test span_stays_open_while_stream_alive retains streams, drops the plan, verifies no closure, then consumes and drops streams and observes closure (lines 849-888). This establishes the intended ownership distinction in test source, not a confirmed executed probe in this evaluation. With several streams sharing a recorder group, all active owners must be released. A provider force_flush cannot turn an unclosed execution span into a completed query observation.",
+      "evidence_paths": [
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:492-495",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-608",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:849-888",
+        "content/api/opentelemetry_sdk.trace.span_processor.md:80-102"
+      ],
+      "unknowns": [
+        "The retained probe catalog has no direct stream-retention execution probe.",
+        "Unexpected additional span owners require consumer-specific inspection."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E10A",
+      "answer": "Attach the parent span to the future that performs the work: use tracing::Instrument; let result = work().instrument(tracing::info_span!(\"query\")).await;. The retained tracing 0.1.44 rustdoc describes instrument as entering the attached span whenever the future is polled or dropped; this is the async lifetime contract, rather than merely constructing a span before await. Exact evidence is build/acquired/rustdoc/tracing@0.1.44.json.zst, index item 53; content/api/tracing.instrument.md#instrument exposes the extension trait. The library uses the same composition for physical planning in content/corpus/source/datafusion-tracing/planner.rs:100-104 and for execution streams in instrumented_exec.rs:492-495. Subscriber installation and suitable target/level filters remain necessary. The supplied future must include the intended work and stream consumption; instrumenting only a future that returns a lazy stream does not automatically surround later consumer activity. No retained S-series probe isolates async parent propagation.",
+      "evidence_paths": [
+        "build/acquired/rustdoc/tracing@0.1.44.json.zst#index/53",
+        "content/api/tracing.instrument.md#instrument",
+        "content/corpus/source/datafusion-tracing/planner.rs:100-104",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:492-495",
+        "content/probes/00-index.md"
+      ],
+      "unknowns": [
+        "No retained discriminating async-parent propagation probe is listed.",
+        "Work performed after returning a lazy value needs its own context/lifetime analysis."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E10B",
+      "answer": "Instrument the spawned future before handing it to the executor: tokio::spawn(work().in_current_span()).await. The current span is captured at that call, so call it while the intended parent is current; an explicit work().instrument(parent.clone()) also works. If the subscriber is scoped to the caller thread rather than installed globally, additionally use tracing::instrument::WithSubscriber and with_current_subscriber() on the future. The pinned rustdoc explicitly documents spawn propagation for in_current_span (index item 55) and dispatcher propagation for with_current_subscriber (item 62) in build/acquired/rustdoc/tracing@0.1.44.json.zst. DataFusion's rule initialization also attempts to register a JoinSetTracer once; its async adapter uses in_current_span (exec_instrument_rule.rs:37-45,103-108). That helper is not evidence that arbitrary application spawns inherit context, and registration can fail with a warning. No retained probe tests this task-boundary contrast. Keep parent/context ownership and task completion observable through the awaited join.",
+      "evidence_paths": [
+        "build/acquired/rustdoc/tracing@0.1.44.json.zst#index/55",
+        "build/acquired/rustdoc/tracing@0.1.44.json.zst#index/62",
+        "content/api/tracing.instrument.md#withsubscriber",
+        "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:37-45",
+        "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:103-108"
+      ],
+      "unknowns": [
+        "No retained confirmed arbitrary-spawn or scoped-subscriber propagation probe exists.",
+        "DataFusion JoinSetTracer registration and use are bounded and may fail."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E11A",
+      "answer": "A local fmt layer receiving a span proves only that the span reached that branch of the installed subscriber. Compose Registry with fmt::layer() for local observation, and add tracing_opentelemetry::layer().with_tracer(tracer) separately if export is required. The retained example builds exactly those two branches, attaching an INFO filter to telemetry (content/corpus/examples/otlp.rs:126-141). tracing_subscriber's Filter documentation explicitly defines per-layer admission (content/api/tracing_subscriber.layer.md:64-65), so local admission is not equivalent to OTEL admission. S009 and S010 confirm local level-filter behavior, not backend delivery. Also distinguish a span being received from a formatter visibly printing its lifecycle; output configuration determines what is rendered. Before interpreting missing remote data, inspect the OTEL branch's filter, SDK sampler, whether the span has closed, processor buffering, and export errors. No retained exporter probe links the example's local output to collector acceptance.",
+      "evidence_paths": [
+        "content/corpus/examples/otlp.rs:126-141",
+        "content/api/tracing_subscriber.layer.md:64-65",
+        "content/api/opentelemetry_sdk.trace.sampler.md:99-116",
+        "content/api/opentelemetry_sdk.trace.span_processor.md:80-108",
+        "content/probes/00-index.md#S009",
+        "content/probes/00-index.md#S010"
+      ],
+      "unknowns": [
+        "The reference has local subscriber probes but no confirmed end-to-end collector delivery probe.",
+        "Formatter receipt and visible lifecycle output are distinct."
+      ],
+      "probe_ids": [
+        "S009",
+        "S010"
+      ]
+    },
+    {
+      "id": "E11B",
+      "answer": "The fmt branch can still show the span while the OTEL branch produces no exported span. A per-layer filter affects that individual layer, so telemetry_layer.with_filter(...) can reject a target or level independently of fmt; content/api/tracing_subscriber.layer.md:64-65 and examples/otlp.rs:126-141 establish the composition. Separately, SDK sampling distinguishes is_recording from the Sampled flag: recorded-but-unsampled spans need not reach a SpanExporter (content/api/opentelemetry_sdk.trace.sampler.md:99-116). The retained example explicitly chooses Sampler::AlwaysOn, but replacing it changes the result without changing local formatting. Inspect the exact telemetry filter and sampler/parent sampling state before diagnosing exporter failure. S009 proves a level rejection in the local capturing construction; it does not prove this two-branch or sampled-out scenario. Do not infer zero instrumentation cost from absent export: a live local branch can still keep tracing spans enabled and execute field-recording work.",
+      "evidence_paths": [
+        "content/api/tracing_subscriber.layer.md:64-65",
+        "content/corpus/examples/otlp.rs:117-141",
+        "content/api/opentelemetry_sdk.trace.sampler.md:99-116",
+        "content/probes/00-index.md#S009",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:154-170"
+      ],
+      "unknowns": [
+        "No retained two-branch filtering or sampling contrast was executed.",
+        "Exact sampler decisions depend on configured policy and parent context."
+      ],
+      "probe_ids": [
+        "S009"
+      ]
+    },
+    {
+      "id": "E12A",
+      "answer": "Wrap the actual store before registration and use the matching registration: let wrapped = instrument_object_store(store, \"warehouse\"); ctx.register_object_store(&url, wrapped);. The helper accepts Arc<dyn ObjectStore> and returns another Arc<dyn ObjectStore>, so the wrapper occupies the same consumer interface (content/corpus/source/instrumented-object-store/instrumented_object_store.rs:35-40). The upstream session example conditionally wraps the local filesystem and registers the selected object for file:// (examples/integration-utils/src/lib.rs:183-192). Admit instrumented_object_store::instrumented_object_store at INFO; these spans originate inside the store crate rather than the caller-target macros. The pinned snapshots record get_opts and get_ranges, but those are recorded observations, not a discriminating store-wrapper probe. The wrapper's source covers additional methods, so two observed names are not a completeness limit. Ensure the query actually resolves to this registered store; creating a wrapper alone establishes no routed I/O evidence.",
+      "evidence_paths": [
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:35-40",
+        "content/corpus/examples/integration-utils/src/lib.rs:183-192",
+        "content/seams/object-store.md",
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:181-276",
+        "content/index/behaviors.tsv"
+      ],
+      "unknowns": [
+        "The retained store snapshot is recorded, with a named JSON repair described in reference.md.",
+        "Store registration/routing is not independently exercised by a retained confirmed wrapper probe."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E12B",
+      "answer": "If the context registers and uses the original store, calls bypass this crate's wrapper even if an unused wrapped Arc exists elsewhere. Register the result of instrument_object_store(store, \"warehouse\") for the URL actually used by queries. The function creates a delegating wrapper; it does not mutate the original store or globally intercept calls (content/corpus/source/instrumented-object-store/instrumented_object_store.rs:35-60). The upstream example's explicit wrapped-versus-unwrapped branch at examples/integration-utils/src/lib.rs:183-192 shows that registration chooses which object receives requests. Execution-plan tracing can remain visible, because it is configured independently, while this wrapper contributes no object-store spans on the bypassed path. That does not prove the underlying store or another middleware emits no tracing of its own. The skill's question router incorrectly labels the object-store route with S008; the actual S008 probe concerns physical-optimizer selection, so it is not wrapper evidence.",
+      "evidence_paths": [
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:35-60",
+        "content/corpus/examples/integration-utils/src/lib.rs:183-192",
+        "content/index/questions.tsv",
+        "content/index/behaviors.tsv",
+        "content/seams/object-store.md"
+      ],
+      "unknowns": [
+        "The original store may have independent instrumentation.",
+        "No confirmed registered-wrapper versus original-store probe is retained.",
+        "questions.tsv associates the object-store question with unrelated S008."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E13A",
+      "answer": "For a method that resolves to materialized bytes, use the wrapped store's normal API and await completion. In the retained source, get_ranges returns Result<Vec<Bytes>> and instruments the whole awaited inner call; instrument_result then records either result fields or object_store.result.err before returning (content/corpus/source/instrumented-object-store/instrumented_object_store.rs:116-128,197-214). Vec<Bytes> records the summed byte length, while Bytes records its own length (101-113). This makes the span useful for the duration and outcome of that particular eager call; it does not measure later application parsing or processing of the returned bytes. The name is '<configured store name>.get_ranges' through otel.name, while the tracing target remains the wrapper module. The get_ranges snapshot is recorded evidence only. There is no retained controlled immediate-versus-lazy I/O probe, and methods returning GetResult require separate payload-lifetime analysis.",
+      "evidence_paths": [
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:101-128",
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:197-214",
+        "content/seams/object-store.md",
+        "content/index/spans.tsv"
+      ],
+      "unknowns": [
+        "No retained controlled eager-versus-lazy store probe exists.",
+        "The timing contract concerns this store call, not later byte processing."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E13B",
+      "answer": "Inspect the specific method: lazy results do not all share one instrumentation contract. list, list_with_offset, and delete_stream explicitly apply in_current_span() to their returned streams (content/corpus/source/instrumented-object-store/instrumented_object_store.rs:216-263), so subsequent polling carries the method span and retaining the stream retains its instrumentation owner. Consume or drop that stream deliberately; returning it is not evidence that all listed/deleted work completed. In contrast, get_opts merely awaits the inner call and returns its GetResult unchanged through instrument_result (181-195), whose recorder extracts metadata and range (78-82). The shown wrapper does not instrument a lazy payload inside that result, so do not claim the get_opts span necessarily covers payload consumption. Add an application span around that consumption if required. The API index exposes tracing_futures::Instrument for streams, but the retained probes do not execute these two lazy-lifetime cases.",
+      "evidence_paths": [
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:78-82",
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:181-195",
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:216-263",
+        "content/api/tracing_futures.md#instrument",
+        "content/probes/00-index.md"
+      ],
+      "unknowns": [
+        "GetResult payload behavior is part of object_store, which is not indexed.",
+        "No retained probe measures returned-stream lifetime or lazy payload errors."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E14A",
+      "answer": "Retain the SdkTracerProvider and keep the selected export transport's runtime available while work and span finalization occur. The pinned example creates a tonic SpanExporter inside tokio::main, attaches it with with_batch_exporter, builds a tracer, installs the OTEL layer, and returns the provider to main (content/corpus/examples/otlp.rs:69-80,108-144). SDK 0.31's standard BatchSpanProcessor collects finished spans on a dedicated background thread; grpc-tonic requires provider creation within a Tokio runtime (content/api/opentelemetry_sdk.trace.span_processor.md:80-103). Spans still need to pass filtering and sampling and close before entering that finished-span buffer. Keeping everything alive is therefore necessary lifecycle support, not proof of delivery. Monitor exporter errors and collector receipt for an actual delivery claim. No retained probe exercises an OTLP collector; the confirmed probes use a local capturing fmt subscriber. The example's AlwaysOn sampler is a configuration choice, not a universal default guarantee.",
+      "evidence_paths": [
+        "content/corpus/examples/otlp.rs:69-80",
+        "content/corpus/examples/otlp.rs:108-144",
+        "content/api/opentelemetry_sdk.trace.span_processor.md:80-103",
+        "content/probes/00-index.md"
+      ],
+      "unknowns": [
+        "No retained OTLP collector delivery probe exists.",
+        "Exporter failures, queue pressure, and remote acceptance are unverified."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E14B",
+      "answer": "Finish and release spans and execution streams, then explicitly call provider.shutdown() and inspect its result before ending the runtime/program. The upstream example does exactly that after awaiting its traced query (content/corpus/examples/otlp.rs:69-80). SDK 0.31's BatchSpanProcessor exports on size/delay thresholds, force_flush, or shutdown; abrupt process exit can leave buffered spans unexported (content/api/opentelemetry_sdk.trace.span_processor.md:98-108). force_flush is useful when continuing service, while shutdown is the terminal lifecycle operation. For a Tokio current-thread runtime, the retained docs warn that blocking shutdown on the main runtime thread can deadlock; use a separate thread or tokio::task::spawn_blocking while the runtime remains alive. Dropping the final provider reference also triggers SDK shutdown, but an explicit checked call makes errors visible (trace.provider.md:36-41). Neither flush nor shutdown completes still-open query spans, and no retained controlled exit-time exporter probe establishes collector acceptance.",
+      "evidence_paths": [
+        "content/corpus/examples/otlp.rs:69-80",
+        "content/api/opentelemetry_sdk.trace.span_processor.md:98-108",
+        "content/api/opentelemetry_sdk.trace.provider.md:36-41",
+        "content/api/opentelemetry_sdk.trace.provider.md:21-25"
+      ],
+      "unknowns": [
+        "No retained exit-time exporter probe is present.",
+        "Successful shutdown does not by itself verify downstream storage or user-visible trace availability."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E15A",
+      "answer": "Use the retained profile as the starting composition: datafusion-tracing and instrumented-object-store 55.0.0 with DataFusion 55.0.0, tracing-opentelemetry 0.32.0, and opentelemetry/opentelemetry_sdk/opentelemetry-otlp 0.31.0. reference.md records tracing 0.1.44, tracing-core 0.1.36, tracing-subscriber 0.3.23, tracing-futures 0.2.5, and tracing-attributes 0.1.31 for the captured wiring. The concrete exporter example manifest enables OTLP grpc-tonic, SDK rt-tokio and rt-tokio-current-thread, Tokio rt-multi-thread/macros, and subscriber json (content/corpus/examples/Cargo.toml:39-47). Its code uses with_tonic, with_batch_exporter, and a retained provider. The observed one-minor bridge offset describes the recorded release matrix, not a compatibility theorem for future releases. The library's MSRV is 1.94.0 and edition 2024 in content/catalogs/compatibility.md. This is upstream/capture evidence, not a newly compiled consumer lockfile or successful network export test.",
+      "evidence_paths": [
+        "reference.md",
+        "content/catalogs/compatibility.md",
+        "content/corpus/examples/Cargo.toml:39-47",
+        "content/corpus/docs/Cargo.toml:41-47",
+        "content/corpus/examples/otlp.rs:108-129",
+        "content/PROVENANCE.json"
+      ],
+      "unknowns": [
+        "No consumer lockfile was supplied or compiled.",
+        "Recorded dependency compatibility does not imply collector reachability or all-feature compatibility."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E15B",
+      "answer": "Treat an uncharacterized version/feature combination as unverified, not automatically incompatible and not approved merely because its minor numbers look familiar. content/catalogs/compatibility.md explicitly limits the matrix to versions upstream shipped against; reference.md fixes the captured bridge at 0.32 and SDK family at 0.31. Compare the actual resolved dependency identities and features with that profile, especially tracer traits across duplicate SDK versions and the OTLP transport/processor pairing. The retained SDK docs distinguish supported standard-batch transports and require Tokio for grpc-tonic (content/api/opentelemetry_sdk.trace.span_processor.md:91-96); compile success alone would still not establish runtime export. A reasonable next qualification is a tiny consumer compiling the intended layer, exporter, and provider, followed by emitted/closed spans plus checked flush/shutdown and collector observation. Those are proposed checks only: this evaluation forbids fetching or executing upstream code, so the changed combination remains an explicit unknown.",
+      "evidence_paths": [
+        "content/catalogs/compatibility.md",
+        "reference.md",
+        "content/api/opentelemetry_sdk.trace.span_processor.md:91-108",
+        "content/corpus/examples/Cargo.toml:39-47",
+        "content/corpus/examples/otlp.rs:108-141"
+      ],
+      "unknowns": [
+        "Exact uncharacterized versions/features were not specified.",
+        "Neither compilation nor runtime export for the changed profile was attempted."
+      ],
+      "probe_ids": []
+    },
+    {
+      "id": "E16A",
+      "answer": "Reach the options builder through the supported constructor and let Rust infer its type: let options = InstrumentationOptions::builder().record_metrics(true).preview_limit(5).add_custom_field(\"env\", \"production\").build();. content/index/symbols.tsv marks InstrumentationOptionsBuilder reachable-undocumented with reached_via InstrumentationOptions::builder(); the corresponding catalog gives all six builder methods and their signatures. The module remains private, so the canonical index path is not necessarily a path consumers can import. Source evidence is content/corpus/source/datafusion-tracing/lib.rs:137-154 and options.rs:64-124. B001 confirms the hosted item index lacks add_custom_field while the private capture contains it; B002 confirms published prose nevertheless calls it. The RuleInstrumentationOptions builder has the same reachability pattern and enables selective phases. Direct public option fields also exist, but chaining is sufficient here. Declaring custom span keys remains necessary, and the lookup does not establish runtime execution or exporter success.",
+      "evidence_paths": [
+        "content/index/symbols.tsv:29",
+        "content/index/symbols.tsv:74",
+        "content/catalogs/options.md",
+        "content/corpus/source/datafusion-tracing/lib.rs:137-154",
+        "content/corpus/source/datafusion-tracing/options.rs:64-124",
+        "content/probes/00-index.md#B001",
+        "content/probes/00-index.md#B002"
+      ],
+      "unknowns": [
+        "Reachability is established for this pinned release, not all versions.",
+        "Builder lookup alone supplies no runtime/export guarantee."
+      ],
+      "probe_ids": [
+        "B001",
+        "B002"
+      ]
+    },
+    {
+      "id": "E16B",
+      "answer": "InstrumentedExec is an internal implementation type, not the same category as the reachable options builder. content/index/symbols.tsv:22 classifies it internal with no reached_via route; lib.rs:125-128 declares its module privately and does not re-export the wrapper. The README explicitly says downstream consumers should not depend on its internals (content/corpus/docs/README.md:185-189). Use instrument_with_info_spans! to obtain the supported optimizer rule, register it last, and inspect the resulting plan through ordinary ExecutionPlan APIs; the wrapper delegates public downcasts to its inner plan (instrumented_exec.rs:444-448). The separate new_instrument_rule function is callable but doc-hidden for macro implementation, so it is an available internal-support function rather than the recommended consumer entry point (lib.rs:144-150). S001 confirms macro-based node-span creation. No negative import compile test was run here; the reachability conclusion follows from the pinned module/export graph and explicit source policy.",
+      "evidence_paths": [
+        "content/index/symbols.tsv:22",
+        "content/corpus/source/datafusion-tracing/lib.rs:125-154",
+        "content/corpus/docs/README.md:185-189",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs:444-448",
+        "content/catalogs/not-reachable.md",
+        "content/probes/00-index.md#S001"
+      ],
+      "unknowns": [
+        "No negative consumer import compile test was executed.",
+        "ExecutionPlan details beyond this wrapper's delegation are outside the indexed crate set."
+      ],
+      "probe_ids": [
+        "S001"
+      ]
+    }
+  ]
+}

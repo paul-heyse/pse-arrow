@@ -1,0 +1,101 @@
+{
+  "id": "tracing.metrics",
+  "title": "Record native plan metrics",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "record query measurements",
+    "missing metric field",
+    "output rows metrics",
+    "metric units aggregation"
+  ],
+  "crates": [
+    "datafusion-tracing"
+  ],
+  "input": [
+    "native MetricsSet",
+    "record_metrics option"
+  ],
+  "output": [
+    "datafusion.metrics.* fields"
+  ],
+  "properties": [
+    "metrics",
+    "completion",
+    "open-vocabulary"
+  ],
+  "operations": [
+    "datafusion_tracing::options::InstrumentationOptionsBuilder::record_metrics"
+  ],
+  "brief": "The recorder reads native plan metrics, aggregates by name, and records dynamic datafusion.metrics.* fields when its recorder is dropped.",
+  "choices": [
+    {
+      "candidate": "metrics disabled",
+      "choose_when": "Only structure or other fields matter",
+      "tradeoff": "No metric recording requested."
+    },
+    {
+      "candidate": "metrics enabled",
+      "choose_when": "Native node measurements are useful",
+      "tradeoff": "Available fields depend on the node and span field schema."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.metrics.1",
+      "aspect": "Recording",
+      "kind": "source_observation",
+      "statement": "MetricsRecorder::drop reads execution_plan.metrics(), returns when absent, and visits aggregate_by_name().",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.metrics.2",
+      "aspect": "Interpretation",
+      "kind": "source_observation",
+      "statement": "Native metric meanings, units and aggregation come from DataFusion. Snapshot catalogs list observations, not all available names.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.metrics.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "With metrics enabled the completed plan exposes output_rows; disabling metrics removes metric fields in this workload. This is not a complete metric vocabulary or an early-drop value guarantee.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Enable record_metrics and observe the relevant completion boundary.",
+    "Compare values only with compatible units, execution scope and native metric semantics."
+  ],
+  "unknowns": [
+    "No exhaustive field list or proof of per-execution metric isolation for every reusable plan."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/source/datafusion-tracing/metrics.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "metrics_and_custom_fields_have_separate_controls"
+      ],
+      "scope": "With metrics enabled the completed plan exposes output_rows; disabling metrics removes metric fields in this workload. This is not a complete metric vocabulary or an early-drop value guarantee."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ]
+}

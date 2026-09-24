@@ -1,0 +1,1226 @@
+[
+  {
+    "id": "7b6dded2e02e9c652c240628",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "name": "BatchSpanProcessor",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct BatchSpanProcessor",
+    "docs": "The `BatchSpanProcessor` collects finished spans in a buffer and exports them\nin batches to the configured `SpanExporter`. This processor is ideal for\nhigh-throughput environments, as it minimizes the overhead of exporting spans\nindividually. It uses a **dedicated background thread** to manage and export spans\nasynchronously, ensuring that the application's main execution flow is not blocked.\n\nThis processor supports the following configurations:\n- **Queue size**: Maximum number of spans that can be buffered.\n- **Batch size**: Maximum number of spans to include in a single export.\n- **Scheduled delay**: Frequency at which the batch is exported.\n\nWhen using this processor with the OTLP Exporter, the following exporter\nfeatures are supported:\n- `grpc-tonic`: Requires `TracerProvider` to be created within a tokio runtime.\n- `reqwest-blocking-client`: Works with a regular `main` or `tokio::main`.\n\nIn other words, other clients like `reqwest` and `hyper` are not supported.\n\n`BatchSpanProcessor` buffers spans in memory and exports them in batches. An\nexport is triggered when `max_export_batch_size` is reached or every\n`scheduled_delay` milliseconds. Users can explicitly trigger an export using\nthe `force_flush` method. Shutdown also triggers an export of all buffered\nspans and is recommended to be called before the application exits to ensure\nall buffered spans are exported.\n\n**Warning**: When using tokio's current-thread runtime, `shutdown()`, which\nis a blocking call ,should not be called from your main thread. This can\ncause deadlock. Instead, call `shutdown()` from a separate thread or use\ntokio's `spawn_blocking`.\n",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        285,
+        1
+      ],
+      "end": [
+        295,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2926,
+          2927,
+          2928,
+          2929,
+          2930,
+          2931,
+          2932,
+          2933,
+          2934,
+          2935,
+          2936,
+          2937,
+          2938,
+          2939,
+          2940,
+          2941,
+          2942,
+          2943,
+          2944,
+          2945,
+          2947,
+          2881
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2225",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+    "anchor": "op-7b6dded2e02e9c652c240628",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchSpanProcessor"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "edc9caf472517cb9eba6d12f",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor::builder",
+    "name": "builder",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn builder<E>(exporter: E) -> BatchSpanProcessorBuilder<E> where E: SpanExporter + Send + 'static",
+    "docs": "builder",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        437,
+        5
+      ],
+      "end": [
+        445,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "exporter",
+              {
+                "generic": "E"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "BatchSpanProcessorBuilder",
+              "id": 2925,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "E"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "E",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "E"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "SpanExporter",
+                        "id": 2290,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 16,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2925": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessorBuilder",
+      "2290": "opentelemetry_sdk::trace::export::SpanExporter",
+      "16": "core::marker::Send"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchSpanProcessor",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          297,
+          1
+        ],
+        "end": [
+          520,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2924",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+    "anchor": "op-edc9caf472517cb9eba6d12f",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchSpanProcessor::builder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5f784d50e5b1f6185dc94d6a",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        284,
+        10
+      ],
+      "end": [
+        284,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchSpanProcessor",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          284,
+          10
+        ],
+        "end": [
+          284,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2946",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+    "anchor": "op-5f784d50e5b1f6185dc94d6a",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchSpanProcessor::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1c19e34dcdbe88f66f1e5712",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor::force_flush",
+    "name": "force_flush",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn force_flush(&self) -> OTelSdkResult",
+    "docs": "Flushes all pending spans.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        596,
+        5
+      ],
+      "end": [
+        630,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchSpanProcessor",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "SpanProcessor",
+        "id": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          522,
+          1
+        ],
+        "end": [
+          703,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2878",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+    "anchor": "op-1c19e34dcdbe88f66f1e5712",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchSpanProcessor::force_flush"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "da9df164a76bbf3a836cc1ff",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor::new",
+    "name": "new",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn new<E>(exporter: E, config: BatchConfig) -> Self where E: SpanExporter + Send + 'static",
+    "docs": "Creates a new instance of `BatchSpanProcessor`.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        299,
+        5
+      ],
+      "end": [
+        434,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "exporter",
+              {
+                "generic": "E"
+              }
+            ],
+            [
+              "config",
+              {
+                "resolved_path": {
+                  "path": "BatchConfig",
+                  "id": 2923,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "E",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "E"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "SpanExporter",
+                        "id": 2290,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 16,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2923": "opentelemetry_sdk::trace::span_processor::BatchConfig",
+      "2290": "opentelemetry_sdk::trace::export::SpanExporter",
+      "16": "core::marker::Send"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchSpanProcessor",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          297,
+          1
+        ],
+        "end": [
+          520,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2922",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+    "anchor": "op-da9df164a76bbf3a836cc1ff",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchSpanProcessor::new"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "947e699f0127b0a974d7ff4b",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor::on_end",
+    "name": "on_end",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn on_end(&self, span: SpanData)",
+    "docs": "Handles span end.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        529,
+        5
+      ],
+      "end": [
+        593,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "resolved_path": {
+                  "path": "SpanData",
+                  "id": 2438,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2438": "opentelemetry_sdk::trace::export::SpanData"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchSpanProcessor",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "SpanProcessor",
+        "id": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          522,
+          1
+        ],
+        "end": [
+          703,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2877",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+    "anchor": "op-947e699f0127b0a974d7ff4b",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchSpanProcessor::on_end"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6865a056c97372a8f1055039",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor::on_start",
+    "name": "on_start",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn on_start(&self, _span: &mut Span, _cx: &Context)",
+    "docs": "Handles span start.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        524,
+        5
+      ],
+      "end": [
+        526,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Span",
+                      "id": 2782,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 1911,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2782": "opentelemetry_sdk::trace::span::Span",
+      "1911": "opentelemetry::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchSpanProcessor",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "SpanProcessor",
+        "id": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          522,
+          1
+        ],
+        "end": [
+          703,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2876",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+    "anchor": "op-6865a056c97372a8f1055039",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchSpanProcessor::on_start"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e29664da4c8ec86b2e000fdb",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor::set_resource",
+    "name": "set_resource",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn set_resource(&mut self, resource: &Resource)",
+    "docs": "Set the resource for the processor.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        697,
+        5
+      ],
+      "end": [
+        702,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "resource",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Resource",
+                      "id": 81,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "81": "opentelemetry_sdk::resource::Resource"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchSpanProcessor",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "SpanProcessor",
+        "id": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          522,
+          1
+        ],
+        "end": [
+          703,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2880",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+    "anchor": "op-e29664da4c8ec86b2e000fdb",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchSpanProcessor::set_resource"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cc4742c1e8302875533cae58",
+    "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor::shutdown_with_timeout",
+    "name": "shutdown_with_timeout",
+    "owner": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn shutdown_with_timeout(&self, timeout: Duration) -> OTelSdkResult",
+    "docs": "Shuts down the processor.",
+    "span": {
+      "filename": "src/trace/span_processor.rs",
+      "begin": [
+        633,
+        5
+      ],
+      "end": [
+        694,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "timeout",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OTelSdkResult",
+              "id": 77,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration",
+      "77": "opentelemetry_sdk::error::OTelSdkResult"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BatchSpanProcessor",
+          "id": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "SpanProcessor",
+        "id": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+        "args": null
+      },
+      "trait_path": "opentelemetry_sdk::trace::span_processor::SpanProcessor",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/span_processor.rs",
+        "begin": [
+          522,
+          1
+        ],
+        "end": [
+          703,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2879",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md",
+    "record_file": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+    "anchor": "op-cc4742c1e8302875533cae58",
+    "aliases": [
+      "opentelemetry_sdk::trace::BatchSpanProcessor::shutdown_with_timeout"
+    ],
+    "resolved_doc_links": {}
+  }
+]

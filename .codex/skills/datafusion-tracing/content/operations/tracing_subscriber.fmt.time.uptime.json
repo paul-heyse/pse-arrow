@@ -1,0 +1,77 @@
+[
+  {
+    "id": "65e31ff929783ce5a4b9841d",
+    "path": "tracing_subscriber::fmt::time::uptime",
+    "name": "uptime",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn uptime() -> Uptime",
+    "docs": "Returns a new `Uptime` timestamp provider.\n\nWith this timer, timestamps will be formatted with the amount of time\nelapsed since the timestamp provider was constructed.\n\nThis can then be configured further to determine how timestamps should be\nconfigured.\n\nThis is equivalent to calling\n```rust\n# fn timer() -> tracing_subscriber::fmt::time::Uptime {\ntracing_subscriber::fmt::time::Uptime::default()\n# }\n```",
+    "span": {
+      "filename": "src/fmt/time/mod.rs",
+      "begin": [
+        85,
+        1
+      ],
+      "end": [
+        87,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "Uptime",
+              "id": 2507,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2507": "tracing_subscriber::fmt::time::Uptime"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2509",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.time.uptime.md",
+    "record_file": "operations/tracing_subscriber.fmt.time.uptime.json",
+    "anchor": "op-65e31ff929783ce5a4b9841d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

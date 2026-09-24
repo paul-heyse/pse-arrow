@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-structural"
-description = "Incidence, bipartite matching, Dulmage-Mendelsohn, SCC/BTD, degrees of freedom and tear selection (blueprint §3.2, §15)."
+description = "Typed dependency projections and library graph analysis."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,8 +17,16 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-petgraph.workspace = true
-pse-relations.workspace = true
+pse-kernels.workspace = true
+pse-quantity.workspace = true
+pounce-presolve.workspace = true
+pse-model.workspace = true
 pse-ids.workspace = true
+pse-diagnostics.workspace = true
+petgraph.workspace = true
+rustworkx-core.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+
+[dev-dependencies]
+pse-quantity = { workspace = true, features = ["fixtures"] }

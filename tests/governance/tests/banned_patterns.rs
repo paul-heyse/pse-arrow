@@ -66,7 +66,7 @@ const BANS: &[Ban] = &[
     Ban {
         pattern: r"config_options\(",
         literals: false,
-        scopes: &["crates/pse-kernels", "crates/pse-kernels-ext"],
+        scopes: &["crates/pse-kernels"],
         reason: "a kernel that reads engine configuration is not a pure function of its inputs (blueprint §9, §24.1)",
     },
     Ban {
@@ -78,7 +78,7 @@ const BANS: &[Ban] = &[
     Ban {
         pattern: r"try_with_compression",
         literals: false,
-        scopes: &["crates/pse-ids/src/canon"],
+        scopes: &["crates/pse-columnar/src/canon"],
         reason: "canonical identity IPC is uncompressed; transport may use compression (blueprint §5.3, §3.3.1, ADR-0065)",
     },
     Ban {

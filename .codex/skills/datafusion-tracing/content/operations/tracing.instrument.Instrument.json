@@ -1,0 +1,337 @@
+[
+  {
+    "id": "f3255b14b518b17fdbec7041",
+    "path": "tracing::instrument::Instrument",
+    "name": "Instrument",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "trait",
+    "signature": "trait Instrument: Sized",
+    "docs": "Attaches spans to a [`std::future::Future`].\n\nExtension trait allowing futures to be\ninstrumented with a `tracing` [span].\n\n[span]: super::Span",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        131,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          53,
+          55
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Sized",
+                "id": 57,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          58
+        ]
+      }
+    },
+    "type_references": {
+      "57": "core::marker::Sized"
+    },
+    "impl_context": null,
+    "links": {
+      "super::Span": 46,
+      "`std::future::Future`": 48
+    },
+    "link_paths": {
+      "super::Span": "tracing::span::Span",
+      "`std::future::Future`": "core::future::future::Future"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "56",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.Instrument.md",
+    "record_file": "operations/tracing.instrument.Instrument.json",
+    "anchor": "op-f3255b14b518b17fdbec7041",
+    "aliases": [
+      "tracing::Instrument"
+    ],
+    "resolved_doc_links": {
+      "super::Span": "../operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6"
+    }
+  },
+  {
+    "id": "6c17bae75c8707a1c5840700",
+    "path": "tracing::instrument::Instrument::in_current_span",
+    "name": "in_current_span",
+    "owner": "tracing::instrument::Instrument",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn in_current_span(self) -> Instrumented<Self>",
+    "docs": "Instruments this type with the [current] [`Span`], returning an\n`Instrumented` wrapper.\n\nThe attached [`Span`] will be [entered] every time the instrumented\n[`Future`] is polled or [`Drop`]ped.\n\nThis can be used to propagate the current span when spawning a new future.\n\n# Examples\n\n```rust\nuse tracing::Instrument;\n\n# mod tokio {\n#     pub(super) fn spawn(_: impl std::future::Future) {}\n# }\n# async fn doc() {\nlet span = tracing::info_span!(\"my_span\");\nlet _enter = span.enter();\n\n// ...\n\nlet future = async {\n    tracing::debug!(\"this event will occur inside `my_span`\");\n    // ...\n};\ntokio::spawn(future.in_current_span());\n# }\n```\n\n[current]: super::Span::current()\n[entered]: super::Span::enter()\n[`Span`]: crate::Span\n[`Future`]: std::future::Future",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        128,
+        5
+      ],
+      "end": [
+        130,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Instrumented",
+              "id": 54,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "54": "tracing::instrument::Instrumented"
+    },
+    "impl_context": null,
+    "links": {
+      "super::Span::current()": 51,
+      "super::Span::enter()": 47,
+      "`Drop`": 49,
+      "std::future::Future": 48,
+      "crate::Span": 46
+    },
+    "link_paths": {
+      "super::Span::current()": "tracing::span::Span::current",
+      "super::Span::enter()": "tracing::span::Span::enter",
+      "`Drop`": "core::ops::drop::Drop",
+      "std::future::Future": "core::future::future::Future",
+      "crate::Span": "tracing::span::Span"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "55",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.Instrument.md",
+    "record_file": "operations/tracing.instrument.Instrument.json",
+    "anchor": "op-6c17bae75c8707a1c5840700",
+    "aliases": [
+      "tracing::Instrument::in_current_span"
+    ],
+    "resolved_doc_links": {
+      "super::Span::current()": "../operations/tracing.span.Span.md#op-a38eacf50c34633dd1945d08",
+      "super::Span::enter()": "../operations/tracing.span.Span.md#op-0ac1698dc0d740afb9e61b4b",
+      "crate::Span": "../operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6"
+    }
+  },
+  {
+    "id": "07b9b2ea22c2f17a5b513497",
+    "path": "tracing::instrument::Instrument::instrument",
+    "name": "instrument",
+    "owner": "tracing::instrument::Instrument",
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "function",
+    "signature": "fn instrument(self, span: Span) -> Instrumented<Self>",
+    "docs": "Instruments this type with the provided [`Span`], returning an\n`Instrumented` wrapper.\n\nThe attached [`Span`] will be [entered] every time the instrumented\n[`Future`] is polled or [`Drop`]ped.\n\n# Examples\n\nInstrumenting a future:\n\n```rust\nuse tracing::Instrument;\n\n# async fn doc() {\nlet my_future = async {\n    // ...\n};\n\nmy_future\n    .instrument(tracing::info_span!(\"my_future\"))\n    .await\n# }\n```\n\nThe [`Span::or_current`] combinator can be used in combination with\n`instrument` to ensure that the [current span] is attached to the\nfuture if the span passed to `instrument` is [disabled]:\n\n```\nuse tracing::Instrument;\n# mod tokio {\n#     pub(super) fn spawn(_: impl std::future::Future) {}\n# }\n\nlet my_future = async {\n    // ...\n};\n\nlet outer_span = tracing::info_span!(\"outer\").entered();\n\n// If the \"my_future\" span is enabled, then the spawned task will\n// be within both \"my_future\" *and* \"outer\", since \"outer\" is\n// \"my_future\"'s parent. However, if \"my_future\" is disabled,\n// the spawned task will *not* be in any span.\ntokio::spawn(\n    my_future\n        .instrument(tracing::debug_span!(\"my_future\"))\n);\n\n// Using `Span::or_current` ensures the spawned task is instrumented\n// with the current span, if the new span passed to `instrument` is\n// not enabled. This means that if the \"my_future\"  span is disabled,\n// the spawned task will still be instrumented with the \"outer\" span:\n# let my_future = async {};\ntokio::spawn(\n   my_future\n        .instrument(tracing::debug_span!(\"my_future\").or_current())\n);\n```\n\n[entered]: super::Span::enter()\n[`Span::or_current`]: super::Span::or_current()\n[current span]: super::Span::current()\n[disabled]: super::Span::is_disabled()\n[`Future`]: std::future::Future",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        86,
+        5
+      ],
+      "end": [
+        91,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "span",
+              {
+                "resolved_path": {
+                  "path": "Span",
+                  "id": 46,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Instrumented",
+              "id": 54,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "46": "tracing::span::Span",
+      "54": "tracing::instrument::Instrumented"
+    },
+    "impl_context": null,
+    "links": {
+      "super::Span::is_disabled()": 52,
+      "super::Span::current()": 51,
+      "super::Span::enter()": 47,
+      "`Drop`": 49,
+      "super::Span::or_current()": 50,
+      "std::future::Future": 48,
+      "`Span`": 46
+    },
+    "link_paths": {
+      "super::Span::is_disabled()": "tracing::span::Span::is_disabled",
+      "super::Span::current()": "tracing::span::Span::current",
+      "super::Span::enter()": "tracing::span::Span::enter",
+      "`Drop`": "core::ops::drop::Drop",
+      "super::Span::or_current()": "tracing::span::Span::or_current",
+      "std::future::Future": "core::future::future::Future",
+      "`Span`": "tracing::span::Span"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "53",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.instrument.Instrument.md",
+    "record_file": "operations/tracing.instrument.Instrument.json",
+    "anchor": "op-07b9b2ea22c2f17a5b513497",
+    "aliases": [
+      "tracing::Instrument::instrument"
+    ],
+    "resolved_doc_links": {
+      "super::Span::is_disabled()": "../operations/tracing.span.Span.md#op-562dba444b98d218f7bd07a8",
+      "super::Span::current()": "../operations/tracing.span.Span.md#op-a38eacf50c34633dd1945d08",
+      "super::Span::enter()": "../operations/tracing.span.Span.md#op-0ac1698dc0d740afb9e61b4b",
+      "super::Span::or_current()": "../operations/tracing.span.Span.md#op-e09c60244cda76a108832e96",
+      "`Span`": "../operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6"
+    }
+  }
+]

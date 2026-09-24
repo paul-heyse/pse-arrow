@@ -11,14 +11,12 @@ use datafusion::execution::{
     runtime_env::{RuntimeEnv, RuntimeEnvBuilder},
 };
 use datafusion::logical_expr::LogicalPlanBuilder;
-use pse_catalog::session::{
-    ExecutionSettings, SnapshotSession, ThreadBudget, build_candidate_session,
-    native_engine_profile,
-};
-use pse_ids::{CancellationToken, FixedBudget, MemoryReserver};
+use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget, native_engine_profile};
+
+use pse_columnar::{CancellationToken, MemoryPool};
 use pse_schema::{
     RegistryBuilder,
-    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
+    model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
@@ -28,7 +26,7 @@ use std::sync::Arc;
     clippy::expect_used,
     reason = "test fixture helper requires valid declared setup"
 )]
-fn fixture() -> (SnapshotSession, RecordBatch, Arc<FixedBudget>) {
+fn fixture() -> (EngineSession, RecordBatch, Arc<dyn MemoryPool>) {
     let mut builder = RegistryBuilder::new();
     builder.declare_relation(
         RelationDecl::new(
@@ -56,14 +54,23 @@ fn fixture() -> (SnapshotSession, RecordBatch, Arc<FixedBudget>) {
     let registry = Arc::new(builder.build().expect("registry"));
     let spec = registry.relation("authored.samples").expect("relation");
     let rows = vec![
-        vec![Cell::U64(1), Cell::text("a")],
-        vec![Cell::U64(1), Cell::text("b")],
-        vec![Cell::U64(2), Cell::text("c")],
+        vec![
+            serde_json::json!(["u64", 1]),
+            serde_json::json!(["text", "a"]),
+        ],
+        vec![
+            serde_json::json!(["u64", 1]),
+            serde_json::json!(["text", "b"]),
+        ],
+        vec![
+            serde_json::json!(["u64", 2]),
+            serde_json::json!(["text", "c"]),
+        ],
     ];
-    let batch = pse_relations::cells::batch_from_cells(&registry, spec, &rows)
+    let batch = pse_relations::testing::batch_from_literals(&registry, spec, &rows)
         .expect("schema admitted duplicates");
-    let budget = FixedBudget::new(8 << 20);
-    let reserver: Arc<dyn MemoryReserver> = budget.clone();
+    let budget: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(8 << 20));
+    let pool: Arc<dyn MemoryPool> = budget.clone();
     let runtime: Arc<RuntimeEnv> = Arc::new(
         RuntimeEnvBuilder::new()
             .with_memory_pool(Arc::new(GreedyMemoryPool::new(8 << 20)))
@@ -71,11 +78,9 @@ fn fixture() -> (SnapshotSession, RecordBatch, Arc<FixedBudget>) {
             .expect("runtime"),
     );
     let thread = NonZeroUsize::new(1).expect("one");
-    let session = build_candidate_session(
-        BTreeMap::from([(spec.key, batch.clone())]),
-        registry,
+    let session = pse_engine::EngineFactory::new(
         runtime,
-        reserver,
+        pool,
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: thread,
@@ -83,6 +88,13 @@ fn fixture() -> (SnapshotSession, RecordBatch, Arc<FixedBudget>) {
         },
         native_engine_profile(),
     )
+    .and_then(|factory| {
+        factory.candidate(
+            BTreeMap::from([(spec.key, batch.clone())]),
+            registry.clone(),
+            &CancellationToken::new(),
+        )
+    })
     .expect("session");
     (session, batch, budget)
 }

@@ -1,0 +1,132 @@
+[
+  {
+    "id": "142f5fbb810835359ad5d716",
+    "path": "tracing_subscriber",
+    "name": "tracing_subscriber",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "module",
+    "signature": "mod tracing_subscriber",
+    "docs": "Utilities for implementing and composing [`tracing`] subscribers.\n\n[`tracing`] is a framework for instrumenting Rust programs to collect\nscoped, structured, and async-aware diagnostics. The [`Subscriber`] trait\nrepresents the functionality necessary to collect this trace data. This\ncrate contains tools for composing subscribers out of smaller units of\nbehaviour, and batteries-included implementations of common subscriber\nfunctionality.\n\n`tracing-subscriber` is intended for use by both `Subscriber` authors and\napplication authors using `tracing` to instrument their applications.\n\n*Compiler support: [requires `rustc` 1.65+][msrv]*\n\n[msrv]: #supported-rust-versions\n\n## `Layer`s and `Filter`s\n\nThe most important component of the `tracing-subscriber` API is the\n[`Layer`] trait, which provides a composable abstraction for building\n[`Subscriber`]s. Like the [`Subscriber`] trait, a [`Layer`] defines a\nparticular behavior for collecting trace data. Unlike [`Subscriber`]s,\nwhich implement a *complete* strategy for how trace data is collected,\n[`Layer`]s provide *modular* implementations of specific behaviors.\nTherefore, they can be [composed together] to form a [`Subscriber`] which is\ncapable of recording traces in a variety of ways. See the [`layer` module's\ndocumentation][layer] for details on using [`Layer`]s.\n\nIn addition, the [`Filter`] trait defines an interface for filtering what\nspans and events are recorded by a particular layer. This allows different\n[`Layer`]s to handle separate subsets of the trace data emitted by a\nprogram. See the [documentation on per-layer filtering][plf] for more\ninformation on using [`Filter`]s.\n\n[`Layer`]: crate::layer::Layer\n[composed together]: crate::layer#composing-layers\n[layer]: crate::layer\n[`Filter`]: crate::layer::Filter\n[plf]: crate::layer#per-layer-filtering\n\n## Included Subscribers\n\nThe following `Subscriber`s are provided for application authors:\n\n- [`fmt`] - Formats and logs tracing data (requires the `fmt` feature flag)\n\n## Feature Flags\n\n- `std`: Enables APIs that depend on the Rust standard library\n  (enabled by default).\n- `alloc`: Depend on [`liballoc`] (enabled by \"std\").\n- `env-filter`: Enables the [`EnvFilter`] type, which implements filtering\n  similar to the [`env_logger` crate]. **Requires \"std\"**.\n- `fmt`: Enables the [`fmt`] module, which provides a subscriber\n  implementation for printing formatted representations of trace events.\n  Enabled by default. **Requires \"registry\" and \"std\"**.\n- `ansi`: Enables `fmt` support for ANSI terminal colors. Enabled by\n  default.\n- `registry`: enables the [`registry`] module. Enabled by default.\n  **Requires \"std\"**.\n- `json`: Enables `fmt` support for JSON output. In JSON output, the ANSI\n  feature does nothing. **Requires \"fmt\" and \"std\"**.\n- `local-time`: Enables local time formatting when using the [`time`\n  crate]'s timestamp formatters with the `fmt` subscriber.\n\n[`registry`]: mod@registry\n\n### Optional Dependencies\n\n- [`tracing-log`]: Enables better formatting for events emitted by `log`\n  macros in the `fmt` subscriber. Enabled by default.\n- [`time`][`time` crate]: Enables support for using the [`time` crate] for timestamp\n  formatting in the `fmt` subscriber.\n- [`smallvec`]: Causes the `EnvFilter` type to use the `smallvec` crate (rather\n  than `Vec`) as a performance optimization. Enabled by default.\n- [`parking_lot`]: Use the `parking_lot` crate's `RwLock` implementation\n  rather than the Rust standard library's implementation.\n\n### `no_std` Support\n\nIn embedded systems and other bare-metal applications, `tracing` can be\nused without requiring the Rust standard library, although some features are\ndisabled. Although most of the APIs provided by `tracing-subscriber`, such\nas [`fmt`] and [`EnvFilter`], require the standard library, some\nfunctionality, such as the [`Layer`] trait, can still be used in\n`no_std` environments.\n\nThe dependency on the standard library is controlled by two crate feature\nflags, \"std\", which enables the dependency on [`libstd`], and \"alloc\", which\nenables the dependency on [`liballoc`] (and is enabled by the \"std\"\nfeature). These features are enabled by default, but `no_std` users can\ndisable them using:\n\n```toml\n# Cargo.toml\ntracing-subscriber = { version = \"0.3\", default-features = false }\n```\n\nAdditional APIs are available when [`liballoc`] is available. To enable\n`liballoc` but not `std`, use:\n\n```toml\n# Cargo.toml\ntracing-subscriber = { version = \"0.3\", default-features = false, features = [\"alloc\"] }\n```\n\n### Unstable Features\n\nThese feature flags enable **unstable** features. The public API may break in 0.1.x\nreleases. To enable these features, the `--cfg tracing_unstable` must be passed to\n`rustc` when compiling.\n\nThe following unstable feature flags are currently available:\n\n* `valuable`: Enables support for serializing values recorded using the\n  [`valuable`] crate as structured JSON in the [`format::Json`] formatter.\n\n#### Enabling Unstable Features\n\nThe easiest way to set the `tracing_unstable` cfg is to use the `RUSTFLAGS`\nenv variable when running `cargo` commands:\n\n```shell\nRUSTFLAGS=\"--cfg tracing_unstable\" cargo build\n```\nAlternatively, the following can be added to the `.cargo/config` file in a\nproject to automatically enable the cfg flag for that project:\n\n```toml\n[build]\nrustflags = [\"--cfg\", \"tracing_unstable\"]\n```\n\n[feature flags]: https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section\n[`valuable`]: https://crates.io/crates/valuable\n[`format::Json`]: crate::fmt::format::Json\n\n## Supported Rust Versions\n\nTracing is built against the latest stable release. The minimum supported\nversion is 1.65. The current Tracing version is not guaranteed to build on\nRust versions earlier than the minimum supported version.\n\nTracing follows the same compiler support policies as the rest of the Tokio\nproject. The current stable Rust compiler and the three most recent minor\nversions before it will always be supported. For example, if the current\nstable compiler version is 1.69, the minimum supported version will not be\nincreased past 1.66, three minor versions prior. Increasing the minimum\nsupported compiler version is not considered a semver breaking change as\nlong as doing so complies with this policy.\n\n[`Subscriber`]: tracing_core::subscriber::Subscriber\n[`tracing`]: https://docs.rs/tracing/latest/tracing\n[`EnvFilter`]: filter::EnvFilter\n[`fmt`]: mod@fmt\n[`tracing`]: https://crates.io/crates/tracing\n[`tracing-log`]: https://crates.io/crates/tracing-log\n[`smallvec`]: https://crates.io/crates/smallvec\n[`env_logger` crate]: https://crates.io/crates/env_logger\n[`parking_lot`]: https://crates.io/crates/parking_lot\n[`time` crate]: https://crates.io/crates/time\n[`liballoc`]: https://doc.rust-lang.org/alloc/index.html\n[`libstd`]: https://doc.rust-lang.org/std/index.html",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        256,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[deny(rustdoc::broken_intra_doc_links)]"
+      },
+      {
+        "other": "#[warn(missing_debug_implementations, missing_docs, rust_2018_idioms,\nunreachable_pub, bad_style, dead_code, improper_ctypes,\nnon_shorthand_field_patterns, no_mangle_generic_items, overflowing_literals,\npath_statements, patterns_in_fns_without_body, private_interfaces,\nprivate_bounds, unconditional_recursion, unused, unused_allocation,\nunused_comparisons, unused_parens, while_true)]"
+      },
+      {
+        "other": "#[allow(clippy::needless_update)]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[attr = NoStd]"
+      },
+      {
+        "other": "#[doc(html_favicon_url = \"https://raw.githubusercontent.com/tokio-rs/tracing/main/assets/favicon.ico\")]"
+      },
+      {
+        "other": "#[doc(html_logo_url = \"https://raw.githubusercontent.com/tokio-rs/tracing/main/assets/logo-type.png\")]"
+      },
+      {
+        "other": "#[doc(issue_tracker_base_url = \"https://github.com/tokio-rs/tracing/issues/\")]"
+      },
+      {
+        "other": "#[attr = Feature([doc_cfg#0, doc_notable_trait#0])]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          275,
+          373,
+          1005,
+          1240,
+          279,
+          1556,
+          1520,
+          3043,
+          3045,
+          3046,
+          3047,
+          3048,
+          3049,
+          3050
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::layer#composing-layers": 279,
+      "mod@fmt": 3043,
+      "tracing_core::subscriber::Subscriber": 317,
+      "filter::EnvFilter": 377,
+      "crate::layer#per-layer-filtering": 279,
+      "crate::layer::Filter": 280,
+      "crate::layer": 279,
+      "crate::layer::Layer": 281,
+      "mod@registry": 1240,
+      "crate::fmt::format::Json": 1692
+    },
+    "link_paths": {
+      "crate::layer#composing-layers": "tracing_subscriber::layer",
+      "mod@fmt": "tracing_subscriber::fmt",
+      "tracing_core::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "filter::EnvFilter": "tracing_subscriber::filter::env::EnvFilter",
+      "crate::layer#per-layer-filtering": "tracing_subscriber::layer",
+      "crate::layer::Filter": "tracing_subscriber::layer::Filter",
+      "crate::layer": "tracing_subscriber::layer",
+      "crate::layer::Layer": "tracing_subscriber::layer::Layer",
+      "mod@registry": "tracing_subscriber::registry",
+      "crate::fmt::format::Json": "tracing_subscriber::fmt::format::json::Json"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1522",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_subscriber.md",
+    "record_file": "modules/tracing_subscriber.json",
+    "anchor": "op-142f5fbb810835359ad5d716",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::layer#composing-layers": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "mod@fmt": "../modules/tracing_subscriber.fmt.md#op-7f8793caaa642a6fdcf5c97d",
+      "tracing_core::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "filter::EnvFilter": "../operations/tracing_subscriber.filter.env.EnvFilter.md#op-f18b1a3b867d9bc485e30055",
+      "crate::layer#per-layer-filtering": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "crate::layer::Filter": "../operations/tracing_subscriber.layer.Filter.md#op-fd31ac1a2cd1ed4f447625f3",
+      "crate::layer": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "crate::layer::Layer": "../operations/tracing_subscriber.layer.Layer.md#op-4c1ba1a6be909c9a1b91bff8",
+      "mod@registry": "../modules/tracing_subscriber.registry.md#op-40e91aae80c79f31a37c4ab2",
+      "crate::fmt::format::Json": "../operations/tracing_subscriber.fmt.format.json.Json.md#op-8e1265e43c2726c9a4be086c"
+    }
+  }
+]

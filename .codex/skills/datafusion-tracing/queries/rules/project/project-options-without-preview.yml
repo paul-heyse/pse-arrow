@@ -1,0 +1,27 @@
+id: project-options-without-preview
+language: rust
+severity: hint
+message: an InstrumentationOptions chain that records no preview
+note: |
+  Preview defaults to disabled. A positive preview_limit enables default formatting even
+  without preview_fn. This syntax hint identifies an inline builder chain with no limit
+  setter; it does not resolve aliases, dynamic values, or prove the caller needs preview.
+metadata:
+  record: capability-gap
+  capability: preview
+rule:
+  kind: call_expression
+  all:
+    - has:
+        field: function
+        kind: field_expression
+        has: { field: field, regex: '^build$' }
+    - has:
+        stopBy: end
+        kind: identifier
+        regex: '^InstrumentationOptions$'
+    - not:
+        has:
+          stopBy: end
+          kind: field_identifier
+          regex: '^preview_limit$'

@@ -1,0 +1,671 @@
+[
+  {
+    "id": "de52b718f0173c036026e222",
+    "path": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+    "name": "InMemoryMetricExporterBuilder",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct InMemoryMetricExporterBuilder",
+    "docs": "Builder for [`InMemoryMetricExporter`].\n# Example\n\n```\n# use opentelemetry_sdk::metrics::{InMemoryMetricExporter, InMemoryMetricExporterBuilder};\n\nlet exporter = InMemoryMetricExporterBuilder::new().build();\n```",
+    "span": {
+      "filename": "src/metrics/in_memory_exporter.rs",
+      "begin": [
+        96,
+        1
+      ],
+      "end": [
+        98,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1810,
+          1811,
+          1812,
+          1813,
+          1814,
+          1815,
+          1816,
+          1817,
+          1818,
+          1819,
+          1820,
+          1821,
+          1822,
+          1823,
+          1824,
+          1825,
+          1826,
+          1827,
+          1828,
+          1829,
+          1831,
+          1833
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`InMemoryMetricExporter`": 1325
+    },
+    "link_paths": {
+      "`InMemoryMetricExporter`": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporter"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1806",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.json",
+    "anchor": "op-de52b718f0173c036026e222",
+    "aliases": [
+      "opentelemetry_sdk::metrics::InMemoryMetricExporterBuilder"
+    ],
+    "resolved_doc_links": {
+      "`InMemoryMetricExporter`": "../operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporter.md#op-bce1568ad3e395f17ac0d53a"
+    }
+  },
+  {
+    "id": "ad229857f07bc0be704f8aaa",
+    "path": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> InMemoryMetricExporter",
+    "docs": "Creates a new instance of the `InMemoryMetricExporter`.\n",
+    "span": {
+      "filename": "src/metrics/in_memory_exporter.rs",
+      "begin": [
+        126,
+        5
+      ],
+      "end": [
+        131,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InMemoryMetricExporter",
+              "id": 1325,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1325": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemoryMetricExporterBuilder",
+          "id": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/in_memory_exporter.rs",
+        "begin": [
+          112,
+          1
+        ],
+        "end": [
+          132,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1809",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.json",
+    "anchor": "op-ad229857f07bc0be704f8aaa",
+    "aliases": [
+      "opentelemetry_sdk::metrics::InMemoryMetricExporterBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "38a08c162a8e79f4831ca9bb",
+    "path": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/in_memory_exporter.rs",
+      "begin": [
+        107,
+        5
+      ],
+      "end": [
+        109,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemoryMetricExporterBuilder",
+          "id": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/in_memory_exporter.rs",
+        "begin": [
+          106,
+          1
+        ],
+        "end": [
+          110,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1832",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.json",
+    "anchor": "op-38a08c162a8e79f4831ca9bb",
+    "aliases": [
+      "opentelemetry_sdk::metrics::InMemoryMetricExporterBuilder::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dd9ed92564d81488f9111bf1",
+    "path": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/in_memory_exporter.rs",
+      "begin": [
+        101,
+        5
+      ],
+      "end": [
+        103,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemoryMetricExporterBuilder",
+          "id": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/in_memory_exporter.rs",
+        "begin": [
+          100,
+          1
+        ],
+        "end": [
+          104,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1830",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.json",
+    "anchor": "op-dd9ed92564d81488f9111bf1",
+    "aliases": [
+      "opentelemetry_sdk::metrics::InMemoryMetricExporterBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "209993542b9122c11687a583",
+    "path": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder::new",
+    "name": "new",
+    "owner": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn new() -> Self",
+    "docs": "Creates a new instance of the `InMemoryMetricExporterBuilder`.",
+    "span": {
+      "filename": "src/metrics/in_memory_exporter.rs",
+      "begin": [
+        114,
+        5
+      ],
+      "end": [
+        116,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemoryMetricExporterBuilder",
+          "id": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/in_memory_exporter.rs",
+        "begin": [
+          112,
+          1
+        ],
+        "end": [
+          132,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1807",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.json",
+    "anchor": "op-209993542b9122c11687a583",
+    "aliases": [
+      "opentelemetry_sdk::metrics::InMemoryMetricExporterBuilder::new"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "59b7b9afc61812bc4fcee6e5",
+    "path": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder::with_temporality",
+    "name": "with_temporality",
+    "owner": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_temporality(self, temporality: Temporality) -> Self",
+    "docs": "Set the [Temporality] of the exporter.",
+    "span": {
+      "filename": "src/metrics/in_memory_exporter.rs",
+      "begin": [
+        119,
+        5
+      ],
+      "end": [
+        122,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "temporality",
+              {
+                "resolved_path": {
+                  "path": "Temporality",
+                  "id": 1043,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1043": "opentelemetry_sdk::metrics::Temporality"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InMemoryMetricExporterBuilder",
+          "id": "opentelemetry_sdk::metrics::in_memory_exporter::InMemoryMetricExporterBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/in_memory_exporter.rs",
+        "begin": [
+          112,
+          1
+        ],
+        "end": [
+          132,
+          2
+        ]
+      }
+    },
+    "links": {
+      "Temporality": 1043
+    },
+    "link_paths": {
+      "Temporality": "opentelemetry_sdk::metrics::Temporality"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1808",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.in_memory_exporter.InMemoryMetricExporterBuilder.json",
+    "anchor": "op-59b7b9afc61812bc4fcee6e5",
+    "aliases": [
+      "opentelemetry_sdk::metrics::InMemoryMetricExporterBuilder::with_temporality"
+    ],
+    "resolved_doc_links": {
+      "Temporality": "../operations/opentelemetry_sdk.metrics.Temporality.md#op-dc2884d798040a5373238d65"
+    }
+  }
+]

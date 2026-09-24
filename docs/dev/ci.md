@@ -107,6 +107,31 @@ that is a bug in the justfile.
 
 ## Phase-zero limits
 
+### Skill bundles and product lint scope
+
+The complete `.codex/skills/` tree and its `.claude/skills/` and `.agents/skills/`
+aliases are excluded from repository code, style and reference linting and automatic
+formatting. This includes skill scripts, build tooling, examples and captured evidence.
+Ruff, Taplo, spelling, pre-commit and CI shell discovery apply the directory exclusions;
+Rust workspace checks and structural rules retain their product-source scope.
+Explicit Ruff file arguments also honor exclusions. Agent formatting hooks skip both
+symlink aliases and materialized skill copies.
+For manual spelling checks with explicit paths, pass `typos --force-exclude` to retain
+the same boundary, including for absolute filenames.
+
+Library capability skills (everything under `.codex/skills/` except the
+repository-process skills `adr` and `design-review`) are local-only and gitignored until
+they move to a repository of their own; skills committed before that rule stay tracked.
+CI therefore depends only on `adr` and `design-review`, and `just setup-test` copies only
+the skills `.gitignore` does not exclude.
+
+`just lint-agents` still checks repository instructions, shared rules, agent definitions,
+hook wiring and skill-alias integrity, but does not scan skill documents for references.
+SPDX attribution remains covered by `REUSE.toml` and `just lint-license`. Product lint
+rules and the zero-failure baseline remain unchanged.
+
+### Deferred qualification
+
 Code generation and API-reference doc lint remain deferred (register R-20).
 PR-time API doc lint emits a deferral notice when the path indexes are absent;
 its CLI remains an exit-2 stub and scheduled checks retain the register trigger.

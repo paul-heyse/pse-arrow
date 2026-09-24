@@ -1,0 +1,249 @@
+[
+  {
+    "id": "9f1b78f92e3737b10979713b",
+    "path": "opentelemetry::trace::span_context::TraceStateError",
+    "name": "TraceStateError",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "enum",
+    "signature": "enum TraceStateError",
+    "docs": "Error returned by `TraceState` operations.",
+    "span": {
+      "filename": "src/trace/span_context.rs",
+      "begin": [
+        220,
+        1
+      ],
+      "end": [
+        238,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "non_exhaustive"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          1734,
+          1736,
+          1738
+        ],
+        "impls": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1692",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span_context.TraceStateError.md",
+    "record_file": "operations/opentelemetry.trace.span_context.TraceStateError.json",
+    "anchor": "op-9f1b78f92e3737b10979713b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "01b5ac12b1baf1e203e799d7",
+    "path": "opentelemetry::trace::span_context::TraceStateError::Key",
+    "name": "Key",
+    "owner": "opentelemetry::trace::span_context::TraceStateError",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Key",
+    "docs": "The key is invalid.\n\nSee <https://www.w3.org/TR/trace-context/#key> for requirement for keys.",
+    "span": {
+      "filename": "src/trace/span_context.rs",
+      "begin": [
+        225,
+        5
+      ],
+      "end": [
+        225,
+        16
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[error(\"{0} is not a valid key in TraceState, see https://www.w3.org/TR/trace-context/#key for more details\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            1733
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1734",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span_context.TraceStateError.md",
+    "record_file": "operations/opentelemetry.trace.span_context.TraceStateError.json",
+    "anchor": "op-01b5ac12b1baf1e203e799d7",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0d9b1504b2ece41ffe7642c2",
+    "path": "opentelemetry::trace::span_context::TraceStateError::List",
+    "name": "List",
+    "owner": "opentelemetry::trace::span_context::TraceStateError",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "List",
+    "docs": "The list is invalid.\n\nSee <https://www.w3.org/TR/trace-context/#list> for requirement for list members.",
+    "span": {
+      "filename": "src/trace/span_context.rs",
+      "begin": [
+        237,
+        5
+      ],
+      "end": [
+        237,
+        17
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[error(\"{0} is not a valid list member in TraceState, see https://www.w3.org/TR/trace-context/#list for more details\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            1737
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1738",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span_context.TraceStateError.md",
+    "record_file": "operations/opentelemetry.trace.span_context.TraceStateError.json",
+    "anchor": "op-0d9b1504b2ece41ffe7642c2",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e59c16ca97da205c94844465",
+    "path": "opentelemetry::trace::span_context::TraceStateError::Value",
+    "name": "Value",
+    "owner": "opentelemetry::trace::span_context::TraceStateError",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Value",
+    "docs": "The value is invalid.\n\nSee <https://www.w3.org/TR/trace-context/#value> for requirement for values.",
+    "span": {
+      "filename": "src/trace/span_context.rs",
+      "begin": [
+        231,
+        5
+      ],
+      "end": [
+        231,
+        18
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[error(\"{0} is not a valid value in TraceState, see https://www.w3.org/TR/trace-context/#value for more details\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            1735
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1736",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span_context.TraceStateError.md",
+    "record_file": "operations/opentelemetry.trace.span_context.TraceStateError.json",
+    "anchor": "op-e59c16ca97da205c94844465",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

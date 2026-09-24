@@ -15,7 +15,6 @@ use datafusion::{
     execution::context::SessionContext,
     logical_expr::{Expr, col},
 };
-use pse_catalog::session::scalar;
 use pse_ids::ContentHash;
 use std::sync::Arc;
 
@@ -32,7 +31,7 @@ async fn scoped_keys(
     context
         .read_batch(batch)
         .unwrap()
-        .select(vec![scalar::key(
+        .select(vec![pse_relations::identity::key(
             relation,
             names.iter().map(|name| (*name, col(*name))).collect(),
         )])
@@ -149,7 +148,8 @@ async fn native_row_tokens_mask_null_parent_payloads() {
 
 #[test]
 fn native_key_expression_has_no_text_encoding_path() {
-    let expression = scalar::key(pse_ids::SemanticId::NIL, vec![("id", col("id"))]);
+    let expression =
+        pse_relations::identity::key(pse_ids::SemanticId::NIL, vec![("id", col("id"))]);
     let Expr::ScalarFunction(call) = expression else {
         panic!("native scalar function")
     };
@@ -158,7 +158,7 @@ fn native_key_expression_has_no_text_encoding_path() {
 
 #[test]
 fn native_output_cannot_relabel_an_ordinary_hash_or_another_key_encoding() {
-    let registry = pse_schema::registry().unwrap();
+    let registry = pse_engine::validation::registry().unwrap();
     let expected = pse_schema::arrow::field_for(
         registry,
         &pse_schema::model::FieldContract::row_key().with_name("key"),
@@ -175,10 +175,10 @@ fn native_output_cannot_relabel_an_ordinary_hash_or_another_key_encoding() {
         "unqualified-encoding".into(),
     );
     for actual in [ordinary, another] {
-        assert!(pse_catalog::session::output::check_field_output(&actual, &expected).is_err());
+        assert!(pse_engine::session::output::check_field_output(&actual, &expected).is_err());
         let actual = Field::new("nested", DataType::List(Arc::new(actual)), false);
         let declared = Field::new("nested", DataType::List(Arc::new(expected.clone())), false);
-        assert!(pse_catalog::session::output::check_field_output(&actual, &declared).is_err());
+        assert!(pse_engine::session::output::check_field_output(&actual, &declared).is_err());
     }
 }
 
@@ -186,9 +186,10 @@ fn native_output_cannot_relabel_an_ordinary_hash_or_another_key_encoding() {
 async fn pinned_row_encoding_has_a_frozen_contract_vector() {
     let batch = key_batch(vec![("id", Arc::new(Int64Array::from(vec![42])))]).unwrap();
     let actual = keys(batch, &["id"]).await;
+    // Independently framed from the v2 wire contract in pse-ids::row_token units.
     assert_eq!(
         actual[0].to_string(),
-        "4f04d8f6d8195bb757b8060826287a376b9be812558de2689a6d3368c58c0f0a"
+        "811bfe61cc46de019bff708ee5f5b8534a3b4705c2effbb8a4f99352adb58ab5"
     );
 }
 

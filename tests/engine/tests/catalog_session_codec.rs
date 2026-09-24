@@ -15,13 +15,13 @@ use datafusion_proto::{
     logical_plan::AsLogicalPlan,
     protobuf::{LogicalPlanNode, logical_plan_node::LogicalPlanType},
 };
-use pse_catalog::session::SnapshotSession;
-use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_engine::session::EngineSession;
+use pse_ids::SemanticId;
 use pse_schema::{
     RegistryBuilder,
     model::{
-        Authority, Cell, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl,
-        SnapshotClass,
+        Authority, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl, SnapshotClass,
     },
 };
 
@@ -29,7 +29,13 @@ use pse_schema::{
     clippy::expect_used,
     reason = "test fixture helper requires valid declared setup"
 )]
-async fn fixture(value: &str) -> (SnapshotSession, Arc<FixedBudget>, tempfile::TempDir) {
+async fn fixture(
+    value: &str,
+) -> (
+    EngineSession,
+    Arc<dyn pse_columnar::MemoryPool>,
+    tempfile::TempDir,
+) {
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare_diagnostics(&mut builder);
     pse_schema::catalog::declare_publications(&mut builder);
@@ -60,28 +66,26 @@ async fn fixture(value: &str) -> (SnapshotSession, Arc<FixedBudget>, tempfile::T
     );
     let reg = Arc::new(builder.build().expect("registry"));
     let spec = reg.relation("authored.items").expect("relation");
-    let batch = pse_relations::cells::batch_from_cells(
+    let batch = pse_relations::testing::batch_from_literals(
         &reg,
         spec,
         &[vec![
-            Cell::Id(SemanticId::from_bytes([1; 16])),
-            Cell::Enum("one"),
-            Cell::text(value),
+            serde_json::json!(["id", (SemanticId::from_bytes([1; 16])).to_hex()]),
+            serde_json::json!(["enum", "one"]),
+            serde_json::json!(["text", value]),
         ]],
     )
     .expect("batch");
-    let budget = FixedBudget::new(64 << 20);
-    let reserver: Arc<dyn MemoryReserver> = budget.clone();
     let key = spec.key;
-    let (publication, directory, _) =
-        native_publication::publish(reg, BTreeMap::from([(key, batch)]), reserver).await;
+    let (publication, directory, budget) =
+        native_publication::publish(reg, BTreeMap::from([(key, batch)])).await;
     (publication.into_session(), budget, directory)
 }
 #[expect(
     clippy::expect_used,
     reason = "test fixture helper requires valid declared setup"
 )]
-fn scan(session: &SnapshotSession) -> LogicalPlan {
+fn scan(session: &EngineSession) -> LogicalPlan {
     let spec = session
         .registry()
         .relation("authored.items")

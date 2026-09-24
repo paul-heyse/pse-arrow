@@ -1,0 +1,146 @@
+{
+  "schema": "plan14-thermodynamic-reference-v1",
+  "generator": {
+    "library": "teqp",
+    "version": "0.23.1",
+    "python": "3.12",
+    "caloric_precision": 60
+  },
+  "source": "https://teqp.readthedocs.io/en/latest/models/PCSAFT.html",
+  "parameters": {
+    "crates/pse-kernels/data/pcsaft-light-hydrocarbons.json": "8bcb949ed51a0f9b6856841b3d44dd0cc04299b04f70fcd5d6446e80aa808e5e",
+    "crates/pse-kernels/data/ideal-gas-light-hydrocarbons.json": "1a685ecbec24f25fa710bec55cc2fa8c280973394027af2a1b7ea2e7fb65b090"
+  },
+  "conventions": {
+    "components": [
+      "methane",
+      "ethane",
+      "propane"
+    ],
+    "binary_interactions": "zero",
+    "temperature": "K",
+    "density": "mol/m^3",
+    "pressure": "Pa",
+    "enthalpy": "J/mol",
+    "caloric_reference": "DIPPR100 integral from 298.15 K; no formation enthalpy",
+    "phase": "homogeneous explicit density; no global stability claim"
+  },
+  "tolerances": {
+    "relative": 2e-08,
+    "pressure_absolute": 0.001,
+    "enthalpy_absolute": 1e-05,
+    "ln_phi_absolute": 1e-07
+  },
+  "cases": [
+    {
+      "input": [
+        300.0,
+        10.0,
+        0.2,
+        0.3
+      ],
+      "pressure": 24886.638796033505,
+      "enthalpy": 94.71240226445379,
+      "ln_phi": [
+        0.00017214852196062024,
+        -0.0018232656698070268,
+        -0.003521693184701986
+      ],
+      "ideal_enthalpy": 110.88591367620424,
+      "gas_constant": 8.31446261815324
+    },
+    {
+      "input": [
+        350.0,
+        34.565566349336066,
+        0.2,
+        0.3
+      ],
+      "pressure": 100000.0000000127,
+      "enthalpy": 3240.889128548147,
+      "ln_phi": [
+        0.0006546331933703176,
+        -0.004653606829009484,
+        -0.009141429968786682
+      ],
+      "ideal_enthalpy": 3291.7026814953447,
+      "gas_constant": 8.31446261815324
+    },
+    {
+      "input": [
+        400.0,
+        1000.0,
+        0.6,
+        0.25
+      ],
+      "pressure": 3151387.870362154,
+      "enthalpy": 4445.2856079678295,
+      "ln_phi": [
+        -0.009762289167823119,
+        -0.09274708515021869,
+        -0.1612664696200004
+      ],
+      "ideal_enthalpy": 5102.8281402246885,
+      "gas_constant": 8.31446261815324
+    },
+    {
+      "input": [
+        300.0,
+        14000.0,
+        0.1,
+        0.2
+      ],
+      "pressure": 49018579.341412,
+      "enthalpy": -12421.109975189294,
+      "ln_phi": [
+        -0.11350385195068836,
+        -1.551883631718336,
+        -2.470027505921394
+      ],
+      "ideal_enthalpy": 121.87185639870955,
+      "gas_constant": 8.31446261815324
+    },
+    {
+      "input": [
+        298.15,
+        10.0,
+        0.2,
+        0.3
+      ],
+      "pressure": 24732.523082085892,
+      "enthalpy": -16.23369961683865,
+      "ln_phi": [
+        0.00017165054098159215,
+        -0.0018444988103206628,
+        -0.0035609425323991904
+      ],
+      "ideal_enthalpy": 0.0,
+      "gas_constant": 8.31446261815324
+    }
+  ],
+  "flash": {
+    "temperature": 280.0,
+    "pressure": 2000000.0,
+    "feed": [
+      0.2,
+      0.3,
+      0.5
+    ],
+    "liquid_density": 12417.555686826916,
+    "vapor_density": 1035.7196973606667,
+    "liquid": [
+      0.06344616613614536,
+      0.27061756791016794,
+      0.6659362659536867
+    ],
+    "vapor": [
+      0.39672077766115,
+      0.3423286166835163,
+      0.26095060565533373
+    ],
+    "beta": 0.4097336824998727,
+    "maximum_scaled_residual": 2.002343535423279e-14,
+    "scipy": "1.18.1",
+    "scope": "two homogeneous phases satisfying chemical potential, pressure and material balances; no global stability certificate"
+  }
+}

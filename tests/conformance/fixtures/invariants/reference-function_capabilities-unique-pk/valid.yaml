@@ -1,0 +1,12 @@
+{
+  "invariant": "reference.function_capabilities:unique:pk",
+  "rows": {
+    "reference.function_capabilities": [
+      {
+        "implementation": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

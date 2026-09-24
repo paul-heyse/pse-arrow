@@ -23,8 +23,6 @@ fn blueprint_expressions_preserve_their_actual_structure() {
         "sum(p in phase | control_volume.properties_out[t].enth_flow_phase[p])",
         "prod(j in species where j != excluded | composition[j]^order[j])",
         "integral(x in length | d(temperature[x])/dx)",
-        "weighted_mean(w1, t1, w2, t2)",
-        "smooth_min(smooth_min(a, b, eps=1e-3{Pa}), c, eps=1e-3{Pa})",
         "if compressor then work*efficiency else work/efficiency",
         "kernel.cubic.compress_fact(A, B, eos_type)",
         "2{mol/(m^3*s)} * concentration[t, species.CO2]",
@@ -127,16 +125,6 @@ fn explicit_broadcast_preserves_its_value_and_lexical_index() {
 
 #[test]
 fn hostile_or_incomplete_forms_fail_with_offsets_without_panicking() {
-    for text in [
-        "weighted_mean()",
-        "weighted_mean(a)",
-        "weighted_mean(a,b,c)",
-    ] {
-        assert!(matches!(
-            parse_expr(text),
-            Err(DslError::WeightedMeanArity { .. })
-        ));
-    }
     for text in ["NaN", "inf", "1e999"] {
         assert!(matches!(
             parse_expr(text),

@@ -1,0 +1,1421 @@
+[
+  {
+    "id": "dfdc34334d6db40f477b7a32",
+    "path": "opentelemetry_otlp::exporter::Compression",
+    "name": "Compression",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "enum",
+    "signature": "enum Compression",
+    "docs": "The compression algorithm to use when sending data.",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        142,
+        1
+      ],
+      "end": [
+        147,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg_attr>(feature = \"serialize\", derive(Deserialize, Serialize))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          317,
+          318
+        ],
+        "impls": [
+          319,
+          320,
+          321,
+          322,
+          323,
+          324,
+          325,
+          326,
+          328,
+          330,
+          331,
+          332,
+          333,
+          334,
+          338,
+          340,
+          341,
+          344,
+          345,
+          346,
+          348,
+          352,
+          354,
+          355,
+          356,
+          357,
+          358,
+          359,
+          360,
+          363,
+          366,
+          367,
+          370,
+          371,
+          372,
+          375,
+          379,
+          382,
+          385,
+          389
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "38",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-dfdc34334d6db40f477b7a32",
+    "aliases": [
+      "opentelemetry_otlp::Compression"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "58f0ddd547a749e0a48f3af7",
+    "path": "opentelemetry_otlp::exporter::Compression::Err",
+    "name": "Err",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Err",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        159,
+        5
+      ],
+      "end": [
+        159,
+        35
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "ExporterBuildError",
+            "id": 13,
+            "args": null
+          }
+        }
+      }
+    },
+    "type_references": {
+      "13": "opentelemetry_otlp::exporter::ExporterBuildError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Compression",
+          "id": "opentelemetry_otlp::exporter::Compression",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FromStr",
+        "id": "core::str::traits::FromStr",
+        "args": null
+      },
+      "trait_path": "core::str::traits::FromStr",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/mod.rs",
+        "begin": [
+          158,
+          1
+        ],
+        "end": [
+          170,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "386",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-58f0ddd547a749e0a48f3af7",
+    "aliases": [
+      "opentelemetry_otlp::Compression::Err"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ca27c9f61d9f0eb1ff6be32e",
+    "path": "opentelemetry_otlp::exporter::Compression::Gzip",
+    "name": "Gzip",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Gzip",
+    "docs": "Compresses data using gzip.",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        144,
+        5
+      ],
+      "end": [
+        144,
+        9
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "317",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-ca27c9f61d9f0eb1ff6be32e",
+    "aliases": [
+      "opentelemetry_otlp::Compression::Gzip"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f2c93aa0dfeaf268f2faf6b0",
+    "path": "opentelemetry_otlp::exporter::Compression::Zstd",
+    "name": "Zstd",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Zstd",
+    "docs": "Compresses data using zstd.",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        146,
+        5
+      ],
+      "end": [
+        146,
+        9
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "318",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-f2c93aa0dfeaf268f2faf6b0",
+    "aliases": [
+      "opentelemetry_otlp::Compression::Zstd"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3bfefbe9208bd40c3cc49e93",
+    "path": "opentelemetry_otlp::exporter::Compression::clone",
+    "name": "clone",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Compression",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        141,
+        10
+      ],
+      "end": [
+        141,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Compression",
+              "id": 38,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "38": "opentelemetry_otlp::exporter::Compression"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Compression",
+          "id": "opentelemetry_otlp::exporter::Compression",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/mod.rs",
+        "begin": [
+          141,
+          10
+        ],
+        "end": [
+          141,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "365",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-3bfefbe9208bd40c3cc49e93",
+    "aliases": [
+      "opentelemetry_otlp::Compression::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7501fbbb034662ad4a4c378f",
+    "path": "opentelemetry_otlp::exporter::Compression::deserialize",
+    "name": "deserialize",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn deserialize<__D>(__deserializer: __D) -> _serde::__private226::Result<Self, __D::Error> where __D: _serde::Deserializer<'de>",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        140,
+        42
+      ],
+      "end": [
+        140,
+        53
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "__deserializer",
+              {
+                "generic": "__D"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "_serde::__private226::Result",
+              "id": 11,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Error",
+                          "args": null,
+                          "self_type": {
+                            "generic": "__D"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 378,
+                            "args": null
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "__D",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "__D"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "_serde::Deserializer",
+                        "id": 378,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'de"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "11": "core::result::Result",
+      "378": "serde_core::de::Deserializer"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Compression",
+          "id": "opentelemetry_otlp::exporter::Compression",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Deserialize",
+        "id": "serde_core::de::Deserialize",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'de"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "serde_core::de::Deserialize",
+      "generics": {
+        "params": [
+          {
+            "name": "'de",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/mod.rs",
+        "begin": [
+          140,
+          42
+        ],
+        "end": [
+          140,
+          53
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "377",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-7501fbbb034662ad4a4c378f",
+    "aliases": [
+      "opentelemetry_otlp::Compression::deserialize"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9a4ef79f08e6730dce538229",
+    "path": "opentelemetry_otlp::exporter::Compression::eq",
+    "name": "eq",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &Compression) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        141,
+        34
+      ],
+      "end": [
+        141,
+        43
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Compression",
+                      "id": 38,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "38": "opentelemetry_otlp::exporter::Compression"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Compression",
+          "id": "opentelemetry_otlp::exporter::Compression",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/mod.rs",
+        "begin": [
+          141,
+          34
+        ],
+        "end": [
+          141,
+          43
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "374",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-9a4ef79f08e6730dce538229",
+    "aliases": [
+      "opentelemetry_otlp::Compression::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7e656f5b8c5d9180b0faff19",
+    "path": "opentelemetry_otlp::exporter::Compression::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        150,
+        5
+      ],
+      "end": [
+        155,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Formatter",
+                      "id": 109,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "std::fmt::Result",
+              "id": 110,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "109": "core::fmt::Formatter",
+      "110": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Compression",
+          "id": "opentelemetry_otlp::exporter::Compression",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Display",
+        "id": "core::fmt::Display",
+        "args": null
+      },
+      "trait_path": "core::fmt::Display",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/mod.rs",
+        "begin": [
+          149,
+          1
+        ],
+        "end": [
+          156,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "384",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-7e656f5b8c5d9180b0faff19",
+    "aliases": [
+      "opentelemetry_otlp::Compression::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cdc1999be9ff780ab0ff63de",
+    "path": "opentelemetry_otlp::exporter::Compression::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        141,
+        23
+      ],
+      "end": [
+        141,
+        28
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 109,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 110,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "109": "core::fmt::Formatter",
+      "110": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Compression",
+          "id": "opentelemetry_otlp::exporter::Compression",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/mod.rs",
+        "begin": [
+          141,
+          23
+        ],
+        "end": [
+          141,
+          28
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "369",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-cdc1999be9ff780ab0ff63de",
+    "aliases": [
+      "opentelemetry_otlp::Compression::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e648dd202aa9429382fa6879",
+    "path": "opentelemetry_otlp::exporter::Compression::from_str",
+    "name": "from_str",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from_str(s: &str) -> Result<Self, Self::Err>",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        161,
+        5
+      ],
+      "end": [
+        169,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "s",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 11,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Err",
+                          "args": null,
+                          "self_type": {
+                            "generic": "Self"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 388,
+                            "args": null
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "11": "core::result::Result",
+      "388": "core::str::traits::FromStr"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Compression",
+          "id": "opentelemetry_otlp::exporter::Compression",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FromStr",
+        "id": "core::str::traits::FromStr",
+        "args": null
+      },
+      "trait_path": "core::str::traits::FromStr",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/mod.rs",
+        "begin": [
+          158,
+          1
+        ],
+        "end": [
+          170,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "387",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-e648dd202aa9429382fa6879",
+    "aliases": [
+      "opentelemetry_otlp::Compression::from_str"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f5bdb87cfd68dd651a27af39",
+    "path": "opentelemetry_otlp::exporter::Compression::serialize",
+    "name": "serialize",
+    "owner": "opentelemetry_otlp::exporter::Compression",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn serialize<__S>(&self, __serializer: __S) -> _serde::__private226::Result<__S::Ok, __S::Error> where __S: _serde::Serializer",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        140,
+        55
+      ],
+      "end": [
+        140,
+        64
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "__serializer",
+              {
+                "generic": "__S"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "_serde::__private226::Result",
+              "id": 11,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Ok",
+                          "args": null,
+                          "self_type": {
+                            "generic": "__S"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 381,
+                            "args": null
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Error",
+                          "args": null,
+                          "self_type": {
+                            "generic": "__S"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 381,
+                            "args": null
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "__S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "__S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "_serde::Serializer",
+                        "id": 381,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "11": "core::result::Result",
+      "381": "serde_core::ser::Serializer"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Compression",
+          "id": "opentelemetry_otlp::exporter::Compression",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Serialize",
+        "id": "serde_core::ser::Serialize",
+        "args": null
+      },
+      "trait_path": "serde_core::ser::Serialize",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/mod.rs",
+        "begin": [
+          140,
+          55
+        ],
+        "end": [
+          140,
+          64
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "380",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.Compression.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.Compression.json",
+    "anchor": "op-f5bdb87cfd68dd651a27af39",
+    "aliases": [
+      "opentelemetry_otlp::Compression::serialize"
+    ],
+    "resolved_doc_links": {}
+  }
+]

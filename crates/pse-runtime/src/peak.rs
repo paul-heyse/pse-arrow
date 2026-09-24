@@ -5,22 +5,38 @@
 
 use crate::RuntimeError;
 
-/// A resource observation; pool counters do not claim global allocator coverage.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ResourceReport {
-    /// The configured finite accounted limit.
-    pub limit_bytes: usize,
-    /// Maximum accounted claims since this shared runtime was created.
-    pub pool_peak_bytes: usize,
-    /// Current accounted claims across every query and platform consumer.
-    pub pool_reserved_now: usize,
-    /// Largest current consumers, decreasing by bytes then increasing by owner name.
-    pub top_consumers: Vec<(String, usize)>,
-    /// Whole-process peak resident bytes; `None` on unsupported platforms.
-    pub process_peak_rss_bytes: Option<u64>,
-    /// Native retained capacities and hits, observed without cloning cached values.
-    pub caches: Vec<pse_catalog::cache_service::CacheReport>,
+/// Authoritative native resource observation fields for mechanical boundary projection.
+#[macro_export]
+macro_rules! resource_report_fields {
+    ($emit:ident) => {
+        $emit! {
+            /// Configured finite accounted limit.
+            limit_bytes: usize,
+            /// Maximum accounted claims since this shared runtime was created.
+            pool_peak_bytes: usize,
+            /// Current accounted claims across every query and platform consumer.
+            pool_reserved_now: usize,
+            /// Whole-process peak resident bytes; None on unsupported platforms.
+            process_peak_rss_bytes: Option<u64>;
+            consumers: top_consumers;
+            caches: caches;
+        }
+    };
 }
+macro_rules! report {
+    ($( $(#[$meta:meta])* $field:ident: $ty:ty),*; consumers: $consumers:ident; caches: $caches:ident;) => {
+        /// Pool counters do not claim global allocator coverage.
+        #[derive(Clone, Debug, PartialEq, Eq)]
+        pub struct ResourceReport {
+            $( $(#[$meta])* pub $field: $ty, )*
+            /// Largest current consumers, decreasing by bytes then increasing by owner name.
+            pub $consumers: Vec<(String, usize)>,
+            /// Native retained capacities and hits, without cloning cached values.
+            pub $caches: Vec<pse_engine::cache_service::CacheReport>,
+        }
+    };
+}
+resource_report_fields!(report);
 
 #[cfg(target_os = "linux")]
 pub(crate) fn process_peak_rss() -> Result<Option<u64>, RuntimeError> {

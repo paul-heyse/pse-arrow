@@ -20,37 +20,52 @@ use datafusion::arrow::{
     datatypes::{DataType, Int32Type},
 };
 use proptest::prelude::*;
-use pse_schema::model::Cell;
 use std::sync::Arc;
 
 type GeneratedRow = (u64, Vec<u64>, bool, bool);
 
-fn logical_rows(rows: &[GeneratedRow]) -> Vec<Vec<Cell>> {
+fn logical_rows(rows: &[GeneratedRow]) -> Vec<Vec<serde_json::Value>> {
     rows.iter()
         .enumerate()
         .map(|(index, (bits, children, valid, choice))| {
             let valid = *valid || index == 0;
             vec![
-                Cell::U64(u64::try_from(index).expect("bounded row") + 1),
+                serde_json::json!(["u64", u64::try_from(index).expect("bounded row") + 1]),
                 if valid {
-                    Cell::F64(f64::from_bits(*bits))
+                    serde_json::json!([
+                        "f64",
+                        format!("{:016x}", (f64::from_bits(*bits)).to_bits())
+                    ])
                 } else {
-                    Cell::Null
+                    serde_json::json!(["null", null])
                 },
                 if valid {
-                    Cell::Enum(if *choice { "a" } else { "b" })
+                    serde_json::json!(["enum", if *choice { "a" } else { "b" }])
                 } else {
-                    Cell::Null
+                    serde_json::json!(["null", null])
                 },
                 if valid {
-                    Cell::List(children.iter().copied().map(Cell::U64).collect())
+                    serde_json::json!([
+                        "list",
+                        children
+                            .iter()
+                            .copied()
+                            .map(|value| serde_json::json!(["u64", value]))
+                            .collect::<Vec<serde_json::Value>>()
+                    ])
                 } else {
-                    Cell::Null
+                    serde_json::json!(["null", null])
                 },
                 if valid {
-                    Cell::Struct(vec![Cell::U64(children.first().copied().unwrap_or(0))])
+                    serde_json::json!([
+                        "struct",
+                        vec![serde_json::json!([
+                            "u64",
+                            children.first().copied().unwrap_or(0)
+                        ])]
+                    ])
                 } else {
-                    Cell::Null
+                    serde_json::json!(["null", null])
                 },
             ]
         })
@@ -177,13 +192,13 @@ proptest! {
         let (reg, contract, _) = canon_fixtures::fixture(false);
         let spec = reg.relation("authored.values").expect("registry relation");
         let cells = logical_rows(&rows);
-        let source = pse_relations::cells::batch_from_cells(&reg, spec, &cells).expect("declared generated rows");
+        let source = pse_relations::testing::untrusted_batch_from_literals(&reg, spec, &cells).expect("declared generated rows");
         let alternative = alternate(&source, &rows, hidden);
-        pse_relations::validate::validate_batch(&reg, spec, &alternative).expect("actual recursive value admission");
+        pse_relations::validate::validate_schema(&reg, spec, alternative.schema().as_ref()).expect("canonical input schema");
         // Decode actual rows before comparing bytes; hidden children and dictionary codes
         // must preserve the declared values, including original floating-point bits.
-        let decoded = pse_relations::cells::cells_from_batch(&reg, spec, &alternative).expect("decode");
-        let render = |values: &[Vec<Cell>]| values.iter().map(|row| row.iter().map(Cell::literal_spec).collect::<Vec<_>>()).collect::<Vec<_>>();
+        let decoded = pse_relations::testing::literal_rows(&alternative).expect("lossless canonical decode, including nonfinite bit patterns");
+        let render = |values: &[Vec<serde_json::Value>]| values.iter().map(|row| row.iter().map(serde_json::Value::to_string).collect::<Vec<_>>()).collect::<Vec<_>>();
         prop_assert_eq!(render(&decoded), render(&cells));
         let mut order: Vec<_> = (0..u32::try_from(rows.len()).expect("bounded")).collect();
         let count = order.len();
@@ -205,10 +220,10 @@ proptest! {
         let (reg, contract, _) = canon_fixtures::fixture(false);
         let spec = reg.relation("authored.values").expect("registry relation");
         let mut cells = logical_rows(&rows);
-        let source = pse_relations::cells::batch_from_cells(&reg, spec, &cells).expect("valid source");
-        let Cell::List(children) = &mut cells[0][3] else { panic!("first row always visible"); };
-        children.push(Cell::U64(additional));
-        let changed = pse_relations::cells::batch_from_cells(&reg, spec, &cells).expect("valid distinct value");
+        let source = pse_relations::testing::untrusted_batch_from_literals(&reg, spec, &cells).expect("valid source");
+        let children = cells[0][3][1].as_array_mut().expect("first row always visible");
+        children.push(serde_json::json!(["u64", additional]));
+        let changed = pse_relations::testing::untrusted_batch_from_literals(&reg, spec, &cells).expect("valid distinct value");
         let expected = canon_fixtures::canonical(&contract, &[source]);
         let actual = canon_fixtures::canonical(&contract, &[changed]);
         prop_assert_ne!(actual.preimage, expected.preimage);

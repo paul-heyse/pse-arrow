@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arrow_schema::{DataType, Field};
 
-use crate::{SchemaError, model::Cell};
+use crate::SchemaError;
 
 /// Canonical discriminator and tag-to-arm binding; payload types live in Arrow fields.
 pub const KEY_TAGGED_ALTERNATIVE: &str = "pse.semantic.tagged_alternative";
@@ -102,34 +102,5 @@ impl TaggedAlternative {
             ));
         }
         Ok(Some(value))
-    }
-
-    /// Check selection at a scalar decoding boundary. Child values are validated recursively.
-    pub fn accepts(&self, field: &Field, cell: &Cell) -> bool {
-        let (DataType::Struct(fields), Cell::Struct(values)) = (field.data_type(), cell) else {
-            return false;
-        };
-        if fields.len() != values.len() {
-            return false;
-        }
-        let Some(tag) = fields
-            .iter()
-            .position(|field| field.name() == &self.discriminator)
-        else {
-            return false;
-        };
-        let tag = match &values[tag] {
-            Cell::Enum(tag) => *tag,
-            Cell::Text(tag) => tag.as_str(),
-            _ => return false,
-        };
-        let Some(selected) = self.arms.get(tag) else {
-            return false;
-        };
-        fields.iter().zip(values).all(|(field, value)| {
-            field.name() == &self.discriminator
-                || (Some(field.name().as_str()) == selected.as_deref())
-                    != matches!(value, Cell::Null)
-        })
     }
 }

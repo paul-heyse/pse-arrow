@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -38,6 +39,21 @@ agents = load("agent-config")
 images = load("solver-images")
 adr = load("adr")
 doctor = load("doctor")
+agent_checks = load("check_agent_config")
+
+
+def tracked_skills() -> list[str]:
+    """Skill directories that `.gitignore` does not exclude (the repository-process skills)."""
+    names = sorted(p.name for p in (ROOT / ".codex/skills").iterdir() if p.is_dir())
+    ignored = subprocess.run(
+        ["git", "check-ignore", "--no-index", "--stdin"],
+        input="".join(f".codex/skills/{name}/SKILL.md\n" for name in names),
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    ).stdout.split()
+    return [name for name in names if f".codex/skills/{name}/SKILL.md" not in ignored]
 
 
 class EditPolicyTests(unittest.TestCase):
@@ -45,6 +61,53 @@ class EditPolicyTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+
+    def settings_deny_paths(self) -> list[str]:
+        settings = json.loads((ROOT / ".claude/settings.json").read_text())
+        paths = []
+        for rule in settings["permissions"]["deny"]:
+            if rule.startswith(("Edit(", "Read(")):
+                paths.append(rule[rule.index("(") + 1 : -1])
+        return paths
+
+    @staticmethod
+    def anchored_match(pattern: str, relative: str) -> bool:
+        """Match a `/`-anchored permission pattern against a repository-relative path."""
+        body = re.escape(pattern.removeprefix("/"))
+        body = body.replace(r"\*\*", ".*").replace(r"\*", "[^/]*")
+        return re.fullmatch(body, relative) is not None
+
+    def test_settings_deny_rules_are_anchored_edit_rules(self) -> None:
+        problems: list[str] = []
+        agent_checks.check_deny_rules(ROOT / ".claude/settings.json", problems)
+        self.assertEqual(problems, [])
+
+    def test_settings_deny_rules_agree_with_the_hook(self) -> None:
+        # Every path the permission layer refuses, the shared hook refuses too, so the two
+        # layers AGENTS.md describes never disagree about what is protected.
+        for pattern in self.settings_deny_paths():
+            sample = (
+                pattern.removeprefix("/")
+                .replace("**", "probe.txt")
+                .replace("*", "pse-x")
+            )
+            with self.subTest(pattern=pattern):
+                self.assertIsNotNone(hooks.protected(self.root, sample))
+
+    def test_settings_deny_rules_do_not_reach_nested_directories(self) -> None:
+        # A single-segment deny such as `./build/**` resolves against the current directory
+        # and matches a `build` directory at any depth; anchored, it protects only the root's.
+        nested = [
+            ".codex/skills/example/build/acquire.py",
+            ".codex/skills/example/target/debug/x",
+            "crates/pse-x/build/out.rs",
+            "docs/plans/build/notes.md",
+        ]
+        for pattern in self.settings_deny_paths():
+            for path in nested:
+                with self.subTest(pattern=pattern, path=path):
+                    self.assertFalse(self.anchored_match(pattern, path))
+        self.assertTrue(self.anchored_match("/build/**", "build/x.json"))
 
     def test_patch_includes_all_files_and_both_rename_paths(self) -> None:
         command = "*** Begin Patch\n*** Update File: a.py\n*** Move to: b.py\n@@\n-x\n+y\n*** Delete File: c.py\n*** Add File: docs/generated/new.md\n+x\n*** End Patch"
@@ -159,8 +222,79 @@ class EditPolicyTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[0][-1], str((self.root / "a.py").resolve()))
         self.assertEqual((self.root / "neighbor.py").read_text(), "x=1\n")
 
+    def test_formatter_excludes_canonical_and_materialized_skills(self) -> None:
+        skills = [
+            f"{runtime}/skills/example/{name}"
+            for runtime in (".codex", ".claude", ".agents")
+            for name in ("scripts/cli.py", "build/Cargo.toml", "examples/demo.rs")
+        ]
+        product = ["scripts/tool.py", ".codex/agents/reviewer.toml", "crates/demo.rs"]
+        for name in skills + product:
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("unformatted fixture\n")
+        with patch.object(hooks.subprocess, "run") as run:
+            hooks.format_paths(self.root, skills + product)
+        self.assertEqual(
+            [call.args[0][-1] for call in run.call_args_list],
+            [str(self.root / name) for name in product],
+        )
+        for name in skills:
+            self.assertEqual((self.root / name).read_text(), "unformatted fixture\n")
+
+    def test_formatter_excludes_skill_symlink_aliases(self) -> None:
+        canonical = self.root / ".codex/skills/example/scripts/cli.py"
+        canonical.parent.mkdir(parents=True)
+        canonical.write_text("x=1\n")
+        for runtime in (".claude", ".agents"):
+            alias = self.root / runtime / "skills"
+            alias.parent.mkdir()
+            try:
+                alias.symlink_to(self.root / ".codex/skills", target_is_directory=True)
+            except OSError:
+                # The materialized-copy test covers systems without symlink support.
+                return
+        paths = [
+            f"{runtime}/skills/example/scripts/cli.py"
+            for runtime in (".codex", ".claude", ".agents")
+        ]
+        with patch.object(hooks.subprocess, "run") as run:
+            hooks.format_paths(self.root, paths)
+        run.assert_not_called()
+        self.assertEqual(canonical.read_text(), "x=1\n")
+
 
 class ConfigurationTests(unittest.TestCase):
+    def test_instruction_scan_excludes_all_skill_contents(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            expected = [
+                "AGENTS.md",
+                "CLAUDE.md",
+                ".claude/rules/python.md",
+                ".claude/agents/reviewer.md",
+            ]
+            skill_files = [
+                f"{runtime}/skills/example/{name}"
+                for runtime in (".codex", ".claude", ".agents")
+                for name in ("SKILL.md", "REFERENCE.md", "evidence/SKILL.md")
+            ]
+            for name in expected + skill_files:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("`scripts/missing.py` and `just missing-recipe`\n")
+            with patch.object(agent_checks, "ROOT", root):
+                scanned = agent_checks.scanned_files()
+            self.assertEqual(scanned, [root / name for name in expected])
+            # The excluded documents must not disable validation of root instructions.
+            for path in scanned:
+                self.assertEqual(
+                    agent_checks.path_refs(path.read_text()), {"scripts/missing.py"}
+                )
+                self.assertEqual(
+                    agent_checks.just_recipes(path.read_text()), {"missing-recipe"}
+                )
+
     def test_doctor_reads_distribution_versions_without_launching_wrappers(
         self,
     ) -> None:
@@ -181,7 +315,12 @@ class ConfigurationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             shutil.copytree(ROOT / ".claude/agents", root / ".claude/agents")
-            shutil.copytree(ROOT / ".codex/skills", root / ".codex/skills")
+            # Only the skills the repository tracks by rule: library skills are gitignored and
+            # local-only, and copying them made this test copy many gigabytes.
+            for skill in tracked_skills():
+                shutil.copytree(
+                    ROOT / ".codex/skills" / skill, root / ".codex/skills" / skill
+                )
             (root / ".codex/agents").write_text("../.claude/agents")
             (root / ".claude/skills").write_text("../.codex/skills")
             with patch.object(

@@ -3,12 +3,10 @@
 
 //! Bounded target syntax resolves through actual instance, declaration and domain rows.
 
-mod native;
 mod parse;
-pub use native::resolve_native;
 
 use crate::SourceSpan;
-use pse_relations::generated::authored;
+use pse_model::generated::authored;
 
 pub use parse::parse;
 /// Exact generated target row contract; its source identity is supplied to resolution.

@@ -1,0 +1,190 @@
+[
+  {
+    "id": "853638065d514e466d11aed4",
+    "path": "opentelemetry::global::trace::tracer",
+    "name": "tracer",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn tracer(name: impl Into<std::borrow::Cow<'static, str>>) -> BoxedTracer",
+    "docs": "Creates a named instance of [`Tracer`] via the configured [`GlobalTracerProvider`].\n\nIf the name is an empty string, the provider will use a default name.\n\nThis is a more convenient way of expressing `global::tracer_provider().tracer(name)`.\n\n[`Tracer`]: crate::trace::Tracer",
+    "span": {
+      "filename": "src/global/trace.rs",
+      "begin": [
+        392,
+        1
+      ],
+      "end": [
+        394,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "std::borrow::Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "BoxedTracer",
+              "id": 47,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "std::borrow::Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "47": "opentelemetry::global::trace::BoxedTracer"
+    },
+    "impl_context": null,
+    "links": {
+      "`GlobalTracerProvider`": 107,
+      "crate::trace::Tracer": 108
+    },
+    "link_paths": {
+      "`GlobalTracerProvider`": "opentelemetry::global::trace::GlobalTracerProvider",
+      "crate::trace::Tracer": "opentelemetry::trace::tracer::Tracer"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "180",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.trace.tracer.md",
+    "record_file": "operations/opentelemetry.global.trace.tracer.json",
+    "anchor": "op-853638065d514e466d11aed4",
+    "aliases": [
+      "opentelemetry::global::tracer"
+    ],
+    "resolved_doc_links": {
+      "`GlobalTracerProvider`": "../operations/opentelemetry.global.trace.GlobalTracerProvider.md#op-41d9d444ae131d3115b9c6a7",
+      "crate::trace::Tracer": "../operations/opentelemetry.trace.tracer.Tracer.md#op-a87fa61076cf2b7384423932"
+    }
+  }
+]

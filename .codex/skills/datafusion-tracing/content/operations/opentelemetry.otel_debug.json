@@ -1,0 +1,54 @@
+[
+  {
+    "id": "b8b8f21ffbff842f043e26a8",
+    "path": "opentelemetry::otel_debug",
+    "name": "otel_debug",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "macro",
+    "signature": "macro_rules! otel_debug",
+    "docs": "Macro for logging debug messages in OpenTelemetry.\n\n# Fields:\n- `name`: The operation or action being logged.\n- Additional optional key-value pairs can be passed as attributes.\n\n# Example:\n```rust\nuse opentelemetry::otel_debug;\notel_debug!(name: \"debug_operation\", debug_level = \"high\", version = \"1.0.0\");\n```",
+    "span": {
+      "filename": "src/global/internal_logging.rs",
+      "begin": [
+        134,
+        1
+      ],
+      "end": [
+        171,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! otel_debug {\n    (name: $name:expr $(,)?) => { ... };\n    (name: $name:expr, $($key:ident = $value:expr),+ $(,)?) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2202",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.otel_debug.md",
+    "record_file": "operations/opentelemetry.otel_debug.json",
+    "anchor": "op-b8b8f21ffbff842f043e26a8",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -1,0 +1,1343 @@
+[
+  {
+    "id": "d1d48f423a89b2235eac90cf",
+    "path": "opentelemetry_sdk::resource::ResourceBuilder",
+    "name": "ResourceBuilder",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct ResourceBuilder",
+    "docs": "Builder for [Resource]",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        270,
+        1
+      ],
+      "end": [
+        272,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2127,
+          2128,
+          2129,
+          2130,
+          2131,
+          2132,
+          2133,
+          2134,
+          2135,
+          2136,
+          2137,
+          2138,
+          2139,
+          2140,
+          2141,
+          2142,
+          2143,
+          2144,
+          2145,
+          2146,
+          2148
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "Resource": 81
+    },
+    "link_paths": {
+      "Resource": "opentelemetry_sdk::resource::Resource"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2044",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceBuilder.json",
+    "anchor": "op-d1d48f423a89b2235eac90cf",
+    "aliases": [],
+    "resolved_doc_links": {
+      "Resource": "../operations/opentelemetry_sdk.resource.Resource.md#op-6665d2e0897d180bf11ccb3b"
+    }
+  },
+  {
+    "id": "d4f49332899a7e04cc0b2e82",
+    "path": "opentelemetry_sdk::resource::ResourceBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry_sdk::resource::ResourceBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Resource",
+    "docs": "Create a [Resource] with the options provided to the [ResourceBuilder].",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        322,
+        5
+      ],
+      "end": [
+        324,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Resource",
+              "id": 81,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "81": "opentelemetry_sdk::resource::Resource"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ResourceBuilder",
+          "id": "opentelemetry_sdk::resource::ResourceBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/resource/mod.rs",
+        "begin": [
+          274,
+          1
+        ],
+        "end": [
+          325,
+          2
+        ]
+      }
+    },
+    "links": {
+      "Resource": 81,
+      "ResourceBuilder": 2044
+    },
+    "link_paths": {
+      "Resource": "opentelemetry_sdk::resource::Resource",
+      "ResourceBuilder": "opentelemetry_sdk::resource::ResourceBuilder"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2126",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceBuilder.json",
+    "anchor": "op-d4f49332899a7e04cc0b2e82",
+    "aliases": [],
+    "resolved_doc_links": {
+      "Resource": "../operations/opentelemetry_sdk.resource.Resource.md#op-6665d2e0897d180bf11ccb3b",
+      "ResourceBuilder": "../operations/opentelemetry_sdk.resource.ResourceBuilder.md#op-d1d48f423a89b2235eac90cf"
+    }
+  },
+  {
+    "id": "06519ef0febd9e2dc9998801",
+    "path": "opentelemetry_sdk::resource::ResourceBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::resource::ResourceBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        269,
+        10
+      ],
+      "end": [
+        269,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ResourceBuilder",
+          "id": "opentelemetry_sdk::resource::ResourceBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/resource/mod.rs",
+        "begin": [
+          269,
+          10
+        ],
+        "end": [
+          269,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2147",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceBuilder.json",
+    "anchor": "op-06519ef0febd9e2dc9998801",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "86c209b19752e805cc1e32e1",
+    "path": "opentelemetry_sdk::resource::ResourceBuilder::with_attribute",
+    "name": "with_attribute",
+    "owner": "opentelemetry_sdk::resource::ResourceBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_attribute(self, kv: KeyValue) -> Self",
+    "docs": "Add a [KeyValue] to the resource.",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        287,
+        5
+      ],
+      "end": [
+        289,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "kv",
+              {
+                "resolved_path": {
+                  "path": "KeyValue",
+                  "id": 930,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "930": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ResourceBuilder",
+          "id": "opentelemetry_sdk::resource::ResourceBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/resource/mod.rs",
+        "begin": [
+          274,
+          1
+        ],
+        "end": [
+          325,
+          2
+        ]
+      }
+    },
+    "links": {
+      "KeyValue": 930
+    },
+    "link_paths": {
+      "KeyValue": "opentelemetry::common::KeyValue"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2122",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceBuilder.json",
+    "anchor": "op-86c209b19752e805cc1e32e1",
+    "aliases": [],
+    "resolved_doc_links": {
+      "KeyValue": "../operations/opentelemetry.common.KeyValue.md#op-46d9e1217e370ef8ca578118"
+    }
+  },
+  {
+    "id": "0ed8d3af8ef996791b4e28c3",
+    "path": "opentelemetry_sdk::resource::ResourceBuilder::with_attributes",
+    "name": "with_attributes",
+    "owner": "opentelemetry_sdk::resource::ResourceBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_attributes<T: IntoIterator<Item = KeyValue>>(self, kvs: T) -> Self",
+    "docs": "Add multiple [KeyValue]s to the resource.",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        292,
+        5
+      ],
+      "end": [
+        295,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "kvs",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "IntoIterator",
+                          "id": 419,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [],
+                              "constraints": [
+                                {
+                                  "name": "Item",
+                                  "args": null,
+                                  "binding": {
+                                    "equality": {
+                                      "type": {
+                                        "resolved_path": {
+                                          "path": "KeyValue",
+                                          "id": 930,
+                                          "args": null
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "419": "core::iter::traits::collect::IntoIterator",
+      "930": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ResourceBuilder",
+          "id": "opentelemetry_sdk::resource::ResourceBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/resource/mod.rs",
+        "begin": [
+          274,
+          1
+        ],
+        "end": [
+          325,
+          2
+        ]
+      }
+    },
+    "links": {
+      "KeyValue": 930
+    },
+    "link_paths": {
+      "KeyValue": "opentelemetry::common::KeyValue"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2123",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceBuilder.json",
+    "anchor": "op-0ed8d3af8ef996791b4e28c3",
+    "aliases": [],
+    "resolved_doc_links": {
+      "KeyValue": "../operations/opentelemetry.common.KeyValue.md#op-46d9e1217e370ef8ca578118"
+    }
+  },
+  {
+    "id": "79d685be0be5c5ce8d16277c",
+    "path": "opentelemetry_sdk::resource::ResourceBuilder::with_detector",
+    "name": "with_detector",
+    "owner": "opentelemetry_sdk::resource::ResourceBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_detector(self, detector: Box<dyn ResourceDetector>) -> Self",
+    "docs": "Add a single [ResourceDetector] to your resource.",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        276,
+        5
+      ],
+      "end": [
+        278,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "detector",
+              {
+                "resolved_path": {
+                  "path": "Box",
+                  "id": 1423,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "dyn_trait": {
+                              "traits": [
+                                {
+                                  "trait": {
+                                    "path": "ResourceDetector",
+                                    "id": 1986,
+                                    "args": null
+                                  },
+                                  "generic_params": []
+                                }
+                              ],
+                              "lifetime": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1423": "alloc::boxed::Box",
+      "1986": "opentelemetry_sdk::resource::ResourceDetector"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ResourceBuilder",
+          "id": "opentelemetry_sdk::resource::ResourceBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/resource/mod.rs",
+        "begin": [
+          274,
+          1
+        ],
+        "end": [
+          325,
+          2
+        ]
+      }
+    },
+    "links": {
+      "ResourceDetector": 1986
+    },
+    "link_paths": {
+      "ResourceDetector": "opentelemetry_sdk::resource::ResourceDetector"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2121",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceBuilder.json",
+    "anchor": "op-79d685be0be5c5ce8d16277c",
+    "aliases": [],
+    "resolved_doc_links": {
+      "ResourceDetector": "../operations/opentelemetry_sdk.resource.ResourceDetector.md#op-b0082125b9054a261f267f3c"
+    }
+  },
+  {
+    "id": "61042f593a630f40ef2305fc",
+    "path": "opentelemetry_sdk::resource::ResourceBuilder::with_detectors",
+    "name": "with_detectors",
+    "owner": "opentelemetry_sdk::resource::ResourceBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_detectors(self, detectors: &[Box<dyn ResourceDetector>]) -> Self",
+    "docs": "Add multiple [ResourceDetector]s to your resource.",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        281,
+        5
+      ],
+      "end": [
+        284,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "detectors",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "slice": {
+                      "resolved_path": {
+                        "path": "Box",
+                        "id": 1423,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "dyn_trait": {
+                                    "traits": [
+                                      {
+                                        "trait": {
+                                          "path": "ResourceDetector",
+                                          "id": 1986,
+                                          "args": null
+                                        },
+                                        "generic_params": []
+                                      }
+                                    ],
+                                    "lifetime": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1423": "alloc::boxed::Box",
+      "1986": "opentelemetry_sdk::resource::ResourceDetector"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ResourceBuilder",
+          "id": "opentelemetry_sdk::resource::ResourceBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/resource/mod.rs",
+        "begin": [
+          274,
+          1
+        ],
+        "end": [
+          325,
+          2
+        ]
+      }
+    },
+    "links": {
+      "ResourceDetector": 1986
+    },
+    "link_paths": {
+      "ResourceDetector": "opentelemetry_sdk::resource::ResourceDetector"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2119",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceBuilder.json",
+    "anchor": "op-61042f593a630f40ef2305fc",
+    "aliases": [],
+    "resolved_doc_links": {
+      "ResourceDetector": "../operations/opentelemetry_sdk.resource.ResourceDetector.md#op-b0082125b9054a261f267f3c"
+    }
+  },
+  {
+    "id": "8cff620064622fb6636804e6",
+    "path": "opentelemetry_sdk::resource::ResourceBuilder::with_schema_url",
+    "name": "with_schema_url",
+    "owner": "opentelemetry_sdk::resource::ResourceBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_schema_url<KV, S>(self, attributes: KV, schema_url: S) -> Self where KV: IntoIterator<Item = KeyValue>, S: Into<Cow<'static, str>>",
+    "docs": "This will merge the provided `schema_url` with the current state of the Resource being built. It\nwill use the following rules to determine which `schema_url` should be used.\n\n### [Schema url]\nSchema url is determined by the following rules, in order:\n1. If the current builder resource doesn't have a `schema_url`, the provided `schema_url` will be used.\n2. If the current builder resource has a `schema_url`, and the provided `schema_url` is different from the builder resource, `schema_url` will be empty.\n3. If the provided `schema_url` is the same as the current builder resource, it will be used.\n\n[Schema url]: https://github.com/open-telemetry/opentelemetry-specification/blob/v1.9.0/specification/schemas/overview.md#schema-url",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        312,
+        5
+      ],
+      "end": [
+        319,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "attributes",
+              {
+                "generic": "KV"
+              }
+            ],
+            [
+              "schema_url",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "KV",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "KV"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "IntoIterator",
+                        "id": 419,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [],
+                            "constraints": [
+                              {
+                                "name": "Item",
+                                "args": null,
+                                "binding": {
+                                  "equality": {
+                                    "type": {
+                                      "resolved_path": {
+                                        "path": "KeyValue",
+                                        "id": 930,
+                                        "args": null
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 37,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 322,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "419": "core::iter::traits::collect::IntoIterator",
+      "930": "opentelemetry::common::KeyValue",
+      "37": "core::convert::Into",
+      "322": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ResourceBuilder",
+          "id": "opentelemetry_sdk::resource::ResourceBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/resource/mod.rs",
+        "begin": [
+          274,
+          1
+        ],
+        "end": [
+          325,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2125",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceBuilder.json",
+    "anchor": "op-8cff620064622fb6636804e6",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "36273593b8fc53cf04a45549",
+    "path": "opentelemetry_sdk::resource::ResourceBuilder::with_service_name",
+    "name": "with_service_name",
+    "owner": "opentelemetry_sdk::resource::ResourceBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_service_name(self, name: impl Into<Value>) -> Self",
+    "docs": "Add `service.name` resource attribute.",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        298,
+        5
+      ],
+      "end": [
+        300,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 37,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Value",
+                                    "id": 2053,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Value>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 37,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Value",
+                                      "id": 2053,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "37": "core::convert::Into",
+      "2053": "opentelemetry::common::Value"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "ResourceBuilder",
+          "id": "opentelemetry_sdk::resource::ResourceBuilder",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/resource/mod.rs",
+        "begin": [
+          274,
+          1
+        ],
+        "end": [
+          325,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2124",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.resource.ResourceBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.resource.ResourceBuilder.json",
+    "anchor": "op-36273593b8fc53cf04a45549",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -27,8 +27,8 @@ the failure is silent and reads like a logic bug (blueprint §3.1).
 
 - `=` pins bind direct dependencies only, and `cargo tree -d` cannot flag a mixed family
   because each package name still appears once. **`just family-check`** asserts the
-  resolved graph against `[workspace.metadata.pse.families]`. Run it after touching any
-  manifest.
+  resolved graph against `[workspace.metadata.pse.families]`. Run it when a manifest
+  change moves or adds a dependency in one of those families.
 - Import Arrow through `datafusion::arrow::…` inside engine crates; the PyO3 boundary in
   `crates/pse-py` speaks `pyo3-arrow`'s types instead.
 - `object_store` is `=0.13.2` deliberately: DataFusion 55 requires `^0.13.2`, so a newer
@@ -45,14 +45,14 @@ the failure is silent and reads like a logic bug (blueprint §3.1).
 - `SchemaLike::from_type` / `from_samples` — schemas come from the registry, never
   inferred (§5.3).
 - `anyhow::Error` — every `pse-*` crate returns a concrete `thiserror` enum that also
-  derives `miette::Diagnostic` with a §23.2 code. `xtask` opts out at crate level.
+  implements `miette::Diagnostic` with a typed §23.2 code (ADR-0072). `xtask` opts out at crate level.
 
 `unwrap`/`expect`/`panic`/`todo`/`print*`/`dbg!` are denied outside tests for the same
 reason: a panic crossing the PyO3 or Ipopt boundary is an abort risk.
 
 Canonical identity IPC remains uncompressed (§5.3, `pse.canon.v2`, ADR-0045).
 The governance pattern restricts `try_with_compression` only under
-`crates/pse-ids/src/canon`; the API is available for noncanonical transport
+`crates/pse-columnar/src/canon`; the API is available for noncanonical transport
 (blueprint §3.3.1, ADR-0065). Compression is not a library-wide prohibition.
 
 ## Lint escapes carry a reason
@@ -71,11 +71,16 @@ without a reason will not compile in CI.
 
 ## Before you claim it works
 
-`just ci-fast` covers fmt, `cargo check`, clippy `-D warnings`, nextest and doctests.
-**nextest does not run doctests** — that is why `just doctest` is a separate step, not
-redundancy. Every test invocation passes `--features pse-relations/force-validate`;
-`just test` does it for you, a bare `cargo nextest run` does not.
+Follow *Execution rhythm* in AGENTS.md. While implementing, `just check-package <pkg>`
+(or `just check` across crates) and the targeted `just unit-package <pkg> <filter>` tests
+for the behaviour you changed are the whole loop; both pass
+`--features pse-relations/force-validate` for you, a bare `cargo nextest run` does not.
+Delete a replaced mechanism with its tests as soon as the replacement's tests pass and
+its callers have moved.
 
-`just governance` runs the workspace-level assertions (pins match the blueprint, every
-crate registered, MSRV equals the toolchain, dependency floors, unsafe allowlist, error
-taxonomy). It is cheap. Run it after any manifest change.
+At plan close, qualify once: `just ci-fast` (fmt, `cargo check`, clippy `-D warnings`,
+nextest and doctests — **nextest does not run doctests**, which is why `just doctest` is
+a separate step), `just governance` (pins match the blueprint, every crate registered,
+MSRV equals the toolchain, dependency floors, unsafe allowlist, error taxonomy), then
+the plan's integration and performance gates. Do not run clippy, format checks or the
+governance aggregate per package; the post-edit hook already formats what you edit.

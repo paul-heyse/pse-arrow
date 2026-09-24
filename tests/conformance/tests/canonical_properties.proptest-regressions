@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc c3af54090ea7235dbd60df7606cfa579544a25b47f20e7a9f708ac905ad6b023 # shrinks to rows = [(0, [], false, false)], hidden = 0, rotation = 0, split = 0, reverse = false
+cc bb305c2b37ec28f20db00175bcd8541871d70df1e6f2c22b92cc61c2f9d9e154 # shrinks to rows = [(0, [], false, false)], additional = 0
+cc 23447e26eaedd296c31231d836381b3ed19dda2af40c5220e025917c92e5fe24 # shrinks to rows = [(9218868437227405312, [], false, false)], hidden = 0, rotation = 0, split = 0, reverse = false

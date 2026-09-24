@@ -1,0 +1,96 @@
+[
+  {
+    "id": "f3bd0a15539e4a5c28c16abe",
+    "path": "tracing_opentelemetry",
+    "name": "tracing_opentelemetry",
+    "owner": null,
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "module",
+    "signature": "mod tracing_opentelemetry",
+    "docs": "# Tracing OpenTelemetry\n\n[`tracing`] is a framework for instrumenting Rust programs to collect\nstructured, event-based diagnostic information. This crate provides a layer\nthat connects spans from multiple systems into a trace and emits them to\n[OpenTelemetry]-compatible distributed tracing systems for processing and\nvisualization.\n\n[OpenTelemetry]: https://opentelemetry.io\n[`tracing`]: https://github.com/tokio-rs/tracing\n\n### Special Fields\n\nFields with an `otel.` prefix are reserved for this crate and have specific\nmeaning. They are treated as ordinary fields by other layers. The current\nspecial fields are:\n\n* `otel.name`: Override the span name sent to OpenTelemetry exporters.\n  Setting this field is useful if you want to display non-static information\n  in your span name.\n* `otel.kind`: Set the span kind to one of the supported OpenTelemetry [span kinds]. These must\n  be specified as strings such as `\"client\"` or `\"server\"`. If it is not specified, the span is\n  assumed to be internal.\n* `otel.status_code`: Set the span status code to one of the supported OpenTelemetry [span status codes].\n* `otel.status_description`: Set the span description of the status. This should be used only if\n  `otel.status_code` is also set.\n\n[span kinds]: opentelemetry::trace::SpanKind\n[span status codes]: opentelemetry::trace::Status\n\n### Semantic Conventions\n\nOpenTelemetry defines conventional names for attributes of common\noperations. These names can be assigned directly as fields, e.g.\n`trace_span!(\"request\", \"server.port\" = 80, \"url.full\" = ..)`, and they\nwill be passed through to your configured OpenTelemetry exporter. You can\nfind the full list of the operations and their expected field names in the\n[semantic conventions] spec.\n\n[semantic conventions]: https://github.com/open-telemetry/semantic-conventions\n\n### Stability Status\n\nThe OpenTelemetry tracing specification is stable but the underlying [opentelemetry crate] is\nnot so some breaking changes will still occur in this crate as well. Metrics are not yet fully\nstable. You can read the specification via the [spec repository].\n\n[opentelemetry crate]: https://github.com/open-telemetry/opentelemetry-rust\n[spec repository]: https://github.com/open-telemetry/opentelemetry-specification\n\n### OpenTelemetry Logging\n\nLogging to OpenTelemetry collectors is not supported by this crate, only traces and metrics are.\nIf you need to export logs through OpenTelemetry, consider [`opentelemetry-appender-tracing`].\n\n[`opentelemetry-appender-tracing`]: https://crates.io/crates/opentelemetry-appender-tracing\n\n## Examples\n\n```\nuse opentelemetry_sdk::trace::SdkTracerProvider;\nuse opentelemetry::trace::{Tracer, TracerProvider as _};\nuse tracing::{error, span};\nuse tracing_subscriber::layer::SubscriberExt;\nuse tracing_subscriber::Registry;\n\n// Create a new OpenTelemetry trace pipeline that prints to stdout\nlet provider = SdkTracerProvider::builder()\n    .with_simple_exporter(opentelemetry_stdout::SpanExporter::default())\n    .build();\nlet tracer = provider.tracer(\"readme_example\");\n\n// Create a tracing layer with the configured tracer\nlet telemetry = tracing_opentelemetry::layer().with_tracer(tracer);\n\n// Use the tracing subscriber `Registry`, or any other subscriber\n// that impls `LookupSpan`\nlet subscriber = Registry::default().with(telemetry);\n\n// Trace executed code\ntracing::subscriber::with_default(subscriber, || {\n    // Spans will be sent to the configured OpenTelemetry exporter\n    let root = span!(tracing::Level::TRACE, \"app_start\", work_units = 2);\n    let _enter = root.enter();\n\n    error!(\"This event will be logged in the root span.\");\n});\n```\n\n## Feature Flags\n\n- `metrics`: Enables the [`MetricsLayer`] type, a [layer] that\n  exports OpenTelemetry metrics from specifically-named events. This enables\n  the `metrics` feature flag on the `opentelemetry` crate.  *Enabled by\n  default*.\n\n[layer]: tracing_subscriber::layer",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        208,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[warn(unreachable_pub)]"
+      },
+      {
+        "other": "#[doc(html_logo_url =\n\"https://raw.githubusercontent.com/tokio-rs/tracing/master/assets/logo-type.png\")]"
+      },
+      {
+        "other": "#[<cfg_attr>(docsrs, feature(doc_cfg), feature(doc_notable_trait),\ndeny(rustdoc::broken_intra_doc_links),)]"
+      },
+      {
+        "other": "#[feature(doc_cfg)]"
+      },
+      {
+        "other": "#[feature(doc_notable_trait)]"
+      },
+      {
+        "other": "#[deny(rustdoc::broken_intra_doc_links)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          168,
+          169,
+          170,
+          171,
+          174
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "opentelemetry::trace::SpanKind": 202,
+      "tracing_subscriber::layer": 203,
+      "opentelemetry::trace::Status": 147,
+      "`MetricsLayer`": 2
+    },
+    "link_paths": {
+      "opentelemetry::trace::SpanKind": "opentelemetry::trace::span::SpanKind",
+      "tracing_subscriber::layer": "tracing_subscriber::layer",
+      "opentelemetry::trace::Status": "opentelemetry::trace::span::Status",
+      "`MetricsLayer`": "tracing_opentelemetry::metrics::MetricsLayer"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "204",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_opentelemetry.md",
+    "record_file": "modules/tracing_opentelemetry.json",
+    "anchor": "op-f3bd0a15539e4a5c28c16abe",
+    "aliases": [],
+    "resolved_doc_links": {
+      "opentelemetry::trace::SpanKind": "../operations/opentelemetry.trace.span.SpanKind.md#op-dcebed2dc327b4042d3aa279",
+      "tracing_subscriber::layer": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "opentelemetry::trace::Status": "../operations/opentelemetry.trace.span.Status.md#op-5a4a2c8462390432f268d04c",
+      "`MetricsLayer`": "../operations/tracing_opentelemetry.metrics.MetricsLayer.md#op-89f067ec31171359b3c6376e"
+    }
+  }
+]

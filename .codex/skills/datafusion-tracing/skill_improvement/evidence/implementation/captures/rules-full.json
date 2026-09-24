@@ -1,0 +1,1489 @@
+[
+  {
+    "kind": "open",
+    "id": 1,
+    "parent": null,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "analyze_logical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 2,
+    "parent": 1,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "resolve_grouping_function"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "resolve_grouping_function"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 2251799813685250,
+    "parent": 1,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "type_coercion"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 2251799813685250,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "type_coercion"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 1,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "analyze_logical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 2251799813685249,
+    "parent": null,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_logical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 4503599627370498,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "rewrite_set_comparison"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 4503599627370498,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "rewrite_set_comparison"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 6755399441055746,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_unions"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 6755399441055746,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_unions"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 9007199254740994,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "unions_to_filter"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 9007199254740994,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "unions_to_filter"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 11258999068426242,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "simplify_expressions"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 11258999068426242,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "simplify_expressions"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 13510798882111490,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "replace_distinct_aggregate"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 13510798882111490,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "replace_distinct_aggregate"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 15762598695796738,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 15762598695796738,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 18014398509481986,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "decorrelate_predicate_subquery"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 18014398509481986,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "decorrelate_predicate_subquery"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 20266198323167234,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "scalar_subquery_to_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 20266198323167234,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "scalar_subquery_to_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 22517998136852482,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "decorrelate_lateral_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 22517998136852482,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "decorrelate_lateral_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 24769797950537730,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "extract_equijoin_predicate"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 24769797950537730,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "extract_equijoin_predicate"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 27021597764222978,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_duplicated_expr"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 27021597764222978,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_duplicated_expr"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 29273397577908226,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_filter"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 29273397577908226,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_filter"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 31525197391593474,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_cross_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 31525197391593474,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_cross_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 33776997205278722,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_limit"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 33776997205278722,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_limit"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 36028797018963970,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "propagate_empty_relation"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 36028797018963970,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "propagate_empty_relation"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 38280596832649218,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "filter_null_join_keys"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 38280596832649218,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "filter_null_join_keys"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 40532396646334466,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_outer_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 40532396646334466,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_outer_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 42784196460019714,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_limit"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 42784196460019714,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_limit"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 45035996273704962,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_filter"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 45035996273704962,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_filter"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 47287796087390210,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "single_distinct_aggregation_to_group_by"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 47287796087390210,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "single_distinct_aggregation_to_group_by"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 49539595901075458,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_group_by_constant"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 49539595901075458,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_group_by_constant"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 51791395714760706,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "common_sub_expression_eliminate"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 51791395714760706,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "common_sub_expression_eliminate"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 54043195528445954,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "extract_leaf_expressions"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 54043195528445954,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "extract_leaf_expressions"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 56294995342131202,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_leaf_projections"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 56294995342131202,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_leaf_projections"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 58546795155816450,
+    "parent": 2251799813685249,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_projections"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 58546795155816450,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_projections (modified)"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 2251799813685249,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "datafusion.effective_rules": "optimize_projections",
+      "datafusion.optimizer.max_passes": "3",
+      "datafusion.optimizer.pass": "1",
+      "otel.name": "optimize_logical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 4503599627370497,
+    "parent": null,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_logical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 60798594969501698,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "rewrite_set_comparison"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 60798594969501698,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "rewrite_set_comparison"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 63050394783186946,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_unions"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 63050394783186946,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_unions"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 65302194596872194,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "unions_to_filter"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 65302194596872194,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "unions_to_filter"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 67553994410557442,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "simplify_expressions"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 67553994410557442,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "simplify_expressions"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 69805794224242690,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "replace_distinct_aggregate"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 69805794224242690,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "replace_distinct_aggregate"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 72057594037927938,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 72057594037927938,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 74309393851613186,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "decorrelate_predicate_subquery"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 74309393851613186,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "decorrelate_predicate_subquery"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 76561193665298434,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "scalar_subquery_to_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 76561193665298434,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "scalar_subquery_to_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 78812993478983682,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "decorrelate_lateral_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 78812993478983682,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "decorrelate_lateral_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 81064793292668930,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "extract_equijoin_predicate"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 81064793292668930,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "extract_equijoin_predicate"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 83316593106354178,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_duplicated_expr"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 83316593106354178,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_duplicated_expr"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 85568392920039426,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_filter"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 85568392920039426,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_filter"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 87820192733724674,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_cross_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 87820192733724674,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_cross_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 90071992547409922,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_limit"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 90071992547409922,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_limit"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 92323792361095170,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "propagate_empty_relation"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 92323792361095170,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "propagate_empty_relation"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 94575592174780418,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "filter_null_join_keys"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 94575592174780418,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "filter_null_join_keys"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 96827391988465666,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_outer_join"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 96827391988465666,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_outer_join"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 99079191802150914,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_limit"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 99079191802150914,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_limit"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 101330991615836162,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_filter"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 101330991615836162,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_filter"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 103582791429521410,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "single_distinct_aggregation_to_group_by"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 103582791429521410,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "single_distinct_aggregation_to_group_by"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 105834591243206658,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_group_by_constant"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 105834591243206658,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "eliminate_group_by_constant"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 108086391056891906,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "common_sub_expression_eliminate"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 108086391056891906,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "common_sub_expression_eliminate"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 110338190870577154,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "extract_leaf_expressions"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 110338190870577154,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "extract_leaf_expressions"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 112589990684262402,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_leaf_projections"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 112589990684262402,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "push_down_leaf_projections"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 114841790497947650,
+    "parent": 4503599627370497,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_projections"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 114841790497947650,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_projections"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 4503599627370497,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "datafusion.optimizer.max_passes": "3",
+      "datafusion.optimizer.pass": "2",
+      "otel.name": "optimize_logical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 6755399441055745,
+    "parent": null,
+    "name": "create_physical_plan",
+    "target": "datafusion_tracing::planner",
+    "fields": {}
+  },
+  {
+    "kind": "open",
+    "id": 117093590311632898,
+    "parent": 6755399441055745,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_physical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 3,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OutputRequirements"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 3,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OutputRequirements (modified)"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 2251799813685251,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "aggregate_statistics"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 2251799813685251,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "aggregate_statistics"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 4503599627370499,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "join_selection"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 4503599627370499,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "join_selection"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 6755399441055747,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitedDistinctAggregation"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 6755399441055747,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitedDistinctAggregation"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 9007199254740995,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "FilterPushdown"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 9007199254740995,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "FilterPushdown"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 11258999068426243,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "WindowTopN"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 11258999068426243,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "WindowTopN"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 13510798882111491,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "EnsureRequirements"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 13510798882111491,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "EnsureRequirements"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 15762598695796739,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "CombinePartialFinalAggregate"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 15762598695796739,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "CombinePartialFinalAggregate"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 18014398509481987,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OptimizeAggregateOrder"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 18014398509481987,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OptimizeAggregateOrder"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 20266198323167235,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "ProjectionPushdown"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 20266198323167235,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "ProjectionPushdown"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 22517998136852483,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OutputRequirements"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 22517998136852483,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OutputRequirements (modified)"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 24769797950537731,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitAggregation"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 24769797950537731,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitAggregation"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 27021597764222979,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitPushPastWindows"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 27021597764222979,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitPushPastWindows"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 29273397577908227,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "HashJoinBuffering"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 29273397577908227,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "HashJoinBuffering"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 31525197391593475,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitPushdown"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 31525197391593475,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitPushdown"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 33776997205278723,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "TopKRepartition"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 33776997205278723,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "TopKRepartition"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 36028797018963971,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "ProjectionPushdown"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 36028797018963971,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "ProjectionPushdown"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 38280596832649219,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "PushdownSort"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 38280596832649219,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "PushdownSort"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 40532396646334467,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "EnsureCooperative"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 40532396646334467,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "EnsureCooperative"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 42784196460019715,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "FilterPushdown(Post)"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 42784196460019715,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "FilterPushdown(Post)"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 45035996273704963,
+    "parent": 117093590311632898,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "SanityCheckPlan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 45035996273704963,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "SanityCheckPlan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 117093590311632898,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "datafusion.effective_rules": "OutputRequirements, OutputRequirements",
+      "otel.name": "optimize_physical_plan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 6755399441055745,
+    "name": "create_physical_plan",
+    "target": "datafusion_tracing::planner",
+    "fields": {
+      "logical_plan": "SubqueryAlias: t [a:Int64]\n  Projection: column1 AS a [a:Int64]\n    Values: (Int64(1)), (Int64(2)), (Int64(3)) [column1:Int64]",
+      "physical_plan": "ProjectionExec: expr=[column1@0 as a]\n  DataSourceExec: partitions=1, partition_sizes=[1]\n"
+    }
+  }
+]

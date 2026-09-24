@@ -15,25 +15,20 @@
 //! - [`error`] — [`AuthoringError`] with its §23.2 codes.
 //! - [`span`] — source spans and the parse budget.
 //! - [`dsl`] — the expression DSL: parse, render, round trip.
-//! - [`document`] — the package and case document loader.
+//! - [`generated::documents`] — strict typed document contracts.
 //! - [`ids`] — entity identity assignment under both policies.
 //! - Native source edits preserve exact before-images; provider commands own writes.
 //! - [`targets`] — `pse.target_path` parsing and resolution.
-//! - [`p0`], [`p1`] — package resolution and authoring parse.
+//! - [`p0`] — pure exact package resolution.
 //!
 //! `generated` is added together with the first generated `documents.rs` (packet A-6).
 
-pub mod document;
 pub mod dsl;
 pub mod error;
 pub mod ids;
-pub mod native;
-mod native_relations;
 pub mod p0;
-pub mod p1;
 pub mod span;
 pub mod targets;
-mod work;
 
 pub use crate::error::AuthoringError;
 pub use crate::span::{ParseBudget, SourceSpan};

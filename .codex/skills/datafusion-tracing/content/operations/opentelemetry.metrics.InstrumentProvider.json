@@ -1,0 +1,2339 @@
+[
+  {
+    "id": "c78b861fe6f28a675759c2e8",
+    "path": "opentelemetry::metrics::InstrumentProvider",
+    "name": "InstrumentProvider",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait InstrumentProvider",
+    "docs": "SDK implemented trait for creating instruments",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        19,
+        1
+      ],
+      "end": [
+        126,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          1341,
+          1342,
+          1343,
+          1344,
+          1345,
+          1346,
+          1347,
+          1348,
+          1349,
+          1350,
+          1351,
+          1352,
+          1353,
+          1354,
+          1355,
+          1356
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1162",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-c78b861fe6f28a675759c2e8",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9d4e20b96daac865a23ba1d9",
+    "path": "opentelemetry::metrics::InstrumentProvider::f64_counter",
+    "name": "f64_counter",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_counter(&self, _builder: InstrumentBuilder<'_, Counter<f64>>) -> Counter<f64>",
+    "docs": "creates an instrument for recording increasing values.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        26,
+        5
+      ],
+      "end": [
+        28,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "InstrumentBuilder",
+                  "id": 1200,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "Counter",
+                              "id": 968,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "f64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Counter",
+              "id": 968,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "968": "opentelemetry::metrics::instruments::counter::Counter"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1342",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-9d4e20b96daac865a23ba1d9",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4d64f79e4ce5afba8001e5d9",
+    "path": "opentelemetry::metrics::InstrumentProvider::f64_gauge",
+    "name": "f64_gauge",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_gauge(&self, _builder: InstrumentBuilder<'_, Gauge<f64>>) -> Gauge<f64>",
+    "docs": "creates an instrument for recording independent values.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        84,
+        5
+      ],
+      "end": [
+        86,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "InstrumentBuilder",
+                  "id": 1200,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "Gauge",
+                              "id": 1023,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "f64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Gauge",
+              "id": 1023,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1023": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1350",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-4d64f79e4ce5afba8001e5d9",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0af02f1dff3f2e84204bd3a4",
+    "path": "opentelemetry::metrics::InstrumentProvider::f64_histogram",
+    "name": "f64_histogram",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_histogram(&self, _builder: HistogramBuilder<'_, Histogram<f64>>) -> Histogram<f64>",
+    "docs": "creates an instrument for recording a distribution of values.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        118,
+        5
+      ],
+      "end": [
+        120,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "HistogramBuilder",
+                  "id": 1168,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "Histogram",
+                              "id": 1077,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "f64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Histogram",
+              "id": 1077,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1168": "opentelemetry::metrics::instruments::HistogramBuilder",
+      "1077": "opentelemetry::metrics::instruments::histogram::Histogram"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1355",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-0af02f1dff3f2e84204bd3a4",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dbef99b127c16a50c4acbb5d",
+    "path": "opentelemetry::metrics::InstrumentProvider::f64_observable_counter",
+    "name": "f64_observable_counter",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_observable_counter(&self, _builder: AsyncInstrumentBuilder<'_, ObservableCounter<f64>, f64>) -> ObservableCounter<f64>",
+    "docs": "creates an instrument for recording increasing values via callback.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        39,
+        5
+      ],
+      "end": [
+        44,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "AsyncInstrumentBuilder",
+                  "id": 1244,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "ObservableCounter",
+                              "id": 996,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "f64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": {
+                            "primitive": "f64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ObservableCounter",
+              "id": 996,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "996": "opentelemetry::metrics::instruments::counter::ObservableCounter"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1344",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-dbef99b127c16a50c4acbb5d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "af28ce78011d85b1724cd256",
+    "path": "opentelemetry::metrics::InstrumentProvider::f64_observable_gauge",
+    "name": "f64_observable_gauge",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_observable_gauge(&self, _builder: AsyncInstrumentBuilder<'_, ObservableGauge<f64>, f64>) -> ObservableGauge<f64>",
+    "docs": "creates an instrument for recording the current value via callback.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        110,
+        5
+      ],
+      "end": [
+        115,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "AsyncInstrumentBuilder",
+                  "id": 1244,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "ObservableGauge",
+                              "id": 1050,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "f64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": {
+                            "primitive": "f64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ObservableGauge",
+              "id": 1050,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1050": "opentelemetry::metrics::instruments::gauge::ObservableGauge"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1354",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-af28ce78011d85b1724cd256",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f94c90b4ea923b92960b6cc9",
+    "path": "opentelemetry::metrics::InstrumentProvider::f64_observable_up_down_counter",
+    "name": "f64_observable_up_down_counter",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_observable_up_down_counter(&self, _builder: AsyncInstrumentBuilder<'_, ObservableUpDownCounter<f64>, f64>) -> ObservableUpDownCounter<f64>",
+    "docs": "creates an instrument for recording changes of a value via callback.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        71,
+        5
+      ],
+      "end": [
+        76,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "AsyncInstrumentBuilder",
+                  "id": 1244,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "ObservableUpDownCounter",
+                              "id": 1132,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "f64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": {
+                            "primitive": "f64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ObservableUpDownCounter",
+              "id": 1132,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1132": "opentelemetry::metrics::instruments::up_down_counter::ObservableUpDownCounter"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1348",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-f94c90b4ea923b92960b6cc9",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "36fbd0285e4560a0a2dd7caf",
+    "path": "opentelemetry::metrics::InstrumentProvider::f64_up_down_counter",
+    "name": "f64_up_down_counter",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_up_down_counter(&self, _builder: InstrumentBuilder<'_, UpDownCounter<f64>>) -> UpDownCounter<f64>",
+    "docs": "creates an instrument for recording changes of a value.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        55,
+        5
+      ],
+      "end": [
+        60,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "InstrumentBuilder",
+                  "id": 1200,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "UpDownCounter",
+                              "id": 1105,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "f64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "UpDownCounter",
+              "id": 1105,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1105": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1346",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-36fbd0285e4560a0a2dd7caf",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cf91d80fef723fd70208a8e1",
+    "path": "opentelemetry::metrics::InstrumentProvider::i64_gauge",
+    "name": "i64_gauge",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn i64_gauge(&self, _builder: InstrumentBuilder<'_, Gauge<i64>>) -> Gauge<i64>",
+    "docs": "creates an instrument for recording independent values.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        89,
+        5
+      ],
+      "end": [
+        91,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "InstrumentBuilder",
+                  "id": 1200,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "Gauge",
+                              "id": 1023,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "i64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Gauge",
+              "id": 1023,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "i64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1023": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1351",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-cf91d80fef723fd70208a8e1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "787d3e504c80df796416db7d",
+    "path": "opentelemetry::metrics::InstrumentProvider::i64_observable_gauge",
+    "name": "i64_observable_gauge",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn i64_observable_gauge(&self, _builder: AsyncInstrumentBuilder<'_, ObservableGauge<i64>, i64>) -> ObservableGauge<i64>",
+    "docs": "creates an instrument for recording the current value via callback.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        102,
+        5
+      ],
+      "end": [
+        107,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "AsyncInstrumentBuilder",
+                  "id": 1244,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "ObservableGauge",
+                              "id": 1050,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "i64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": {
+                            "primitive": "i64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ObservableGauge",
+              "id": 1050,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "i64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1050": "opentelemetry::metrics::instruments::gauge::ObservableGauge"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1353",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-787d3e504c80df796416db7d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8688c5705daa227a7ab11e68",
+    "path": "opentelemetry::metrics::InstrumentProvider::i64_observable_up_down_counter",
+    "name": "i64_observable_up_down_counter",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn i64_observable_up_down_counter(&self, _builder: AsyncInstrumentBuilder<'_, ObservableUpDownCounter<i64>, i64>) -> ObservableUpDownCounter<i64>",
+    "docs": "creates an instrument for recording changes of a value.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        63,
+        5
+      ],
+      "end": [
+        68,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "AsyncInstrumentBuilder",
+                  "id": 1244,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "ObservableUpDownCounter",
+                              "id": 1132,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "i64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": {
+                            "primitive": "i64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ObservableUpDownCounter",
+              "id": 1132,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "i64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1132": "opentelemetry::metrics::instruments::up_down_counter::ObservableUpDownCounter"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1347",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-8688c5705daa227a7ab11e68",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a33412e4517bf0bb171da947",
+    "path": "opentelemetry::metrics::InstrumentProvider::i64_up_down_counter",
+    "name": "i64_up_down_counter",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn i64_up_down_counter(&self, _builder: InstrumentBuilder<'_, UpDownCounter<i64>>) -> UpDownCounter<i64>",
+    "docs": "creates an instrument for recording changes of a value.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        47,
+        5
+      ],
+      "end": [
+        52,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "InstrumentBuilder",
+                  "id": 1200,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "UpDownCounter",
+                              "id": 1105,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "i64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "UpDownCounter",
+              "id": 1105,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "i64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1105": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1345",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-a33412e4517bf0bb171da947",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d816c87425f1a43111e03873",
+    "path": "opentelemetry::metrics::InstrumentProvider::u64_counter",
+    "name": "u64_counter",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_counter(&self, _builder: InstrumentBuilder<'_, Counter<u64>>) -> Counter<u64>",
+    "docs": "creates an instrument for recording increasing values.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        21,
+        5
+      ],
+      "end": [
+        23,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "InstrumentBuilder",
+                  "id": 1200,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "Counter",
+                              "id": 968,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "u64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Counter",
+              "id": 968,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "968": "opentelemetry::metrics::instruments::counter::Counter"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1341",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-d816c87425f1a43111e03873",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fb1980a53db33f519afdcdfc",
+    "path": "opentelemetry::metrics::InstrumentProvider::u64_gauge",
+    "name": "u64_gauge",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_gauge(&self, _builder: InstrumentBuilder<'_, Gauge<u64>>) -> Gauge<u64>",
+    "docs": "creates an instrument for recording independent values.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        79,
+        5
+      ],
+      "end": [
+        81,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "InstrumentBuilder",
+                  "id": 1200,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "Gauge",
+                              "id": 1023,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "u64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Gauge",
+              "id": 1023,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1023": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1349",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-fb1980a53db33f519afdcdfc",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "272109d183cd9f20368307a4",
+    "path": "opentelemetry::metrics::InstrumentProvider::u64_histogram",
+    "name": "u64_histogram",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_histogram(&self, _builder: HistogramBuilder<'_, Histogram<u64>>) -> Histogram<u64>",
+    "docs": "creates an instrument for recording a distribution of values.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        123,
+        5
+      ],
+      "end": [
+        125,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "HistogramBuilder",
+                  "id": 1168,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "Histogram",
+                              "id": 1077,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "u64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Histogram",
+              "id": 1077,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1168": "opentelemetry::metrics::instruments::HistogramBuilder",
+      "1077": "opentelemetry::metrics::instruments::histogram::Histogram"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1356",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-272109d183cd9f20368307a4",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bd34b590282154c2b13eb24d",
+    "path": "opentelemetry::metrics::InstrumentProvider::u64_observable_counter",
+    "name": "u64_observable_counter",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_observable_counter(&self, _builder: AsyncInstrumentBuilder<'_, ObservableCounter<u64>, u64>) -> ObservableCounter<u64>",
+    "docs": "creates an instrument for recording increasing values via callback.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        31,
+        5
+      ],
+      "end": [
+        36,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "AsyncInstrumentBuilder",
+                  "id": 1244,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "ObservableCounter",
+                              "id": 996,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "u64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": {
+                            "primitive": "u64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ObservableCounter",
+              "id": 996,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "996": "opentelemetry::metrics::instruments::counter::ObservableCounter"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1343",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-bd34b590282154c2b13eb24d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "08d66d8b1a630fdb74e506d6",
+    "path": "opentelemetry::metrics::InstrumentProvider::u64_observable_gauge",
+    "name": "u64_observable_gauge",
+    "owner": "opentelemetry::metrics::InstrumentProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_observable_gauge(&self, _builder: AsyncInstrumentBuilder<'_, ObservableGauge<u64>, u64>) -> ObservableGauge<u64>",
+    "docs": "creates an instrument for recording the current value via callback.",
+    "span": {
+      "filename": "src/metrics/mod.rs",
+      "begin": [
+        94,
+        5
+      ],
+      "end": [
+        99,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_builder",
+              {
+                "resolved_path": {
+                  "path": "AsyncInstrumentBuilder",
+                  "id": 1244,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "ObservableGauge",
+                              "id": 1050,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "primitive": "u64"
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": {
+                            "primitive": "u64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ObservableGauge",
+              "id": 1050,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1050": "opentelemetry::metrics::instruments::gauge::ObservableGauge"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1352",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.InstrumentProvider.md",
+    "record_file": "operations/opentelemetry.metrics.InstrumentProvider.json",
+    "anchor": "op-08d66d8b1a630fdb74e506d6",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

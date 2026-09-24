@@ -1,0 +1,360 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Waiter cancellation never takes native ownership away from the existing supervisor.
+use super::{ModelRevision, Runtime, WorkflowError, contract};
+use crate::math::{
+    MathRuntimeError,
+    solves::{PreparedSolve, SequenceReport, SolveSequence, SolverProfile},
+};
+use pse_backend_native::{
+    routing::Route,
+    solve::{Event, Progress},
+};
+use pse_engine::cache_service::flight::FlightCancellation;
+use pse_ids::SemanticId;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, OnceLock},
+};
+
+/// Immutable prepared representation and original semantic metadata.
+#[derive(Clone, Debug)]
+pub struct PreparedCase {
+    pub(crate) revision: ModelRevision,
+    pub(crate) case: SemanticId,
+    pub(crate) profile: SolverProfile,
+    pub(crate) solve: PreparedSolve,
+    pub(crate) preparation: crate::math::Preparation,
+}
+impl ModelRevision {
+    /// Prepare the selected immutable revision through the shared Salsa compiler.
+    /// Coefficient projection is explicit: an incompatible declaration is a diagnostic,
+    /// never silently routed through another mathematical representation.
+    pub async fn prepare(
+        &self,
+        case: SemanticId,
+        profile: SolverProfile,
+        compiler: pse_compiler::workspace::Profile,
+        coefficients: bool,
+        cancel: &crate::CancelSource,
+    ) -> Result<PreparedCase, WorkflowError> {
+        let inputs = self
+            .0
+            .cases
+            .get(&case)
+            .ok_or_else(|| contract("unknown selected case"))?;
+        let order = if matches!(
+            profile.controls.hessian,
+            pse_backend_native::solve::HessianMode::Exact
+        ) {
+            pse_kernels::DerivativeOrder::Second
+        } else {
+            pse_kernels::DerivativeOrder::First
+        };
+        let preparation = self
+            .0
+            .runtime
+            .native()
+            .prepare_revision(
+                self.0.workspace.clone(),
+                inputs.as_ref().clone(),
+                case,
+                order,
+                compiler,
+                coefficients,
+                cancel,
+            )
+            .await?;
+        let providers = self
+            .0
+            .providers
+            .values()
+            .map(|p| (p.registration.spec().key(), p.registration.clone()))
+            .collect();
+        let solve = self
+            .0
+            .runtime
+            .native()
+            .prepare_solve(
+                preparation.clone(),
+                pse_math::binding::CaseValues {
+                    scalars: inputs.values.clone(),
+                },
+                providers,
+                profile.clone(),
+                None,
+            )
+            .await?;
+        Ok(PreparedCase {
+            revision: self.clone(),
+            case,
+            profile,
+            solve,
+            preparation,
+        })
+    }
+}
+impl PreparedCase {
+    /// Mathematically admitted backend route, before native execution.
+    pub fn route(&self) -> Route {
+        self.solve.route()
+    }
+    /// The original compiler structure, including semantic IDs and decomposition.
+    pub fn compiled(&self) -> &pse_compiler::workspace::PreparedCase {
+        self.preparation.compiled()
+    }
+    /// Start a finite native attempt; all later waiters observe its one terminal result.
+    pub fn start(&self) -> Result<RunHandle, WorkflowError> {
+        self.revision.0.runtime.start(vec![self.clone()], false)
+    }
+}
+/// Public cancellation lease. Dropping the last public handle requests cancellation;
+/// the supervisor retains the actual native handle until its join completes.
+#[derive(Debug)]
+struct Lease(FlightCancellation);
+impl Drop for Lease {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
+}
+/// A repeatably awaitable, cancellable view of one native job.
+#[derive(Clone, Debug)]
+pub struct RunHandle {
+    lease: Arc<Lease>,
+    receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
+    progress: Arc<Progress>,
+}
+impl RunHandle {
+    /// Request stop; result ownership remains live until native teardown and join.
+    pub fn cancel(&self) {
+        self.lease.0.cancel();
+    }
+    /// The same terminal result remains available after cancellation of an earlier waiter.
+    pub async fn wait(&self) -> Result<Arc<RunResult>, WorkflowError> {
+        let mut receiver = self.receiver.clone();
+        loop {
+            if let Some(result) = receiver.borrow_and_update().clone() {
+                return Ok(result);
+            }
+            receiver
+                .changed()
+                .await
+                .map_err(|_| contract("lost public run supervisor"))?;
+        }
+    }
+    /// Nonblocking immutable completion snapshot.
+    pub fn result(&self) -> Option<Arc<RunResult>> {
+        self.receiver.borrow().clone()
+    }
+    /// Bounded native events and actual dropped-event count.
+    pub fn progress(&self) -> (Vec<Event>, u64) {
+        self.progress.snapshot()
+    }
+}
+/// Mathematical report variants share one joined public job lifecycle.
+#[derive(Debug)]
+pub enum RunReport {
+    /// Existing native algebraic solve/sequence report.
+    Solves(SequenceReport),
+    /// A completed or partial native integration.
+    Simulation(pse_backend_native::dynamics::Report),
+    /// Native steady/transient parameter fitting.
+    Fit(super::FitReport),
+}
+/// Immutable request representation, with no mutable native objects.
+#[derive(Clone, Debug)]
+pub enum RunRequest {
+    /// Finite already-prepared algebraic cases.
+    Solves(Vec<PreparedCase>),
+    /// One already-prepared physical simulation.
+    Simulation(super::PreparedSimulation),
+    /// Compiled shared-parameter experiments.
+    Fit(super::PreparedFit),
+}
+impl RunRequest {
+    pub(crate) fn revisions(&self) -> Vec<&ModelRevision> {
+        match self {
+            Self::Solves(s) => s.iter().map(|s| &s.revision).collect(),
+            Self::Simulation(s) => vec![&s.revision],
+            Self::Fit(f) => vec![&f.problem.revision],
+        }
+    }
+}
+/// Immutable joined outcome. Table encoding/publication never invokes a solver again.
+#[derive(Debug)]
+pub struct RunResult {
+    /// Unique execution identity, not mathematical content identity.
+    pub run_id: SemanticId,
+    pub(crate) runtime: Runtime,
+    pub(crate) request: RunRequest,
+    pub(crate) _owner: Option<Arc<pse_columnar::AllocationLease>>,
+    pub(crate) report: Result<RunReport, Arc<MathRuntimeError>>,
+    pub(crate) batches: OnceLock<
+        Result<
+            BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>,
+            Arc<WorkflowError>,
+        >,
+    >,
+}
+impl RunResult {
+    /// Full typed reports and backend-specific metrics; errors preserve their original causes.
+    pub fn report(&self) -> Result<&RunReport, &MathRuntimeError> {
+        self.report.as_ref().map_err(AsRef::as_ref)
+    }
+    /// Original immutable declarations for each requested step, including unattempted steps.
+    pub fn request(&self) -> &RunRequest {
+        &self.request
+    }
+}
+impl Runtime {
+    /// Start a bounded sequence of already prepared native cases under one lifecycle.
+    pub fn start(
+        &self,
+        steps: Vec<PreparedCase>,
+        continue_independent: bool,
+    ) -> Result<RunHandle, WorkflowError> {
+        if steps.is_empty()
+            || steps
+                .iter()
+                .any(|p| !Arc::ptr_eq(&p.revision.0.runtime.shared, &self.shared))
+        {
+            return Err(contract("empty sequence or mixed runtime ownership"));
+        }
+        // Publication has one complete declaration per model ID. Do not silently
+        // choose a revision when a batch intentionally mixes revisions of a model.
+        let mut revisions = BTreeMap::new();
+        for step in &steps {
+            if revisions
+                .insert(step.revision.0.row.model_id, step.revision.identity())
+                .is_some_and(|v| v != step.revision.identity())
+            {
+                return Err(contract(
+                    "sequence mixes revisions of one model; use separate runs",
+                ));
+            }
+        }
+        let handle = self.native().solve(SolveSequence {
+            steps: steps.iter().map(|p| p.solve.clone()).collect(),
+            continue_independent,
+            result_limit: steps.len(),
+        })?;
+        let lease = Arc::new(Lease(handle.cancellation()));
+        let progress = handle.progress_source();
+        let (sender, receiver) = tokio::sync::watch::channel(None);
+        let runtime = self.clone();
+        let run_id = pse_authoring::ids::uuid_v7();
+        tokio::spawn(async move {
+            let report = handle
+                .finish()
+                .await
+                .map(RunReport::Solves)
+                .map_err(Arc::new);
+            let result = Arc::new(RunResult {
+                run_id,
+                runtime,
+                request: RunRequest::Solves(steps),
+                _owner: None,
+                report,
+                batches: OnceLock::new(),
+            });
+            sender.send_replace(Some(result));
+        });
+        Ok(RunHandle {
+            lease,
+            receiver,
+            progress,
+        })
+    }
+}
+
+impl super::PreparedSimulation {
+    /// Start one bounded simulation under the same cancellation and completion owner.
+    pub fn start(&self) -> Result<RunHandle, WorkflowError> {
+        let runtime = self.revision.0.runtime.clone();
+        let prepared = self.clone();
+        let handle = runtime
+            .native()
+            .submit(1, self.bytes, move |flag, progress| {
+                #[cfg(feature = "solver-diffsol")]
+                {
+                    let mut worker = prepared.worker(flag.clone())?;
+                    let report = pse_backend_native::dynamics::integrate_with_progress(
+                        &mut worker,
+                        &prepared.profile,
+                        &prepared.parameters,
+                        flag,
+                        progress,
+                    )?;
+                    Ok(RunReport::Simulation(report))
+                }
+                #[cfg(not(feature = "solver-diffsol"))]
+                {
+                    let _ = (prepared, flag, progress);
+                    Err(MathRuntimeError::Infrastructure(
+                        "Diffsol not linked".into(),
+                    ))
+                }
+            })?;
+        let lease = Arc::new(Lease(handle.cancellation()));
+        let progress = handle.progress_source();
+        let (sender, receiver) = tokio::sync::watch::channel(None);
+        let request = RunRequest::Simulation(self.clone());
+        let run_id = pse_authoring::ids::uuid_v7();
+        tokio::spawn(async move {
+            let (report, owner) = match handle.finish().await {
+                Ok((r, o)) => (Ok(r), Some(o)),
+                Err(e) => (Err(Arc::new(e)), None),
+            };
+            sender.send_replace(Some(Arc::new(RunResult {
+                run_id,
+                runtime,
+                request,
+                _owner: owner,
+                report,
+                batches: OnceLock::new(),
+            })));
+        });
+        Ok(RunHandle {
+            lease,
+            receiver,
+            progress,
+        })
+    }
+}
+
+impl super::PreparedFit {
+    /// Start one native fitting attempt under the existing joined job lifecycle.
+    pub fn start(&self) -> Result<RunHandle, WorkflowError> {
+        let runtime = self.problem.revision.0.runtime.clone();
+        let prepared = self.clone();
+        let handle = runtime.native().submit(
+            self.problem.profile.solver.controls.threads,
+            self.problem.bytes,
+            move |flag, progress| prepared.execute(flag, progress).map(RunReport::Fit),
+        )?;
+        let lease = Arc::new(Lease(handle.cancellation()));
+        let progress = handle.progress_source();
+        let (sender, receiver) = tokio::sync::watch::channel(None);
+        let request = RunRequest::Fit(self.clone());
+        let run_id = pse_authoring::ids::uuid_v7();
+        tokio::spawn(async move {
+            let (report, owner) = match handle.finish().await {
+                Ok((r, o)) => (Ok(r), Some(o)),
+                Err(e) => (Err(Arc::new(e)), None),
+            };
+            sender.send_replace(Some(Arc::new(RunResult {
+                run_id,
+                runtime,
+                request,
+                _owner: owner,
+                report,
+                batches: OnceLock::new(),
+            })));
+        });
+        Ok(RunHandle {
+            lease,
+            receiver,
+            progress,
+        })
+    }
+}

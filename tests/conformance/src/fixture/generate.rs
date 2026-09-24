@@ -10,10 +10,10 @@ use super::Fixture;
 use pse_ids::{ContentHash, SemanticId};
 use pse_schema::{
     Registry,
-    model::{Cell, ExtensionUse, FieldContract, InvariantSpec, RelationSpec},
+    model::{ExtensionUse, FieldContract, InvariantSpec, RelationSpec},
 };
 use std::collections::BTreeMap;
-pub(super) type Row = BTreeMap<String, Cell>;
+pub(super) type Row = BTreeMap<String, serde_json::Value>;
 pub(super) type Rows = BTreeMap<String, Vec<Row>>;
 
 pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, Fixture) {
@@ -60,7 +60,7 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
             invariant
                 .key_columns
                 .iter()
-                .map(|column| row[*column].literal_spec())
+                .map(|column| row[*column].to_string())
                 .collect()
         })
         .collect();
@@ -74,7 +74,7 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
                     rows.into_iter()
                         .map(|row| {
                             row.into_iter()
-                                .map(|(name, value)| (name, value.literal_spec()))
+                                .map(|(name, value)| (name, value.to_string()))
                                 .collect()
                         })
                         .collect(),
@@ -96,7 +96,7 @@ pub(super) fn row(registry: &Registry, spec: &RelationSpec, identity: u8) -> Row
         })
         .collect()
 }
-pub(super) fn set(rows: &mut Rows, relation: &str, column: &str, value: Cell) {
+pub(super) fn set(rows: &mut Rows, relation: &str, column: &str, value: serde_json::Value) {
     let row = &mut rows.get_mut(relation).expect("fixture relation")[0];
     assert!(
         row.contains_key(column),
@@ -114,10 +114,14 @@ pub(super) fn put(registry: &Registry, rows: &mut Rows, relation: &str, identity
         )],
     );
 }
-pub(super) fn id(value: u8) -> Cell {
-    Cell::Id(SemanticId::from_bytes([value; 16]))
+pub(super) fn id(value: u8) -> serde_json::Value {
+    serde_json::json!(["id", (SemanticId::from_bytes([value; 16])).to_hex()])
 }
-fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> Cell {
+#[allow(
+    clippy::too_many_lines,
+    reason = "one exhaustive native fixture literal dispatch"
+)]
+fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> serde_json::Value {
     use datafusion::arrow::datatypes::DataType;
     if let Some(alternative) = pse_schema::model::TaggedAlternative::from_field(ty.field()).unwrap()
     {
@@ -125,12 +129,32 @@ fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> Cell {
         let DataType::Struct(fields) = ty.data_type() else {
             panic!("a tagged fixture requires its declared struct storage")
         };
-        return Cell::Struct(
+        return serde_json::json!([
+            "struct",
             fields
                 .iter()
                 .map(|field| {
                     if field.name() == &alternative.discriminator {
-                        Cell::text(tag)
+                        let contract = FieldContract::from_field((**field).clone());
+                        match contract.extension() {
+                            Some(ExtensionUse::Enum(name)) => {
+                                assert!(
+                                    registry
+                                        .enum_spec(name)
+                                        .unwrap()
+                                        .members
+                                        .iter()
+                                        .any(|member| member.name == *tag)
+                                );
+                                serde_json::json!(["enum", tag])
+                            }
+                            None if matches!(field.data_type(), DataType::Utf8) => {
+                                serde_json::json!(["text", tag])
+                            }
+                            _ => {
+                                panic!("tag discriminator must have a declared enum or text field")
+                            }
+                        }
                     } else if Some(field.name()) == selected.as_ref() {
                         default_value(
                             registry,
@@ -138,41 +162,77 @@ fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> Cell {
                             value,
                         )
                     } else {
-                        Cell::Null
+                        serde_json::json!(["null", null])
                     }
                 })
-                .collect(),
-        );
+                .collect::<Vec<serde_json::Value>>()
+        ]);
     }
     if let Some(extension) = ty.extension() {
         return match extension {
             ExtensionUse::SemanticId => id(value),
-            ExtensionUse::ContentHash => Cell::Hash(ContentHash::from_bytes([value; 32])),
+            ExtensionUse::ContentHash => {
+                serde_json::json!(["hash", (ContentHash::from_bytes([value; 32])).to_hex()])
+            }
             ExtensionUse::Enum(name) => {
-                Cell::Enum(registry.enum_spec(name).unwrap().members[0].name)
+                serde_json::json!(["enum", registry.enum_spec(name).unwrap().members[0].name])
             }
-            ExtensionUse::OrdinalRef { .. } => Cell::I64(i64::from(value)),
-            ExtensionUse::ExprDsl => Cell::text("1"),
-            ExtensionUse::TargetPath => Cell::text("/fixture.symbol"),
+            ExtensionUse::OrdinalRef { .. } => serde_json::json!(["i64", i64::from(value)]),
+            ExtensionUse::ExprDsl => serde_json::json!(["text", "1"]),
+            ExtensionUse::TargetPath => serde_json::json!(["text", "/fixture.symbol"]),
             ExtensionUse::DimensionVector => {
-                Cell::List(vec![Cell::Struct(vec![Cell::I64(0), Cell::I64(1)]); 8])
+                serde_json::json!([
+                    "list",
+                    vec![
+                        serde_json::json!([
+                            "struct",
+                            vec![serde_json::json!(["i64", 0]), serde_json::json!(["i64", 1])]
+                        ]);
+                        8
+                    ]
+                ])
             }
-            ExtensionUse::IndexTuple => Cell::List(vec![id(value)]),
-            ExtensionUse::QuantityValue => Cell::Struct(vec![Cell::F64(1.0), id(value), id(value)]),
-            ExtensionUse::Bound => Cell::Struct(vec![Cell::Enum("unbounded"), Cell::Null]),
-            ExtensionUse::SourceSpan => Cell::Struct(vec![id(value), Cell::I64(0), Cell::I64(1)]),
+            ExtensionUse::IndexTuple => serde_json::json!(["list", vec![id(value)]]),
+            ExtensionUse::QuantityValue => serde_json::json!([
+                "struct",
+                vec![
+                    serde_json::json!(["f64", format!("{:016x}", f64::to_bits(1.0))]),
+                    id(value),
+                    id(value)
+                ]
+            ]),
+            ExtensionUse::Bound => serde_json::json!([
+                "struct",
+                vec![
+                    serde_json::json!(["enum", "unbounded"]),
+                    serde_json::json!(["null", null])
+                ]
+            ]),
+            ExtensionUse::SourceSpan => serde_json::json!([
+                "struct",
+                vec![
+                    id(value),
+                    serde_json::json!(["i64", 0]),
+                    serde_json::json!(["i64", 1])
+                ]
+            ]),
         };
     }
     match ty.data_type() {
-        DataType::Boolean => Cell::Bool(value != 0),
-        DataType::Float64 => Cell::F64(f64::from(value)),
-        DataType::Int64 | DataType::Int32 | DataType::Timestamp(..) => Cell::I64(i64::from(value)),
-        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
-            Cell::U64(u64::from(value))
+        DataType::Boolean => serde_json::json!(["bool", value != 0]),
+        DataType::Float64 => {
+            serde_json::json!(["f64", format!("{:016x}", (f64::from(value)).to_bits())])
         }
-        DataType::Utf8 => Cell::text(format!("value-{value}")),
-        DataType::List(_) => Cell::List(vec![]),
-        DataType::FixedSizeList(child, width) => Cell::List(
+        DataType::Int64 | DataType::Int32 | DataType::Timestamp(..) => {
+            serde_json::json!(["i64", i64::from(value)])
+        }
+        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+            serde_json::json!(["u64", u64::from(value)])
+        }
+        DataType::Utf8 => serde_json::json!(["text", format!("value-{value}")]),
+        DataType::List(_) => serde_json::json!(["list", []]),
+        DataType::FixedSizeList(child, width) => serde_json::json!([
+            "list",
             (0..width)
                 .map(|_| {
                     default_value(
@@ -181,9 +241,10 @@ fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> Cell {
                         value,
                     )
                 })
-                .collect(),
-        ),
-        DataType::Struct(children) => Cell::Struct(
+                .collect::<Vec<serde_json::Value>>()
+        ]),
+        DataType::Struct(children) => serde_json::json!([
+            "struct",
             children
                 .iter()
                 .map(|child| {
@@ -193,8 +254,24 @@ fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> Cell {
                         value,
                     )
                 })
-                .collect(),
-        ),
+                .collect::<Vec<serde_json::Value>>()
+        ]),
         other => panic!("fixture has no default for {other}"),
+    }
+}
+
+#[cfg(test)]
+mod unit {
+    #[test]
+    fn declared_fixture_literals_decode_with_semantic_fields() {
+        let registry = pse_schema::catalog::assemble().unwrap();
+        for invariant in registry.invariants() {
+            let (valid, violating) = super::pair(&registry, invariant);
+            // Arrow construction only: no planning, storage, solver or query execution.
+            for fixture in [valid, violating] {
+                let batches = fixture.batches(&registry);
+                assert_eq!(batches.len(), invariant.inputs.len());
+            }
+        }
     }
 }

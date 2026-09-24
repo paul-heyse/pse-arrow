@@ -1,0 +1,665 @@
+[
+  {
+    "id": "29fe2075c223853678046a1f",
+    "path": "opentelemetry::trace::tracer::SamplingDecision",
+    "name": "SamplingDecision",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "enum",
+    "signature": "enum SamplingDecision",
+    "docs": "Decision about whether or not to sample",
+    "span": {
+      "filename": "src/trace/tracer.rs",
+      "begin": [
+        399,
+        1
+      ],
+      "end": [
+        408,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          1871,
+          1872,
+          1873
+        ],
+        "impls": [
+          1874,
+          1875,
+          1876,
+          1877,
+          1878,
+          1879,
+          1880,
+          1881,
+          1882,
+          1883,
+          1884,
+          1885,
+          1886,
+          1887,
+          1888,
+          1889,
+          1890,
+          1891,
+          1893,
+          1895,
+          1896,
+          1898,
+          1899
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1843",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.tracer.SamplingDecision.md",
+    "record_file": "operations/opentelemetry.trace.tracer.SamplingDecision.json",
+    "anchor": "op-29fe2075c223853678046a1f",
+    "aliases": [
+      "opentelemetry::trace::SamplingDecision"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7f7f55262ce2ff5b1f087a11",
+    "path": "opentelemetry::trace::tracer::SamplingDecision::Drop",
+    "name": "Drop",
+    "owner": "opentelemetry::trace::tracer::SamplingDecision",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Drop",
+    "docs": "Span will not be recorded and all events and attributes will be dropped.",
+    "span": {
+      "filename": "src/trace/tracer.rs",
+      "begin": [
+        401,
+        5
+      ],
+      "end": [
+        401,
+        9
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1871",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.tracer.SamplingDecision.md",
+    "record_file": "operations/opentelemetry.trace.tracer.SamplingDecision.json",
+    "anchor": "op-7f7f55262ce2ff5b1f087a11",
+    "aliases": [
+      "opentelemetry::trace::SamplingDecision::Drop"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6ee0bd57efba59c96052ce67",
+    "path": "opentelemetry::trace::tracer::SamplingDecision::RecordAndSample",
+    "name": "RecordAndSample",
+    "owner": "opentelemetry::trace::tracer::SamplingDecision",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "RecordAndSample",
+    "docs": "Span data will be recorded and exported.",
+    "span": {
+      "filename": "src/trace/tracer.rs",
+      "begin": [
+        407,
+        5
+      ],
+      "end": [
+        407,
+        20
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1873",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.tracer.SamplingDecision.md",
+    "record_file": "operations/opentelemetry.trace.tracer.SamplingDecision.json",
+    "anchor": "op-6ee0bd57efba59c96052ce67",
+    "aliases": [
+      "opentelemetry::trace::SamplingDecision::RecordAndSample"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5d7b7abcfa6e5cbf9bc57cc3",
+    "path": "opentelemetry::trace::tracer::SamplingDecision::RecordOnly",
+    "name": "RecordOnly",
+    "owner": "opentelemetry::trace::tracer::SamplingDecision",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "RecordOnly",
+    "docs": "Span data wil be recorded, but not exported.",
+    "span": {
+      "filename": "src/trace/tracer.rs",
+      "begin": [
+        404,
+        5
+      ],
+      "end": [
+        404,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1872",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.tracer.SamplingDecision.md",
+    "record_file": "operations/opentelemetry.trace.tracer.SamplingDecision.json",
+    "anchor": "op-5d7b7abcfa6e5cbf9bc57cc3",
+    "aliases": [
+      "opentelemetry::trace::SamplingDecision::RecordOnly"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8fdb6f165557300ec41d59ef",
+    "path": "opentelemetry::trace::tracer::SamplingDecision::clone",
+    "name": "clone",
+    "owner": "opentelemetry::trace::tracer::SamplingDecision",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> SamplingDecision",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/tracer.rs",
+      "begin": [
+        398,
+        10
+      ],
+      "end": [
+        398,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "SamplingDecision",
+              "id": 1843,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1843": "opentelemetry::trace::tracer::SamplingDecision"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SamplingDecision",
+          "id": "opentelemetry::trace::tracer::SamplingDecision",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/tracer.rs",
+        "begin": [
+          398,
+          10
+        ],
+        "end": [
+          398,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1892",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.tracer.SamplingDecision.md",
+    "record_file": "operations/opentelemetry.trace.tracer.SamplingDecision.json",
+    "anchor": "op-8fdb6f165557300ec41d59ef",
+    "aliases": [
+      "opentelemetry::trace::SamplingDecision::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0bb1bf7e3f0a5b713c7f91d9",
+    "path": "opentelemetry::trace::tracer::SamplingDecision::eq",
+    "name": "eq",
+    "owner": "opentelemetry::trace::tracer::SamplingDecision",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &SamplingDecision) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/tracer.rs",
+      "begin": [
+        398,
+        24
+      ],
+      "end": [
+        398,
+        33
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "SamplingDecision",
+                      "id": 1843,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1843": "opentelemetry::trace::tracer::SamplingDecision"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SamplingDecision",
+          "id": "opentelemetry::trace::tracer::SamplingDecision",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/tracer.rs",
+        "begin": [
+          398,
+          24
+        ],
+        "end": [
+          398,
+          33
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1897",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.tracer.SamplingDecision.md",
+    "record_file": "operations/opentelemetry.trace.tracer.SamplingDecision.json",
+    "anchor": "op-0bb1bf7e3f0a5b713c7f91d9",
+    "aliases": [
+      "opentelemetry::trace::SamplingDecision::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cc9d5bb8f395644af0cb6de7",
+    "path": "opentelemetry::trace::tracer::SamplingDecision::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::trace::tracer::SamplingDecision",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/tracer.rs",
+      "begin": [
+        398,
+        17
+      ],
+      "end": [
+        398,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SamplingDecision",
+          "id": "opentelemetry::trace::tracer::SamplingDecision",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace/tracer.rs",
+        "begin": [
+          398,
+          17
+        ],
+        "end": [
+          398,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1894",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.tracer.SamplingDecision.md",
+    "record_file": "operations/opentelemetry.trace.tracer.SamplingDecision.json",
+    "anchor": "op-cc9d5bb8f395644af0cb6de7",
+    "aliases": [
+      "opentelemetry::trace::SamplingDecision::fmt"
+    ],
+    "resolved_doc_links": {}
+  }
+]

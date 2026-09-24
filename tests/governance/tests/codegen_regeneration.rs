@@ -12,8 +12,8 @@ mod common;
 fn registry_generated_files_match_current_declarations() {
     let root = common::workspace_root();
     let registry = pse_schema::registry().expect("registry");
-    for language in pse_schema::codegen::Language::ALL {
-        let tree = pse_schema::codegen::generate(registry, language).expect("generator");
+    for language in pse_codegen::codegen::Language::ALL {
+        let tree = pse_codegen::codegen::generate(registry, language).expect("generator");
         assert!(!tree.files.is_empty());
         for (path, expected) in tree.files {
             let actual = std::fs::read(root.join(&path)).expect("generated file exists");

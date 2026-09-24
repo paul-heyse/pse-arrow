@@ -1,0 +1,4407 @@
+[
+  {
+    "id": "5e48a510d8c00731cf60cb7a",
+    "path": "opentelemetry::metrics::meter::Meter",
+    "name": "Meter",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct Meter",
+    "docs": "Provides the ability to create instruments for recording measurements or\naccepting callbacks to report measurements.\n\n# Instrument Types\n\nInstruments are categorized as either synchronous or asynchronous:\n\n- **Synchronous Instruments** (e.g., Counter): These are used inline with\n  your application's processing logic. For example, you might use a Counter\n  to record the number of HTTP requests received.\n\n- **Asynchronous Instruments** (e.g., ObservableGauge): These allow you to\n  register a callback function that is invoked during export. For instance,\n  you could use an asynchronous gauge to monitor temperature from a sensor\n  every time metrics are exported.\n\n# Example Usage\n\n```rust\nuse opentelemetry::{global, KeyValue};\n\nlet meter = global::meter(\"my-meter\");\n\n// Synchronous Instruments\n\n// u64 Counter\nlet u64_counter = meter.u64_counter(\"my_u64_counter\").build();\nu64_counter.add(\n    10,\n    &[\n        KeyValue::new(\"mykey1\", \"myvalue1\"),\n        KeyValue::new(\"mykey2\", \"myvalue2\"),\n    ],\n);\n\n// f64 Counter\nlet f64_counter = meter.f64_counter(\"my_f64_counter\").build();\nf64_counter.add(\n    3.15,\n    &[\n        KeyValue::new(\"mykey1\", \"myvalue1\"),\n        KeyValue::new(\"mykey2\", \"myvalue2\"),\n    ],\n);\n\n\n// u64 Observable Counter\nlet _observable_u64_counter = meter\n    .u64_observable_counter(\"my_observable_u64_counter\")\n    .with_description(\"My observable counter example\")\n    .with_unit(\"myunit\")\n    .with_callback(|observer| {\n        observer.observe(\n            100,\n            &[\n                KeyValue::new(\"mykey1\", \"myvalue1\"),\n                KeyValue::new(\"mykey2\", \"myvalue2\"),\n            ],\n        )\n    })\n    .build();\n\n// f64 Observable Counter\nlet _observable_f64_counter = meter\n    .f64_observable_counter(\"my_observable_f64_counter\")\n    .with_description(\"My observable counter example\")\n    .with_unit(\"myunit\")\n    .with_callback(|observer| {\n        observer.observe(\n            100.0,\n            &[\n                KeyValue::new(\"mykey1\", \"myvalue1\"),\n                KeyValue::new(\"mykey2\", \"myvalue2\"),\n            ],\n        )\n    })\n    .build();\n\n// i64 UpDownCounter\nlet updown_i64_counter = meter.i64_up_down_counter(\"my_updown_i64_counter\").build();\nupdown_i64_counter.add(\n    -10,\n    &[\n        KeyValue::new(\"mykey1\", \"myvalue1\"),\n        KeyValue::new(\"mykey2\", \"myvalue2\"),\n    ],\n);\n\n// f64 UpDownCounter\nlet updown_f64_counter = meter.f64_up_down_counter(\"my_updown_f64_counter\").build();\nupdown_f64_counter.add(\n    -10.67,\n    &[\n        KeyValue::new(\"mykey1\", \"myvalue1\"),\n        KeyValue::new(\"mykey2\", \"myvalue2\"),\n    ],\n);\n\n// i64 Observable UpDownCounter\nlet _observable_updown_i64_counter = meter\n    .i64_observable_up_down_counter(\"my_observable_i64_updown_counter\")\n    .with_description(\"My observable updown counter example\")\n    .with_unit(\"myunit\")\n    .with_callback(|observer| {\n        observer.observe(\n            100,\n            &[\n                KeyValue::new(\"mykey1\", \"myvalue1\"),\n                KeyValue::new(\"mykey2\", \"myvalue2\"),\n            ],\n        )\n    })\n    .build();\n\n// f64 Observable UpDownCounter\nlet _observable_updown_f64_counter = meter\n    .f64_observable_up_down_counter(\"my_observable_f64_updown_counter\")\n    .with_description(\"My observable updown counter example\")\n    .with_unit(\"myunit\")\n    .with_callback(|observer| {\n        observer.observe(\n            100.0,\n            &[\n                KeyValue::new(\"mykey1\", \"myvalue1\"),\n                KeyValue::new(\"mykey2\", \"myvalue2\"),\n            ],\n        )\n    })\n    .build();\n\n// i64 Gauge\nlet gauge = meter.i64_gauge(\"my_gauge\").build();\ngauge.record(\n-10,\n&[\n    KeyValue::new(\"mykey1\", \"myvalue1\"),\n    KeyValue::new(\"mykey2\", \"myvalue2\"),\n],\n);\n\n// u64 Gauge\nlet gauge = meter.u64_gauge(\"my_gauge\").build();\ngauge.record(\n101,\n&[\n    KeyValue::new(\"mykey1\", \"myvalue1\"),\n    KeyValue::new(\"mykey2\", \"myvalue2\"),\n],\n);\n\n// f64 Gauge\nlet gauge = meter.f64_gauge(\"my_gauge\").build();\ngauge.record(\n12.5,\n&[\n    KeyValue::new(\"mykey1\", \"myvalue1\"),\n    KeyValue::new(\"mykey2\", \"myvalue2\"),\n],\n);\n\n// u64 Observable Gauge\nlet _observable_u64_gauge = meter\n    .u64_observable_gauge(\"my_u64_gauge\")\n    .with_description(\"An observable gauge set to 1\")\n    .with_unit(\"myunit\")\n    .with_callback(|observer| {\n        observer.observe(\n            1,\n            &[\n                KeyValue::new(\"mykey1\", \"myvalue1\"),\n                KeyValue::new(\"mykey2\", \"myvalue2\"),\n            ],\n        )\n    })\n    .build();\n\n// f64 Observable Gauge\nlet _observable_f64_gauge = meter\n    .f64_observable_gauge(\"my_f64_gauge\")\n    .with_description(\"An observable gauge set to 1.0\")\n    .with_unit(\"myunit\")\n    .with_callback(|observer| {\n        observer.observe(\n            1.0,\n            &[\n                KeyValue::new(\"mykey1\", \"myvalue1\"),\n                KeyValue::new(\"mykey2\", \"myvalue2\"),\n            ],\n        )\n    })\n    .build();\n\n// i64 Observable Gauge\nlet _observable_i64_gauge = meter\n    .i64_observable_gauge(\"my_i64_gauge\")\n    .with_description(\"An observable gauge set to 1\")\n    .with_unit(\"myunit\")\n    .with_callback(|observer| {\n        observer.observe(\n            1,\n            &[\n                KeyValue::new(\"mykey1\", \"myvalue1\"),\n                KeyValue::new(\"mykey2\", \"myvalue2\"),\n            ],\n        )\n    })\n    .build();\n\n// f64 Histogram\nlet f64_histogram = meter.f64_histogram(\"my_f64_histogram\").build();\nf64_histogram.record(\n    10.5,\n    &[\n        KeyValue::new(\"mykey1\", \"myvalue1\"),\n        KeyValue::new(\"mykey2\", \"myvalue2\"),\n    ],\n);\n\n// u64 Histogram\nlet u64_histogram = meter.u64_histogram(\"my_u64_histogram\").build();\nu64_histogram.record(\n    12,\n    &[\n        KeyValue::new(\"mykey1\", \"myvalue1\"),\n        KeyValue::new(\"mykey2\", \"myvalue2\"),\n    ],\n);\n```\n",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        296,
+        1
+      ],
+      "end": [
+        298,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "non_exhaustive"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1301,
+          1302,
+          1303,
+          1304,
+          1305,
+          1306,
+          1307,
+          1308,
+          1309,
+          1310,
+          1311,
+          1312,
+          1313,
+          1314,
+          1315,
+          1316,
+          1317,
+          1318,
+          1319,
+          1321,
+          1323
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-5e48a510d8c00731cf60cb7a",
+    "aliases": [
+      "opentelemetry::metrics::Meter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c9463e0876c724532b4ca7f4",
+    "path": "opentelemetry::metrics::meter::Meter::clone",
+    "name": "clone",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Meter",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        294,
+        10
+      ],
+      "end": [
+        294,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Meter",
+              "id": 2,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2": "opentelemetry::metrics::meter::Meter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          294,
+          10
+        ],
+        "end": [
+          294,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1320",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-c9463e0876c724532b4ca7f4",
+    "aliases": [
+      "opentelemetry::metrics::Meter::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3166a563a2583ff30341ef66",
+    "path": "opentelemetry::metrics::meter::Meter::f64_counter",
+    "name": "f64_counter",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_counter(&self, name: impl Into<Cow<'static, str>>) -> InstrumentBuilder<'_, Counter<f64>>",
+    "docs": "creates an instrument builder for recording increasing values.\n\n[`Counter`] can be cloned to create multiple handles to the same instrument. If a [`Counter`] needs to be shared,\nusers are recommended to clone the [`Counter`] instead of creating duplicate [`Counter`]s for the same metric. Creating\nduplicate [`Counter`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        326,
+        5
+      ],
+      "end": [
+        331,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InstrumentBuilder",
+              "id": 1200,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Counter",
+                          "id": 968,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "f64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "968": "opentelemetry::metrics::instruments::counter::Counter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Counter`": 968
+    },
+    "link_paths": {
+      "`Counter`": "opentelemetry::metrics::instruments::counter::Counter"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1286",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-3166a563a2583ff30341ef66",
+    "aliases": [
+      "opentelemetry::metrics::Meter::f64_counter"
+    ],
+    "resolved_doc_links": {
+      "`Counter`": "../operations/opentelemetry.metrics.instruments.counter.Counter.md#op-c72b21c1e56e7cb9d5a026e5"
+    }
+  },
+  {
+    "id": "90ee96647a2e3372927d6c25",
+    "path": "opentelemetry::metrics::meter::Meter::f64_gauge",
+    "name": "f64_gauge",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_gauge(&self, name: impl Into<Cow<'static, str>>) -> InstrumentBuilder<'_, Gauge<f64>>",
+    "docs": "creates an instrument builder for recording independent values.\n\n[`Gauge`] can be cloned to create multiple handles to the same instrument. If a [`Gauge`] needs to be shared,\nusers are recommended to clone the [`Gauge`] instead of creating duplicate [`Gauge`]s for the same metric. Creating\nduplicate [`Gauge`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        410,
+        5
+      ],
+      "end": [
+        415,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InstrumentBuilder",
+              "id": 1200,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Gauge",
+                          "id": 1023,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "f64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1023": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Gauge`": 1023
+    },
+    "link_paths": {
+      "`Gauge`": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1294",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-90ee96647a2e3372927d6c25",
+    "aliases": [
+      "opentelemetry::metrics::Meter::f64_gauge"
+    ],
+    "resolved_doc_links": {
+      "`Gauge`": "../operations/opentelemetry.metrics.instruments.gauge.Gauge.md#op-01a034e74bec61ee471db7bf"
+    }
+  },
+  {
+    "id": "fc0d0240906fed1ad3fe173e",
+    "path": "opentelemetry::metrics::meter::Meter::f64_histogram",
+    "name": "f64_histogram",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_histogram(&self, name: impl Into<Cow<'static, str>>) -> HistogramBuilder<'_, Histogram<f64>>",
+    "docs": "creates an instrument builder for recording a distribution of values.\n\n[`Histogram`] can be cloned to create multiple handles to the same instrument. If a [`Histogram`] needs to be shared,\nusers are recommended to clone the [`Histogram`] instead of creating duplicate [`Histogram`]s for the same metric. Creating\nduplicate [`Histogram`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        457,
+        5
+      ],
+      "end": [
+        462,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "HistogramBuilder",
+              "id": 1168,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Histogram",
+                          "id": 1077,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "f64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1168": "opentelemetry::metrics::instruments::HistogramBuilder",
+      "1077": "opentelemetry::metrics::instruments::histogram::Histogram"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Histogram`": 1077
+    },
+    "link_paths": {
+      "`Histogram`": "opentelemetry::metrics::instruments::histogram::Histogram"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1299",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-fc0d0240906fed1ad3fe173e",
+    "aliases": [
+      "opentelemetry::metrics::Meter::f64_histogram"
+    ],
+    "resolved_doc_links": {
+      "`Histogram`": "../operations/opentelemetry.metrics.instruments.histogram.Histogram.md#op-ecc3b314e91435fd0e3cc0de"
+    }
+  },
+  {
+    "id": "ea7a3f5c6bd396251c2de2e2",
+    "path": "opentelemetry::metrics::meter::Meter::f64_observable_counter",
+    "name": "f64_observable_counter",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_observable_counter(&self, name: impl Into<Cow<'static, str>>) -> AsyncInstrumentBuilder<'_, ObservableCounter<f64>, f64>",
+    "docs": "creates an instrument builder for recording increasing values via callback.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        342,
+        5
+      ],
+      "end": [
+        347,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AsyncInstrumentBuilder",
+              "id": 1244,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ObservableCounter",
+                          "id": 996,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "f64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "996": "opentelemetry::metrics::instruments::counter::ObservableCounter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1288",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-ea7a3f5c6bd396251c2de2e2",
+    "aliases": [
+      "opentelemetry::metrics::Meter::f64_observable_counter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "61917a87ffb74fcb525bb070",
+    "path": "opentelemetry::metrics::meter::Meter::f64_observable_gauge",
+    "name": "f64_observable_gauge",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_observable_gauge(&self, name: impl Into<Cow<'static, str>>) -> AsyncInstrumentBuilder<'_, ObservableGauge<f64>, f64>",
+    "docs": "creates an instrument builder for recording the current value via callback.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        445,
+        5
+      ],
+      "end": [
+        450,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AsyncInstrumentBuilder",
+              "id": 1244,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ObservableGauge",
+                          "id": 1050,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "f64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1050": "opentelemetry::metrics::instruments::gauge::ObservableGauge"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1298",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-61917a87ffb74fcb525bb070",
+    "aliases": [
+      "opentelemetry::metrics::Meter::f64_observable_gauge"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "30b2db22247787117a6f8ae9",
+    "path": "opentelemetry::metrics::meter::Meter::f64_observable_up_down_counter",
+    "name": "f64_observable_up_down_counter",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_observable_up_down_counter(&self, name: impl Into<Cow<'static, str>>) -> AsyncInstrumentBuilder<'_, ObservableUpDownCounter<f64>, f64>",
+    "docs": "creates an instrument builder for recording changes of a value via callback.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        386,
+        5
+      ],
+      "end": [
+        391,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AsyncInstrumentBuilder",
+              "id": 1244,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ObservableUpDownCounter",
+                          "id": 1132,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "f64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1132": "opentelemetry::metrics::instruments::up_down_counter::ObservableUpDownCounter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1292",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-30b2db22247787117a6f8ae9",
+    "aliases": [
+      "opentelemetry::metrics::Meter::f64_observable_up_down_counter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4abde558f6512f39f48c5ed2",
+    "path": "opentelemetry::metrics::meter::Meter::f64_up_down_counter",
+    "name": "f64_up_down_counter",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn f64_up_down_counter(&self, name: impl Into<Cow<'static, str>>) -> InstrumentBuilder<'_, UpDownCounter<f64>>",
+    "docs": "creates an instrument builder for recording changes of a value.\n\n[`UpDownCounter`] can be cloned to create multiple handles to the same instrument. If a [`UpDownCounter`] needs to be shared,\nusers are recommended to clone the [`UpDownCounter`] instead of creating duplicate [`UpDownCounter`]s for the same metric. Creating\nduplicate [`UpDownCounter`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        366,
+        5
+      ],
+      "end": [
+        371,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InstrumentBuilder",
+              "id": 1200,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "UpDownCounter",
+                          "id": 1105,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "f64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1105": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`UpDownCounter`": 1105
+    },
+    "link_paths": {
+      "`UpDownCounter`": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1290",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-4abde558f6512f39f48c5ed2",
+    "aliases": [
+      "opentelemetry::metrics::Meter::f64_up_down_counter"
+    ],
+    "resolved_doc_links": {
+      "`UpDownCounter`": "../operations/opentelemetry.metrics.instruments.up_down_counter.UpDownCounter.md#op-b0254753eff4c3e7cb7010cc"
+    }
+  },
+  {
+    "id": "b0f24c383254ddda84ed0739",
+    "path": "opentelemetry::metrics::meter::Meter::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        478,
+        5
+      ],
+      "end": [
+        480,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          477,
+          1
+        ],
+        "end": [
+          481,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1322",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-b0f24c383254ddda84ed0739",
+    "aliases": [
+      "opentelemetry::metrics::Meter::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6359fb9db30ebc129fcda3f9",
+    "path": "opentelemetry::metrics::meter::Meter::i64_gauge",
+    "name": "i64_gauge",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn i64_gauge(&self, name: impl Into<Cow<'static, str>>) -> InstrumentBuilder<'_, Gauge<i64>>",
+    "docs": "creates an instrument builder for recording independent values.\n[`Gauge`] can be cloned to create multiple handles to the same instrument. If a [`Gauge`] needs to be shared,\nusers are recommended to clone the [`Gauge`] instead of creating duplicate [`Gauge`]s for the same metric. Creating\nduplicate [`Gauge`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        421,
+        5
+      ],
+      "end": [
+        426,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InstrumentBuilder",
+              "id": 1200,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Gauge",
+                          "id": 1023,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "i64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1023": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Gauge`": 1023
+    },
+    "link_paths": {
+      "`Gauge`": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1295",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-6359fb9db30ebc129fcda3f9",
+    "aliases": [
+      "opentelemetry::metrics::Meter::i64_gauge"
+    ],
+    "resolved_doc_links": {
+      "`Gauge`": "../operations/opentelemetry.metrics.instruments.gauge.Gauge.md#op-01a034e74bec61ee471db7bf"
+    }
+  },
+  {
+    "id": "f90beccf6ce6cc125e1b9c9e",
+    "path": "opentelemetry::metrics::meter::Meter::i64_observable_gauge",
+    "name": "i64_observable_gauge",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn i64_observable_gauge(&self, name: impl Into<Cow<'static, str>>) -> AsyncInstrumentBuilder<'_, ObservableGauge<i64>, i64>",
+    "docs": "creates an instrument builder for recording the current value via callback.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        437,
+        5
+      ],
+      "end": [
+        442,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AsyncInstrumentBuilder",
+              "id": 1244,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ObservableGauge",
+                          "id": 1050,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "i64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "primitive": "i64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1050": "opentelemetry::metrics::instruments::gauge::ObservableGauge"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1297",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-f90beccf6ce6cc125e1b9c9e",
+    "aliases": [
+      "opentelemetry::metrics::Meter::i64_observable_gauge"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dcf23a8f50512e7e6225a813",
+    "path": "opentelemetry::metrics::meter::Meter::i64_observable_up_down_counter",
+    "name": "i64_observable_up_down_counter",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn i64_observable_up_down_counter(&self, name: impl Into<Cow<'static, str>>) -> AsyncInstrumentBuilder<'_, ObservableUpDownCounter<i64>, i64>",
+    "docs": "creates an instrument builder for recording changes of a value via callback.\n\n[`UpDownCounter`] can be cloned to create multiple handles to the same instrument. If a [`UpDownCounter`] needs to be shared,\nusers are recommended to clone the [`UpDownCounter`] instead of creating duplicate [`UpDownCounter`]s for the same metric. Creating\nduplicate [`UpDownCounter`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        378,
+        5
+      ],
+      "end": [
+        383,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AsyncInstrumentBuilder",
+              "id": 1244,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ObservableUpDownCounter",
+                          "id": 1132,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "i64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "primitive": "i64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1132": "opentelemetry::metrics::instruments::up_down_counter::ObservableUpDownCounter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`UpDownCounter`": 1105
+    },
+    "link_paths": {
+      "`UpDownCounter`": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1291",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-dcf23a8f50512e7e6225a813",
+    "aliases": [
+      "opentelemetry::metrics::Meter::i64_observable_up_down_counter"
+    ],
+    "resolved_doc_links": {
+      "`UpDownCounter`": "../operations/opentelemetry.metrics.instruments.up_down_counter.UpDownCounter.md#op-b0254753eff4c3e7cb7010cc"
+    }
+  },
+  {
+    "id": "319c3e3a909bb63fcced4e33",
+    "path": "opentelemetry::metrics::meter::Meter::i64_up_down_counter",
+    "name": "i64_up_down_counter",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn i64_up_down_counter(&self, name: impl Into<Cow<'static, str>>) -> InstrumentBuilder<'_, UpDownCounter<i64>>",
+    "docs": "creates an instrument builder for recording changes of a value.\n\n[`UpDownCounter`] can be cloned to create multiple handles to the same instrument. If a [`UpDownCounter`] needs to be shared,\nusers are recommended to clone the [`UpDownCounter`] instead of creating duplicate [`UpDownCounter`]s for the same metric. Creating\nduplicate [`UpDownCounter`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        354,
+        5
+      ],
+      "end": [
+        359,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InstrumentBuilder",
+              "id": 1200,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "UpDownCounter",
+                          "id": 1105,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "i64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1105": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`UpDownCounter`": 1105
+    },
+    "link_paths": {
+      "`UpDownCounter`": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1289",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-319c3e3a909bb63fcced4e33",
+    "aliases": [
+      "opentelemetry::metrics::Meter::i64_up_down_counter"
+    ],
+    "resolved_doc_links": {
+      "`UpDownCounter`": "../operations/opentelemetry.metrics.instruments.up_down_counter.UpDownCounter.md#op-b0254753eff4c3e7cb7010cc"
+    }
+  },
+  {
+    "id": "1c6a2f1331ee01212b46481a",
+    "path": "opentelemetry::metrics::meter::Meter::u64_counter",
+    "name": "u64_counter",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_counter(&self, name: impl Into<Cow<'static, str>>) -> InstrumentBuilder<'_, Counter<u64>>",
+    "docs": "creates an instrument builder for recording increasing values.\n\n[`Counter`] can be cloned to create multiple handles to the same instrument. If a [`Counter`] needs to be shared,\nusers are recommended to clone the [`Counter`] instead of creating duplicate [`Counter`]s for the same metric. Creating\nduplicate [`Counter`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        314,
+        5
+      ],
+      "end": [
+        319,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InstrumentBuilder",
+              "id": 1200,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Counter",
+                          "id": 968,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "u64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "968": "opentelemetry::metrics::instruments::counter::Counter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Counter`": 968
+    },
+    "link_paths": {
+      "`Counter`": "opentelemetry::metrics::instruments::counter::Counter"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1285",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-1c6a2f1331ee01212b46481a",
+    "aliases": [
+      "opentelemetry::metrics::Meter::u64_counter"
+    ],
+    "resolved_doc_links": {
+      "`Counter`": "../operations/opentelemetry.metrics.instruments.counter.Counter.md#op-c72b21c1e56e7cb9d5a026e5"
+    }
+  },
+  {
+    "id": "07416596cfba5749c3cdc71f",
+    "path": "opentelemetry::metrics::meter::Meter::u64_gauge",
+    "name": "u64_gauge",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_gauge(&self, name: impl Into<Cow<'static, str>>) -> InstrumentBuilder<'_, Gauge<u64>>",
+    "docs": "creates an instrument builder for recording independent values.\n\n[`Gauge`] can be cloned to create multiple handles to the same instrument. If a [`Gauge`] needs to be shared,\nusers are recommended to clone the [`Gauge`] instead of creating duplicate [`Gauge`]s for the same metric. Creating\nduplicate [`Gauge`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        398,
+        5
+      ],
+      "end": [
+        403,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "InstrumentBuilder",
+              "id": 1200,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Gauge",
+                          "id": 1023,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "u64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1200": "opentelemetry::metrics::instruments::InstrumentBuilder",
+      "1023": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Gauge`": 1023
+    },
+    "link_paths": {
+      "`Gauge`": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1293",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-07416596cfba5749c3cdc71f",
+    "aliases": [
+      "opentelemetry::metrics::Meter::u64_gauge"
+    ],
+    "resolved_doc_links": {
+      "`Gauge`": "../operations/opentelemetry.metrics.instruments.gauge.Gauge.md#op-01a034e74bec61ee471db7bf"
+    }
+  },
+  {
+    "id": "da8cd5f6af215e61ccd96075",
+    "path": "opentelemetry::metrics::meter::Meter::u64_histogram",
+    "name": "u64_histogram",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_histogram(&self, name: impl Into<Cow<'static, str>>) -> HistogramBuilder<'_, Histogram<u64>>",
+    "docs": "creates an instrument builder for recording a distribution of values.\n\n[`Histogram`] can be cloned to create multiple handles to the same instrument. If a [`Histogram`] needs to be shared,\nusers are recommended to clone the [`Histogram`] instead of creating duplicate [`Histogram`]s for the same metric. Creating\nduplicate [`Histogram`]s for the same metric could lower SDK performance.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        469,
+        5
+      ],
+      "end": [
+        474,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "HistogramBuilder",
+              "id": 1168,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Histogram",
+                          "id": 1077,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "u64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1168": "opentelemetry::metrics::instruments::HistogramBuilder",
+      "1077": "opentelemetry::metrics::instruments::histogram::Histogram"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Histogram`": 1077
+    },
+    "link_paths": {
+      "`Histogram`": "opentelemetry::metrics::instruments::histogram::Histogram"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1300",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-da8cd5f6af215e61ccd96075",
+    "aliases": [
+      "opentelemetry::metrics::Meter::u64_histogram"
+    ],
+    "resolved_doc_links": {
+      "`Histogram`": "../operations/opentelemetry.metrics.instruments.histogram.Histogram.md#op-ecc3b314e91435fd0e3cc0de"
+    }
+  },
+  {
+    "id": "29c02ae0052fc21d0d4cb016",
+    "path": "opentelemetry::metrics::meter::Meter::u64_observable_counter",
+    "name": "u64_observable_counter",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_observable_counter(&self, name: impl Into<Cow<'static, str>>) -> AsyncInstrumentBuilder<'_, ObservableCounter<u64>, u64>",
+    "docs": "creates an instrument builder for recording increasing values via callback.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        334,
+        5
+      ],
+      "end": [
+        339,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AsyncInstrumentBuilder",
+              "id": 1244,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ObservableCounter",
+                          "id": 996,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "u64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "996": "opentelemetry::metrics::instruments::counter::ObservableCounter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1287",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-29c02ae0052fc21d0d4cb016",
+    "aliases": [
+      "opentelemetry::metrics::Meter::u64_observable_counter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6ec76e1db799f71000c47bf9",
+    "path": "opentelemetry::metrics::meter::Meter::u64_observable_gauge",
+    "name": "u64_observable_gauge",
+    "owner": "opentelemetry::metrics::meter::Meter",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn u64_observable_gauge(&self, name: impl Into<Cow<'static, str>>) -> AsyncInstrumentBuilder<'_, ObservableGauge<u64>, u64>",
+    "docs": "creates an instrument builder for recording the current value via callback.",
+    "span": {
+      "filename": "src/metrics/meter.rs",
+      "begin": [
+        429,
+        5
+      ],
+      "end": [
+        434,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Cow",
+                                    "id": 19,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          },
+                                          {
+                                            "type": {
+                                              "primitive": "str"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "AsyncInstrumentBuilder",
+              "id": 1244,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ObservableGauge",
+                          "id": 1050,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "u64"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<Cow<'static, str>>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow",
+      "1244": "opentelemetry::metrics::instruments::AsyncInstrumentBuilder",
+      "1050": "opentelemetry::metrics::instruments::gauge::ObservableGauge"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Meter",
+          "id": "opentelemetry::metrics::meter::Meter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/meter.rs",
+        "begin": [
+          300,
+          1
+        ],
+        "end": [
+          475,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1296",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.meter.Meter.md",
+    "record_file": "operations/opentelemetry.metrics.meter.Meter.json",
+    "anchor": "op-6ec76e1db799f71000c47bf9",
+    "aliases": [
+      "opentelemetry::metrics::Meter::u64_observable_gauge"
+    ],
+    "resolved_doc_links": {}
+  }
+]

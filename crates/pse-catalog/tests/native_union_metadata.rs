@@ -4,13 +4,10 @@
 //! UNION exposes only shared annotations in its actual logical and physical fields.
 use datafusion::{
     arrow::array::{Array, FixedSizeBinaryArray, RecordBatch, UInt64Array},
-    execution::runtime_env::RuntimeEnv,
     logical_expr::{LogicalPlanBuilder, Partitioning, col, lit},
 };
-use pse_catalog::session::{
-    ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile,
-};
-use pse_ids::{CancellationToken, FixedBudget};
+use pse_columnar::CancellationToken;
+use pse_engine::session::{ExecutionSettings, ThreadBudget};
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{
     RegistryBuilder,
@@ -81,15 +78,13 @@ async fn union_key_and_payload_retains_shared_meaning_before_distinct() {
         );
     }
     let cancel = CancellationToken::new();
-    let session = SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
+    let session = pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
             target_partitions: 2.try_into().unwrap(),
         },
-        native_engine_profile(),
     )
     .unwrap()
     .candidate_checked(inputs, registry, &cancel)

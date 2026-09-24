@@ -1,0 +1,74 @@
+[
+  {
+    "id": "e162c64b0d80dd2c81eca851",
+    "path": "opentelemetry::baggage",
+    "name": "baggage",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod baggage",
+    "docs": "Primitives for sending name/value data across system boundaries.\n\nBaggage is used to annotate telemetry, adding context and information to\nmetrics, traces, and logs. It is a set of name/value pairs describing\nuser-defined properties. Each name in Baggage is associated with exactly one\nvalue.\n\nMain types in this module are:\n\n* [`Baggage`]: A set of name/value pairs describing user-defined properties.\n* [`BaggageExt`]: Extensions for managing `Baggage` in a [`Context`].\n\nBaggage can be sent between systems using a baggage propagator in\naccordance with the [W3C Baggage] specification.\n\nNote: Baggage is not automatically added to any telemetry. Users have to\nexplicitly add baggage entries to telemetry items.\n\n\n[W3C Baggage]: https://w3c.github.io/baggage",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        680,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          189,
+          205,
+          281,
+          196,
+          244
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`BaggageExt`": 281,
+      "`Context`": 121,
+      "`Baggage`": 189
+    },
+    "link_paths": {
+      "`BaggageExt`": "opentelemetry::baggage::BaggageExt",
+      "`Context`": "opentelemetry::context::Context",
+      "`Baggage`": "opentelemetry::baggage::Baggage"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "364",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.baggage.md",
+    "record_file": "modules/opentelemetry.baggage.json",
+    "anchor": "op-e162c64b0d80dd2c81eca851",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`BaggageExt`": "../operations/opentelemetry.baggage.BaggageExt.md#op-2363a912d137e00f67b25220",
+      "`Context`": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1",
+      "`Baggage`": "../operations/opentelemetry.baggage.Baggage.md#op-2c88c4516fa3cd4da1db039e"
+    }
+  }
+]

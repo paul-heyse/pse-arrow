@@ -13,6 +13,7 @@ use datafusion::{
     logical_expr::{LogicalPlanBuilder, lit},
     physical_plan::collect,
 };
+use futures_util::{FutureExt, StreamExt, TryStreamExt};
 use pse_relations::generated::runtime::publications;
 use pse_schema::Registry;
 use std::sync::Arc;
@@ -34,7 +35,7 @@ pub struct PublicationRoot {
 pub struct Publication {
     root: PublicationRoot,
     record: publications::Row,
-    session: crate::session::SnapshotSession,
+    session: pse_engine::session::EngineSession,
 }
 impl Publication {
     /// Open exact control/member versions under the actual caller's native policy.
@@ -44,28 +45,32 @@ impl Publication {
     pub async fn open(
         root: PublicationRoot,
         registry: Arc<Registry>,
-        factory: &crate::session::SessionFactory,
-        cancel: &pse_ids::CancellationToken,
-    ) -> std::result::Result<Self, crate::CatalogError> {
+        factory: &pse_engine::session::EngineFactory,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> std::result::Result<Self, crate::EngineError> {
         cancel.checkpoint()?;
         if root.version < 0 {
-            return Err(crate::session::engine(invalid(
+            return Err(pse_engine::session::engine(invalid(
                 "publication version must be nonnegative",
             )));
         }
         let mut leases = Vec::new();
         if let Some(lease) = super::lease::read(&root.location, cancel)
             .await
-            .map_err(crate::session::engine)?
+            .map_err(pse_engine::session::engine)?
         {
             leases.push(lease);
         }
-        let state = Arc::new(factory.native_state().clone());
+        let mut state = factory.native_state().clone();
+        state.config_mut().set_extension(Arc::new(
+            pse_engine::session::execution::AttemptScope::default(),
+        ));
+        let state = Arc::new(state);
         let record = cancel
             .until_cancelled(read_record(&root, &registry, Arc::clone(&state)))
             .await?
-            .map_err(crate::session::engine)?;
-        super::admission::admit_profile(&record, &registry).map_err(crate::session::engine)?;
+            .map_err(pse_engine::session::engine)?;
+        super::admission::admit_profile(&record, &registry).map_err(pse_engine::session::engine)?;
         for location in record
             .members
             .iter()
@@ -73,11 +78,11 @@ impl Publication {
             .collect::<std::collections::BTreeSet<_>>()
         {
             let location = url::Url::parse(location)
-                .map_err(external)
-                .map_err(crate::session::engine)?;
+                .map_err(|error| DataFusionError::External(Box::new(error)))
+                .map_err(pse_engine::session::engine)?;
             if let Some(lease) = super::lease::read(&location, cancel)
                 .await
-                .map_err(crate::session::engine)?
+                .map_err(pse_engine::session::engine)?
             {
                 leases.push(lease);
             }
@@ -85,18 +90,23 @@ impl Publication {
         let state = cancel
             .until_cancelled(bind_members(&record, &registry, state))
             .await?
-            .map_err(crate::session::engine)?;
+            .map_err(pse_engine::session::engine)?;
         let mut session =
-            crate::session::facts::bind_publication(&record, &state, registry, factory, cancel)
-                .await?;
-        session.leases = leases;
+            crate::selection::bind_publication(&record, &state, registry, factory, cancel).await?;
+        for owner in leases {
+            session.retain_owner(owner);
+        }
         // Binding does not certify requirements, but an open cannot bypass them.
         session.check_requirements(cancel).await?;
-        Ok(Self {
+        let publication = Self {
             root,
             record,
             session,
-        })
+        };
+        if publication.record.kind != pse_relations::generated::enums::PublicationKind::Relations {
+            publication.artifact_descriptor(cancel).await?;
+        }
+        Ok(publication)
     }
     /// Exact root retained by this handle.
     pub fn root(&self) -> &PublicationRoot {
@@ -107,11 +117,11 @@ impl Publication {
         &self.record
     }
     /// Actual immutable execution environment over the selected native hierarchy.
-    pub fn session(&self) -> &crate::session::SnapshotSession {
+    pub fn session(&self) -> &pse_engine::session::EngineSession {
         &self.session
     }
     /// Move the selected provider owners into an invocation without retaining this handle.
-    pub fn into_session(self) -> crate::session::SnapshotSession {
+    pub fn into_session(self) -> pse_engine::session::EngineSession {
         self.session
     }
     /// Exact generated member selected by the control transaction.
@@ -120,9 +130,9 @@ impl Publication {
     pub fn member(
         &self,
         reference: &datafusion::common::ResolvedTableReference,
-    ) -> std::result::Result<publications::RuntimePublicationsFieldMembersItem, crate::CatalogError>
+    ) -> std::result::Result<publications::RuntimePublicationsFieldMembersItem, crate::EngineError>
     {
-        self.session.selected_member(reference)
+        crate::selection::selected_member(&self.session, reference)
     }
     /// Begin an owned native relation stream with common admission and requirements.
     /// Dropping the publication does not invalidate its stream or exported batches.
@@ -131,8 +141,8 @@ impl Publication {
     pub async fn relation_stream(
         &self,
         reference: &datafusion::common::ResolvedTableReference,
-        cancel: &pse_ids::CancellationToken,
-    ) -> std::result::Result<crate::session::OwnedComputationStream, crate::CatalogError> {
+        cancel: &pse_columnar::CancellationToken,
+    ) -> std::result::Result<pse_engine::session::OwnedComputationStream, crate::EngineError> {
         self.member(reference)?;
         self.session.relation_stream(reference, cancel).await
     }
@@ -226,15 +236,42 @@ pub(super) async fn bind_members(
     state: Arc<SessionState>,
 ) -> Result<Arc<SessionState>> {
     let catalogs = Arc::new(MemoryCatalogProviderList::new());
-    for member in &record.members {
-        let view = selected_provider(member, registry, Arc::clone(&state))
-            .await
-            .map_err(|error| {
-                error.context(format!(
-                    "open publication member {}.{}",
-                    member.schema_name, member.table_name
-                ))
-            })?;
+    let limit = state
+        .config()
+        .get_extension::<pse_engine::cache_service::NativeCacheService>()
+        .map_or(1, |service| service.policy().concurrent_loads.get());
+    let slots = pse_columnar::MemoryConsumer::new("publication:member-open-slots")
+        .register(&state.runtime_env().memory_pool);
+    slots.try_grow(
+        record
+            .members
+            .len()
+            .checked_mul(256)
+            .ok_or_else(|| invalid("member open inventory overflows"))?,
+    )?;
+    let opens = futures_util::stream::iter(0..record.members.len()).map(|ordinal| {
+        let member = &record.members[ordinal];
+        let state = state.clone();
+        async move {
+            let view = selected_provider(member, registry, state)
+                .await
+                .map_err(|error| {
+                    error.context(format!(
+                        "open publication member {}.{}",
+                        member.schema_name, member.table_name
+                    ))
+                })?;
+            Ok::<_, DataFusionError>((ordinal, view))
+        }
+        .boxed()
+    });
+    let mut opened = opens
+        .buffer_unordered(limit)
+        .try_collect::<Vec<_>>()
+        .await?;
+    opened.sort_unstable_by_key(|(ordinal, _)| *ordinal);
+    for (ordinal, view) in opened {
+        let member = &record.members[ordinal];
         let catalog = if let Some(catalog) = catalogs.catalog(&member.catalog_name) {
             catalog
         } else {
@@ -283,7 +320,8 @@ pub(crate) async fn selected_provider(
         ));
     }
     let contract = super::contract::DeclaredCheck::new(registry, relation.id)?;
-    let location = url::Url::parse(&member.table_uri).map_err(external)?;
+    let location = url::Url::parse(&member.table_uri)
+        .map_err(|error| DataFusionError::External(Box::new(error)))?;
     let view = super::provider::open_declared_view(
         location,
         member.delta_version,
@@ -291,7 +329,11 @@ pub(crate) async fn selected_provider(
         Arc::clone(&state),
     )
     .await?;
-    let view = match member.selection.selected().map_err(external)? {
+    let view = match member
+        .selection
+        .selected()
+        .map_err(pse_columnar::external)?
+    {
         publications::RuntimePublicationsFieldMembersItemSelectionSelected::Full => view,
         publications::RuntimePublicationsFieldMembersItemSelectionSelected::Revision(selection) => {
             let column = relation
@@ -315,7 +357,7 @@ pub(crate) async fn selected_provider(
             ViewTable::new(plan, None)
         }
     };
-    crate::cache_service::resident::selected(Arc::new(view), member, &state)
+    crate::cache_service::resident::selected(super::provider::selected_view(view), member, &state)
 }
 
 pub(super) async fn verify_inputs(
@@ -343,6 +385,6 @@ pub(super) async fn verify_inputs(
 fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(reason.into())
 }
-fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
+fn external(error: impl Into<DataFusionError>) -> DataFusionError {
+    error.into()
 }

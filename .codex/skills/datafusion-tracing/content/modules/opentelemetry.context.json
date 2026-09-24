@@ -1,0 +1,67 @@
+[
+  {
+    "id": "0caec9305feab8e344172450",
+    "path": "opentelemetry::context",
+    "name": "context",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod context",
+    "docs": "Execution-scoped context propagation.\n\nThe `context` module provides mechanisms for propagating values across API boundaries and between\nlogically associated execution units. It enables cross-cutting concerns to access their data in-process\nusing a shared context object.\n\n# Main Types\n\n- [`Context`]: An immutable, execution-scoped collection of values.\n",
+    "span": {
+      "filename": "src/context.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        1142,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          429,
+          430,
+          121,
+          437
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Context`": 121
+    },
+    "link_paths": {
+      "`Context`": "opentelemetry::context::Context"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "503",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.context.md",
+    "record_file": "modules/opentelemetry.context.json",
+    "anchor": "op-0caec9305feab8e344172450",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`Context`": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1"
+    }
+  }
+]

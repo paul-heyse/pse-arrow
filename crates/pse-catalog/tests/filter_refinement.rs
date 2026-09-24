@@ -4,28 +4,22 @@
 //! Native filtering establishes a successful nonnull result without replacing values.
 use datafusion::{
     common::ScalarValue,
-    execution::runtime_env::RuntimeEnv,
     logical_expr::{LogicalPlanBuilder, col, lit},
 };
-use pse_catalog::session::{
-    ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile,
-    scalar::refine_filtered_fields,
-};
-use pse_ids::{CancellationToken, FixedBudget};
+use pse_columnar::CancellationToken;
+use pse_engine::session::{ExecutionSettings, ThreadBudget, scalar::refine_filtered_fields};
 use std::{collections::BTreeMap, sync::Arc};
 
 #[tokio::test]
 async fn filtered_nulls_are_dropped_and_remaining_values_keep_native_nonnull_schema() {
     let registry = Arc::new(pse_schema::RegistryBuilder::new().build().unwrap());
-    let factory = SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
+    let factory = pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
             target_partitions: 2.try_into().unwrap(),
         },
-        native_engine_profile(),
     )
     .unwrap();
     let cancel = CancellationToken::default();
@@ -65,7 +59,7 @@ async fn filtered_nulls_are_dropped_and_remaining_values_keep_native_nonnull_sch
             .iter()
             .all(|batch| !batch.schema().field(0).is_nullable())
     );
-    assert!(completed.observation().physical_plan().is_some());
+    assert!(!completed.observation().is_captured());
     // Disjunction does not establish that every surviving value is present.
     let disjunction = LogicalPlanBuilder::from(values)
         .filter(col("column1").is_not_null().or(lit(true)))
@@ -84,15 +78,13 @@ async fn filtered_nulls_are_dropped_and_remaining_values_keep_native_nonnull_sch
 #[tokio::test]
 async fn checked_nonnull_kernel_refuses_a_null_even_without_a_filter_premise() {
     let registry = Arc::new(pse_schema::RegistryBuilder::new().build().unwrap());
-    let factory = SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
+    let factory = pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
             target_partitions: 1.try_into().unwrap(),
         },
-        native_engine_profile(),
     )
     .unwrap();
     let cancel = CancellationToken::default();

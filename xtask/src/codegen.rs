@@ -16,7 +16,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, bail};
-use pse_schema::codegen::{GeneratedTree, Language};
+use pse_codegen::codegen::{GeneratedTree, Language};
 use sha2::{Digest, Sha256};
 
 use crate::Target;
@@ -35,7 +35,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     let registry = pse_schema::registry()?;
     let mut trees = Vec::new();
     for language in languages {
-        let mut tree = pse_schema::codegen::generate(registry, language)?;
+        let mut tree = pse_codegen::codegen::generate(registry, language)?;
         if tree.roots != language.roots() {
             bail!(
                 "{} generator changed its declared output roots",
@@ -53,6 +53,26 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
             }
         }
         validate_tree(&tree)?;
+        if language == Language::Python {
+            // Validate the actual candidate bytes before comparison or publication.
+            let candidate = tempfile::tempdir().context("creating Python contract candidate")?;
+            write_tree(candidate.path(), &tree)?;
+            let python = root.join(if cfg!(windows) {
+                ".venv/Scripts/python.exe"
+            } else {
+                ".venv/bin/python"
+            });
+            let status = Command::new(python)
+                .arg(root.join("scripts/check_python_contracts.py"))
+                .arg("--root")
+                .arg(candidate.path())
+                .current_dir(root)
+                .status()
+                .context("checking candidate Python contract annotations")?;
+            if !status.success() {
+                bail!("candidate Python contract annotation check failed: {status}");
+            }
+        }
         trees.push(tree);
     }
     for tree in &trees {
@@ -332,9 +352,10 @@ mod tests {
             tree.roots,
             [
                 "pse-relations",
+                "pse-model",
                 "pse-authoring",
                 "pse-catalog",
-                "pse-compiler"
+                "pse-runtime"
             ]
             .map(|name| PathBuf::from(format!("crates/{name}/src/generated")))
         );

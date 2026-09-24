@@ -1,0 +1,602 @@
+[
+  {
+    "id": "1dc0eafef051ed5e96a1a2a9",
+    "path": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder",
+    "name": "TonicExporterBuilder",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct TonicExporterBuilder",
+    "docs": "Configuration for the [tonic] OTLP GRPC exporter.\n\nIt allows you to\n- add additional metadata\n- set tls config (via the  `tls` feature)\n- specify custom [channel]s\n\n[tonic]: <https://github.com/hyperium/tonic>\n[channel]: tonic::transport::Channel\n\n## Examples\n\n```no_run\n# #[cfg(feature=\"metrics\")]\nuse opentelemetry_sdk::metrics::Temporality;\n\n# fn main() -> Result<(), Box<dyn std::error::Error>> {\n// Create a span exporter you can use to when configuring tracer providers\n# #[cfg(feature=\"trace\")]\nlet span_exporter = opentelemetry_otlp::SpanExporter::builder().with_tonic().build()?;\n\n// Create a metric exporter you can use when configuring meter providers\n# #[cfg(feature=\"metrics\")]\nlet metric_exporter = opentelemetry_otlp::MetricExporter::builder()\n    .with_tonic()\n    .with_temporality(Temporality::default())\n    .build()?;\n\n// Create a log exporter you can use when configuring logger providers\n# #[cfg(feature=\"logs\")]\nlet log_exporter = opentelemetry_otlp::LogExporter::builder().with_tonic().build()?;\n# Ok(())\n# }\n```",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        103,
+        1
+      ],
+      "end": [
+        106,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          175,
+          176,
+          177,
+          178,
+          179,
+          180,
+          190,
+          193,
+          194,
+          195,
+          196,
+          197,
+          198,
+          199,
+          200,
+          201,
+          202,
+          203,
+          204,
+          205,
+          206,
+          207,
+          208,
+          209,
+          211,
+          213,
+          215,
+          217
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "tonic::transport::Channel": 173
+    },
+    "link_paths": {
+      "tonic::transport::Channel": "tonic::transport::channel::Channel"
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "174",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.json",
+    "anchor": "op-1dc0eafef051ed5e96a1a2a9",
+    "aliases": [
+      "opentelemetry_otlp::TonicExporterBuilder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e9245f7b87851f27cbb97f7b",
+    "path": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder::default",
+    "name": "default",
+    "owner": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        122,
+        5
+      ],
+      "end": [
+        141,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TonicExporterBuilder",
+          "id": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/tonic/mod.rs",
+        "begin": [
+          121,
+          1
+        ],
+        "end": [
+          142,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "212",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.json",
+    "anchor": "op-e9245f7b87851f27cbb97f7b",
+    "aliases": [
+      "opentelemetry_otlp::TonicExporterBuilder::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b58fd68db830fc90c77d7214",
+    "path": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder::export_config",
+    "name": "export_config",
+    "owner": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn export_config(&mut self) -> &mut ExportConfig",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        223,
+        5
+      ],
+      "end": [
+        225,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "resolved_path": {
+                  "path": "ExportConfig",
+                  "id": 49,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "49": "opentelemetry_otlp::exporter::ExportConfig"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "crate::exporter::tonic::TonicExporterBuilder",
+          "id": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "HasExportConfig",
+        "id": "opentelemetry_otlp::exporter::HasExportConfig",
+        "args": null
+      },
+      "trait_path": "opentelemetry_otlp::exporter::HasExportConfig",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/mod.rs",
+        "begin": [
+          222,
+          1
+        ],
+        "end": [
+          226,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "216",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.json",
+    "anchor": "op-b58fd68db830fc90c77d7214",
+    "aliases": [
+      "opentelemetry_otlp::TonicExporterBuilder::export_config"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "96b47a8a30ad70e6057c73ac",
+    "path": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        102,
+        10
+      ],
+      "end": [
+        102,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 109,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 110,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "109": "core::fmt::Formatter",
+      "110": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TonicExporterBuilder",
+          "id": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/tonic/mod.rs",
+        "begin": [
+          102,
+          10
+        ],
+        "end": [
+          102,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "210",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.json",
+    "anchor": "op-96b47a8a30ad70e6057c73ac",
+    "aliases": [
+      "opentelemetry_otlp::TonicExporterBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5c8ab91d8c194a6efc423fdc",
+    "path": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder::tonic_config",
+    "name": "tonic_config",
+    "owner": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn tonic_config(&mut self) -> &mut TonicConfig",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/tonic/mod.rs",
+      "begin": [
+        351,
+        5
+      ],
+      "end": [
+        353,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "resolved_path": {
+                  "path": "TonicConfig",
+                  "id": 144,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "144": "opentelemetry_otlp::exporter::tonic::TonicConfig"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TonicExporterBuilder",
+          "id": "opentelemetry_otlp::exporter::tonic::TonicExporterBuilder",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "HasTonicConfig",
+        "id": "opentelemetry_otlp::exporter::tonic::HasTonicConfig",
+        "args": null
+      },
+      "trait_path": "opentelemetry_otlp::exporter::tonic::HasTonicConfig",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exporter/tonic/mod.rs",
+        "begin": [
+          350,
+          1
+        ],
+        "end": [
+          354,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "214",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.tonic.TonicExporterBuilder.json",
+    "anchor": "op-5c8ab91d8c194a6efc423fdc",
+    "aliases": [
+      "opentelemetry_otlp::TonicExporterBuilder::tonic_config"
+    ],
+    "resolved_doc_links": {}
+  }
+]

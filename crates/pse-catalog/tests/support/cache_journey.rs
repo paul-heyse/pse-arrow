@@ -18,15 +18,16 @@ use datafusion::{
 };
 use pse_catalog::{
     artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
-    cache_service::{CacheBudget, NativeCacheService},
+    cache_service::{DeltaCacheBudget, DeltaCacheService},
     delta::{
         contract::DeclaredCheck,
         publication::{Publication, PublicationRoot},
         publication_plan::{self, Member},
     },
-    session::{SessionFactory, planner::UnifiedPlanner},
 };
-use pse_ids::{CancellationToken, FixedBudget, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_engine::session::{EngineFactory, planner::UnifiedPlanner};
+use pse_ids::SemanticId;
 use pse_relations::generated::{enums::PublicationKind, runtime::publications};
 use pse_schema::{
     Registry, RegistryBuilder,
@@ -96,10 +97,9 @@ async fn publish(
     let location = base.join(&format!("{label}_control/")).unwrap();
     let mut inputs = BTreeMap::new();
     for output in artifact.outputs().values() {
-        for selected in artifact
-            .session()
-            .selected_dependencies(&output.plan)
-            .unwrap()
+        for selected in
+            pse_catalog::selection::selected_dependencies(artifact.session(), &output.plan, cancel)
+                .unwrap()
         {
             inputs.insert(
                 (
@@ -181,7 +181,7 @@ async fn publish(
 async fn selected_after_update(
     previous: &Publication,
     registry: Arc<Registry>,
-    factory: &SessionFactory,
+    factory: &EngineFactory,
     state: &SessionState,
     field: &str,
     increment: i64,
@@ -266,7 +266,7 @@ pub(crate) async fn run_policy(
     enabled: bool,
     rows: usize,
     cross_process: bool,
-    override_policy: Option<CacheBudget>,
+    override_policy: Option<DeltaCacheBudget>,
 ) -> serde_json::Value {
     let custom_policy = override_policy.is_some();
     let cancel = CancellationToken::new();
@@ -280,23 +280,29 @@ pub(crate) async fn run_policy(
         .build_arc()
         .unwrap();
     let policy = if enabled {
-        CacheBudget::for_memory(256 << 20)
+        DeltaCacheBudget::for_memory(256 << 20)
     } else {
-        CacheBudget::disabled(128 << 20)
+        DeltaCacheBudget::disabled(128 << 20)
     };
-    let caches = NativeCacheService::new(override_policy.unwrap_or(policy), &pool).unwrap();
+    let caches = DeltaCacheService::new(override_policy.unwrap_or(policy), &pool).unwrap();
     let state = SessionStateBuilder::new()
         .with_default_features()
         .with_runtime_env(runtime.clone())
-        .with_query_planner(Arc::new(UnifiedPlanner::default()))
+        .with_query_planner(Arc::new(UnifiedPlanner::new(
+            pse_catalog::assembly::planners(),
+        )))
         .build();
-    let factory = SessionFactory::from_builder(
+    let factory = EngineFactory::from_builder(
         runtime,
-        FixedBudget::new(256 << 20),
+        pool.clone(),
         "cache-qualification",
         SessionStateBuilder::new_from_existing(state.clone()),
     )
-    .with_cache_service(caches.clone());
+    .with_cache_service(caches.native().clone())
+    .with_extension(caches.clone())
+    .with_query_planner(Arc::new(UnifiedPlanner::new(
+        pse_catalog::assembly::planners(),
+    )));
     let spec = registry.relation("authored.cache_values").unwrap();
     let keys = (0..i64::try_from(rows).unwrap()).collect::<Vec<_>>();
     let batch = RecordBatch::try_new(
@@ -374,7 +380,12 @@ pub(crate) async fn run_policy(
         drop(first);
         // The parent retains only idle caches. The child executes actual native
         // maintenance under the same OS lease and commits fences in both logs.
-        let before = caches.report().iter().map(|row| row.misses).sum::<usize>();
+        let before = caches
+            .native()
+            .report()
+            .iter()
+            .map(|row| row.misses)
+            .sum::<usize>();
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
@@ -388,7 +399,16 @@ pub(crate) async fn run_policy(
         let reopened = Publication::open(root.clone(), registry.clone(), &factory, &cancel)
             .await
             .unwrap();
-        assert!(caches.report().iter().map(|row| row.misses).sum::<usize>() > before || !enabled);
+        assert!(
+            caches
+                .native()
+                .report()
+                .iter()
+                .map(|row| row.misses)
+                .sum::<usize>()
+                > before
+                || !enabled
+        );
         reopened
     } else {
         first
@@ -417,12 +437,12 @@ pub(crate) async fn run_policy(
     .unwrap();
     assert!(
         structural
-            .dependencies()
+            .dependencies(&cancel)
             .unwrap()
             .iter()
             .any(|row| row.evidence.projection.is_some()),
         "native projection must be real dependency evidence: {:?}; policy: {:?}; plan: {}",
-        structural.dependencies().unwrap(),
+        structural.dependencies(&cancel).unwrap(),
         structural.session().effective_policy().unwrap(),
         structural
             .outputs()
@@ -466,7 +486,7 @@ pub(crate) async fn run_policy(
         .execute(&cancel)
         .await
         .unwrap();
-    let values = |batches: &[pse_ids::owned_buffer::OwnedRecordBatch]| {
+    let values = |batches: &[pse_columnar::owned_buffer::OwnedRecordBatch]| {
         let mut values = batches
             .iter()
             .flat_map(|batch| {
@@ -509,7 +529,7 @@ pub(crate) async fn run_policy(
             .is_err(),
         "structural changes must refuse reuse"
     );
-    let report = caches.report();
+    let report = caches.native().report();
     if enabled && !custom_policy {
         assert!(
             report
@@ -520,7 +540,7 @@ pub(crate) async fn run_policy(
     serde_json::json!({ "cache_enabled": enabled, "rows": rows, "publish_seconds": publish_seconds, "open_seconds": open_seconds,
         "read_seconds": reads, "reuse_seconds": reuse_seconds, "pool_reserved_bytes": pool.reserved(), "pool_peak_bytes": peak.max_reserved(), "process_peak_rss_bytes":process_peak_rss(),
         "cache": report.iter().map(|row| serde_json::json!({"name":row.name,"hits":row.hits,"misses":row.misses,"retained_bytes":row.retained_bytes,"live_bytes":row.live_bytes,"pinned_bytes":row.pinned_bytes})).collect::<Vec<_>>(),
-        "execution_counts": caches.execution_report().into_iter().collect::<BTreeMap<_,_>>() })
+        "execution_counts": caches.native().execution_report().into_iter().collect::<BTreeMap<_,_>>() })
 }
 
 /// Child entry for actual two-process maintenance; no simulated invalidation call.
@@ -532,17 +552,23 @@ pub(crate) async fn maintenance_child(payload: &str) {
     let member: publications::RuntimePublicationsFieldMembersItem =
         serde_json::from_value(request["member"].clone()).unwrap();
     let registry = registry();
-    let runtime = RuntimeEnvBuilder::new().build_arc().unwrap();
-    let factory = SessionFactory::from_builder(
+    let runtime = RuntimeEnvBuilder::new()
+        .with_memory_pool(Arc::new(GreedyMemoryPool::new(256 << 20)))
+        .build_arc()
+        .unwrap();
+    let factory = EngineFactory::from_builder(
         runtime.clone(),
-        FixedBudget::new(256 << 20),
+        runtime.memory_pool.clone(),
         "maintenance-child",
         SessionStateBuilder::new()
             .with_default_features()
             .with_runtime_env(runtime)
-            .with_query_planner(Arc::new(UnifiedPlanner::default())),
+            .with_query_planner(Arc::new(UnifiedPlanner::new(
+                pse_catalog::assembly::planners(),
+            ))),
     );
     let cancel = CancellationToken::new();
+    pse_engine::validation::bind_defaults(&registry).unwrap();
     let empty = retained_versions::Builder::with_registry(&registry, 0)
         .unwrap()
         .finish()
@@ -557,23 +583,23 @@ pub(crate) async fn maintenance_child(payload: &str) {
         .unwrap()
         .resolve("workspace", "runtime");
     let retention = session.relation_plan(&reference).unwrap();
-    session
-        .prepare_maintenance(
-            MaintenanceTarget {
-                head: root,
-                reference: name("cache_values"),
-                location: url::Url::parse(&member.table_uri).unwrap(),
-                relation_id: member.relation_id,
-                action: MaintenanceAction::Optimize,
-                log_cutoff_ms: 0,
-            },
-            &retention,
-            &cancel,
-        )
-        .unwrap()
-        .execute(&cancel)
-        .await
-        .unwrap();
+    pse_catalog::delta::maintenance::prepare_maintenance(
+        &session,
+        MaintenanceTarget {
+            head: root,
+            reference: name("cache_values"),
+            location: url::Url::parse(&member.table_uri).unwrap(),
+            relation_id: member.relation_id,
+            action: MaintenanceAction::Optimize,
+            log_cutoff_ms: 0,
+        },
+        &retention,
+        &cancel,
+    )
+    .unwrap()
+    .execute(&cancel)
+    .await
+    .unwrap();
 }
 
 /// Process high water, separate from this fixture's native reservation peak.

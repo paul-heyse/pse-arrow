@@ -1,0 +1,387 @@
+[
+  {
+    "id": "9bc846bbdc7bd7bc3e4045c0",
+    "path": "tracing_subscriber::fmt::format::FormatFields",
+    "name": "FormatFields",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait FormatFields<'writer>",
+    "docs": "A type that can format a [set of fields] to a [`Writer`].\n\n[`FormatFields`] is primarily used in the context of [`FmtSubscriber`]. Each\ntime a span or event with fields is recorded, the subscriber will format\nthose fields with its associated [`FormatFields`] implementation.\n\n[set of fields]: crate::field::RecordFields\n[`FmtSubscriber`]: super::Subscriber",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        235,
+        1
+      ],
+      "end": [
+        254,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          1729,
+          1995
+        ],
+        "generics": {
+          "params": [
+            {
+              "name": "'writer",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          1796,
+          1860,
+          1926,
+          1997
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::field::RecordFields": 233,
+      "`Writer`": 218,
+      "super::Subscriber": 1151,
+      "`FormatFields`": 1441
+    },
+    "link_paths": {
+      "crate::field::RecordFields": "tracing_subscriber::field::RecordFields",
+      "`Writer`": "tracing_subscriber::fmt::format::Writer",
+      "super::Subscriber": "tracing_subscriber::fmt::Subscriber",
+      "`FormatFields`": "tracing_subscriber::fmt::format::FormatFields"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1441",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.FormatFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.FormatFields.json",
+    "anchor": "op-9bc846bbdc7bd7bc3e4045c0",
+    "aliases": [
+      "tracing_subscriber::fmt::FormatFields"
+    ],
+    "resolved_doc_links": {
+      "crate::field::RecordFields": "../operations/tracing_subscriber.field.RecordFields.md#op-fc1ac43117ab810b7a7cfedb",
+      "`Writer`": "../operations/tracing_subscriber.fmt.format.Writer.md#op-6b52b7d913af9a7ea5497021",
+      "super::Subscriber": "../operations/tracing_subscriber.fmt.Subscriber.md#op-7360e26773e1081257bf258e",
+      "`FormatFields`": "../operations/tracing_subscriber.fmt.format.FormatFields.md#op-9bc846bbdc7bd7bc3e4045c0"
+    }
+  },
+  {
+    "id": "946b14ff5f93926a8d29b2e4",
+    "path": "tracing_subscriber::fmt::format::FormatFields::add_fields",
+    "name": "add_fields",
+    "owner": "tracing_subscriber::fmt::format::FormatFields",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn add_fields(&self, current: &'writer mut FormattedFields<Self>, fields: &span::Record<'_>) -> fmt::Result",
+    "docs": "Record additional field(s) on an existing span.\n\nBy default, this appends a space to the current set of fields if it is\nnon-empty, and then calls `self.format_fields`. If different behavior is\nrequired, the default implementation of this method can be overridden.",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        244,
+        5
+      ],
+      "end": [
+        253,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "current",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'writer",
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "FormattedFields",
+                      "id": 1727,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "generic": "Self"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "fields",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Record",
+                      "id": 245,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1727": "tracing_subscriber::fmt::fmt_layer::FormattedFields",
+      "245": "tracing_core::span::Record",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1995",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.FormatFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.FormatFields.json",
+    "anchor": "op-946b14ff5f93926a8d29b2e4",
+    "aliases": [
+      "tracing_subscriber::fmt::FormatFields::add_fields"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "01424b9dbd594952e76f0f8d",
+    "path": "tracing_subscriber::fmt::format::FormatFields::format_fields",
+    "name": "format_fields",
+    "owner": "tracing_subscriber::fmt::format::FormatFields",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn format_fields<R: RecordFields>(&self, writer: Writer<'writer>, fields: R) -> fmt::Result",
+    "docs": "Format the provided `fields` to the provided [`Writer`], returning a result.",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        237,
+        5
+      ],
+      "end": [
+        237,
+        97
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "writer",
+              {
+                "resolved_path": {
+                  "path": "Writer",
+                  "id": 218,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'writer"
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "fields",
+              {
+                "generic": "R"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "R",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "RecordFields",
+                          "id": 233,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "218": "tracing_subscriber::fmt::format::Writer",
+      "66": "core::fmt::Result",
+      "233": "tracing_subscriber::field::RecordFields"
+    },
+    "impl_context": null,
+    "links": {
+      "`Writer`": 218
+    },
+    "link_paths": {
+      "`Writer`": "tracing_subscriber::fmt::format::Writer"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1729",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.FormatFields.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.FormatFields.json",
+    "anchor": "op-01424b9dbd594952e76f0f8d",
+    "aliases": [
+      "tracing_subscriber::fmt::FormatFields::format_fields"
+    ],
+    "resolved_doc_links": {
+      "`Writer`": "../operations/tracing_subscriber.fmt.format.Writer.md#op-6b52b7d913af9a7ea5497021"
+    }
+  }
+]

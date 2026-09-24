@@ -13,10 +13,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use datafusion_execution::memory_pool::{MemoryLimit, UnboundedMemoryPool};
-use pse_catalog::{ExecutionSettings, ThreadBudget};
-use pse_ids::{MemoryReserver, ReserveError};
-use pse_runtime::{CancelSource, PoolReserver, ResourceBudget, SharedRuntime};
+use datafusion_execution::memory_pool::MemoryLimit;
+use pse_engine::{ExecutionSettings, ThreadBudget};
+use pse_runtime::{CancelSource, ResourceBudget, SharedRuntime};
 
 struct Scratch(PathBuf);
 
@@ -50,8 +49,10 @@ fn budget(directory: &Scratch, limit: usize) -> ResourceBudget {
             target_partitions: NonZeroUsize::new(2).expect("nonzero"),
         },
         execution: ExecutionSettings::default(),
-        cache: pse_runtime::CacheBudget::disabled(1),
+        cache: pse_runtime::DeltaCacheBudget::disabled(1),
+        math: Default::default(),
         hashing_may_use_pool: false,
+
     }
 }
 
@@ -68,15 +69,16 @@ fn runtime_handles_and_platform_consumers_share_one_finite_pool() {
         MemoryLimit::Finite(96)
     ));
     assert_eq!(left.disk_manager.max_temp_directory_size(), 1024);
-    let reserver = runtime.reserver();
-    let mut first = reserver.open("session:first");
+    let pool = runtime.pool();
+    let first = pse_columnar::MemoryConsumer::new("session:first").register(&pool);
     first.try_grow(64).expect("fits");
-    let mut second = reserver.open("session:second");
+    let second = pse_columnar::MemoryConsumer::new("session:second").register(&pool);
     let error = second.try_grow(64).expect_err("shared limit exceeded");
-    assert!(
-        matches!(error, ReserveError::Exhausted { owner, limit_hint, .. } if owner == "session:second" && limit_hint.contains("datafusion.runtime.memory_limit"))
-    );
-    assert_eq!(reserver.reserved(), 64);
+    assert!(matches!(
+        error,
+        datafusion_common::DataFusionError::ResourcesExhausted(_)
+    ));
+    assert_eq!(pool.reserved(), 64);
     let report = runtime.report().expect("resource observation");
     assert_eq!(report.pool_peak_bytes, 64);
     assert_eq!(report.pool_reserved_now, 64);
@@ -86,7 +88,7 @@ fn runtime_handles_and_platform_consumers_share_one_finite_pool() {
     );
     drop(first);
     drop(second);
-    assert_eq!(reserver.reserved(), 0);
+    assert_eq!(pool.reserved(), 0);
     assert_eq!(runtime.report().expect("report").pool_peak_bytes, 64);
 }
 
@@ -94,22 +96,21 @@ fn runtime_handles_and_platform_consumers_share_one_finite_pool() {
 fn grow_overflow_shrink_and_release_are_bounded() {
     let directory = Scratch::new();
     let runtime = SharedRuntime::build(budget(&directory, 64)).expect("runtime builds");
-    let reserver = runtime.reserver();
-    let mut reservation = reserver.open("overflow");
+    let pool = runtime.pool();
+    let reservation = pse_columnar::MemoryConsumer::new("overflow").register(&pool);
     reservation.try_grow(32).expect("fits");
     assert!(reservation.try_grow(usize::MAX).is_err());
     assert_eq!(reservation.size(), 32);
-    reservation.shrink(usize::MAX);
-    assert_eq!(reserver.reserved(), 0);
+    reservation.shrink(reservation.size());
+    assert_eq!(pool.reserved(), 0);
     reservation.try_grow(64).expect("released claim fits again");
-    reservation.release();
-    reservation.release();
-    assert_eq!(reserver.reserved(), 0);
+    reservation.free();
+    reservation.free();
+    assert_eq!(pool.reserved(), 0);
 }
 
 #[test]
 fn unbounded_pools_and_invalid_execution_settings_are_refused() {
-    assert!(PoolReserver::new(Arc::new(UnboundedMemoryPool::default())).is_err());
     let directory = Scratch::new();
     let mut settings = budget(&directory, 64);
     settings.execution.batch_size = 0;
@@ -188,11 +189,11 @@ async fn pending_work_is_dropped_and_releases_its_budget_on_token_cancellation()
     let source = CancelSource::new();
     let token = source.token();
     let waiting_token = token.clone();
-    let reserver = runtime.reserver();
+    let pool = runtime.pool();
     let (ready, started) = tokio::sync::oneshot::channel();
     let task = tokio::spawn(async move {
         let work = async move {
-            let mut reservation = reserver.open("pending:operator");
+            let reservation = pse_columnar::MemoryConsumer::new("pending:operator").register(&pool);
             reservation.try_grow(64).expect("fits");
             let mut ready = Some(ready);
             std::future::poll_fn(|_cx| {
@@ -211,7 +212,7 @@ async fn pending_work_is_dropped_and_releases_its_budget_on_token_cancellation()
         }
     });
     started.await.expect("work has been polled to pending");
-    assert_eq!(runtime.reserver().reserved(), 64);
+    assert_eq!(runtime.pool().reserved(), 64);
     token.cancel();
     assert!(
         tokio::time::timeout(std::time::Duration::from_secs(1), task)
@@ -220,7 +221,7 @@ async fn pending_work_is_dropped_and_releases_its_budget_on_token_cancellation()
             .expect("task completes")
             .is_err()
     );
-    assert_eq!(runtime.reserver().reserved(), 0);
+    assert_eq!(runtime.pool().reserved(), 0);
     source.cancelled().await;
 }
 
@@ -231,10 +232,11 @@ fn simultaneous_consumers_cannot_exceed_the_shared_limit() {
     let barrier = Arc::new(std::sync::Barrier::new(2));
     let threads: Vec<_> = (0..2)
         .map(|index| {
-            let reserver = runtime.reserver();
+            let pool = runtime.pool();
             let barrier = Arc::clone(&barrier);
             std::thread::spawn(move || {
-                let mut reservation = reserver.open(&format!("concurrent:{index}"));
+                let reservation = pse_columnar::MemoryConsumer::new(format!("concurrent:{index}"))
+                    .register(&pool);
                 barrier.wait();
                 let success = reservation.try_grow(8).is_ok();
                 barrier.wait();
@@ -247,6 +249,6 @@ fn simultaneous_consumers_cannot_exceed_the_shared_limit() {
         .map(|thread| usize::from(thread.join().expect("consumer returns")))
         .sum::<usize>();
     assert_eq!(successes, 1);
-    assert_eq!(runtime.reserver().reserved(), 0);
+    assert_eq!(runtime.pool().reserved(), 0);
     assert_eq!(runtime.report().expect("report").pool_peak_bytes, 8);
 }

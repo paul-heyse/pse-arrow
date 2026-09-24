@@ -1,0 +1,619 @@
+[
+  {
+    "id": "8624f83b029674bcb04544cc",
+    "path": "opentelemetry_sdk::logs::export::LogBatch",
+    "name": "LogBatch",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct LogBatch<'a>",
+    "docs": "A batch of log records to be exported by a `LogExporter`.\n\nThe `LogBatch` struct holds a collection of log records along with their associated\ninstrumentation scopes. This structure is used to group log records together for efficient\nexport operations.\n\n# Type Parameters\n- `'a`: The lifetime of the references to the log records and instrumentation scopes.\n",
+    "span": {
+      "filename": "src/logs/export.rs",
+      "begin": [
+        21,
+        1
+      ],
+      "end": [
+        23,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          177,
+          180,
+          181,
+          182,
+          183,
+          184,
+          185,
+          186,
+          187,
+          188,
+          189,
+          190,
+          191,
+          192,
+          193,
+          194,
+          195,
+          196,
+          197,
+          198,
+          199,
+          201
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "175",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.export.LogBatch.md",
+    "record_file": "operations/opentelemetry_sdk.logs.export.LogBatch.json",
+    "anchor": "op-8624f83b029674bcb04544cc",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogBatch"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "73183fb585572c72b2332c03",
+    "path": "opentelemetry_sdk::logs::export::LogBatch::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::logs::export::LogBatch",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/logs/export.rs",
+      "begin": [
+        20,
+        10
+      ],
+      "end": [
+        20,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogBatch",
+          "id": "opentelemetry_sdk::logs::export::LogBatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/export.rs",
+        "begin": [
+          20,
+          10
+        ],
+        "end": [
+          20,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "200",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.export.LogBatch.md",
+    "record_file": "operations/opentelemetry_sdk.logs.export.LogBatch.json",
+    "anchor": "op-73183fb585572c72b2332c03",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogBatch::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8954fcd9ac729438696bafde",
+    "path": "opentelemetry_sdk::logs::export::LogBatch::iter",
+    "name": "iter",
+    "owner": "opentelemetry_sdk::logs::export::LogBatch",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn iter(&self) -> impl Iterator<Item = (&SdkLogRecord, &InstrumentationScope)>",
+    "docs": "Returns an iterator over the log records and instrumentation scopes in the batch.\n\nEach item yielded by the iterator is a tuple containing references to a `LogRecord`\nand an `InstrumentationScope`.\n\n# Returns\n\nAn iterator that yields references to the `LogRecord` and `InstrumentationScope` in the batch.\n",
+    "span": {
+      "filename": "src/logs/export.rs",
+      "begin": [
+        75,
+        5
+      ],
+      "end": [
+        80,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "impl_trait": [
+              {
+                "trait_bound": {
+                  "trait": {
+                    "path": "Iterator",
+                    "id": 179,
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [],
+                        "constraints": [
+                          {
+                            "name": "Item",
+                            "args": null,
+                            "binding": {
+                              "equality": {
+                                "type": {
+                                  "tuple": [
+                                    {
+                                      "borrowed_ref": {
+                                        "lifetime": null,
+                                        "is_mutable": false,
+                                        "type": {
+                                          "resolved_path": {
+                                            "path": "SdkLogRecord",
+                                            "id": 74,
+                                            "args": null
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "borrowed_ref": {
+                                        "lifetime": null,
+                                        "is_mutable": false,
+                                        "type": {
+                                          "resolved_path": {
+                                            "path": "InstrumentationScope",
+                                            "id": 75,
+                                            "args": null
+                                          }
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "generic_params": [],
+                  "modifier": "none"
+                }
+              }
+            ]
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "179": "core::iter::traits::iterator::Iterator",
+      "74": "opentelemetry_sdk::logs::record::SdkLogRecord",
+      "75": "opentelemetry::common::InstrumentationScope"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogBatch",
+          "id": "opentelemetry_sdk::logs::export::LogBatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/export.rs",
+        "begin": [
+          65,
+          1
+        ],
+        "end": [
+          81,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "178",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.export.LogBatch.md",
+    "record_file": "operations/opentelemetry_sdk.logs.export.LogBatch.json",
+    "anchor": "op-8954fcd9ac729438696bafde",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogBatch::iter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c85a4f4c4dd5b2b9a082a5b2",
+    "path": "opentelemetry_sdk::logs::export::LogBatch::new",
+    "name": "new",
+    "owner": "opentelemetry_sdk::logs::export::LogBatch",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn new(data: &'a [(&'a SdkLogRecord, &'a InstrumentationScope)]) -> LogBatch<'a>",
+    "docs": "Creates a new instance of `LogBatch`.\n\n# Arguments\n\n* `data` - A slice of tuples, where each tuple consists of a reference to a `LogRecord`\n  and a reference to an `InstrumentationScope`. These tuples represent the log records\n  and their associated instrumentation scopes to be exported.\n\n# Returns\n\nA `LogBatch` instance containing the provided log records and instrumentation scopes.\n\nNote - this is not a public function, and should not be used directly. This would be\nmade private in the future.",
+    "span": {
+      "filename": "src/logs/export.rs",
+      "begin": [
+        50,
+        5
+      ],
+      "end": [
+        54,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "data",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "slice": {
+                      "tuple": [
+                        {
+                          "borrowed_ref": {
+                            "lifetime": "'a",
+                            "is_mutable": false,
+                            "type": {
+                              "resolved_path": {
+                                "path": "SdkLogRecord",
+                                "id": 74,
+                                "args": null
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "borrowed_ref": {
+                            "lifetime": "'a",
+                            "is_mutable": false,
+                            "type": {
+                              "resolved_path": {
+                                "path": "InstrumentationScope",
+                                "id": 75,
+                                "args": null
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "LogBatch",
+              "id": 175,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'a"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "74": "opentelemetry_sdk::logs::record::SdkLogRecord",
+      "75": "opentelemetry::common::InstrumentationScope",
+      "175": "opentelemetry_sdk::logs::export::LogBatch"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogBatch",
+          "id": "opentelemetry_sdk::logs::export::LogBatch",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs/export.rs",
+        "begin": [
+          35,
+          1
+        ],
+        "end": [
+          63,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "176",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.logs.export.LogBatch.md",
+    "record_file": "operations/opentelemetry_sdk.logs.export.LogBatch.json",
+    "anchor": "op-c85a4f4c4dd5b2b9a082a5b2",
+    "aliases": [
+      "opentelemetry_sdk::logs::LogBatch::new"
+    ],
+    "resolved_doc_links": {}
+  }
+]

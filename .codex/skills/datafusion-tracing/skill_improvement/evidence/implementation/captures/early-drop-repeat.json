@@ -1,0 +1,46 @@
+[
+  {
+    "kind": "open",
+    "id": 274877906945,
+    "parent": null,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "close",
+    "id": 274877906945,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {
+      "datafusion.boundedness": "Bounded",
+      "datafusion.emission_type": "Incremental",
+      "datafusion.node": "DataSourceExec: partitions=2, partition_sizes=[2, 1]",
+      "datafusion.partitioning": "UnknownPartitioning(2)",
+      "datafusion.preview": "ROWS:2",
+      "otel.name": "DataSourceExec"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 2252074691592193,
+    "parent": null,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {}
+  },
+  {
+    "kind": "close",
+    "id": 2252074691592193,
+    "name": "InstrumentedExec",
+    "target": "contracts",
+    "fields": {
+      "datafusion.boundedness": "Bounded",
+      "datafusion.emission_type": "Incremental",
+      "datafusion.node": "DataSourceExec: partitions=2, partition_sizes=[2, 1]",
+      "datafusion.partitioning": "UnknownPartitioning(2)",
+      "datafusion.preview": "ROWS:4",
+      "otel.name": "DataSourceExec"
+    }
+  }
+]

@@ -1,0 +1,2057 @@
+[
+  {
+    "id": "d03861aa726092c9d924061c",
+    "path": "tracing_core::subscriber::Subscriber",
+    "name": "Subscriber",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "trait",
+    "signature": "trait Subscriber: 'static",
+    "docs": "Trait representing the functions required to collect trace data.\n\nCrates that provide implementations of methods for collecting or recording\ntrace data should implement the `Subscriber` interface. This trait is\nintended to represent fundamental primitives for collecting trace events and\nspans — other libraries may offer utility functions and types to make\nsubscriber implementations more modular or improve the ergonomics of writing\nsubscribers.\n\nA subscriber is responsible for the following:\n- Registering new spans as they are created, and providing them with span\n  IDs. Implicitly, this means the subscriber may determine the strategy for\n  determining span equality.\n- Recording the attachment of field values and follows-from annotations to\n  spans.\n- Filtering spans and events, and determining when those filters must be\n  invalidated.\n- Observing spans as they are entered, exited, and closed, and events as\n  they occur.\n\nWhen a span is entered or exited, the subscriber is provided only with the\n[ID] with which it tagged that span when it was created. This means\nthat it is up to the subscriber to determine whether and how span _data_ —\nthe fields and metadata describing the span — should be stored. The\n[`new_span`] function is called when a new span is created, and at that\npoint, the subscriber _may_ choose to store the associated data if it will\nbe referenced again. However, if the data has already been recorded and will\nnot be needed by the implementations of `enter` and `exit`, the subscriber\nmay freely discard that data without allocating space to store it.\n\n## Overriding default impls\n\nSome trait methods on `Subscriber` have default implementations, either in\norder to reduce the surface area of implementing `Subscriber`, or for\nbackward-compatibility reasons. However, many subscribers will likely want\nto override these default implementations.\n\nThe following methods are likely of interest:\n\n- [`register_callsite`] is called once for each callsite from which a span\n  event may originate, and returns an [`Interest`] value describing whether or\n  not the subscriber wishes to see events or spans from that callsite. By\n  default, it calls [`enabled`], and returns `Interest::always()` if\n  `enabled` returns true, or `Interest::never()` if enabled returns false.\n  However, if the subscriber's interest can change dynamically at runtime,\n  it may want to override this function to return `Interest::sometimes()`.\n  Additionally, subscribers which wish to perform a behaviour once for each\n  callsite, such as allocating storage for data related to that callsite,\n  can perform it in `register_callsite`.\n\n  See also the [documentation on the callsite registry][cs-reg] for details\n  on [`register_callsite`].\n\n- [`event_enabled`] is called once before every call to the [`event`]\n  method. This can be used to implement filtering on events once their field\n  values are known, but before any processing is done in the `event` method.\n- [`clone_span`] is called every time a span ID is cloned, and [`try_close`]\n  is called when a span ID is dropped. By default, these functions do\n  nothing. However, they can be used to implement reference counting for\n  spans, allowing subscribers to free storage for span data and to determine\n  when a span has _closed_ permanently (rather than being exited).\n  Subscribers which store per-span data or which need to track span closures\n  should override these functions together.\n\n[ID]: super::span::Id\n[`new_span`]: Subscriber::new_span\n[`register_callsite`]: Subscriber::register_callsite\n[`enabled`]: Subscriber::enabled\n[`clone_span`]: Subscriber::clone_span\n[`try_close`]: Subscriber::try_close\n[cs-reg]: crate::callsite#registering-callsites\n[`event`]: Subscriber::event\n[`event_enabled`]: Subscriber::event_enabled",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        80,
+        1
+      ],
+      "end": [
+        499,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          1004,
+          116,
+          119,
+          114,
+          129,
+          132,
+          135,
+          1005,
+          465,
+          140,
+          142,
+          144,
+          146,
+          149,
+          150,
+          1006
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "outlives": "'static"
+          }
+        ],
+        "implementations": [
+          1015,
+          1032,
+          1048
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::callsite#registering-callsites": 11,
+      "Subscriber::new_span": 129,
+      "`Interest`": 10,
+      "Subscriber::try_close": 149,
+      "Subscriber::clone_span": 144,
+      "Subscriber::register_callsite": 116,
+      "Subscriber::event": 465,
+      "Subscriber::event_enabled": 1005,
+      "super::span::Id": 128,
+      "Subscriber::enabled": 119
+    },
+    "link_paths": {
+      "crate::callsite#registering-callsites": "tracing_core::callsite",
+      "Subscriber::new_span": "tracing_core::subscriber::Subscriber::new_span",
+      "`Interest`": "tracing_core::subscriber::Interest",
+      "Subscriber::try_close": "tracing_core::subscriber::Subscriber::try_close",
+      "Subscriber::clone_span": "tracing_core::subscriber::Subscriber::clone_span",
+      "Subscriber::register_callsite": "tracing_core::subscriber::Subscriber::register_callsite",
+      "Subscriber::event": "tracing_core::subscriber::Subscriber::event",
+      "Subscriber::event_enabled": "tracing_core::subscriber::Subscriber::event_enabled",
+      "super::span::Id": "tracing_core::span::Id",
+      "Subscriber::enabled": "tracing_core::subscriber::Subscriber::enabled"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "112",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-d03861aa726092c9d924061c",
+    "aliases": [
+      "tracing::Subscriber",
+      "tracing::subscriber::Subscriber",
+      "tracing_core::Subscriber"
+    ],
+    "resolved_doc_links": {
+      "crate::callsite#registering-callsites": "../modules/tracing_core.callsite.md#op-1740ba2098821878828cbb38",
+      "Subscriber::new_span": "../operations/tracing_core.subscriber.Subscriber.md#op-2078a9c33e5e65d3b31ba990",
+      "`Interest`": "../operations/tracing_core.subscriber.Interest.md#op-6a8f81daa049c40c19442579",
+      "Subscriber::try_close": "../operations/tracing_core.subscriber.Subscriber.md#op-eccad0ed6b21bf85cd56e13d",
+      "Subscriber::clone_span": "../operations/tracing_core.subscriber.Subscriber.md#op-7352d6acfcd094e272b99023",
+      "Subscriber::register_callsite": "../operations/tracing_core.subscriber.Subscriber.md#op-19b9abf22f078e184d986225",
+      "Subscriber::event": "../operations/tracing_core.subscriber.Subscriber.md#op-1141ca0ba7f22ed8ae61da1b",
+      "Subscriber::event_enabled": "../operations/tracing_core.subscriber.Subscriber.md#op-e1cbf6d6bc1fe30faaa15072",
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "Subscriber::enabled": "../operations/tracing_core.subscriber.Subscriber.md#op-df007f57ed0cab78f4b9e43b"
+    }
+  },
+  {
+    "id": "7352d6acfcd094e272b99023",
+    "path": "tracing_core::subscriber::Subscriber::clone_span",
+    "name": "clone_span",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn clone_span(&self, id: &span::Id) -> span::Id",
+    "docs": "Notifies the subscriber that a [span ID] has been cloned.\n\nThis function is guaranteed to only be called with span IDs that were\nreturned by this subscriber's `new_span` function.\n\nNote that the default implementation of this function this is just the\nidentity function, passing through the identifier. However, it can be\nused in conjunction with [`try_close`] to track the number of handles\ncapable of `enter`ing a span. When all the handles have been dropped\n(i.e., `try_close` has been called one more time than `clone_span` for a\ngiven ID), the subscriber may assume that the span will not be entered\nagain. It is then free to deallocate storage for data associated with\nthat span, write data from that span to IO, and so on.\n\nFor more unsafe situations, however, if `id` is itself a pointer of some\nkind this can be used as a hook to \"clone\" the pointer, depending on\nwhat that means for the specified pointer.\n\n[span ID]: super::span::Id\n[`try_close`]: Subscriber::try_close",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        390,
+        5
+      ],
+      "end": [
+        392,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "span::Id",
+              "id": 128,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {
+      "super::span::Id": 128,
+      "Subscriber::try_close": 149
+    },
+    "link_paths": {
+      "super::span::Id": "tracing_core::span::Id",
+      "Subscriber::try_close": "tracing_core::subscriber::Subscriber::try_close"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "144",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-7352d6acfcd094e272b99023",
+    "aliases": [
+      "tracing::Subscriber::clone_span",
+      "tracing::subscriber::Subscriber::clone_span",
+      "tracing_core::Subscriber::clone_span"
+    ],
+    "resolved_doc_links": {
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "Subscriber::try_close": "../operations/tracing_core.subscriber.Subscriber.md#op-eccad0ed6b21bf85cd56e13d"
+    }
+  },
+  {
+    "id": "b822e2619731be50b1f79f07",
+    "path": "tracing_core::subscriber::Subscriber::current_span",
+    "name": "current_span",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn current_span(&self) -> span::Current",
+    "docs": "Returns a type representing this subscriber's view of the current span.\n\nIf subscribers track a current span, they should override this function\nto return [`Current::new`] if the thread from which this method is\ncalled is inside a span, or [`Current::none`] if the thread is not\ninside a span.\n\nBy default, this returns a value indicating that the subscriber\ndoes **not** track what span is current. If the subscriber does not\nimplement a current span, it should not override this method.\n\n[`Current::new`]: super::span::Current#tymethod.new\n[`Current::none`]: super::span::Current#tymethod.none",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        461,
+        5
+      ],
+      "end": [
+        463,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "span::Current",
+              "id": 152,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "152": "tracing_core::span::Current"
+    },
+    "impl_context": null,
+    "links": {
+      "super::span::Current#tymethod.none": 152,
+      "super::span::Current#tymethod.new": 152
+    },
+    "link_paths": {
+      "super::span::Current#tymethod.none": "tracing_core::span::Current",
+      "super::span::Current#tymethod.new": "tracing_core::span::Current"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "150",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-b822e2619731be50b1f79f07",
+    "aliases": [
+      "tracing::Subscriber::current_span",
+      "tracing::subscriber::Subscriber::current_span",
+      "tracing_core::Subscriber::current_span"
+    ],
+    "resolved_doc_links": {
+      "super::span::Current#tymethod.none": "../operations/tracing_core.span.Current.md#op-564b71c6489a6752542300ae",
+      "super::span::Current#tymethod.new": "../operations/tracing_core.span.Current.md#op-564b71c6489a6752542300ae"
+    }
+  },
+  {
+    "id": "d760ce8d8ffad3d76972ba4f",
+    "path": "tracing_core::subscriber::Subscriber::downcast_raw",
+    "name": "downcast_raw",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "unsafe fn downcast_raw(&self, id: TypeId) -> Option<*const ()>",
+    "docs": "If `self` is the same type as the provided `TypeId`, returns an untyped\n`*const` pointer to that type. Otherwise, returns `None`.\n\nIf you wish to downcast a `Subscriber`, it is strongly advised to use\nthe safe API provided by [`downcast_ref`] instead.\n\nThis API is required for `downcast_raw` to be a trait method; a method\nsignature like [`downcast_ref`] (with a generic type parameter) is not\nobject-safe, and thus cannot be a trait method for `Subscriber`. This\nmeans that if we only exposed `downcast_ref`, `Subscriber`\nimplementations could not override the downcasting behavior\n\nThis method may be overridden by \"fan out\" or \"chained\" subscriber\nimplementations which consist of multiple composed types. Such\nsubscribers might allow `downcast_raw` by returning references to those\ncomponent if they contain components with the given `TypeId`.\n\n# Safety\n\nThe [`downcast_ref`] method expects that the pointer returned by\n`downcast_raw` is non-null and points to a valid instance of the type\nwith the provided `TypeId`. Failure to ensure this will result in\nundefined behaviour, so implementing `downcast_raw` is unsafe.\n\n[`downcast_ref`]: #method.downcast_ref",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        492,
+        5
+      ],
+      "end": [
+        498,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "resolved_path": {
+                  "path": "TypeId",
+                  "id": 63,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 155,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "raw_pointer": {
+                          "is_mutable": false,
+                          "type": {
+                            "tuple": []
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": true,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "63": "core::any::TypeId",
+      "155": "core::option::Option"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1006",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-d760ce8d8ffad3d76972ba4f",
+    "aliases": [
+      "tracing::Subscriber::downcast_raw",
+      "tracing::subscriber::Subscriber::downcast_raw",
+      "tracing_core::Subscriber::downcast_raw"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "318d7870f3253ee81d24adfb",
+    "path": "tracing_core::subscriber::Subscriber::drop_span",
+    "name": "drop_span",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn drop_span(&self, _id: span::Id)",
+    "docs": "**This method is deprecated.**\n\nUsing `drop_span` may result in subscribers composed using\n`tracing-subscriber` crate's `Layer` trait from observing close events.\nUse [`try_close`] instead.\n\nThe default implementation of this function does nothing.\n\n[`try_close`]: Subscriber::try_close",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        404,
+        5
+      ],
+      "end": [
+        404,
+        42
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": {
+      "since": "0.1.2",
+      "note": "use `Subscriber::try_close` instead"
+    },
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_id",
+              {
+                "resolved_path": {
+                  "path": "span::Id",
+                  "id": 128,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {
+      "Subscriber::try_close": 149
+    },
+    "link_paths": {
+      "Subscriber::try_close": "tracing_core::subscriber::Subscriber::try_close"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "146",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-318d7870f3253ee81d24adfb",
+    "aliases": [
+      "tracing::Subscriber::drop_span",
+      "tracing::subscriber::Subscriber::drop_span",
+      "tracing_core::Subscriber::drop_span"
+    ],
+    "resolved_doc_links": {
+      "Subscriber::try_close": "../operations/tracing_core.subscriber.Subscriber.md#op-eccad0ed6b21bf85cd56e13d"
+    }
+  },
+  {
+    "id": "df007f57ed0cab78f4b9e43b",
+    "path": "tracing_core::subscriber::Subscriber::enabled",
+    "name": "enabled",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn enabled(&self, metadata: &Metadata<'_>) -> bool",
+    "docs": "Returns true if a span or event with the specified [metadata] would be\nrecorded.\n\nBy default, it is assumed that this filter needs only be evaluated once\nfor each callsite, so it is called by [`register_callsite`] when each\ncallsite is registered. The result is used to determine if the subscriber\nis always [interested] or never interested in that callsite. This is intended\nprimarily as an optimization, so that expensive filters (such as those\ninvolving string search, et cetera) need not be re-evaluated.\n\nHowever, if the subscriber's interest in a particular span or event may\nchange, or depends on contexts only determined dynamically at runtime,\nthen the `register_callsite` method should be overridden to return\n[`Interest::sometimes`]. In that case, this function will be called every\ntime that span or event occurs.\n\n[metadata]: super::metadata::Metadata\n[interested]: Interest\n[`Interest::sometimes`]: Interest::sometimes\n[`register_callsite`]: Subscriber::register_callsite()",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        203,
+        5
+      ],
+      "end": [
+        203,
+        56
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 13,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "13": "tracing_core::metadata::Metadata"
+    },
+    "impl_context": null,
+    "links": {
+      "super::metadata::Metadata": 13,
+      "Subscriber::register_callsite()": 116,
+      "Interest::sometimes": 113,
+      "Interest": 10
+    },
+    "link_paths": {
+      "super::metadata::Metadata": "tracing_core::metadata::Metadata",
+      "Subscriber::register_callsite()": "tracing_core::subscriber::Subscriber::register_callsite",
+      "Interest::sometimes": "tracing_core::subscriber::Interest::sometimes",
+      "Interest": "tracing_core::subscriber::Interest"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "119",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-df007f57ed0cab78f4b9e43b",
+    "aliases": [
+      "tracing::Subscriber::enabled",
+      "tracing::subscriber::Subscriber::enabled",
+      "tracing_core::Subscriber::enabled"
+    ],
+    "resolved_doc_links": {
+      "super::metadata::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "Subscriber::register_callsite()": "../operations/tracing_core.subscriber.Subscriber.md#op-19b9abf22f078e184d986225",
+      "Interest::sometimes": "../operations/tracing_core.subscriber.Interest.md#op-70a63c4ee71956d505bbc48d",
+      "Interest": "../operations/tracing_core.subscriber.Interest.md#op-6a8f81daa049c40c19442579"
+    }
+  },
+  {
+    "id": "95e34b84088cd585fdd63d02",
+    "path": "tracing_core::subscriber::Subscriber::enter",
+    "name": "enter",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn enter(&self, span: &span::Id)",
+    "docs": "Records that a span has been entered.\n\nWhen entering a span, this method is called to notify the subscriber\nthat the span has been entered. The subscriber is provided with the\n[span ID] of the entered span, and should update any internal state\ntracking the current span accordingly.\n\n[span ID]: super::span::Id",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        356,
+        5
+      ],
+      "end": [
+        356,
+        38
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {
+      "super::span::Id": 128
+    },
+    "link_paths": {
+      "super::span::Id": "tracing_core::span::Id"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "140",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-95e34b84088cd585fdd63d02",
+    "aliases": [
+      "tracing::Subscriber::enter",
+      "tracing::subscriber::Subscriber::enter",
+      "tracing_core::Subscriber::enter"
+    ],
+    "resolved_doc_links": {
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f"
+    }
+  },
+  {
+    "id": "1141ca0ba7f22ed8ae61da1b",
+    "path": "tracing_core::subscriber::Subscriber::event",
+    "name": "event",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn event(&self, event: &Event<'_>)",
+    "docs": "Records that an [`Event`] has occurred.\n\nThis method will be invoked when an Event is constructed by\nthe `Event`'s [`dispatch` method]. For example, this happens internally\nwhen an event macro from `tracing` is called.\n\nThe key difference between this method and `record` is that `record` is\ncalled when a value is recorded for a field defined by a span,\nwhile `event` is called when a new event occurs.\n\nThe provided `Event` struct contains any field values attached to the\nevent. The subscriber may pass a [visitor] to the `Event`'s\n[`record` method] to record these values.\n\n[`Event`]: super::event::Event\n[visitor]: super::field::Visit\n[`record` method]: super::event::Event::record\n[`dispatch` method]: super::event::Event::dispatch",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        346,
+        5
+      ],
+      "end": [
+        346,
+        40
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 138,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "138": "tracing_core::event::Event"
+    },
+    "impl_context": null,
+    "links": {
+      "super::event::Event": 138,
+      "super::event::Event::dispatch": 267,
+      "super::field::Visit": 272,
+      "super::event::Event::record": 273
+    },
+    "link_paths": {
+      "super::event::Event": "tracing_core::event::Event",
+      "super::event::Event::dispatch": "tracing_core::event::Event::dispatch",
+      "super::field::Visit": "tracing_core::field::Visit",
+      "super::event::Event::record": "tracing_core::event::Event::record"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "465",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-1141ca0ba7f22ed8ae61da1b",
+    "aliases": [
+      "tracing::Subscriber::event",
+      "tracing::subscriber::Subscriber::event",
+      "tracing_core::Subscriber::event"
+    ],
+    "resolved_doc_links": {
+      "super::event::Event": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039",
+      "super::event::Event::dispatch": "../operations/tracing_core.event.Event.md#op-5854759cd1f3049abd3f422d",
+      "super::field::Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b",
+      "super::event::Event::record": "../operations/tracing_core.event.Event.md#op-9ae6965577fc1a5e4175cfa1"
+    }
+  },
+  {
+    "id": "e1cbf6d6bc1fe30faaa15072",
+    "path": "tracing_core::subscriber::Subscriber::event_enabled",
+    "name": "event_enabled",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn event_enabled(&self, event: &Event<'_>) -> bool",
+    "docs": "Determine if an [`Event`] should be recorded.\n\nBy default, this returns `true` and `Subscriber`s can filter events in\n[`event`][Self::event] without any penalty. However, when `event` is\nmore complicated, this can be used to determine if `event` should be\ncalled at all, separating out the decision from the processing.",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        323,
+        5
+      ],
+      "end": [
+        326,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 138,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "138": "tracing_core::event::Event"
+    },
+    "impl_context": null,
+    "links": {
+      "Self::event": 465,
+      "`Event`": 138
+    },
+    "link_paths": {
+      "Self::event": "tracing_core::subscriber::Subscriber::event",
+      "`Event`": "tracing_core::event::Event"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1005",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-e1cbf6d6bc1fe30faaa15072",
+    "aliases": [
+      "tracing::Subscriber::event_enabled",
+      "tracing::subscriber::Subscriber::event_enabled",
+      "tracing_core::Subscriber::event_enabled"
+    ],
+    "resolved_doc_links": {
+      "Self::event": "../operations/tracing_core.subscriber.Subscriber.md#op-1141ca0ba7f22ed8ae61da1b",
+      "`Event`": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039"
+    }
+  },
+  {
+    "id": "0b5bdf535b6a65a9bad07b05",
+    "path": "tracing_core::subscriber::Subscriber::exit",
+    "name": "exit",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn exit(&self, span: &span::Id)",
+    "docs": "Records that a span has been exited.\n\nWhen exiting a span, this method is called to notify the subscriber\nthat the span has been exited. The subscriber is provided with the\n[span ID] of the exited span, and should update any internal state\ntracking the current span accordingly.\n\nExiting a span does not imply that the span will not be re-entered.\n\n[span ID]: super::span::Id",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        368,
+        5
+      ],
+      "end": [
+        368,
+        37
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {
+      "super::span::Id": 128
+    },
+    "link_paths": {
+      "super::span::Id": "tracing_core::span::Id"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "142",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-0b5bdf535b6a65a9bad07b05",
+    "aliases": [
+      "tracing::Subscriber::exit",
+      "tracing::subscriber::Subscriber::exit",
+      "tracing_core::Subscriber::exit"
+    ],
+    "resolved_doc_links": {
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f"
+    }
+  },
+  {
+    "id": "17a8b58b6971d63f15fa6763",
+    "path": "tracing_core::subscriber::Subscriber::max_level_hint",
+    "name": "max_level_hint",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn max_level_hint(&self) -> Option<LevelFilter>",
+    "docs": "Returns the highest [verbosity level][level] that this `Subscriber` will\nenable, or `None`, if the subscriber does not implement level-based\nfiltering or chooses not to implement this method.\n\nIf this method returns a [`Level`][level], it will be used as a hint to\ndetermine the most verbose level that will be enabled. This will allow\nspans and events which are more verbose than that level to be skipped\nmore efficiently. Subscribers which perform filtering are strongly\nencouraged to provide an implementation of this method.\n\nIf the maximum level the subscriber will enable can change over the\ncourse of its lifetime, it is free to return a different value from\nmultiple invocations of this method. However, note that changes in the\nmaximum level will **only** be reflected after the callsite [`Interest`]\ncache is rebuilt, by calling the [`callsite::rebuild_interest_cache`][rebuild]\nfunction. Therefore, if the subscriber will change the value returned by\nthis method, it is responsible for ensuring that\n[`rebuild_interest_cache`][rebuild] is called after the value of the max\nlevel changes.\n\n[level]: super::Level\n[rebuild]: super::callsite::rebuild_interest_cache",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        227,
+        5
+      ],
+      "end": [
+        229,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 155,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "LevelFilter",
+                          "id": 711,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "155": "core::option::Option",
+      "711": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": null,
+    "links": {
+      "super::callsite::rebuild_interest_cache": 115,
+      "super::Level": 641,
+      "`Interest`": 10
+    },
+    "link_paths": {
+      "super::callsite::rebuild_interest_cache": "tracing_core::callsite::rebuild_interest_cache",
+      "super::Level": "tracing_core::metadata::Level",
+      "`Interest`": "tracing_core::subscriber::Interest"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "114",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-17a8b58b6971d63f15fa6763",
+    "aliases": [
+      "tracing::Subscriber::max_level_hint",
+      "tracing::subscriber::Subscriber::max_level_hint",
+      "tracing_core::Subscriber::max_level_hint"
+    ],
+    "resolved_doc_links": {
+      "super::callsite::rebuild_interest_cache": "../operations/tracing_core.callsite.rebuild_interest_cache.md#op-514604dfb2bc1df5b1a3e933",
+      "super::Level": "../operations/tracing_core.metadata.Level.md#op-f8804717be954252aadd54ff",
+      "`Interest`": "../operations/tracing_core.subscriber.Interest.md#op-6a8f81daa049c40c19442579"
+    }
+  },
+  {
+    "id": "2078a9c33e5e65d3b31ba990",
+    "path": "tracing_core::subscriber::Subscriber::new_span",
+    "name": "new_span",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn new_span(&self, span: &span::Attributes<'_>) -> span::Id",
+    "docs": "Visit the construction of a new span, returning a new [span ID] for the\nspan being constructed.\n\nThe provided [`Attributes`] contains any field values that were provided\nwhen the span was created. The subscriber may pass a [visitor] to the\n`Attributes`' [`record` method] to record these values.\n\nIDs are used to uniquely identify spans and events within the context of a\nsubscriber, so span equality will be based on the returned ID. Thus, if\nthe subscriber wishes for all spans with the same metadata to be\nconsidered equal, it should return the same ID every time it is given a\nparticular set of metadata. Similarly, if it wishes for two separate\ninstances of a span with the same metadata to *not* be equal, it should\nreturn a distinct ID every time this function is called, regardless of\nthe metadata.\n\nNote that the subscriber is free to assign span IDs based on whatever\nscheme it sees fit. Any guarantees about uniqueness, ordering, or ID\nreuse are left up to the subscriber implementation to determine.\n\n[span ID]: super::span::Id\n[`Attributes`]: super::span::Attributes\n[visitor]: super::field::Visit\n[`record` method]: super::span::Attributes::record",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        255,
+        5
+      ],
+      "end": [
+        255,
+        65
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Attributes",
+                      "id": 131,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "span::Id",
+              "id": 128,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "131": "tracing_core::span::Attributes",
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {
+      "super::span::Attributes::record": 928,
+      "super::span::Id": 128,
+      "super::span::Attributes": 131,
+      "super::field::Visit": 272
+    },
+    "link_paths": {
+      "super::span::Attributes::record": "tracing_core::span::Attributes::record",
+      "super::span::Id": "tracing_core::span::Id",
+      "super::span::Attributes": "tracing_core::span::Attributes",
+      "super::field::Visit": "tracing_core::field::Visit"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "129",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-2078a9c33e5e65d3b31ba990",
+    "aliases": [
+      "tracing::Subscriber::new_span",
+      "tracing::subscriber::Subscriber::new_span",
+      "tracing_core::Subscriber::new_span"
+    ],
+    "resolved_doc_links": {
+      "super::span::Attributes::record": "../operations/tracing_core.span.Attributes.md#op-f3ceed5a33b84b4dda86e7f9",
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "super::span::Attributes": "../operations/tracing_core.span.Attributes.md#op-c26f3e8618922ff48422c6fb",
+      "super::field::Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b"
+    }
+  },
+  {
+    "id": "f243e5074e9b46025b5433b9",
+    "path": "tracing_core::subscriber::Subscriber::on_register_dispatch",
+    "name": "on_register_dispatch",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn on_register_dispatch(&self, subscriber: &Dispatch)",
+    "docs": "Invoked when this subscriber becomes a [`Dispatch`].\n\n## Avoiding Memory Leaks\n\n`Subscriber`s should not store their own [`Dispatch`]. Because the\n`Dispatch` owns the `Subscriber`, storing the `Dispatch` within the\n`Subscriber` will create a reference count cycle, preventing the `Dispatch`\nfrom ever being dropped.\n\nInstead, when it is necessary to store a cyclical reference to the\n`Dispatch` within a `Subscriber`, use [`Dispatch::downgrade`] to convert a\n`Dispatch` into a [`WeakDispatch`]. This type is analogous to\n[`std::sync::Weak`], and does not create a reference count cycle. A\n[`WeakDispatch`] can be stored within a `Subscriber` without causing a\nmemory leak, and can be [upgraded] into a `Dispatch` temporarily when\nthe `Dispatch` must be accessed by the `Subscriber`.\n\n[`WeakDispatch`]: crate::dispatcher::WeakDispatch\n[upgraded]: crate::dispatcher::WeakDispatch::upgrade",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        100,
+        5
+      ],
+      "end": [
+        102,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "subscriber",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Dispatch",
+                      "id": 120,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "120": "tracing_core::dispatcher::Dispatch"
+    },
+    "impl_context": null,
+    "links": {
+      "`std::sync::Weak`": 184,
+      "crate::dispatcher::WeakDispatch::upgrade": 183,
+      "crate::dispatcher::WeakDispatch": 124,
+      "`Dispatch::downgrade`": 126,
+      "`Dispatch`": 120
+    },
+    "link_paths": {
+      "`std::sync::Weak`": "alloc::sync::Weak",
+      "crate::dispatcher::WeakDispatch::upgrade": "tracing_core::dispatcher::WeakDispatch::upgrade",
+      "crate::dispatcher::WeakDispatch": "tracing_core::dispatcher::WeakDispatch",
+      "`Dispatch::downgrade`": "tracing_core::dispatcher::Dispatch::downgrade",
+      "`Dispatch`": "tracing_core::dispatcher::Dispatch"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1004",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-f243e5074e9b46025b5433b9",
+    "aliases": [
+      "tracing::Subscriber::on_register_dispatch",
+      "tracing::subscriber::Subscriber::on_register_dispatch",
+      "tracing_core::Subscriber::on_register_dispatch"
+    ],
+    "resolved_doc_links": {
+      "crate::dispatcher::WeakDispatch::upgrade": "../operations/tracing_core.dispatcher.WeakDispatch.md#op-579b0e9e6911ae19b38a2911",
+      "crate::dispatcher::WeakDispatch": "../operations/tracing_core.dispatcher.WeakDispatch.md#op-0beab352f71fbbf38e94b386",
+      "`Dispatch::downgrade`": "../operations/tracing_core.dispatcher.Dispatch.md#op-3d911653bdde5f29cad4eafd",
+      "`Dispatch`": "../operations/tracing_core.dispatcher.Dispatch.md#op-bdcb8c4598cc406ba313069c"
+    }
+  },
+  {
+    "id": "6a1be0ff2718eafc8be1ea03",
+    "path": "tracing_core::subscriber::Subscriber::record",
+    "name": "record",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn record(&self, span: &span::Id, values: &span::Record<'_>)",
+    "docs": "Record a set of values on a span.\n\nThis method will be invoked when value is recorded on a span.\nRecording multiple values for the same field is possible,\nbut the actual behaviour is defined by the subscriber implementation.\n\nKeep in mind that a span might not provide a value\nfor each field it declares.\n\nThe subscriber is expected to provide a [visitor] to the `Record`'s\n[`record` method] in order to record the added values.\n\n# Example\n \"foo = 3\" will be recorded when [`record`] is called on the\n`Attributes` passed to `new_span`.\nSince values are not provided for the `bar` and `baz` fields,\nthe span's `Metadata` will indicate that it _has_ those fields,\nbut values for them won't be recorded at this time.\n\n```rust,ignore\n# use tracing::span;\n\nlet mut span = span!(\"my_span\", foo = 3, bar, baz);\n\n// `Subscriber::record` will be called with a `Record`\n// containing \"bar = false\"\nspan.record(\"bar\", &false);\n\n// `Subscriber::record` will be called with a `Record`\n// containing \"baz = \"a string\"\"\nspan.record(\"baz\", &\"a string\");\n```\n\n[visitor]: super::field::Visit\n[`record`]: super::span::Attributes::record\n[`record` method]: super::span::Record::record",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        295,
+        5
+      ],
+      "end": [
+        295,
+        66
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "values",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Record",
+                      "id": 134,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id",
+      "134": "tracing_core::span::Record"
+    },
+    "impl_context": null,
+    "links": {
+      "super::field::Visit": 272,
+      "super::span::Record::record": 951,
+      "super::span::Attributes::record": 928
+    },
+    "link_paths": {
+      "super::field::Visit": "tracing_core::field::Visit",
+      "super::span::Record::record": "tracing_core::span::Record::record",
+      "super::span::Attributes::record": "tracing_core::span::Attributes::record"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "132",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-6a1be0ff2718eafc8be1ea03",
+    "aliases": [
+      "tracing::Subscriber::record",
+      "tracing::subscriber::Subscriber::record",
+      "tracing_core::Subscriber::record"
+    ],
+    "resolved_doc_links": {
+      "super::field::Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b",
+      "super::span::Record::record": "../operations/tracing_core.span.Record.md#op-b87d28df33c1901505abdb4e",
+      "super::span::Attributes::record": "../operations/tracing_core.span.Attributes.md#op-f3ceed5a33b84b4dda86e7f9"
+    }
+  },
+  {
+    "id": "6723dd7804078d48ea4b536f",
+    "path": "tracing_core::subscriber::Subscriber::record_follows_from",
+    "name": "record_follows_from",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn record_follows_from(&self, span: &span::Id, follows: &span::Id)",
+    "docs": "Adds an indication that `span` follows from the span with the id\n`follows`.\n\nThis relationship differs somewhat from the parent-child relationship: a\nspan may have any number of prior spans, rather than a single one; and\nspans are not considered to be executing _inside_ of the spans they\nfollow from. This means that a span may close even if subsequent spans\nthat follow from it are still open, and time spent inside of a\nsubsequent span should not be included in the time its precedents were\nexecuting. This is used to model causal relationships such as when a\nsingle future spawns several related background tasks, et cetera.\n\nIf the subscriber has spans corresponding to the given IDs, it should\nrecord this relationship in whatever way it deems necessary. Otherwise,\nif one or both of the given span IDs do not correspond to spans that the\nsubscriber knows about, or if a cyclical relationship would be created\n(i.e., some span _a_ which proceeds some other span _b_ may not also\nfollow from _b_), it may silently do nothing.",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        315,
+        5
+      ],
+      "end": [
+        315,
+        72
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "follows",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 128,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "135",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-6723dd7804078d48ea4b536f",
+    "aliases": [
+      "tracing::Subscriber::record_follows_from",
+      "tracing::subscriber::Subscriber::record_follows_from",
+      "tracing_core::Subscriber::record_follows_from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "19b9abf22f078e184d986225",
+    "path": "tracing_core::subscriber::Subscriber::register_callsite",
+    "name": "register_callsite",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn register_callsite(&self, metadata: &'static Metadata<'static>) -> Interest",
+    "docs": "Registers a new [callsite] with this subscriber, returning whether or not\nthe subscriber is interested in being notified about the callsite.\n\nBy default, this function assumes that the subscriber's [filter]\nrepresents an unchanging view of its interest in the callsite. However,\nif this is not the case, subscribers may override this function to\nindicate different interests, or to implement behaviour that should run\nonce for every callsite.\n\nThis function is guaranteed to be called at least once per callsite on\nevery active subscriber. The subscriber may store the keys to fields it\ncares about in order to reduce the cost of accessing fields by name,\npreallocate storage for that callsite, or perform any other actions it\nwishes to perform once for each callsite.\n\nThe subscriber should then return an [`Interest`], indicating\nwhether it is interested in being notified about that callsite in the\nfuture. This may be `Always` indicating that the subscriber always\nwishes to be notified about the callsite, and its filter need not be\nre-evaluated; `Sometimes`, indicating that the subscriber may sometimes\ncare about the callsite but not always (such as when sampling), or\n`Never`, indicating that the subscriber never wishes to be notified about\nthat callsite. If all active subscribers return `Never`, a callsite will\nnever be enabled unless a new subscriber expresses interest in it.\n\n`Subscriber`s which require their filters to be run every time an event\noccurs or a span is entered/exited should return `Interest::sometimes`.\nIf a subscriber returns `Interest::sometimes`, then its [`enabled`] method\nwill be called every time an event or span is created from that callsite.\n\nFor example, suppose a sampling subscriber is implemented by\nincrementing a counter every time `enabled` is called and only returning\n`true` when the counter is divisible by a specified sampling rate. If\nthat subscriber returns `Interest::always` from `register_callsite`, then\nthe filter will not be re-evaluated once it has been applied to a given\nset of metadata. Thus, the counter will not be incremented, and the span\nor event that corresponds to the metadata will never be `enabled`.\n\n`Subscriber`s that need to change their filters occasionally should call\n[`rebuild_interest_cache`] to re-evaluate `register_callsite` for all\ncallsites.\n\nSimilarly, if a `Subscriber` has a filtering strategy that can be\nchanged dynamically at runtime, it would need to re-evaluate that filter\nif the cached results have changed.\n\nA subscriber which manages fanout to multiple other subscribers\nshould proxy this decision to all of its child subscribers,\nreturning `Interest::never` only if _all_ such children return\n`Interest::never`. If the set of subscribers to which spans are\nbroadcast may change dynamically, the subscriber should also never\nreturn `Interest::Never`, as a new subscriber may be added that _is_\ninterested.\n\nSee the [documentation on the callsite registry][cs-reg] for more\ndetails on how and when the `register_callsite` method is called.\n\n# Notes\nThis function may be called again when a new subscriber is created or\nwhen the registry is invalidated.\n\nIf a subscriber returns `Interest::never` for a particular callsite, it\n_may_ still see spans and events originating from that callsite, if\nanother subscriber expressed interest in it.\n\n[callsite]: crate::callsite\n[filter]: Self::enabled\n[metadata]: super::metadata::Metadata\n[`enabled`]: Subscriber::enabled()\n[`rebuild_interest_cache`]: super::callsite::rebuild_interest_cache\n[cs-reg]: crate::callsite#registering-callsites",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        175,
+        5
+      ],
+      "end": [
+        181,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 13,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Interest",
+              "id": 10,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "13": "tracing_core::metadata::Metadata",
+      "10": "tracing_core::subscriber::Interest"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::callsite#registering-callsites": 11,
+      "Self::enabled": 119,
+      "`Interest`": 10,
+      "super::callsite::rebuild_interest_cache": 115,
+      "Subscriber::enabled()": 119,
+      "super::metadata::Metadata": 13,
+      "crate::callsite": 11
+    },
+    "link_paths": {
+      "crate::callsite#registering-callsites": "tracing_core::callsite",
+      "Self::enabled": "tracing_core::subscriber::Subscriber::enabled",
+      "`Interest`": "tracing_core::subscriber::Interest",
+      "super::callsite::rebuild_interest_cache": "tracing_core::callsite::rebuild_interest_cache",
+      "Subscriber::enabled()": "tracing_core::subscriber::Subscriber::enabled",
+      "super::metadata::Metadata": "tracing_core::metadata::Metadata",
+      "crate::callsite": "tracing_core::callsite"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "116",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-19b9abf22f078e184d986225",
+    "aliases": [
+      "tracing::Subscriber::register_callsite",
+      "tracing::subscriber::Subscriber::register_callsite",
+      "tracing_core::Subscriber::register_callsite"
+    ],
+    "resolved_doc_links": {
+      "crate::callsite#registering-callsites": "../modules/tracing_core.callsite.md#op-1740ba2098821878828cbb38",
+      "Self::enabled": "../operations/tracing_core.subscriber.Subscriber.md#op-df007f57ed0cab78f4b9e43b",
+      "`Interest`": "../operations/tracing_core.subscriber.Interest.md#op-6a8f81daa049c40c19442579",
+      "super::callsite::rebuild_interest_cache": "../operations/tracing_core.callsite.rebuild_interest_cache.md#op-514604dfb2bc1df5b1a3e933",
+      "Subscriber::enabled()": "../operations/tracing_core.subscriber.Subscriber.md#op-df007f57ed0cab78f4b9e43b",
+      "super::metadata::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "crate::callsite": "../modules/tracing_core.callsite.md#op-1740ba2098821878828cbb38"
+    }
+  },
+  {
+    "id": "eccad0ed6b21bf85cd56e13d",
+    "path": "tracing_core::subscriber::Subscriber::try_close",
+    "name": "try_close",
+    "owner": "tracing_core::subscriber::Subscriber",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn try_close(&self, id: span::Id) -> bool",
+    "docs": "Notifies the subscriber that a [span ID] has been dropped, and returns\n`true` if there are now 0 IDs that refer to that span.\n\nHigher-level libraries providing functionality for composing multiple\nsubscriber implementations may use this return value to notify any\n\"layered\" subscribers that this subscriber considers the span closed.\n\nThe default implementation of this method calls the subscriber's\n[`drop_span`] method and returns `false`. This means that, unless the\nsubscriber overrides the default implementation, close notifications\nwill never be sent to any layered subscribers. In general, if the\nsubscriber tracks reference counts, this method should be implemented,\nrather than `drop_span`.\n\nThis function is guaranteed to only be called with span IDs that were\nreturned by this subscriber's `new_span` function.\n\nIt's guaranteed that if this function has been called once more than the\nnumber of times `clone_span` was called with the same `id`, then no more\nhandles that can enter the span with that `id` exist. This means that it\ncan be used in conjunction with [`clone_span`] to track the number of\nhandles capable of `enter`ing a span. When all the handles have been\ndropped (i.e., `try_close` has been called one more time than\n`clone_span` for a given ID), the subscriber may assume that the span\nwill not be entered again, and should return `true`. It is then free to\ndeallocate storage for data associated with that span, write data from\nthat span to IO, and so on.\n\n**Note**: since this function is called when spans are dropped,\nimplementations should ensure that they are unwind-safe. Panicking from\ninside of a `try_close` function may cause a double panic, if the span\nwas dropped due to a thread unwinding.\n\n[span ID]: super::span::Id\n[`clone_span`]: Subscriber::clone_span\n[`drop_span`]: Subscriber::drop_span",
+    "span": {
+      "filename": "src/subscriber.rs",
+      "begin": [
+        442,
+        5
+      ],
+      "end": [
+        446,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "resolved_path": {
+                  "path": "span::Id",
+                  "id": 128,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "128": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {
+      "super::span::Id": 128,
+      "Subscriber::drop_span": 146,
+      "Subscriber::clone_span": 144
+    },
+    "link_paths": {
+      "super::span::Id": "tracing_core::span::Id",
+      "Subscriber::drop_span": "tracing_core::subscriber::Subscriber::drop_span",
+      "Subscriber::clone_span": "tracing_core::subscriber::Subscriber::clone_span"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "149",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.subscriber.Subscriber.md",
+    "record_file": "operations/tracing_core.subscriber.Subscriber.json",
+    "anchor": "op-eccad0ed6b21bf85cd56e13d",
+    "aliases": [
+      "tracing::Subscriber::try_close",
+      "tracing::subscriber::Subscriber::try_close",
+      "tracing_core::Subscriber::try_close"
+    ],
+    "resolved_doc_links": {
+      "super::span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "Subscriber::drop_span": "../operations/tracing_core.subscriber.Subscriber.md#op-318d7870f3253ee81d24adfb",
+      "Subscriber::clone_span": "../operations/tracing_core.subscriber.Subscriber.md#op-7352d6acfcd094e272b99023"
+    }
+  }
+]

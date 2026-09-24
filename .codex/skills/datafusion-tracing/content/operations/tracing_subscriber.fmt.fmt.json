@@ -1,0 +1,107 @@
+[
+  {
+    "id": "63ef70baea72667f29b16b18",
+    "path": "tracing_subscriber::fmt::fmt",
+    "name": "fmt",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt() -> SubscriberBuilder",
+    "docs": "Returns a new [`SubscriberBuilder`] for configuring a [formatting subscriber].\n\nThis is essentially shorthand for [`SubscriberBuilder::default()]`.\n\n# Examples\n\nUsing [`init`] to set the default subscriber:\n\n```rust\ntracing_subscriber::fmt().init();\n```\n\nConfiguring the output format:\n\n```rust\n\ntracing_subscriber::fmt()\n    // Configure formatting settings.\n    .with_target(false)\n    .with_timer(tracing_subscriber::fmt::time::uptime())\n    .with_level(true)\n    // Set the subscriber as the default.\n    .init();\n```\n\n[`try_init`] returns an error if the default subscriber could not be set:\n\n```rust\nuse std::error::Error;\n\nfn init_subscriber() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {\n    tracing_subscriber::fmt()\n        // Configure the subscriber to emit logs in JSON format.\n        .json()\n        // Configure the subscriber to flatten event fields in the output JSON objects.\n        .flatten_event(true)\n        // Set the subscriber as the default, returning an error if this fails.\n        .try_init()?;\n\n    Ok(())\n}\n```\n\nRather than setting the subscriber as the default, [`finish`] _returns_ the\nconstructed subscriber, which may then be passed to other functions:\n\n```rust\nlet subscriber = tracing_subscriber::fmt()\n    .with_max_level(tracing::Level::DEBUG)\n    .compact()\n    .finish();\n\ntracing::subscriber::with_default(subscriber, || {\n    // the subscriber will only be set as the default\n    // inside this closure...\n})\n```\n\n[formatting subscriber]: Subscriber\n[`SubscriberBuilder::default()`]: SubscriberBuilder::default\n[`init`]: SubscriberBuilder::init()\n[`try_init`]: SubscriberBuilder::try_init()\n[`finish`]: SubscriberBuilder::finish()",
+    "span": {
+      "filename": "src/fmt/mod.rs",
+      "begin": [
+        324,
+        1
+      ],
+      "end": [
+        326,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(all(feature = \"fmt\", feature = \"std\")))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "SubscriberBuilder",
+              "id": 2938,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2938": "tracing_subscriber::fmt::SubscriberBuilder"
+    },
+    "impl_context": null,
+    "links": {
+      "SubscriberBuilder::init()": 2982,
+      "`SubscriberBuilder`": 2938,
+      "SubscriberBuilder::try_init()": 2981,
+      "SubscriberBuilder::finish()": 2980,
+      "SubscriberBuilder::default": 3035,
+      "Subscriber": 1151
+    },
+    "link_paths": {
+      "SubscriberBuilder::init()": null,
+      "`SubscriberBuilder`": "tracing_subscriber::fmt::SubscriberBuilder",
+      "SubscriberBuilder::try_init()": null,
+      "SubscriberBuilder::finish()": null,
+      "SubscriberBuilder::default": null,
+      "Subscriber": "tracing_subscriber::fmt::Subscriber"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "3039",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt.json",
+    "anchor": "op-63ef70baea72667f29b16b18",
+    "aliases": [
+      "tracing_subscriber::fmt"
+    ],
+    "resolved_doc_links": {
+      "SubscriberBuilder::init()": "../operations/tracing_subscriber.fmt.SubscriberBuilder.md#op-96e89557f97ec50851a8f3f9",
+      "`SubscriberBuilder`": "../operations/tracing_subscriber.fmt.SubscriberBuilder.md#op-38fcd8fc52ca33acc34d54e9",
+      "SubscriberBuilder::try_init()": "../operations/tracing_subscriber.fmt.SubscriberBuilder.md#op-e3984f34c88588a3a1f380f4",
+      "SubscriberBuilder::finish()": "../operations/tracing_subscriber.fmt.SubscriberBuilder.md#op-d6a30c4168513721f22f0e7b",
+      "SubscriberBuilder::default": "../operations/tracing_subscriber.fmt.SubscriberBuilder.md#op-65632a068ed876d528245a9a",
+      "Subscriber": "../operations/tracing_subscriber.fmt.Subscriber.md#op-7360e26773e1081257bf258e"
+    }
+  }
+]

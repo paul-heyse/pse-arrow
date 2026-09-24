@@ -5,105 +5,16 @@
 //!
 //! The per-declaration checks live in [`crate::builder`], where the declaration that
 //! fails is still in hand. This module is for the ones that are only decidable once
-//! everything is declared — rule stratification against the writers of each relation
-//! (blueprint §14.2 rule 2, [`crate::SchemaError::RuleStratification`]) and the stage-graph
-//! reachability rules of §14.1 beyond one pass's own ports.
-//!
-//! Every declared rule and pass participates, including custom registry fixtures.
+//! everything is declared: migration and document references.
 
-use arrow_schema::DataType as D;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::builder::Registry;
 use crate::error::SchemaError;
-use crate::model::{
-    Cell, DependencyMode, ExtensionUse, FieldContract, NegationPolicy, RelationDecl,
-};
+use crate::model::{ExtensionUse, FieldContract, RelationDecl};
 
 /// Admit a declaration's literal against its resolved logical contract before it can
 /// become a migration default or a context-resolved expression value.
-pub(crate) fn cell_value(
-    value: &Cell,
-    ty: &FieldContract,
-    nullable: bool,
-    registry: &Registry,
-) -> bool {
-    if matches!(value, Cell::Null) {
-        return nullable;
-    }
-    match crate::model::IntegerRange::from_field(ty.field()) {
-        Err(_) => return false,
-        Ok(Some(range)) if !matches!(value, Cell::I64(value) if range.contains(*value)) => {
-            return false;
-        }
-        _ => {}
-    }
-    match crate::model::TaggedAlternative::from_field(ty.field()) {
-        Err(_) => return false,
-        Ok(Some(alternative)) if !alternative.accepts(ty.field(), value) => return false,
-        _ => {}
-    }
-    match crate::model::CollectionContract::from_field(ty.field()) {
-        Err(_) => return false,
-        Ok(Some(contract)) if !matches!(value, Cell::List(values) if contract.accepts(values)) => {
-            return false;
-        }
-        _ => {}
-    }
-    match (value, ty.extension(), ty.data_type()) {
-        (Cell::Enum(value), Some(ExtensionUse::Enum(name)), _) => registry
-            .enum_spec(name)
-            .is_some_and(|spec| spec.members.iter().any(|member| member.name == *value)),
-        (Cell::List(values), Some(ExtensionUse::IndexTuple), _) => {
-            values.iter().all(|value| matches!(value, Cell::Id(_)))
-        }
-        (Cell::Id(_), Some(ExtensionUse::SemanticId), _)
-        | (Cell::Hash(_), Some(ExtensionUse::ContentHash), _)
-        | (Cell::Bool(_), None, D::Boolean)
-        | (Cell::F64(_), None, D::Float64)
-        | (Cell::I64(_), None, D::Int64 | D::Timestamp(..))
-        | (Cell::U64(_), None, D::UInt64)
-        | (Cell::I64(_), Some(ExtensionUse::OrdinalRef { .. }), _)
-        | (Cell::Text(_), None, D::Utf8)
-        | (Cell::Text(_), Some(ExtensionUse::ExprDsl | ExtensionUse::TargetPath), _) => true,
-        (Cell::I64(value), None, D::Int32) => i32::try_from(*value).is_ok(),
-        (Cell::U64(value), None, D::UInt8) => u8::try_from(*value).is_ok(),
-        (Cell::U64(value), None, D::UInt16) => u16::try_from(*value).is_ok(),
-        (Cell::U64(value), None, D::UInt32) => u32::try_from(*value).is_ok(),
-        (Cell::List(values), None, D::List(field)) => values.iter().all(|value| {
-            cell_value(
-                value,
-                &FieldContract::from_field((*field).clone()),
-                field.is_nullable(),
-                registry,
-            )
-        }),
-        (Cell::List(values), None, D::FixedSizeList(field, width)) => {
-            usize::try_from(width).ok() == Some(values.len())
-                && values.iter().all(|value| {
-                    cell_value(
-                        value,
-                        &FieldContract::from_field((*field).clone()),
-                        field.is_nullable(),
-                        registry,
-                    )
-                })
-        }
-        (Cell::Struct(values), None, D::Struct(fields)) => {
-            values.len() == fields.len()
-                && values.iter().zip(fields.iter()).all(|(value, field)| {
-                    cell_value(
-                        value,
-                        &FieldContract::from_field((**field).clone()),
-                        field.is_nullable(),
-                        registry,
-                    )
-                })
-        }
-        _ => false,
-    }
-}
-
 pub(crate) fn invalid(context: impl Into<String>, reason: impl Into<String>) -> SchemaError {
     SchemaError::InvalidDeclaration {
         context: context.into(),
@@ -201,93 +112,6 @@ fn logical_type(ty: &FieldContract, context: &str) -> Result<(), SchemaError> {
     Ok(())
 }
 
-/// Runs every whole-registry check.
-///
-/// # Errors
-///
-/// [`SchemaError::RuleStratification`] or
-/// [`SchemaError::InvalidDeclaration`] when a whole-registry contract fails.
-pub(crate) fn run(registry: &Registry) -> Result<(), SchemaError> {
-    for rule in registry.rules() {
-        if let Some(assertion) = &rule.assertion_relation {
-            let head = registry
-                .relation(&rule.head)
-                .ok_or_else(|| invalid(rule.qualified_name(), "undeclared head"))?;
-            let assertion = registry
-                .relation(assertion)
-                .ok_or_else(|| invalid(rule.qualified_name(), "undeclared assertion relation"))?;
-            if assertion.primary_key != ["assertion_id"]
-                || assertion.columns != crate::model::rule::assertion_columns(&head.columns)
-                || assertion.authority != crate::model::Authority::Derived
-            {
-                return Err(invalid(
-                    rule.qualified_name(),
-                    "assertion relation is not the exact declared head projection",
-                ));
-            }
-        }
-        for writer in registry
-            .rules()
-            .iter()
-            .filter(|writer| writer.head == rule.head)
-        {
-            if writer.conflict_policy != rule.conflict_policy {
-                return Err(invalid(
-                    rule.qualified_name(),
-                    "one head cannot mix conflict policies",
-                ));
-            }
-        }
-        let dependencies = &rule.inputs;
-        if dependencies
-            .iter()
-            .any(|input| input.mode == DependencyMode::Negate)
-            && rule.negation != NegationPolicy::Stratified
-        {
-            return Err(invalid(
-                rule.qualified_name(),
-                "anti-join requires declared stratified negation",
-            ));
-        }
-        for input in dependencies {
-            let relation = input.relation.as_str();
-            let mode = input.mode;
-            for writer in registry
-                .rules()
-                .iter()
-                .filter(|writer| writer.head == relation)
-            {
-                if mode == DependencyMode::Negate && writer.stratum >= rule.stratum {
-                    return Err(SchemaError::RuleStratification {
-                        rule: rule.qualified_name(),
-                        relation: relation.to_owned(),
-                    });
-                }
-                if writer.stratum == rule.stratum
-                    && mode == DependencyMode::Read
-                    && (writer.conflict_policy == crate::model::ConflictPolicy::Undecided
-                        || !rule.monotonic)
-                {
-                    return Err(invalid(
-                        rule.qualified_name(),
-                        "same-stratum consumer requires a monotone plan and a reject-conflict head",
-                    ));
-                }
-                if mode == DependencyMode::Read && writer.stratum > rule.stratum {
-                    return Err(invalid(
-                        rule.qualified_name(),
-                        format!(
-                            "reads {relation} before writer {} settles",
-                            writer.qualified_name()
-                        ),
-                    ));
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
 pub(crate) fn migration(
     spec: &crate::model::MigrationSpec,
     registry: &Registry,
@@ -324,10 +148,10 @@ pub(crate) fn migration(
                 let column = target.column(name).ok_or_else(|| {
                     invalid(&context, format!("new column {name} is absent from target"))
                 })?;
-                if !cell_value(default, &column.value_type(), column.nullable(), registry) {
+                if FieldContract::from_field(default.field().as_ref().clone()) != *column {
                     return Err(invalid(
                         &context,
-                        format!("default for {name} violates its target type/nullability"),
+                        format!("default for {name} does not carry its exact target field"),
                     ));
                 }
                 columns.push(column.clone());

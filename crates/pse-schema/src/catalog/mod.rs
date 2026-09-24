@@ -16,23 +16,18 @@ mod cache;
 mod declarations;
 pub mod documents;
 pub mod enums_platform;
-pub mod expr_family;
 pub mod inv;
 mod invariant_closure;
 mod invariant_domain;
 pub mod invariants;
-mod math_value;
-mod native_rules;
+mod native_math;
 mod normalization;
-mod numerical_values;
 mod publication;
 mod row_checks;
 pub mod s14_passes;
-pub mod s14_semantic_passes;
 pub mod s4_schema;
 pub mod s6_10_cases;
 pub mod s6_11_numerical;
-pub mod s6_12_derived;
 pub mod s6_13_runtime;
 pub mod s6_14_idaes_enums;
 pub mod s6_15_semantic;
@@ -44,11 +39,7 @@ pub mod s6_5_property;
 pub mod s6_6_templates;
 pub mod s6_7_instances;
 pub mod s6_8_symbols;
-pub mod s6_9_math;
 pub mod s7_operators;
-pub mod semantic_demand;
-pub mod semantic_inference;
-pub mod semantic_laws;
 mod source_commands;
 
 use crate::builder::{Registry, RegistryBuilder};
@@ -71,7 +62,6 @@ pub fn assemble() -> Result<Registry, SchemaError> {
 /// Add the complete platform declarations to a builder before explicit fixture extensions.
 pub fn declare(builder: &mut RegistryBuilder) {
     declare_foundations(builder);
-    s14_semantic_passes::declare(builder);
     publication::declare_profiles(builder);
 }
 
@@ -92,6 +82,7 @@ pub fn declare_publications(builder: &mut RegistryBuilder) {
 /// Full relation/rule authority with only P0–P3 producers, for explicit leaf fixture registries.
 /// Production registries use [`declare`], which adds the real semantic stage contracts.
 pub fn declare_foundations(builder: &mut RegistryBuilder) {
+    crate::validation::declare(builder);
     cache::declare(builder);
     enums_platform::declare(builder);
     s4_schema::declare(builder);
@@ -103,23 +94,16 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     s6_6_templates::declare(builder);
     s6_7_instances::declare(builder);
     s6_8_symbols::declare(builder);
-    s6_9_math::declare(builder);
     s7_operators::declare(builder);
     s6_10_cases::declare(builder);
     s6_11_numerical::declare(builder);
-    s6_12_derived::declare(builder);
     s6_13_runtime::declare(builder);
+    native_math::declare(builder);
     publication::declare(builder);
-    numerical_values::declare(builder);
     s6_14_idaes_enums::declare(builder);
     s6_15_semantic::declare(builder);
     source_commands::declare(builder);
     normalization::declare(builder);
-    expr_family::declare(builder);
-    semantic_inference::declare(builder);
-    semantic_demand::declare(builder);
-    semantic_laws::declare(builder);
-    native_rules::declare(builder);
     documents::declare(builder);
     invariants::declare(builder);
     s14_passes::declare(builder);

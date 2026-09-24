@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-backend-native"
-description = "Ipopt C-API FFI driver over the evaluation program (blueprint §3.2, §18.3)."
+description = "Class-specific native problem and attempt contracts."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -16,30 +16,40 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = []
+ipopt = ["dep:pse-ipopt-sys", "pse-ipopt-sys/link"]
+highs = ["dep:highs", "dep:highs-sys"]
+pounce = ["dep:pounce-rs", "dep:pounce-feral", "dep:rayon", "pounce-nlp/serde"]
+kinsol = ["dep:sundials-sys", "dep:suitesparse_sys"]
+sdp = ["clarabel/sdp-netlib"]
+diffsol = ["dep:diffsol"]
+native-solvers = ["ipopt", "highs", "pounce", "kinsol", "sdp", "diffsol"]
+
 [dependencies]
-datafusion.workspace = true
-pse-catalog.workspace = true
+diffsol = { workspace = true, optional = true }
+pounce-nlp.workspace = true
+pounce-common.workspace = true
+pounce-presolve.workspace = true
 pse-ids.workspace = true
-pse-schema.workspace = true
-async-trait.workspace = true
-futures-util.workspace = true
-tokio.workspace = true
-pse-numerics.workspace = true
-pse-relations.workspace = true
-tracing.workspace = true
+pse-diagnostics.workspace = true
+pse-kernels.workspace = true
+pse-math.workspace = true
+pse-structural.workspace = true
+faer.workspace = true
+clarabel.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+pse-ipopt-sys = { workspace = true, optional = true }
+highs = { workspace = true, optional = true }
+highs-sys = { workspace = true, optional = true }
+pounce-rs = { workspace = true, optional = true }
+pounce-feral = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
+sundials-sys = { workspace = true, optional = true }
+suitesparse_sys = { workspace = true, optional = true }
 
-[dependencies.pse-ipopt-sys]
-workspace = true
-optional = true
-
-[features]
-# Native plans can be built and inspected without a linked solver. Executing them
-# requires this capability explicitly; no other solver or simulated result is used.
-default = []
-# Link against the qualified Ipopt C interface.
-ipopt = ["dep:pse-ipopt-sys", "pse-ipopt-sys/link"]
-# Phase-4 placeholder: `diffsol` enters [workspace.dependencies] with this feature
-# (blueprint §13.6), not before.
-diffsol = []
+[dev-dependencies]
+pse-quantity = { workspace = true, features = ["fixtures"] }

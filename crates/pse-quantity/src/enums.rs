@@ -66,7 +66,7 @@ macro_rules! closed_enum {
             /// Declaration order is the order the registry relation, the generated Arrow
             /// dictionary and the generated Python enumeration all use; it is part of the
             /// contract, not an implementation detail.
-            pub const ALL: &'static [Self] = &[$(Self::$variant),+];
+            pub const ALL: &'static [Self] = <Self as ::strum::VariantArray>::VARIANTS;
 
             #[doc = concat!("The registry spelling of this [`", stringify!($name), "`] member.")]
             ///
@@ -83,16 +83,7 @@ macro_rules! closed_enum {
             /// The inverse of [`Self::as_str`]. An unknown spelling is `None` rather than a
             /// fallback member, because a closed dictionary has no "other".
             pub fn parse(text: &str) -> ::core::option::Option<Self> {
-                match text {
-                    $($text => ::core::option::Option::Some(Self::$variant),)+
-                    _ => ::core::option::Option::None,
-                }
-            }
-        }
-
-        impl ::core::fmt::Display for $name {
-            fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                f.write_str(self.as_str())
+                <Self as ::core::str::FromStr>::from_str(text).ok()
             }
         }
 
@@ -132,11 +123,12 @@ macro_rules! closed_enum {
         }
     ) => {
         $(#[$meta])*
-        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, ::strum::EnumString, ::strum::Display, ::strum::VariantArray)]
         #[repr($repr)]
         $vis enum $name {
             $(
                 $(#[$vmeta])*
+                #[strum(serialize = $text)]
                 $variant = $value,
             )+
         }
@@ -164,10 +156,11 @@ macro_rules! closed_enum {
         }
     ) => {
         $(#[$meta])*
-        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, ::strum::EnumString, ::strum::Display, ::strum::VariantArray)]
         $vis enum $name {
             $(
                 $(#[$vmeta])*
+                #[strum(serialize = $text)]
                 $variant,
             )+
         }
@@ -177,13 +170,10 @@ macro_rules! closed_enum {
 }
 
 crate::closed_enum! {
-    /// The 43 operators of the mathematical IR (blueprint §7.2).
+    /// Physical operation vocabulary for reference quantity rules.
     ///
-    /// The opcode lives here rather than in `pse-mathir` because the registry types
-    /// `reference.quantity_operations.opcode` as `enum(Opcode)` and `pse-quantity` sits
-    /// below `pse-mathir`; `pse_mathir::Opcode` re-exports this type, so there is still one
-    /// declaration. The member order is §7.2's table order, and it is the order
-    /// `pse_schema::math::operators::OPERATOR_TABLE` and `reference.operator_specs` must be in.
+    /// Membership describes physical signatures, not executable math capability.
+    /// The compiler admits only operations implemented by `pse-math`.
     pub enum Opcode {
         /// A literal value with an explicit unit, or an integer literal.
         Const => "Const",
@@ -526,7 +516,7 @@ crate::closed_enum! {
 
 crate::closed_enum! {
     /// Which reduction a `SumOver`/`ProdOver`/`MinOver`/`MaxOver` node performs
-    /// (blueprint §6.9, `compiled.math_expr_nodes.payload.reduction.reduction_kind`).
+    /// used by physically typed finite reductions.
     pub enum ReductionKind {
         /// An ordered sum over the bound index.
         Sum => "sum",
@@ -607,21 +597,6 @@ mod tests {
             seen.push(text);
         }
         assert_eq!(T::from_text("definitely not a member"), None);
-    }
-
-    /// Blueprint §7.2 lists exactly 43 operators; the count is the contract
-    /// `pse_schema::math::operators::OPERATOR_TABLE` and `reference.operator_specs` are checked against.
-    #[test]
-    fn opcode_has_exactly_forty_three_members() {
-        assert_eq!(Opcode::ALL.len(), 43);
-    }
-
-    /// The first and last members pin the table order §7.2 declares.
-    #[test]
-    fn opcode_order_is_the_blueprint_table_order() {
-        assert_eq!(Opcode::ALL.first(), Some(&Opcode::Const));
-        assert_eq!(Opcode::ALL.last(), Some(&Opcode::PiecewiseLinear));
-        assert_eq!(Opcode::ALL[2], Opcode::Add);
     }
 
     #[test]

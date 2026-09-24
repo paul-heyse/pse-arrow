@@ -20,3 +20,16 @@ pub struct ReferenceState {
     /// Optional phase identity; material admission checks this foreign key.
     pub phase: Option<SemanticId>,
 }
+
+// Semantic equality preserves every declared IEEE bit, including signed zero.
+impl PartialEq for ReferenceState {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.kind == other.kind
+            && self.include_enthalpy_of_formation == other.include_enthalpy_of_formation
+            && self.phase == other.phase
+            && self.temperature.map(f64::to_bits) == other.temperature.map(f64::to_bits)
+            && self.pressure.map(f64::to_bits) == other.pressure.map(f64::to_bits)
+    }
+}
+impl Eq for ReferenceState {}

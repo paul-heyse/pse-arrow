@@ -1,0 +1,712 @@
+[
+  {
+    "id": "7713a4015fe2313bb70953e1",
+    "path": "tracing_subscriber::registry::SpanData",
+    "name": "SpanData",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait SpanData<'a>",
+    "docs": "A stored representation of data associated with a span.",
+    "span": {
+      "filename": "src/registry/mod.rs",
+      "begin": [
+        157,
+        1
+      ],
+      "end": [
+        199,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          1152,
+          1153,
+          1154,
+          1155,
+          1059,
+          1138
+        ],
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          1126
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1127",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.SpanData.md",
+    "record_file": "operations/tracing_subscriber.registry.SpanData.json",
+    "anchor": "op-7713a4015fe2313bb70953e1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2862fcdd8b558cd07a17983e",
+    "path": "tracing_subscriber::registry::SpanData::extensions",
+    "name": "extensions",
+    "owner": "tracing_subscriber::registry::SpanData",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn extensions(&self) -> Extensions<'_>",
+    "docs": "Returns a reference to this span's `Extensions`.\n\nThe extensions may be used by `Layer`s to store additional data\ndescribing the span.",
+    "span": {
+      "filename": "src/registry/mod.rs",
+      "begin": [
+        173,
+        5
+      ],
+      "end": [
+        173,
+        44
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: src/registry/mod.rs:171:11: 171:26 (#0) }])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"std\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Extensions",
+              "id": 1007,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "1007": "tracing_subscriber::registry::extensions::Extensions"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1155",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.SpanData.md",
+    "record_file": "operations/tracing_subscriber.registry.SpanData.json",
+    "anchor": "op-2862fcdd8b558cd07a17983e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4c89eee0b26582209458beef",
+    "path": "tracing_subscriber::registry::SpanData::extensions_mut",
+    "name": "extensions_mut",
+    "owner": "tracing_subscriber::registry::SpanData",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn extensions_mut(&self) -> ExtensionsMut<'_>",
+    "docs": "Returns a mutable reference to this span's `Extensions`.\n\nThe extensions may be used by `Layer`s to store additional data\ndescribing the span.",
+    "span": {
+      "filename": "src/registry/mod.rs",
+      "begin": [
+        181,
+        5
+      ],
+      "end": [
+        181,
+        51
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: src/registry/mod.rs:179:11: 179:26 (#0) }])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"std\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "ExtensionsMut",
+              "id": 1029,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "1029": "tracing_subscriber::registry::extensions::ExtensionsMut"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1059",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.SpanData.md",
+    "record_file": "operations/tracing_subscriber.registry.SpanData.json",
+    "anchor": "op-4c89eee0b26582209458beef",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6e145e2abdc91249b7110aa4",
+    "path": "tracing_subscriber::registry::SpanData::id",
+    "name": "id",
+    "owner": "tracing_subscriber::registry::SpanData",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn id(&self) -> Id",
+    "docs": "Returns this span's ID.",
+    "span": {
+      "filename": "src/registry/mod.rs",
+      "begin": [
+        159,
+        5
+      ],
+      "end": [
+        159,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Id",
+              "id": 534,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1152",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.SpanData.md",
+    "record_file": "operations/tracing_subscriber.registry.SpanData.json",
+    "anchor": "op-6e145e2abdc91249b7110aa4",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b502a5dffc3339bb1011f9f1",
+    "path": "tracing_subscriber::registry::SpanData::is_enabled_for",
+    "name": "is_enabled_for",
+    "owner": "tracing_subscriber::registry::SpanData",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn is_enabled_for(&self, filter: FilterId) -> bool",
+    "docs": "Returns `true` if this span is enabled for the [per-layer filter][plf]\ncorresponding to the provided [`FilterId`].\n\n## Default Implementation\n\nBy default, this method assumes that the [`LookupSpan`] implementation\ndoes not support [per-layer filtering][plf], and always returns `true`.\n\n[plf]: crate::layer::Layer#per-layer-filtering\n[`FilterId`]: crate::filter::FilterId",
+    "span": {
+      "filename": "src/registry/mod.rs",
+      "begin": [
+        195,
+        5
+      ],
+      "end": [
+        198,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"registry\"), span: src/registry/mod.rs:193:11: 193:31 (#0) }])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"registry\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "filter",
+              {
+                "resolved_path": {
+                  "path": "FilterId",
+                  "id": 795,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "795": "tracing_subscriber::filter::layer_filters::FilterId"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::layer::Layer#per-layer-filtering": 281,
+      "`LookupSpan`": 790,
+      "crate::filter::FilterId": 795
+    },
+    "link_paths": {
+      "crate::layer::Layer#per-layer-filtering": "tracing_subscriber::layer::Layer",
+      "`LookupSpan`": "tracing_subscriber::registry::LookupSpan",
+      "crate::filter::FilterId": "tracing_subscriber::filter::layer_filters::FilterId"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1138",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.SpanData.md",
+    "record_file": "operations/tracing_subscriber.registry.SpanData.json",
+    "anchor": "op-b502a5dffc3339bb1011f9f1",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::layer::Layer#per-layer-filtering": "../operations/tracing_subscriber.layer.Layer.md#op-4c1ba1a6be909c9a1b91bff8",
+      "`LookupSpan`": "../operations/tracing_subscriber.registry.LookupSpan.md#op-d0bf19fd7852e1b6f08511d9",
+      "crate::filter::FilterId": "../operations/tracing_subscriber.filter.layer_filters.FilterId.md#op-ca4e7220569d32cbf2e6ed55"
+    }
+  },
+  {
+    "id": "237f539fb0764cfd4ecf32f7",
+    "path": "tracing_subscriber::registry::SpanData::metadata",
+    "name": "metadata",
+    "owner": "tracing_subscriber::registry::SpanData",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn metadata(&self) -> &'static Metadata<'static>",
+    "docs": "Returns a reference to the span's `Metadata`.",
+    "span": {
+      "filename": "src/registry/mod.rs",
+      "begin": [
+        162,
+        5
+      ],
+      "end": [
+        162,
+        54
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": "'static",
+              "is_mutable": false,
+              "type": {
+                "resolved_path": {
+                  "path": "Metadata",
+                  "id": 278,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'static"
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1153",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.SpanData.md",
+    "record_file": "operations/tracing_subscriber.registry.SpanData.json",
+    "anchor": "op-237f539fb0764cfd4ecf32f7",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c297161eb4ddb01474724bfb",
+    "path": "tracing_subscriber::registry::SpanData::parent",
+    "name": "parent",
+    "owner": "tracing_subscriber::registry::SpanData",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn parent(&self) -> Option<&Id>",
+    "docs": "Returns a reference to the ID",
+    "span": {
+      "filename": "src/registry/mod.rs",
+      "begin": [
+        165,
+        5
+      ],
+      "end": [
+        165,
+        37
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": null,
+                          "is_mutable": false,
+                          "type": {
+                            "resolved_path": {
+                              "path": "Id",
+                              "id": 534,
+                              "args": null
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "325": "core::option::Option",
+      "534": "tracing_core::span::Id"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1154",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.registry.SpanData.md",
+    "record_file": "operations/tracing_subscriber.registry.SpanData.json",
+    "anchor": "op-c297161eb4ddb01474724bfb",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

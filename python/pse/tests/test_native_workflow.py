@@ -1,0 +1,323 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Public declaration, lifecycle and owned-result contract units."""
+
+import asyncio
+import contextlib
+import gc
+from collections.abc import Callable
+from pathlib import Path
+from typing import cast
+
+import attrs
+import pyarrow as pa
+import pytest
+
+import pse
+from pse import modeling as w
+from pse.contracts.enums import NativeVariableDomain
+from pse.contracts.values import SemanticId
+
+
+def identity(n: int) -> SemanticId:
+    return SemanticId(bytes([n]) * 16)
+
+
+@pytest.fixture(scope="module")
+def runtime(inspection_settings: pse.EngineSettings) -> pse.Runtime:
+    return pse.Runtime(inspection_settings)
+
+
+@pytest.fixture(scope="module")
+def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
+    root = (
+        Path(__file__).resolve().parents[3]
+        / "tests/fixtures/packages/physical-primitives"
+    )
+    documents = {
+        str(path.relative_to(root)): path.read_text()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+    return runtime.physical_from_documents(documents)
+
+
+def revision(runtime: pse.Runtime, physical: pse.PhysicalContext) -> pse.ModelRevision:
+    # An all-fixed length uses the public lifecycle without a native solver.
+    case = pse.CaseBuilder.create(identity(101), "fixed length")
+    case.variable(
+        w.Variable(
+            port=w.Port(
+                symbol_id=identity(102), quantity_id=identity(30), unit_id=identity(1)
+            ),
+            fixed=True,
+            domain=NativeVariableDomain.CONTINUOUS,
+            lower=0.0,
+            upper=10.0,
+        ),
+        2.0,
+    )
+    return (
+        runtime.model(identity(100), "declaration unit", physical).case(case).freeze()
+    )
+
+
+@pytest.mark.unit
+def test_document_frontdoor_refuses_packages_without_native_declarations(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    manifest = (
+        Path(__file__).resolve().parents[3]
+        / "tests/fixtures/packages/minimal_explicit/package.toml"
+    ).read_text()
+    with pytest.raises(pse.InspectionError):
+        runtime.models_from_documents({"package.toml": manifest}, physical)
+
+
+@pytest.mark.unit
+def test_native_capability_discovery_and_hard_cut(runtime: pse.Runtime) -> None:
+    capabilities = runtime.capabilities()
+    assert capabilities
+    assert "Clarabel" in {c.backend for c in capabilities}
+    assert all(c.classes and c.reuse and c.cancellation for c in capabilities)
+    assert not hasattr(pse, "probe_host")
+    assert not hasattr(pse, "HostCapabilities")
+
+
+@pytest.mark.unit
+def test_revision_edit_is_atomic_and_has_no_python_math(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    model = revision(runtime, physical)
+    draft = model.edit()
+    draft.declaration = attrs.evolve(
+        draft.declaration, cases=(*draft.declaration.cases, *draft.declaration.cases)
+    )
+    with pytest.raises(pse.InspectionError):
+        draft.freeze()
+    assert model.edit().freeze().identity == model.identity
+    assert model.declaration.cases[0].values[0].value == 2.0
+
+
+@pytest.mark.unit
+def test_blocking_async_share_terminal_report_and_last_array_owner(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    model = revision(runtime, physical)
+    settings = pse.SolveSettings(
+        variable_tolerances=[], row_tolerances=[], intent="root"
+    )
+    prepared = model.prepare(identity(101), settings)
+    assert prepared.route == "Constant"
+    handle = prepared.start()
+    result = handle.wait()
+
+    async def twice(job: pse.RunHandle, expected: SemanticId) -> None:
+        a, b = await asyncio.gather(job.wait_async(), job.wait_async())
+        assert a.run_id == b.run_id == expected
+
+    asyncio.run(twice(handle, result.run_id))
+    runs = (
+        pa.RecordBatchReader.from_stream(result.table("runtime.solve_runs"))
+        .read_all()
+        .to_pylist()
+    )
+    assert runs[0]["termination"] == "constant_evaluation"
+    assert runs[0]["backend"] is None
+    stream = result.table("runtime.solve_variables")
+    table = pa.RecordBatchReader.from_stream(stream).read_all()
+    values = table.column("value").chunk(0)
+    del model, prepared, result, handle, table
+    stream.close()
+    gc.collect()
+    assert values.to_pylist() == [2.0]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "construct",
+    [
+        lambda: pse.SolveSettings(
+            variable_tolerances=[], row_tolerances=[], presolve="magic"
+        ),
+        lambda: pse.SolveSettings(
+            variable_tolerances=[], row_tolerances=[], time_limit=-1.0
+        ),
+        lambda: pse.SolveSettings(
+            variable_tolerances=[], row_tolerances=[], variable_scales=[1.0]
+        ),
+        lambda: pse.SolveSettings(
+            variable_tolerances=[],
+            row_tolerances=[],
+            options={"invalid": cast("str", object())},
+        ),
+    ],
+)
+def test_solver_profile_refuses_unsupported_or_partial_controls(
+    construct: Callable[[], pse.SolveSettings],
+) -> None:
+    with pytest.raises((pse.InspectionError, TypeError, ValueError)):
+        construct()
+
+
+@pytest.mark.unit
+def test_cancelled_async_waiter_does_not_consume_terminal_result(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    prepared = revision(runtime, physical).prepare(
+        identity(101),
+        pse.SolveSettings(variable_tolerances=[], row_tolerances=[], intent="root"),
+    )
+    handle = runtime.start([prepared] * 20)
+
+    async def cancel_and_rejoin() -> pse.RunResult:
+        waiter = asyncio.create_task(handle.wait_async())
+        await asyncio.sleep(0)
+        waiter.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await waiter
+        return await handle.wait_async()
+
+    result = asyncio.run(cancel_and_rejoin())
+    terminal = handle.result()
+    assert terminal is not None
+    assert terminal.run_id == result.run_id
+    runs = pa.RecordBatchReader.from_stream(
+        result.table("runtime.solve_runs")
+    ).read_all()
+    assert runs.num_rows == 20
+
+
+@pytest.mark.unit
+def test_simulation_controls_round_trip_exact_native_options(
+    runtime: pse.Runtime,
+) -> None:
+    import json
+
+    settings = pse.SimulationSettings(
+        start=0.0, end=1.0, samples=[0.0, 1.0], atol=[1e-8], parameter_scales=[1.0]
+    )
+    wire = json.loads(settings.to_json())
+    wire["native"]["pi_control_proportional"] = 0.4
+    restored = pse.SimulationSettings.from_json(json.dumps(wire))
+    assert json.loads(restored.to_json())["native"]["pi_control_proportional"] == 0.4
+    assert "Diffsol" in {c.backend for c in runtime.capabilities()}
+    wire["native"]["misspelled_option"] = 1
+    with pytest.raises(pse.InspectionError):
+        pse.SimulationSettings.from_json(json.dumps(wire))
+
+
+@pytest.mark.unit
+def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    from pse.contracts import authored as a
+    from pse.contracts.values import SourceSpan
+    from pse.contracts.values import ContentHash
+
+    model = runtime.model(identity(150), "fit length", physical)
+    model.definition(
+        w.Definition(
+            definition_id=identity(151),
+            sources=("length",),
+            formals=(w.Formal(path="length", quantity_id=identity(30)),),
+            domains=(),
+            groups=(),
+            providers=(),
+            units=(),
+            literals=(),
+        )
+    )
+    case = pse.CaseBuilder.create(identity(152), "measurement")
+    case.parameter(
+        w.Parameter(
+            symbol_id=identity(153), quantity_id=identity(30), unit_id=identity(1)
+        ),
+        2.0,
+    )
+    case.row(
+        w.Row(row_id=identity(154), quantity_id=identity(30), lower=None, upper=None)
+    )
+    case.instance(
+        w.Instance(
+            instance_id=identity(155),
+            definition_id=identity(151),
+            slots=(
+                w.Slot(
+                    source_id=identity(153),
+                    formal_quantity_id=identity(30),
+                    formal_unit_id=identity(1),
+                ),
+            ),
+            contributions=(w.Contribution(output=0, row_id=identity(154), scale=1.0),),
+        )
+    )
+    model.case(case)
+    model.dataset(
+        a.AuthoredDatasetsRow(
+            dataset_id=identity(156),
+            name="known",
+            source="unit",
+            content_hash=ContentHash(bytes([2]) * 32),
+        )
+    )
+    model.observation(
+        a.AuthoredObservationsRow(
+            observation_id=identity(157),
+            dataset_id=identity(156),
+            target="length",
+            value=2.0,
+            unit_id=identity(1),
+            std_dev=0.1,
+            timestamp=None,
+            tag=None,
+            source_span=SourceSpan(document_id=identity(156), start=0, end=0),
+        )
+    )
+    model.fit(
+        w.FitDeclaration(
+            fit_id=identity(158),
+            model_id=identity(150),
+            parameters=(
+                a.AuthoredFitCasesFieldParametersItem(
+                    symbol_id=identity(153),
+                    fixed=True,
+                    value=2.0,
+                    lower=0.0,
+                    upper=10.0,
+                    scale=1.0,
+                ),
+            ),
+            experiments=(
+                a.AuthoredFitCasesFieldExperimentsItem(
+                    experiment_id=identity(159), case_id=identity(152), dynamic_id=None
+                ),
+            ),
+            observations=(
+                a.AuthoredFitCasesFieldObservationsItem(
+                    observation_id=identity(157),
+                    experiment_id=identity(159),
+                    output_id=identity(154),
+                    time=None,
+                    included=True,
+                    importance=1.0,
+                ),
+            ),
+        )
+    )
+    revision = model.freeze()
+    assert revision.edit().freeze().identity == revision.identity
+    job = revision.prepare_fit(
+        identity(158),
+        pse.SolveSettings(variable_tolerances=[], row_tolerances=[], intent="optimize"),
+    ).start()
+    result = job.wait()
+    rows = (
+        pa.RecordBatchReader.from_stream(result.table("runtime.fit_observations"))
+        .read_all()
+        .to_pylist()
+    )
+    assert rows[0]["prediction"] == 2.0
+    assert rows[0]["objective_contribution"] == 0.0
+    assert job.wait().run_id == result.run_id
+    assert not result.diagnostics()

@@ -1,0 +1,457 @@
+[
+  {
+    "id": "49cad405bcbd7170e0ab390a",
+    "path": "tracing_subscriber::fmt::writer::MakeWriter",
+    "name": "MakeWriter",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait MakeWriter<'a>",
+    "docs": "A type that can create [`io::Write`] instances.\n\n`MakeWriter` is used by [`fmt::Layer`] or [`fmt::Subscriber`] to print\nformatted text representations of [`Event`]s.\n\nThis trait is already implemented for function pointers and\nimmutably-borrowing closures that return an instance of [`io::Write`], such\nas [`io::stdout`] and [`io::stderr`]. Additionally, it is implemented for\n[`std::sync::Mutex`] when the type inside the mutex implements\n[`io::Write`].\n\n# Examples\n\nThe simplest usage is to pass in a named function that returns a writer. For\nexample, to log all events to stderr, we could write:\n```\nlet subscriber = tracing_subscriber::fmt()\n    .with_writer(std::io::stderr)\n    .finish();\n# drop(subscriber);\n```\n\nAny function that returns a writer can be used:\n\n```\nfn make_my_great_writer() -> impl std::io::Write {\n    // ...\n    # std::io::stdout()\n}\n\nlet subscriber = tracing_subscriber::fmt()\n    .with_writer(make_my_great_writer)\n    .finish();\n# drop(subscriber);\n```\n\nA closure can be used to introduce arbitrary logic into how the writer is\ncreated. Consider the (admittedly rather silly) example of sending every 5th\nevent to stderr, and all other events to stdout:\n\n```\nuse std::io;\nuse std::sync::atomic::{AtomicUsize, Ordering::Relaxed};\n\nlet n = AtomicUsize::new(0);\nlet subscriber = tracing_subscriber::fmt()\n    .with_writer(move || -> Box<dyn io::Write> {\n        if n.fetch_add(1, Relaxed) % 5 == 0 {\n            Box::new(io::stderr())\n        } else {\n            Box::new(io::stdout())\n       }\n    })\n    .finish();\n# drop(subscriber);\n```\n\nA single instance of a type implementing [`io::Write`] may be used as a\n`MakeWriter` by wrapping it in a [`Mutex`]. For example, we could\nwrite to a file like so:\n\n```\nuse std::{fs::File, sync::Mutex};\n\n# fn docs() -> Result<(), Box<dyn std::error::Error>> {\nlet log_file = File::create(\"my_cool_trace.log\")?;\nlet subscriber = tracing_subscriber::fmt()\n    .with_writer(Mutex::new(log_file))\n    .finish();\n# drop(subscriber);\n# Ok(())\n# }\n```\n\n[`io::Write`]: std::io::Write\n[`fmt::Layer`]: crate::fmt::Layer\n[`fmt::Subscriber`]: crate::fmt::Subscriber\n[`Event`]: tracing_core::event::Event\n[`io::stdout`]: std::io::stdout()\n[`io::stderr`]: std::io::stderr()\n[`MakeWriter::make_writer_for`]: MakeWriter::make_writer_for\n[`Metadata`]: tracing_core::Metadata\n[levels]: tracing_core::Level\n[targets]: tracing_core::Metadata::target",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        98,
+        1
+      ],
+      "end": [
+        212,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          2573,
+          2572,
+          2575
+        ],
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          2581,
+          2584,
+          2588,
+          2591,
+          2595,
+          2600,
+          2606,
+          2611,
+          2616,
+          2622,
+          2626
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "MakeWriter::make_writer_for": 2575,
+      "`Mutex`": 2578,
+      "tracing_core::Metadata": 278,
+      "crate::fmt::Subscriber": 1151,
+      "tracing_core::event::Event": 246,
+      "std::io::Write": 87,
+      "crate::fmt::Layer": 1147,
+      "std::io::stdout()": 2576,
+      "tracing_core::Level": 285,
+      "tracing_core::Metadata::target": 835,
+      "std::io::stderr()": 2577,
+      "`std::sync::Mutex`": 2578
+    },
+    "link_paths": {
+      "MakeWriter::make_writer_for": null,
+      "`Mutex`": "std::sync::poison::mutex::Mutex",
+      "tracing_core::Metadata": "tracing_core::metadata::Metadata",
+      "crate::fmt::Subscriber": "tracing_subscriber::fmt::Subscriber",
+      "tracing_core::event::Event": "tracing_core::event::Event",
+      "std::io::Write": "std::io::Write",
+      "crate::fmt::Layer": "tracing_subscriber::fmt::fmt_layer::Layer",
+      "std::io::stdout()": "std::io::stdio::stdout",
+      "tracing_core::Level": "tracing_core::metadata::Level",
+      "tracing_core::Metadata::target": null,
+      "std::io::stderr()": "std::io::stdio::stderr",
+      "`std::sync::Mutex`": "std::sync::poison::mutex::Mutex"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1443",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriter.json",
+    "anchor": "op-49cad405bcbd7170e0ab390a",
+    "aliases": [
+      "tracing_subscriber::fmt::MakeWriter"
+    ],
+    "resolved_doc_links": {
+      "MakeWriter::make_writer_for": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-f80df00cea31d415c78108e6",
+      "tracing_core::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "crate::fmt::Subscriber": "../operations/tracing_subscriber.fmt.Subscriber.md#op-7360e26773e1081257bf258e",
+      "tracing_core::event::Event": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039",
+      "crate::fmt::Layer": "../operations/tracing_subscriber.fmt.fmt_layer.Layer.md#op-fa1a59e4f05bcd8ea89adaa4",
+      "tracing_core::Level": "../operations/tracing_core.metadata.Level.md#op-f8804717be954252aadd54ff"
+    }
+  },
+  {
+    "id": "0b71b1694d10f2872b678698",
+    "path": "tracing_subscriber::fmt::writer::MakeWriter::Writer",
+    "name": "Writer",
+    "owner": "tracing_subscriber::fmt::writer::MakeWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "assoc_type",
+    "signature": "Writer",
+    "docs": "The concrete [`io::Write`] implementation returned by [`make_writer`].\n\n[`io::Write`]: std::io::Write\n[`make_writer`]: MakeWriter::make_writer",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        103,
+        5
+      ],
+      "end": [
+        103,
+        28
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "io::Write",
+                "id": 87,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "type": null
+      }
+    },
+    "type_references": {
+      "87": "std::io::Write"
+    },
+    "impl_context": null,
+    "links": {
+      "std::io::Write": 87,
+      "MakeWriter::make_writer": 2572
+    },
+    "link_paths": {
+      "std::io::Write": "std::io::Write",
+      "MakeWriter::make_writer": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2573",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriter.json",
+    "anchor": "op-0b71b1694d10f2872b678698",
+    "aliases": [
+      "tracing_subscriber::fmt::MakeWriter::Writer"
+    ],
+    "resolved_doc_links": {
+      "MakeWriter::make_writer": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-04947f8cd797aae6fbf28878"
+    }
+  },
+  {
+    "id": "04947f8cd797aae6fbf28878",
+    "path": "tracing_subscriber::fmt::writer::MakeWriter::make_writer",
+    "name": "make_writer",
+    "owner": "tracing_subscriber::fmt::writer::MakeWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn make_writer(&'a self) -> Self::Writer",
+    "docs": "Returns an instance of [`Writer`].\n\n# Implementer notes\n\n[`fmt::Layer`] or [`fmt::Subscriber`] will call this method each time an event is recorded. Ensure any state\nthat must be saved across writes is not lost when the [`Writer`] instance is dropped. If\ncreating a [`io::Write`] instance is expensive, be sure to cache it when implementing\n[`MakeWriter`] to improve performance.\n\n[`Writer`]: MakeWriter::Writer\n[`fmt::Layer`]: crate::fmt::Layer\n[`fmt::Subscriber`]: crate::fmt::Subscriber\n[`io::Write`]: std::io::Write",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        118,
+        5
+      ],
+      "end": [
+        118,
+        46
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Writer",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1443,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::fmt::Layer": 1147,
+      "std::io::Write": 87,
+      "MakeWriter::Writer": 2573,
+      "`MakeWriter`": 1443,
+      "crate::fmt::Subscriber": 1151
+    },
+    "link_paths": {
+      "crate::fmt::Layer": "tracing_subscriber::fmt::fmt_layer::Layer",
+      "std::io::Write": "std::io::Write",
+      "MakeWriter::Writer": null,
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter",
+      "crate::fmt::Subscriber": "tracing_subscriber::fmt::Subscriber"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2572",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriter.json",
+    "anchor": "op-04947f8cd797aae6fbf28878",
+    "aliases": [
+      "tracing_subscriber::fmt::MakeWriter::make_writer"
+    ],
+    "resolved_doc_links": {
+      "crate::fmt::Layer": "../operations/tracing_subscriber.fmt.fmt_layer.Layer.md#op-fa1a59e4f05bcd8ea89adaa4",
+      "MakeWriter::Writer": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-0b71b1694d10f2872b678698",
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a",
+      "crate::fmt::Subscriber": "../operations/tracing_subscriber.fmt.Subscriber.md#op-7360e26773e1081257bf258e"
+    }
+  },
+  {
+    "id": "f80df00cea31d415c78108e6",
+    "path": "tracing_subscriber::fmt::writer::MakeWriter::make_writer_for",
+    "name": "make_writer_for",
+    "owner": "tracing_subscriber::fmt::writer::MakeWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn make_writer_for(&'a self, meta: &Metadata<'_>) -> Self::Writer",
+    "docs": "Returns a [`Writer`] for writing data from the span or event described\nby the provided [`Metadata`].\n\nBy default, this calls [`self.make_writer()`][make_writer], ignoring\nthe provided metadata, but implementations can override this to provide\nmetadata-specific behaviors.\n\nThis method allows `MakeWriter` implementations to implement different\nbehaviors based on the span or event being written. The `MakeWriter`\ntype might return different writers based on the provided metadata, or\nmight write some values to the writer before or after providing it to\nthe caller.\n\nFor example, we might want to write data from spans and events at the\n[`ERROR`] and [`WARN`] levels to `stderr`, and data from spans or events\nat lower levels to stdout:\n\n```\nuse std::io::{self, Stdout, Stderr, StdoutLock, StderrLock};\nuse tracing_subscriber::fmt::writer::MakeWriter;\nuse tracing_core::{Metadata, Level};\n\npub struct MyMakeWriter {\n    stdout: Stdout,\n    stderr: Stderr,\n}\n\n/// A lock on either stdout or stderr, depending on the verbosity level\n/// of the event being written.\npub enum StdioLock<'a> {\n    Stdout(StdoutLock<'a>),\n    Stderr(StderrLock<'a>),\n}\n\nimpl<'a> io::Write for StdioLock<'a> {\n    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {\n        match self {\n            StdioLock::Stdout(lock) => lock.write(buf),\n            StdioLock::Stderr(lock) => lock.write(buf),\n        }\n    }\n\n    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {\n        // ...\n        # match self {\n        #     StdioLock::Stdout(lock) => lock.write_all(buf),\n        #     StdioLock::Stderr(lock) => lock.write_all(buf),\n        # }\n    }\n\n    fn flush(&mut self) -> io::Result<()> {\n        // ...\n        # match self {\n        #     StdioLock::Stdout(lock) => lock.flush(),\n        #     StdioLock::Stderr(lock) => lock.flush(),\n        # }\n    }\n}\n\nimpl<'a> MakeWriter<'a> for MyMakeWriter {\n    type Writer = StdioLock<'a>;\n\n    fn make_writer(&'a self) -> Self::Writer {\n        // We must have an implementation of `make_writer` that makes\n        // a \"default\" writer without any configuring metadata. Let's\n        // just return stdout in that case.\n        StdioLock::Stdout(self.stdout.lock())\n    }\n\n    fn make_writer_for(&'a self, meta: &Metadata<'_>) -> Self::Writer {\n        // Here's where we can implement our special behavior. We'll\n        // check if the metadata's verbosity level is WARN or ERROR,\n        // and return stderr in that case.\n        if meta.level() <= &Level::WARN {\n            return StdioLock::Stderr(self.stderr.lock());\n        }\n\n        // Otherwise, we'll return stdout.\n        StdioLock::Stdout(self.stdout.lock())\n    }\n}\n```\n\n[`Writer`]: MakeWriter::Writer\n[`Metadata`]: tracing_core::Metadata\n[make_writer]: MakeWriter::make_writer\n[`WARN`]: tracing_core::Level::WARN\n[`ERROR`]: tracing_core::Level::ERROR",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        208,
+        5
+      ],
+      "end": [
+        211,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "meta",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Writer",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1443,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "impl_context": null,
+    "links": {
+      "tracing_core::Level::WARN": 2574,
+      "MakeWriter::make_writer": 2572,
+      "tracing_core::Metadata": 278,
+      "MakeWriter::Writer": 2573,
+      "tracing_core::Level::ERROR": 525
+    },
+    "link_paths": {
+      "tracing_core::Level::WARN": null,
+      "MakeWriter::make_writer": null,
+      "tracing_core::Metadata": "tracing_core::metadata::Metadata",
+      "MakeWriter::Writer": null,
+      "tracing_core::Level::ERROR": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2575",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriter.json",
+    "anchor": "op-f80df00cea31d415c78108e6",
+    "aliases": [
+      "tracing_subscriber::fmt::MakeWriter::make_writer_for"
+    ],
+    "resolved_doc_links": {
+      "MakeWriter::make_writer": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-04947f8cd797aae6fbf28878",
+      "tracing_core::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "MakeWriter::Writer": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-0b71b1694d10f2872b678698"
+    }
+  }
+]

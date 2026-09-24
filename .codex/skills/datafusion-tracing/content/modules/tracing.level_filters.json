@@ -1,0 +1,60 @@
+[
+  {
+    "id": "86d380268e337fa07a8343e4",
+    "path": "tracing::level_filters",
+    "name": "level_filters",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "module",
+    "signature": "mod level_filters",
+    "docs": "Trace verbosity level filtering.\n\n# Compile time filters\n\nTrace verbosity levels can be statically disabled at compile time via Cargo\nfeatures, similar to the [`log` crate]. Trace instrumentation at disabled\nlevels will be skipped and will not even be present in the resulting binary\nunless the verbosity level is specified dynamically. This level is\nconfigured separately for release and debug builds. The features are:\n\n* `max_level_off`\n* `max_level_error`\n* `max_level_warn`\n* `max_level_info`\n* `max_level_debug`\n* `max_level_trace`\n* `release_max_level_off`\n* `release_max_level_error`\n* `release_max_level_warn`\n* `release_max_level_info`\n* `release_max_level_debug`\n* `release_max_level_trace`\n\nThese features control the value of the `STATIC_MAX_LEVEL` constant. The\ninstrumentation macros macros check this value before recording an event or\nconstructing a span. By default, no levels are disabled.\n\nFor example, a crate can disable trace level instrumentation in debug builds\nand trace, debug, and info level instrumentation in release builds with the\nfollowing configuration:\n\n```toml\n[dependencies]\ntracing = { version = \"0.1\", features = [\"max_level_debug\", \"release_max_level_warn\"] }\n```\n## Notes\n\nPlease note that `tracing`'s static max level features do *not* control the\n[`log`] records that may be emitted when [`tracing`'s \"log\" feature flag][f] is\nenabled. This is to allow `tracing` to be disabled entirely at compile time\nwhile still emitting `log` records --- such as when a library using\n`tracing` is used by an application using `log` that doesn't want to\ngenerate any `tracing`-related code, but does want to collect `log` records.\n\nThis means that if the \"log\" feature is in use, some code may be generated\nfor `log` records emitted by disabled `tracing` events. If this is not\ndesirable, `log` records may be disabled separately using [`log`'s static\nmax level features][`log` crate].\n\n[`log`]: https://docs.rs/log/\n[`log` crate]: https://docs.rs/log/latest/log/#compile-time-filters\n[f]: https://docs.rs/tracing/latest/tracing/#emitting-log-records",
+    "span": {
+      "filename": "src/level_filters.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        113,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          183,
+          185,
+          188
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "187",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing.level_filters.md",
+    "record_file": "modules/tracing.level_filters.json",
+    "anchor": "op-86d380268e337fa07a8343e4",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

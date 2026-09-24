@@ -1,0 +1,1916 @@
+[
+  {
+    "id": "1bbe96b98f04329c66e7d345",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "name": "LogExporterBuilder",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct LogExporterBuilder<C>",
+    "docs": "Builder for creating a new [LogExporter].",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        36,
+        1
+      ],
+      "end": [
+        39,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "C",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          418,
+          421,
+          423,
+          424,
+          425,
+          426,
+          427,
+          428,
+          429,
+          430,
+          431,
+          432,
+          433,
+          434,
+          435,
+          436,
+          437,
+          438,
+          439,
+          440,
+          441,
+          442,
+          443,
+          444,
+          445,
+          446,
+          447,
+          448,
+          449,
+          450,
+          452,
+          454,
+          456,
+          392,
+          394,
+          220,
+          122
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "LogExporter": 15
+    },
+    "link_paths": {
+      "LogExporter": "opentelemetry_otlp::logs::LogExporter"
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "123",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-1bbe96b98f04329c66e7d345",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder"
+    ],
+    "resolved_doc_links": {
+      "LogExporter": "../operations/opentelemetry_otlp.logs.LogExporter.md#op-ab5d2897a246347ffe104c53"
+    }
+  },
+  {
+    "id": "64364f56c70741690a9851b2",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Result<LogExporter, ExporterBuildError>",
+    "docs": "Build the [LogExporter] with the HTTP transport.",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        79,
+        5
+      ],
+      "end": [
+        81,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 11,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "LogExporter",
+                          "id": 15,
+                          "args": null
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ExporterBuildError",
+                          "id": 13,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "11": "core::result::Result",
+      "15": "opentelemetry_otlp::logs::LogExporter",
+      "13": "opentelemetry_otlp::exporter::ExporterBuildError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::HttpExporterBuilderSet",
+                      "id": "opentelemetry_otlp::HttpExporterBuilderSet",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          77,
+          1
+        ],
+        "end": [
+          82,
+          2
+        ]
+      }
+    },
+    "links": {
+      "LogExporter": 15
+    },
+    "link_paths": {
+      "LogExporter": "opentelemetry_otlp::logs::LogExporter"
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "422",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-64364f56c70741690a9851b2",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::build"
+    ],
+    "resolved_doc_links": {
+      "LogExporter": "../operations/opentelemetry_otlp.logs.LogExporter.md#op-ab5d2897a246347ffe104c53"
+    }
+  },
+  {
+    "id": "65d3d2a062a164aff0a071d8",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Result<LogExporter, ExporterBuildError>",
+    "docs": "Build the [LogExporter] with the gRPC Tonic transport.",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        69,
+        5
+      ],
+      "end": [
+        73,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 11,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "LogExporter",
+                          "id": 15,
+                          "args": null
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ExporterBuildError",
+                          "id": 13,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "11": "core::result::Result",
+      "15": "opentelemetry_otlp::logs::LogExporter",
+      "13": "opentelemetry_otlp::exporter::ExporterBuildError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::TonicExporterBuilderSet",
+                      "id": "opentelemetry_otlp::TonicExporterBuilderSet",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          67,
+          1
+        ],
+        "end": [
+          74,
+          2
+        ]
+      }
+    },
+    "links": {
+      "LogExporter": 15
+    },
+    "link_paths": {
+      "LogExporter": "opentelemetry_otlp::logs::LogExporter"
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "420",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-65d3d2a062a164aff0a071d8",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::build"
+    ],
+    "resolved_doc_links": {
+      "LogExporter": "../operations/opentelemetry_otlp.logs.LogExporter.md#op-ab5d2897a246347ffe104c53"
+    }
+  },
+  {
+    "id": "8d91a78b9203fada1347a52d",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::clone",
+    "name": "clone",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> LogExporterBuilder<C>",
+    "docs": "",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        35,
+        26
+      ],
+      "end": [
+        35,
+        31
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "LogExporterBuilder",
+              "id": 123,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "C"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "123": "opentelemetry_otlp::logs::LogExporterBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "C"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [
+          {
+            "name": "C",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::clone::Clone",
+                        "id": "core::clone::Clone",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          35,
+          26
+        ],
+        "end": [
+          35,
+          31
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "455",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-8d91a78b9203fada1347a52d",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "66f1c85add8af8bbd0c9ae53",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::default",
+    "name": "default",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> LogExporterBuilder<C>",
+    "docs": "",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        35,
+        17
+      ],
+      "end": [
+        35,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "LogExporterBuilder",
+              "id": 123,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "C"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "123": "opentelemetry_otlp::logs::LogExporterBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "C"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [
+          {
+            "name": "C",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::default::Default",
+                        "id": "core::default::Default",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          35,
+          17
+        ],
+        "end": [
+          35,
+          24
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "453",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-66f1c85add8af8bbd0c9ae53",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6e1f94baa200a7a0ab2ea9ef",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::export_config",
+    "name": "export_config",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn export_config(&mut self) -> &mut ExportConfig",
+    "docs": "",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        86,
+        5
+      ],
+      "end": [
+        88,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "resolved_path": {
+                  "path": "crate::ExportConfig",
+                  "id": 49,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "49": "opentelemetry_otlp::exporter::ExportConfig"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::TonicExporterBuilderSet",
+                      "id": "opentelemetry_otlp::TonicExporterBuilderSet",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "HasExportConfig",
+        "id": "opentelemetry_otlp::exporter::HasExportConfig",
+        "args": null
+      },
+      "trait_path": "opentelemetry_otlp::exporter::HasExportConfig",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          85,
+          1
+        ],
+        "end": [
+          89,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "391",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-6e1f94baa200a7a0ab2ea9ef",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::export_config"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dce5c852ff98518e0f01d306",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::export_config",
+    "name": "export_config",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn export_config(&mut self) -> &mut ExportConfig",
+    "docs": "",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        93,
+        5
+      ],
+      "end": [
+        95,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "resolved_path": {
+                  "path": "crate::ExportConfig",
+                  "id": 49,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "49": "opentelemetry_otlp::exporter::ExportConfig"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::HttpExporterBuilderSet",
+                      "id": "opentelemetry_otlp::HttpExporterBuilderSet",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "HasExportConfig",
+        "id": "opentelemetry_otlp::exporter::HasExportConfig",
+        "args": null
+      },
+      "trait_path": "opentelemetry_otlp::exporter::HasExportConfig",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          92,
+          1
+        ],
+        "end": [
+          96,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "393",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-dce5c852ff98518e0f01d306",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::export_config"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9ab3541bf928348053c92e52",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        35,
+        10
+      ],
+      "end": [
+        35,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 109,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 110,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "109": "core::fmt::Formatter",
+      "110": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "C"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "C",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          35,
+          10
+        ],
+        "end": [
+          35,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "451",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-9ab3541bf928348053c92e52",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ad45027a6f6f69c645bf0915",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::http_client_config",
+    "name": "http_client_config",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn http_client_config(&mut self) -> &mut exporter::http::HttpConfig",
+    "docs": "",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        107,
+        5
+      ],
+      "end": [
+        109,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "resolved_path": {
+                  "path": "crate::exporter::http::HttpConfig",
+                  "id": 6,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "6": "opentelemetry_otlp::exporter::http::HttpConfig"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::HttpExporterBuilderSet",
+                      "id": "opentelemetry_otlp::HttpExporterBuilderSet",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "HasHttpConfig",
+        "id": "opentelemetry_otlp::exporter::http::HasHttpConfig",
+        "args": null
+      },
+      "trait_path": "opentelemetry_otlp::exporter::http::HasHttpConfig",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          106,
+          1
+        ],
+        "end": [
+          110,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "121",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-ad45027a6f6f69c645bf0915",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::http_client_config"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fd4d74c779787b6b6811a247",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::new",
+    "name": "new",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn new() -> Self",
+    "docs": "Create a new [LogExporterBuilder] with default settings.",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        43,
+        5
+      ],
+      "end": [
+        45,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::NoExporterBuilderSet",
+                      "id": "opentelemetry_otlp::NoExporterBuilderSet",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          41,
+          1
+        ],
+        "end": [
+          64,
+          2
+        ]
+      }
+    },
+    "links": {
+      "LogExporterBuilder": 123
+    },
+    "link_paths": {
+      "LogExporterBuilder": "opentelemetry_otlp::logs::LogExporterBuilder"
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "415",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-fd4d74c779787b6b6811a247",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::new"
+    ],
+    "resolved_doc_links": {
+      "LogExporterBuilder": "../operations/opentelemetry_otlp.logs.LogExporterBuilder.md#op-1bbe96b98f04329c66e7d345"
+    }
+  },
+  {
+    "id": "05ccd38418f22b3e3f28c91f",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::tonic_config",
+    "name": "tonic_config",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn tonic_config(&mut self) -> &mut TonicConfig",
+    "docs": "",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        100,
+        5
+      ],
+      "end": [
+        102,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "resolved_path": {
+                  "path": "crate::TonicConfig",
+                  "id": 144,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "144": "opentelemetry_otlp::exporter::tonic::TonicConfig"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::TonicExporterBuilderSet",
+                      "id": "opentelemetry_otlp::TonicExporterBuilderSet",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "HasTonicConfig",
+        "id": "opentelemetry_otlp::exporter::tonic::HasTonicConfig",
+        "args": null
+      },
+      "trait_path": "opentelemetry_otlp::exporter::tonic::HasTonicConfig",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          99,
+          1
+        ],
+        "end": [
+          103,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "219",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-05ccd38418f22b3e3f28c91f",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::tonic_config"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c691d5fcee9781c2787b9112",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::with_http",
+    "name": "with_http",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_http(self) -> LogExporterBuilder<HttpExporterBuilderSet>",
+    "docs": "With the HTTP transport.",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        58,
+        5
+      ],
+      "end": [
+        63,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(any(feature = \"http-proto\", feature = \"http-json\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "LogExporterBuilder",
+              "id": 123,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "HttpExporterBuilderSet",
+                          "id": 124,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "123": "opentelemetry_otlp::logs::LogExporterBuilder",
+      "124": "opentelemetry_otlp::HttpExporterBuilderSet"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::NoExporterBuilderSet",
+                      "id": "opentelemetry_otlp::NoExporterBuilderSet",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          41,
+          1
+        ],
+        "end": [
+          64,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "417",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-c691d5fcee9781c2787b9112",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::with_http"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "57a73f8a59399b287944e1bc",
+    "path": "opentelemetry_otlp::logs::LogExporterBuilder::with_tonic",
+    "name": "with_tonic",
+    "owner": "opentelemetry_otlp::logs::LogExporterBuilder",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_tonic(self) -> LogExporterBuilder<TonicExporterBuilderSet>",
+    "docs": "With the gRPC Tonic transport.",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        49,
+        5
+      ],
+      "end": [
+        54,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"grpc-tonic\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "LogExporterBuilder",
+              "id": 123,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "TonicExporterBuilderSet",
+                          "id": 221,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "123": "opentelemetry_otlp::logs::LogExporterBuilder",
+      "221": "opentelemetry_otlp::TonicExporterBuilderSet"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "LogExporterBuilder",
+          "id": "opentelemetry_otlp::logs::LogExporterBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::NoExporterBuilderSet",
+                      "id": "opentelemetry_otlp::NoExporterBuilderSet",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/logs.rs",
+        "begin": [
+          41,
+          1
+        ],
+        "end": [
+          64,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "416",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.LogExporterBuilder.md",
+    "record_file": "operations/opentelemetry_otlp.logs.LogExporterBuilder.json",
+    "anchor": "op-57a73f8a59399b287944e1bc",
+    "aliases": [
+      "opentelemetry_otlp::LogExporterBuilder::with_tonic"
+    ],
+    "resolved_doc_links": {}
+  }
+]

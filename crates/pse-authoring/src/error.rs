@@ -13,27 +13,10 @@ use pse_ids::SemanticId;
 use crate::span::SourceSpan;
 
 /// A document, identity, reference or package resolution that does not hold.
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[derive(Debug, thiserror::Error)]
 pub enum AuthoringError {
-    /// Native planning/execution retains the platform's classified diagnostic.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Catalog(#[from] pse_catalog::CatalogError),
-    /// Shared platform memory could not be reserved before construction.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Resource(#[from] pse_ids::ReserveError),
-    /// Cancellation or checked allocation extent failure.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Allocation(#[from] pse_ids::CanonError),
-    /// Actual generated row validation failed during owned construction.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Relation(#[from] pse_relations::RelationError),
     /// A package document could not be read within its declared filesystem boundary.
     #[error("document `{path}`: {reason}")]
-    #[diagnostic(code(authoring::parse::document_io))]
     DocumentIo {
         /// Package-relative source path.
         path: String,
@@ -42,7 +25,6 @@ pub enum AuthoringError {
     },
     /// Actual candidate values violate a declared schema, key or reference contract.
     #[error("authoring contract: {reason}")]
-    #[diagnostic(code(authoring::reference::contract))]
     Contract {
         /// Source location, if the failure belongs to one document row.
         at: Option<SourceSpan>,
@@ -51,10 +33,6 @@ pub enum AuthoringError {
     },
     /// The document does not parse.
     #[error("{expected} expected at byte {offset}, found {found}")]
-    #[diagnostic(
-        code(authoring::parse::syntax),
-        help("the parser reports the first offset it could not continue from")
-    )]
     Syntax {
         /// Where the parser stopped.
         at: SourceSpan,
@@ -68,10 +46,6 @@ pub enum AuthoringError {
 
     /// The document carries a key the schema does not declare.
     #[error("unknown key `{key}` in {context}")]
-    #[diagnostic(
-        code(authoring::parse::unknown_key),
-        help("an unknown key is a typo or a version mismatch; it is never ignored")
-    )]
     UnknownKey {
         /// Where the key appears.
         at: SourceSpan,
@@ -83,12 +57,6 @@ pub enum AuthoringError {
 
     /// An `explicit`-policy entity has no `id`.
     #[error("{kind} `{name}` has no `id`, and its package uses the explicit identity policy")]
-    #[diagnostic(
-        code(authoring::parse::missing_id),
-        help(
-            "`pse authoring assign-ids` inserts a UUIDv7; identity is assigned at creation, never computed from the name (blueprint §5.1)"
-        )
-    )]
     MissingId {
         /// Where the entity is declared.
         at: SourceSpan,
@@ -100,12 +68,6 @@ pub enum AuthoringError {
 
     /// A `pse.target_path` names nothing.
     #[error("target `{path}` resolves to no entity")]
-    #[diagnostic(
-        code(authoring::parse::unresolved_target),
-        help(
-            "P1 resolves every target to identities at commit; an unresolvable target is not deferred to run time"
-        )
-    )]
     UnresolvedTarget {
         /// Where the target appears.
         at: SourceSpan,
@@ -115,12 +77,6 @@ pub enum AuthoringError {
 
     /// The document exceeds a parse budget.
     #[error("parse budget exceeded: {limit} allows {allowed}, the document needs {needed}")]
-    #[diagnostic(
-        code(authoring::parse::budget),
-        help(
-            "the budget bounds nesting, aliases and allocation so that hostile input is refused rather than survived (blueprint §22.1)"
-        )
-    )]
     Budget {
         /// Which budget: `depth`, `aliases` or `bytes`.
         limit: &'static str,
@@ -132,12 +88,6 @@ pub enum AuthoringError {
 
     /// A change set tries to write a derived relation.
     #[error("`{relation}` is derived and cannot be authored")]
-    #[diagnostic(
-        code(authoring::reference::derived_write),
-        help(
-            "author causes, derive consequences (decision D2); an \"expected\" derived fact goes to `provenance.assertions`"
-        )
-    )]
     DerivedWrite {
         /// The qualified relation.
         relation: String,
@@ -145,12 +95,6 @@ pub enum AuthoringError {
 
     /// A change set renames a named-policy entity.
     #[error("`{qualified_name}` belongs to a named-policy package and cannot be renamed")]
-    #[diagnostic(
-        code(authoring::reference::rename_named),
-        help(
-            "under the named policy a rename is a new entity; deprecate the old name with a `reference.aliases` row (blueprint §5.1)"
-        )
-    )]
     RenameNamed {
         /// The entity.
         entity_id: SemanticId,
@@ -160,10 +104,6 @@ pub enum AuthoringError {
 
     /// A change operation names a row that is not there.
     #[error("`{relation}` has no row with the key this operation names")]
-    #[diagnostic(
-        code(authoring::reference::unknown_row_key),
-        help("the base revision moved; rebase the change set rather than applying it partially")
-    )]
     UnknownRowKey {
         /// The qualified relation.
         relation: String,
@@ -173,12 +113,6 @@ pub enum AuthoringError {
 
     /// A declared dependency does not resolve.
     #[error("package `{name}` requires `{dependency}`, which is not available")]
-    #[diagnostic(
-        code(authoring::pkg::unresolved),
-        help(
-            "every referenced package is pinned by content hash after P0; an unresolved one stops resolution"
-        )
-    )]
     PackageUnresolved {
         /// The depending package.
         name: String,
@@ -188,12 +122,6 @@ pub enum AuthoringError {
 
     /// Two packages require incompatible versions of a third.
     #[error("`{dependency}` is required at both `{first}` and `{second}`")]
-    #[diagnostic(
-        code(authoring::pkg::version_conflict),
-        help(
-            "phase 0 admits exact version requirements only, so a conflict is a conflict, never a range to intersect"
-        )
-    )]
     PackageVersionConflict {
         /// The dependency.
         dependency: String,
@@ -205,10 +133,6 @@ pub enum AuthoringError {
 
     /// The document was written against a different registry.
     #[error("`{relation}` is at version {found} here and version {expected} in the registry")]
-    #[diagnostic(
-        code(schema::version_mismatch),
-        help("migrate the document, or read it through the registry it was written against")
-    )]
     SchemaVersionMismatch {
         /// The qualified relation.
         relation: String,
@@ -217,4 +141,40 @@ pub enum AuthoringError {
         /// The version the document claims.
         found: u32,
     },
+}
+
+pse_diagnostics::impl_diagnostic! {
+    AuthoringError,
+    code(this) { match this {
+            Self::DocumentIo { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringParseDocumentIo),
+            Self::Contract { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringReferenceContract),
+            Self::Syntax { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringParseSyntax),
+            Self::UnknownKey { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringParseUnknownKey),
+            Self::MissingId { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringParseMissingId),
+            Self::UnresolvedTarget { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringParseUnresolvedTarget),
+            Self::Budget { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringParseBudget),
+            Self::DerivedWrite { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringReferenceDerivedWrite),
+            Self::RenameNamed { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringReferenceRenameNamed),
+            Self::UnknownRowKey { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringReferenceUnknownRowKey),
+            Self::PackageUnresolved { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringPkgUnresolved),
+            Self::PackageVersionConflict { .. } => Some(pse_diagnostics::DiagnosticCode::AuthoringPkgVersionConflict),
+            Self::SchemaVersionMismatch { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaVersionMismatch),
+        } },
+    forward(_this) { None },
+    help(this) { match this {
+            Self::Syntax { .. } => Some(Box::new("the parser reports the first offset it could not continue from")),
+            Self::UnknownKey { .. } => Some(Box::new("an unknown key is a typo or a version mismatch; it is never ignored")),
+            Self::MissingId { .. } => Some(Box::new("`pse authoring assign-ids` inserts a UUIDv7; identity is assigned at creation, never computed from the name (blueprint §5.1)")),
+            Self::UnresolvedTarget { .. } => Some(Box::new("P1 resolves every target to identities at commit; an unresolvable target is not deferred to run time")),
+            Self::Budget { .. } => Some(Box::new("the budget bounds nesting, aliases and allocation so that hostile input is refused rather than survived (blueprint §22.1)")),
+            Self::DerivedWrite { .. } => Some(Box::new("author causes, derive consequences (decision D2); an \"expected\" derived fact goes to `provenance.assertions`")),
+            Self::RenameNamed { .. } => Some(Box::new("under the named policy a rename is a new entity; deprecate the old name with a `reference.aliases` row (blueprint §5.1)")),
+            Self::UnknownRowKey { .. } => Some(Box::new("the base revision moved; rebase the change set rather than applying it partially")),
+            Self::PackageUnresolved { .. } => Some(Box::new("every referenced package is pinned by content hash after P0; an unresolved one stops resolution")),
+            Self::PackageVersionConflict { .. } => Some(Box::new("phase 0 admits exact version requirements only, so a conflict is a conflict, never a range to intersect")),
+            Self::SchemaVersionMismatch { .. } => Some(Box::new("migrate the document, or read it through the registry it was written against")),
+            _ => None,
+        } },
+    related(_this) { None },
+    source(_this) { None }
 }

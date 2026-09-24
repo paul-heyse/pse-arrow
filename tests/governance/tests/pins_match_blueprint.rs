@@ -185,7 +185,22 @@ fn declared_pins_do_not_drift_from_blueprint() {
         if exempt.contains(name) {
             continue;
         }
-        match blueprint_version(name, &pins) {
+        let independent = common::dig(&manifest, &["workspace", "metadata", "pse", "families"])
+            .and_then(Value::as_table)
+            .is_some_and(|families| {
+                families.values().any(|family| {
+                    family
+                        .get("exclude")
+                        .and_then(Value::as_array)
+                        .is_some_and(|names| names.iter().any(|entry| entry.as_str() == Some(name)))
+                })
+            });
+        let expected = if independent {
+            pins.get(name).cloned()
+        } else {
+            blueprint_version(name, &pins)
+        };
+        match expected {
             // Not a failure. §3.1 pins what the platform is built around; it does not
             // enumerate what the platform may use (ADR-0066).
             None => undescribed.push(format!("{name} = {declared}")),

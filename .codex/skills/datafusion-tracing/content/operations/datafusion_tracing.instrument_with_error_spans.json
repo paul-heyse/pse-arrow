@@ -1,0 +1,127 @@
+[
+  {
+    "id": "72d4757d5a2d42d9825db306",
+    "path": "datafusion_tracing::instrument_with_error_spans",
+    "name": "instrument_with_error_spans",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "macro",
+    "signature": "macro_rules! instrument_with_error_spans",
+    "docs": "Constructs a new instrumentation `PhysicalOptimizerRule` for a DataFusion `ExecutionPlan` at the error level.\n\nThis macro automatically sets the tracing level to `ERROR` and is a convenience wrapper around\n[`instrument_with_spans!`] with the appropriate log level preset.\n\nSee [`instrument_with_spans!`] for details on instrumentation options and span fields.\n\n# Examples\n\nBasic usage with default options:\n```rust\n# use datafusion_tracing::{instrument_with_error_spans, InstrumentationOptions};\nlet instrument_rule = instrument_with_error_spans!(options: InstrumentationOptions::default());\n```\n\nAdding custom fields:\n```rust\n# use datafusion_tracing::{instrument_with_error_spans, InstrumentationOptions};\n# use tracing::field;\n# use std::collections::HashMap;\nlet custom_fields = HashMap::from([\n    (\"custom.key1\".to_string(), \"value1\".to_string()),\n]);\nlet options = InstrumentationOptions {\n   custom_fields,\n   ..Default::default()\n};\nlet instrument_rule = instrument_with_error_spans!(\n    options: options,\n    datafusion.additional_info = \"some info\",\n    custom.key1 = field::Empty,\n);\n```\n\n[tracing_error_span]: https://docs.rs/tracing/latest/tracing/macro.error_span.html\n[`error_span!`]: https://docs.rs/tracing/latest/tracing/macro.error_span.html\n[`instrument_with_spans!`]: crate::instrument_with_spans!",
+    "span": {
+      "filename": "src/exec_instrument_macros.rs",
+      "begin": [
+        483,
+        1
+      ],
+      "end": [
+        501,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! instrument_with_error_spans {\n    (target: $target:expr, options: $options:expr, $($field:tt)*) => { ... };\n    (options: $options:expr, $($field:tt)*) => { ... };\n    (target: $target:expr, options: $options:expr) => { ... };\n    (options: $options:expr) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::instrument_with_spans!": 163
+    },
+    "link_paths": {
+      "crate::instrument_with_spans!": "datafusion_tracing::instrument_with_spans"
+    },
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "168",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrument_with_error_spans.md",
+    "record_file": "operations/datafusion_tracing.instrument_with_error_spans.json",
+    "anchor": "op-72d4757d5a2d42d9825db306",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::instrument_with_spans!": "../operations/datafusion_tracing.instrument_with_spans.md#op-e9673574618183b011501acc"
+    }
+  },
+  {
+    "id": "50619facfba6088ed6e75ce1",
+    "path": "datafusion_tracing::instrument_with_error_spans",
+    "name": "instrument_with_error_spans",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "macro",
+    "signature": "macro_rules! instrument_with_error_spans",
+    "docs": "Constructs a new instrumentation `PhysicalOptimizerRule` for a DataFusion `ExecutionPlan` at the error level.\n\nThis macro automatically sets the tracing level to `ERROR` and is a convenience wrapper around\n[`instrument_with_spans!`] with the appropriate log level preset.\n\nSee [`instrument_with_spans!`] for details on instrumentation options and span fields.\n\n# Examples\n\nBasic usage with default options:\n```rust\n# use datafusion_tracing::{instrument_with_error_spans, InstrumentationOptions};\nlet instrument_rule = instrument_with_error_spans!(options: InstrumentationOptions::default());\n```\n\nAdding custom fields:\n```rust\n# use datafusion_tracing::{instrument_with_error_spans, InstrumentationOptions};\n# use tracing::field;\n# use std::collections::HashMap;\nlet custom_fields = HashMap::from([\n    (\"custom.key1\".to_string(), \"value1\".to_string()),\n]);\nlet options = InstrumentationOptions {\n   custom_fields,\n   ..Default::default()\n};\nlet instrument_rule = instrument_with_error_spans!(\n    options: options,\n    datafusion.additional_info = \"some info\",\n    custom.key1 = field::Empty,\n);\n```\n\n[tracing_error_span]: https://docs.rs/tracing/latest/tracing/macro.error_span.html\n[`error_span!`]: https://docs.rs/tracing/latest/tracing/macro.error_span.html\n[`instrument_with_spans!`]: crate::instrument_with_spans!",
+    "span": {
+      "filename": "src/exec_instrument_macros.rs",
+      "begin": [
+        483,
+        1
+      ],
+      "end": [
+        501,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! instrument_with_error_spans {\n    (target: $target:expr, options: $options:expr, $($field:tt)*) => { ... };\n    (options: $options:expr, $($field:tt)*) => { ... };\n    (target: $target:expr, options: $options:expr) => { ... };\n    (options: $options:expr) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::instrument_with_spans!": 1283
+    },
+    "link_paths": {
+      "crate::instrument_with_spans!": "datafusion_tracing::instrument_with_spans"
+    },
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1288",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrument_with_error_spans.md",
+    "record_file": "operations/datafusion_tracing.instrument_with_error_spans.json",
+    "anchor": "op-50619facfba6088ed6e75ce1",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::instrument_with_spans!": "../operations/datafusion_tracing.instrument_with_spans.md#op-1104862d35b6f39948ef2f52"
+    }
+  }
+]

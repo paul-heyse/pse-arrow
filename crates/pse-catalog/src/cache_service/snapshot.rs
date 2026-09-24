@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Retained native Delta snapshots. Lookup validates current log generation;
+//! Retained native Delta snapshots. Lookup validates the maintenance generation;
 //! cached entries hold no reader lease. Providers retain the entry's reservation.
-use super::{CacheBudget, NativeCacheService};
+use super::{DeltaCacheBudget, DeltaCacheService};
 use datafusion::{
     common::{DataFusionError, Result, TableReference},
     execution::{
@@ -33,7 +33,7 @@ pub enum LoadRequirement {
 struct Key {
     store: usize,
     version: u64,
-    observed_latest: u64,
+    maintenance: crate::delta::lease::Generation,
     requirement: LoadRequirement,
 }
 impl CacheKey for Key {
@@ -66,6 +66,7 @@ impl Drop for SnapshotValue {
 pub(crate) struct RetainedTable {
     pub(crate) table: DeltaTable,
     _owner: SnapshotPin,
+    _lease: Option<Arc<crate::delta::lease::ReadLease>>,
 }
 #[derive(Debug)]
 struct SnapshotPin(Arc<SnapshotValue>);
@@ -88,10 +89,14 @@ impl Drop for SnapshotPin {
         }
     }
 }
-fn pin(value: Arc<SnapshotValue>) -> Arc<RetainedTable> {
+fn pin(
+    value: Arc<SnapshotValue>,
+    lease: Option<Arc<crate::delta::lease::ReadLease>>,
+) -> Arc<RetainedTable> {
     Arc::new(RetainedTable {
         table: value.table.clone(),
         _owner: SnapshotPin::acquire(value),
+        _lease: lease,
     })
 }
 #[derive(Clone)]
@@ -104,8 +109,11 @@ impl CacheValue for Entry {
 
 pub(super) struct SnapshotCache {
     entries: DefaultCache<Key, Entry>,
-    flights: super::flight::Flights<Key, SnapshotValue>,
-    loading: super::load::LoadCounters,
+    flights: pse_engine::cache_service::flight::Flights<
+        (pse_engine::session::execution::AttemptScope, Key),
+        SnapshotValue,
+    >,
+    loading: pse_engine::cache_service::load::LoadCounters,
     live: Arc<AtomicUsize>,
     pinned: Arc<AtomicUsize>,
     loads: AtomicUsize,
@@ -127,11 +135,13 @@ impl SnapshotCache {
         self.loads.load(Ordering::Relaxed)
     }
 
-    pub(super) fn new(policy: &CacheBudget) -> Self {
+    pub(super) fn new(policy: &DeltaCacheBudget) -> Self {
         Self {
             entries: DefaultCache::new(policy.snapshot_bytes).with_name("pse.cache.snapshots"),
-            flights: super::flight::Flights::new(policy.concurrent_loads.get()),
-            loading: super::load::LoadCounters::default(),
+            flights: pse_engine::cache_service::flight::Flights::new(
+                policy.native.concurrent_loads.get(),
+            ),
+            loading: pse_engine::cache_service::load::LoadCounters::default(),
             live: Arc::new(AtomicUsize::new(0)),
             pinned: Arc::new(AtomicUsize::new(0)),
             loads: AtomicUsize::new(0),
@@ -153,7 +163,11 @@ impl SnapshotCache {
             .admission
             .lock()
             .map_err(|_| DataFusionError::Internal("cache admission lock poisoned".into()))?;
-        super::details::reserve_inventory(owner, self.entries.memory_used(), budget)?;
+        pse_engine::cache_service::details::reserve_inventory(
+            owner,
+            self.entries.memory_used(),
+            budget,
+        )?;
         for (key, value) in self.entries.list_entries() {
             if rows.len() == limit {
                 break;
@@ -204,7 +218,7 @@ impl SnapshotCache {
     }
 }
 
-impl NativeCacheService {
+impl DeltaCacheService {
     /// Open a native version under fresh read ownership held by the calling provider.
     pub(crate) async fn open_snapshot(
         self: &Arc<Self>,
@@ -213,88 +227,91 @@ impl NativeCacheService {
         requirement: LoadRequirement,
         state: Arc<SessionState>,
     ) -> Result<Arc<RetainedTable>> {
+        let cancel = state
+            .config()
+            .get_extension::<pse_engine::session::execution::NativeExecutionContext>()
+            .map_or_else(pse_columnar::CancellationToken::new, |owner| {
+                owner.cancellation().clone()
+            });
+        let lease = if requirement == LoadRequirement::Maintenance {
+            None
+        } else {
+            crate::delta::lease::read(&location, &cancel).await?
+        };
+        let maintenance = lease.as_ref().map(|lease| lease.generation.clone());
         let store = state
             .runtime_env()
             .object_store_registry
             .get_store(&location)?;
-        let generation = self.generation(&location, store);
+        let generation = self.native().generation(&location, store);
         let mut builder = crate::delta::provider::table_builder(location, &state)?
-            .with_log_buffer_size(self.policy.concurrent_loads.get())
+            .with_log_buffer_size(1)
             .map_err(external)?;
         if requirement == LoadRequirement::Metadata {
             builder = builder.without_files();
         }
         let table = builder.build().map_err(external)?;
-        // This lookup bypasses all cached Delta snapshots and directory caches.
-        let observed_latest = table
-            .log_store()
-            .get_latest_version(0)
-            .await
-            .map_err(external)?;
-        let version = version.unwrap_or(observed_latest);
-        if version > observed_latest {
-            return Err(DataFusionError::Plan(
-                "requested Delta version exceeds the observed log generation".into(),
-            ));
-        }
-        let Some(store) = generation else {
+        let version = resolve_version(version, || async {
+            table
+                .log_store()
+                .get_latest_version(0)
+                .await
+                .map_err(external)
+        })
+        .await?;
+        let (Some(store), Some(maintenance)) = (generation, maintenance) else {
             self.snapshots.bypasses.fetch_add(1, Ordering::Relaxed);
-            return self.load_snapshot(table, version, None).await.map(pin);
+            return self
+                .load_snapshot(table, version)
+                .await
+                .map(|value| pin(value, lease));
         };
         let key = Key {
             store,
             version,
-            observed_latest,
+            maintenance,
             requirement,
         };
         if let Some(value) = self.snapshots.entries.get(&key) {
             self.snapshots.hits.fetch_add(1, Ordering::Relaxed);
-            return Ok(pin(value.0));
+            return Ok(pin(value.0, lease));
         }
         self.snapshots.misses.fetch_add(1, Ordering::Relaxed);
-        let seed_key = Key {
-            store,
-            version: u64::MAX,
-            observed_latest: u64::MAX,
-            requirement,
-        };
-        let seed = (version == observed_latest)
-            .then(|| self.snapshots.entries.get(&seed_key))
-            .flatten()
-            .map(|entry| entry.0)
-            .filter(|entry| entry.table.version().is_some_and(|old| old < version));
         let service = Arc::clone(self);
         let epoch = self.snapshots.epoch.load(Ordering::Acquire);
         let population_key = key.clone();
         self.snapshots
             .flights
-            .load(key, || async move {
-                let value = service.load_snapshot(table, version, seed).await?;
-                // An uncached native observation guards cross-process maintenance;
-                // admission's epoch guard linearizes local invalidation and insertion.
-                let current = value
-                    .table
-                    .log_store()
-                    .get_latest_version(0)
-                    .await
-                    .map_err(external)?;
-                if current == population_key.observed_latest {
+            .load(
+                (
+                    state
+                        .config()
+                        .get_extension::<pse_engine::session::execution::NativeExecutionContext>()
+                        .map(|services| services.attempt_scope())
+                        .or_else(|| {
+                            state
+                                .config()
+                                .get_extension::<pse_engine::session::execution::AttemptScope>()
+                                .map(|scope| scope.as_ref().clone())
+                        })
+                        .unwrap_or_default(),
+                    key,
+                ),
+                move || async move {
+                    let value = service.load_snapshot(table, version).await?;
                     service
                         .snapshots
                         .admit(&population_key, Entry(Arc::clone(&value)), epoch);
-                    service
-                        .snapshots
-                        .admit(&seed_key, Entry(Arc::clone(&value)), epoch);
-                }
-                Ok(value)
-            })
+                    Ok(value)
+                },
+            )
             .await
-            .map(pin)
+            .map(|value| pin(value, lease))
     }
 
     /// Retain a successfully returned native commit state without replaying its log.
     /// Failure here concerns acceleration only; the caller already owns a commit.
-    pub(crate) async fn remember_committed(
+    pub(crate) fn remember_committed(
         &self,
         table: &DeltaTable,
         state: &SessionState,
@@ -304,36 +321,29 @@ impl NativeCacheService {
             .runtime_env()
             .object_store_registry
             .get_store(&location)?;
-        let Some(store) = self.generation(&location, store) else {
+        let Some(store) = self.native().generation(&location, store) else {
             return Ok(());
         };
         let Some(version) = table.version() else {
             return Ok(());
         };
         let epoch = self.snapshots.epoch.load(Ordering::Acquire);
-        let observed_latest = table
-            .log_store()
-            .get_latest_version(0)
-            .await
-            .map_err(external)?;
-        if version != observed_latest {
+        let Some(maintenance) = crate::delta::lease::generation(&location)? else {
             return Ok(());
-        }
+        };
         let reservation = MemoryConsumer::new("pse.cache.committed_snapshot").register(&self.pool);
         let value = self.retain_snapshot(table.clone(), reservation)?;
         let key = Key {
             store,
             version,
-            observed_latest,
-            requirement: LoadRequirement::Query,
+            maintenance,
+            requirement: if table.config.require_files {
+                LoadRequirement::Query
+            } else {
+                LoadRequirement::Metadata
+            },
         };
         self.snapshots.admit(&key, Entry(value.clone()), epoch);
-        let seed = Key {
-            version: u64::MAX,
-            observed_latest: u64::MAX,
-            ..key
-        };
-        self.snapshots.admit(&seed, Entry(value), epoch);
         Ok(())
     }
 
@@ -341,14 +351,10 @@ impl NativeCacheService {
         &self,
         mut table: DeltaTable,
         version: u64,
-        seed: Option<Arc<SnapshotValue>>,
     ) -> Result<Arc<SnapshotValue>> {
-        let _load = self.admit_load(&self.snapshots.loading).await?;
+        let _load = self.native.admit_load(&self.snapshots.loading).await?;
         let reservation = MemoryConsumer::new("pse.cache.snapshot_owner").register(&self.pool);
         self.snapshots.loads.fetch_add(1, Ordering::Relaxed);
-        if let Some(seed) = &seed {
-            table = seed.table.clone();
-        }
         table.load_version(version).await.map_err(external)?;
         self.retain_snapshot(table, reservation)
     }
@@ -379,13 +385,97 @@ impl NativeCacheService {
     }
 }
 fn external(error: deltalake::DeltaTableError) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
+    error.into()
+}
+
+/// Current-head I/O belongs exclusively to an unpinned request. Keep the callback
+/// lazy so even constructing a current-head operation is absent on the exact path.
+async fn resolve_version<F, Fut>(version: Option<u64>, current: F) -> Result<u64>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Result<u64>>,
+{
+    match version {
+        Some(version) => Ok(version),
+        None => current().await,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use datafusion::execution::memory_pool::{GreedyMemoryPool, MemoryPool};
+    #[tokio::test]
+    async fn pinned_cache_hit_never_reads_or_lists_the_fake_log_store() {
+        use datafusion::execution::{
+            runtime_env::RuntimeEnvBuilder, session_state::SessionStateBuilder,
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let root = url::Url::from_directory_path(directory.path()).unwrap();
+        let store = Arc::new(super::super::store_tests::CountingStore::default());
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(32 << 20));
+        let runtime = RuntimeEnvBuilder::new()
+            .with_memory_pool(pool.clone())
+            .build_arc()
+            .unwrap();
+        runtime.register_object_store(&root, store.clone());
+        let service =
+            DeltaCacheService::new(DeltaCacheBudget::for_memory(32 << 20), &pool).unwrap();
+        let state = Arc::new(
+            SessionStateBuilder::new()
+                .with_default_features()
+                .with_runtime_env(runtime)
+                .build(),
+        );
+        let lease = crate::delta::lease::read(&root, &pse_columnar::CancellationToken::new())
+            .await
+            .unwrap()
+            .unwrap();
+        let key = Key {
+            store: service.native().generation(&root, store.clone()).unwrap(),
+            version: 7,
+            maintenance: lease.generation.clone(),
+            requirement: LoadRequirement::Query,
+        };
+        // A fake retained value isolates cache routing. No Delta commit/replay is
+        // performed by this unit; real snapshot semantics belong to I18 journeys.
+        let expected = retained(&service.snapshots, &pool);
+        service.snapshots.admit(&key, Entry(expected.clone()), 0);
+        let hit = service
+            .open_snapshot(root, Some(7), LoadRequirement::Query, state)
+            .await
+            .unwrap();
+        #[expect(
+            clippy::used_underscore_binding,
+            reason = "test compares the actual cache value owner without interpreting the fake table"
+        )]
+        let actual_owner = &hit._owner.0;
+        assert!(Arc::ptr_eq(actual_owner, &expected));
+        assert_eq!(store.gets.load(Ordering::SeqCst), 0);
+        assert_eq!(store.lists.load(Ordering::SeqCst), 0);
+        assert_eq!(service.snapshots.loads(), 0);
+    }
+    #[tokio::test]
+    async fn exact_versions_never_observe_head_and_unpinned_requests_observe_it_once() {
+        let heads = AtomicUsize::new(0);
+        for requested in [Some(0), Some(5), Some(5), Some(1), None, None] {
+            let actual = resolve_version(requested, || {
+                heads.fetch_add(1, Ordering::SeqCst);
+                std::future::ready(Ok(42))
+            })
+            .await
+            .unwrap();
+            assert_eq!(actual, requested.unwrap_or(42));
+        }
+        assert_eq!(heads.load(Ordering::SeqCst), 2);
+        assert!(
+            resolve_version(None, || std::future::ready(Err(
+                DataFusionError::Execution("head unavailable".into())
+            )))
+            .await
+            .is_err()
+        );
+    }
     fn retained(cache: &SnapshotCache, pool: &Arc<dyn MemoryPool>) -> Arc<SnapshotValue> {
         let reservation = MemoryConsumer::new("unit.snapshot").register(pool);
         reservation.try_grow(512).unwrap();
@@ -402,14 +492,14 @@ mod tests {
         Key {
             store: 0,
             version,
-            observed_latest: 2,
+            maintenance: crate::delta::lease::test_generation(2),
             requirement: LoadRequirement::Query,
         }
     }
     #[test]
     fn eviction_and_invalidation_cannot_free_a_live_reader_or_admit_a_late_fill() {
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
-        let mut policy = CacheBudget::disabled(1);
+        let mut policy = DeltaCacheBudget::disabled(1);
         policy.snapshot_bytes = 1024;
         let cache = SnapshotCache::new(&policy);
         let reader = retained(&cache, &pool);
@@ -426,7 +516,7 @@ mod tests {
         assert_eq!(cache.live_bytes(), 0);
     }
     #[test]
-    fn load_capability_and_observed_generation_are_lookup_inputs() {
+    fn load_capability_and_maintenance_generation_are_lookup_inputs() {
         let original = key(1);
         assert_ne!(
             original,
@@ -438,7 +528,7 @@ mod tests {
         assert_ne!(
             original,
             Key {
-                observed_latest: 3,
+                maintenance: crate::delta::lease::test_generation(3),
                 ..original.clone()
             }
         );
@@ -453,11 +543,11 @@ mod tests {
     #[test]
     fn pins_count_unique_native_owners_until_the_last_reader_drops() {
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
-        let cache = SnapshotCache::new(&CacheBudget::disabled(1));
+        let cache = SnapshotCache::new(&DeltaCacheBudget::disabled(1));
         let value = retained(&cache, &pool);
         assert_eq!(cache.report().pinned_bytes, Some(0));
-        let first = pin(value.clone());
-        let second = pin(value.clone());
+        let first = pin(value.clone(), None);
+        let second = pin(value.clone(), None);
         assert_eq!(cache.report().pinned_bytes, Some(512));
         drop(first);
         assert_eq!(cache.report().pinned_bytes, Some(512));

@@ -1,0 +1,439 @@
+[
+  {
+    "kind": "open",
+    "id": 1,
+    "parent": null,
+    "name": "create_physical_plan",
+    "target": "datafusion_tracing::planner",
+    "fields": {}
+  },
+  {
+    "kind": "open",
+    "id": 2,
+    "parent": 1,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_physical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 3,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OutputRequirements"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 3,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OutputRequirements (modified)"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 2251799813685251,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "aggregate_statistics"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 2251799813685251,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "aggregate_statistics"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 4503599627370499,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "join_selection"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 4503599627370499,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "join_selection"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 6755399441055747,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitedDistinctAggregation"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 6755399441055747,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitedDistinctAggregation"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 9007199254740995,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "FilterPushdown"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 9007199254740995,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "FilterPushdown"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 11258999068426243,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "WindowTopN"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 11258999068426243,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "WindowTopN"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 13510798882111491,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "EnsureRequirements"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 13510798882111491,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "EnsureRequirements"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 15762598695796739,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "CombinePartialFinalAggregate"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 15762598695796739,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "CombinePartialFinalAggregate"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 18014398509481987,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OptimizeAggregateOrder"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 18014398509481987,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OptimizeAggregateOrder"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 20266198323167235,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "ProjectionPushdown"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 20266198323167235,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "ProjectionPushdown"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 22517998136852483,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OutputRequirements"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 22517998136852483,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "OutputRequirements (modified)"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 24769797950537731,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitAggregation"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 24769797950537731,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitAggregation"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 27021597764222979,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitPushPastWindows"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 27021597764222979,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitPushPastWindows"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 29273397577908227,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "HashJoinBuffering"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 29273397577908227,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "HashJoinBuffering"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 31525197391593475,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitPushdown"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 31525197391593475,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "LimitPushdown"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 33776997205278723,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "TopKRepartition"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 33776997205278723,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "TopKRepartition"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 36028797018963971,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "ProjectionPushdown"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 36028797018963971,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "ProjectionPushdown"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 38280596832649219,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "PushdownSort"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 38280596832649219,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "PushdownSort"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 40532396646334467,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "EnsureCooperative"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 40532396646334467,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "EnsureCooperative"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 42784196460019715,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "FilterPushdown(Post)"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 42784196460019715,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "FilterPushdown(Post)"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 45035996273704963,
+    "parent": 2,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "SanityCheckPlan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 45035996273704963,
+    "name": "Rule",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "SanityCheckPlan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 2,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "datafusion.effective_rules": "OutputRequirements, OutputRequirements",
+      "otel.name": "optimize_physical_plan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 1,
+    "name": "create_physical_plan",
+    "target": "datafusion_tracing::planner",
+    "fields": {
+      "logical_plan": "SubqueryAlias: t [a:Int64]\n  Projection: column1 AS a [a:Int64]\n    Values: (Int64(1)), (Int64(2)), (Int64(3)) [column1:Int64]",
+      "physical_plan": "ProjectionExec: expr=[column1@0 as a]\n  DataSourceExec: partitions=1, partition_sizes=[1]\n"
+    }
+  }
+]

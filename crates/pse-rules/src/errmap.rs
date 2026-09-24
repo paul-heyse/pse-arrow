@@ -10,19 +10,11 @@
 //!
 use crate::RuleError;
 use datafusion_common::DataFusionError;
-use pse_catalog::PlanOrigin;
+use pse_columnar::PlanOrigin;
 
-/// Classify all engine failures through the catalog's sole mapping authority.
+/// Classify all engine failures through the diagnostic leaf's sole mapping authority.
 pub fn classify(error: DataFusionError, origin: PlanOrigin) -> RuleError {
-    let mut errors: Vec<_> = pse_catalog::classify(error, origin)
-        .into_iter()
-        .map(RuleError::Catalog)
-        .collect();
-    if errors.len() == 1 {
-        errors.remove(0)
-    } else {
-        RuleError::Collection { errors }
-    }
+    pse_columnar::classify(error, origin).into()
 }
 
 pub(crate) fn engine(error: DataFusionError) -> RuleError {

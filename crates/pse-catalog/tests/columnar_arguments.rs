@@ -15,13 +15,11 @@ use datafusion::{
         },
         datatypes::{DataType, Field, Schema},
     },
-    execution::runtime_env::RuntimeEnv,
     logical_expr::{LogicalPlanBuilder, col, lit},
 };
-use pse_catalog::session::{
-    ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile,
-};
-use pse_ids::{CancellationToken, FixedBudget, owned_buffer::OwnedRecordBatch};
+use pse_engine::session::{ExecutionSettings, ThreadBudget};
+
+use pse_columnar::{CancellationToken, owned_buffer::OwnedRecordBatch};
 use pse_schema::{
     Registry,
     model::{FieldContract, field::SOURCE_SUPPORT_COLUMN},
@@ -83,29 +81,25 @@ fn argument(registry: &Registry, empty: bool, duplicate: bool) -> RecordBatch {
 #[tokio::test]
 async fn support_stays_with_values_across_filter_union_sort_and_owner_drop() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-    let budget = FixedBudget::new(128 << 20);
+    let budget: Arc<dyn pse_columnar::MemoryPool> =
+        Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
     let cancel = CancellationToken::default();
-    let factory = SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
+    let factory = pse_testkit::factory(
         budget.clone(),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
             target_partitions: 4.try_into().unwrap(),
         },
-        native_engine_profile(),
     )
     .unwrap();
     let base = factory
         .candidate(BTreeMap::new(), registry.clone(), &cancel)
         .unwrap();
     for (empty, duplicate) in [(true, false), (false, true)] {
-        let data = OwnedRecordBatch::export(
-            argument(&registry, empty, duplicate),
-            budget.as_ref(),
-            &cancel,
-        )
-        .unwrap();
+        let data =
+            OwnedRecordBatch::export(argument(&registry, empty, duplicate), &budget, &cancel)
+                .unwrap();
         assert!(
             base.with_columnar_argument("malformed", data, &cancel)
                 .await
@@ -113,8 +107,7 @@ async fn support_stays_with_values_across_filter_union_sort_and_owner_drop() {
         );
     }
     let input =
-        OwnedRecordBatch::export(argument(&registry, false, false), budget.as_ref(), &cancel)
-            .unwrap();
+        OwnedRecordBatch::export(argument(&registry, false, false), &budget, &cancel).unwrap();
     let session = base
         .with_columnar_argument("constructed", input, &cancel)
         .await

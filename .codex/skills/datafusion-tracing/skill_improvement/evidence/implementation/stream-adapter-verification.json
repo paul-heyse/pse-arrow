@@ -1,0 +1,44 @@
+{
+  "kind": "exact_release_source",
+  "version": "55.1.0",
+  "archive_sha256": "1265d58e5bce07d154e642a51ff43033b576a6ae40d50a29ac2b9f311004eb52",
+  "archive_origin": "https://static.crates.io/crates/datafusion-physical-plan/datafusion-physical-plan-55.1.0.crate",
+  "files": [
+    {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs",
+      "sha256": "0ae6c6020a40b649ee250c42ff0c8eaffd3f2fe0b7662e9fe915f78d7375591e",
+      "origin": "https://docs.rs/crate/datafusion-physical-plan/55.1.0/source/src/stream.rs"
+    },
+    {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/Cargo.toml",
+      "sha256": "4e78f978cab97e711bfee219abc8914bbc94167d8fe67e7b5dc8ddd10076e6e3",
+      "origin": "https://docs.rs/crate/datafusion-physical-plan/55.1.0/source/Cargo.toml"
+    },
+    {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/LICENSE.txt",
+      "sha256": "232588dc9ad2096eb589a4f46bd58aafc3b57a38b146196c3d38dec884359888",
+      "origin": "https://docs.rs/crate/datafusion-physical-plan/55.1.0/source/LICENSE.txt"
+    },
+    {
+      "path": "skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/NOTICE.txt",
+      "sha256": "1d565f880154f087f88751669045db560b759fd04b0ef02ffab7cb34cf093d24",
+      "origin": "https://docs.rs/crate/datafusion-physical-plan/55.1.0/source/NOTICE.txt"
+    }
+  ],
+  "finding": "RecordBatchStreamAdapter drops its inner stream on None; retaining its exhausted public handle does not retain the inner ExecutionRecordingStream.",
+  "runtime": "See partition_preview_cap_and_live_stream_lifetime in the final probe receipt.",
+  "context7": {
+    "library_id": "/apache/datafusion",
+    "role": "discovery_only",
+    "result": "Current custom-provider docs show wrapping a Stream but do not establish exact-release EOF/drop behavior. The retained 55.1.0 source and executed consumer assertion are authority."
+  },
+  "datafusion_skill": {
+    "capability": "df.consume",
+    "operation": "datafusion_physical_plan::stream::RecordBatchStreamAdapter::poll_next",
+    "operation_id": "2801a3e9b5b548b7796fd817",
+    "contract": "skill_improvement/evidence/implementation/datafusion-boundary-contract.json",
+    "retained_source_matches_skill_exact_archive": true,
+    "archive_sha256": "1265d58e5bce07d154e642a51ff43033b576a6ae40d50a29ac2b9f311004eb52",
+    "role": "Pinned contract, lifecycle guidance, source location and exact archive verification; supersedes Context7 as the DataFusion research route."
+  }
+}

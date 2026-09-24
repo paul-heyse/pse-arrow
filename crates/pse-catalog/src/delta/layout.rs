@@ -30,6 +30,9 @@ pub(super) fn declared_output(
     schema: &SchemaRef,
 ) -> Result<Arc<dyn datafusion::physical_plan::ExecutionPlan>> {
     let actual = input.schema();
+    if actual == *schema {
+        return Ok(input);
+    }
     if actual.fields().len() != schema.fields().len()
         || actual
             .fields()
@@ -79,6 +82,7 @@ pub(super) fn declared_output(
 pub struct DurableLayout {
     execution: SchemaRef,
     storage: SchemaRef,
+    decode_roundtrip: Arc<[bool]>,
 }
 impl DurableLayout {
     /// Derive the durable shape from one execution declaration, never from input values.
@@ -91,7 +95,17 @@ impl DurableLayout {
             pse_schema::delta::storage_schema(&execution)
                 .map_err(|e| DataFusionError::External(Box::new(e)))?,
         );
-        Ok(Self { execution, storage })
+        let decode_roundtrip = storage
+            .fields()
+            .iter()
+            .zip(execution.fields())
+            .map(|(from, to)| needs_roundtrip(from.data_type(), to.data_type()))
+            .collect();
+        Ok(Self {
+            execution,
+            storage,
+            decode_roundtrip,
+        })
     }
     /// Declared durable fields for table creation and native provider binding.
     pub fn storage_schema(&self) -> &SchemaRef {
@@ -105,7 +119,13 @@ impl DurableLayout {
     /// # Errors
     /// Input fields differ from the declared execution contract.
     pub fn encode(&self, input: LogicalPlan) -> Result<LogicalPlan> {
-        project(input, &self.execution, &self.storage, "pse_delta_encode")
+        project(
+            input,
+            &self.execution,
+            &self.storage,
+            "pse_delta_encode",
+            &[],
+        )
     }
     /// Project a stored relation back to its declared semantic representation.
     /// Runtime conversion rejects overflows, invalid widths and required null values.
@@ -116,7 +136,13 @@ impl DurableLayout {
             .map_err(|e| DataFusionError::External(Box::new(e)))?;
         pse_schema::field_contract::execution_schema(&stored_declaration, &self.execution)
             .map_err(|e| DataFusionError::External(Box::new(e)))?;
-        project(input, &self.storage, &self.execution, "pse_delta_decode")
+        project(
+            input,
+            &self.storage,
+            &self.execution,
+            "pse_delta_decode",
+            &self.decode_roundtrip,
+        )
     }
     /// Decode stored relation fields while retaining native CDF metadata columns.
     /// The latter are supplied by Delta, not persisted execution descriptors.
@@ -149,7 +175,13 @@ impl DurableLayout {
         };
         let stored = combined(&self.storage);
         let execution = combined(&self.execution);
-        project(input, &stored, &execution, "pse_delta_decode")
+        project(
+            input,
+            &stored,
+            &execution,
+            "pse_delta_decode",
+            &self.decode_roundtrip,
+        )
     }
     /// Restore a generated durable field after native struct/aggregate expressions
     /// infer conservative nested nullability. Arrow casts check the actual values.
@@ -157,6 +189,7 @@ impl DurableLayout {
         let target = Arc::clone(&self.storage.fields()[index]);
         ScalarUDF::from(DurableCast {
             name: "pse_delta_encode_field",
+            roundtrip: false,
             signature: Signature::exact(vec![actual], Volatility::Immutable),
             intermediate: target.data_type().clone(),
             target,
@@ -169,6 +202,7 @@ fn project(
     from: &SchemaRef,
     to: &SchemaRef,
     name: &'static str,
+    roundtrip: &[bool],
 ) -> Result<LogicalPlan> {
     let admission = if name == "pse_delta_decode" {
         pse_schema::field_contract::delta_scan_schema(input.schema().as_arrow(), from)
@@ -181,6 +215,7 @@ fn project(
         let actual = input.schema().field(index);
         let function = ScalarUDF::from(DurableCast {
             name,
+            roundtrip: roundtrip.get(index).copied().unwrap_or(false),
             signature: Signature::exact(vec![actual.data_type().clone()], Volatility::Immutable),
             intermediate: if name == "pse_delta_decode" {
                 from.field(index).data_type().clone()
@@ -217,6 +252,7 @@ fn project(
 }
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct DurableCast {
+    roundtrip: bool,
     name: &'static str,
     signature: Signature,
     intermediate: DataType,
@@ -242,49 +278,98 @@ impl ScalarUDFImpl for DurableCast {
             ));
         };
         let array = value.to_array(args.number_rows)?;
-        // Delta scans use view arrays. Arrow does not directly cast BinaryView to
-        // FixedSizeBinary; normalize through the declared durable type first.
-        let options = CastOptions {
+        Ok(ColumnarValue::Array(restore_array_classified(
+            &array,
+            &self.intermediate,
+            &self.target,
+            self.name == "pse_delta_decode",
+            self.roundtrip,
+        )?))
+    }
+}
+
+/// One mechanical conversion for scans, writes and CHECK input restoration.
+pub(super) fn restore_array(
+    array: &datafusion::arrow::array::ArrayRef,
+    intermediate: &DataType,
+    target: &FieldRef,
+    decode: bool,
+) -> Result<datafusion::arrow::array::ArrayRef> {
+    restore_array_classified(
+        array,
+        intermediate,
+        target,
+        decode,
+        needs_roundtrip(intermediate, target.data_type()),
+    )
+}
+
+fn needs_roundtrip(from: &DataType, to: &DataType) -> bool {
+    if from == to {
+        return false;
+    }
+    // Representation widening preserves every value. Other mappings retain the
+    // inverse check: Arrow cast support alone is not a losslessness proof.
+    !matches!(
+        (from, to),
+        (DataType::Utf8, DataType::LargeUtf8 | DataType::Utf8View)
+            | (
+                DataType::Binary,
+                DataType::LargeBinary | DataType::BinaryView
+            )
+            | (DataType::Int64, DataType::Timestamp(_, _))
+    )
+}
+
+fn restore_array_classified(
+    array: &datafusion::arrow::array::ArrayRef,
+    intermediate: &DataType,
+    target: &FieldRef,
+    decode: bool,
+    roundtrip: bool,
+) -> Result<datafusion::arrow::array::ArrayRef> {
+    // Delta scans use view arrays. Arrow does not directly cast BinaryView to
+    // FixedSizeBinary; normalize through the declared durable type first.
+    let options = CastOptions {
+        safe: false,
+        ..CastOptions::default()
+    };
+    let array = cast_with_options(array, intermediate, &options)?;
+    let array = if decode {
+        visibility::storage(array)?
+    } else {
+        array
+    };
+    let converted = cast_with_options(
+        &array,
+        target.data_type(),
+        &CastOptions {
             safe: false,
             ..CastOptions::default()
-        };
-        let array = cast_with_options(&array, &self.intermediate, &options)?;
-        let array = if self.name == "pse_delta_decode" {
-            visibility::storage(array)?
-        } else {
-            array
-        };
-        let converted = cast_with_options(
-            &array,
-            self.target.data_type(),
-            &CastOptions {
-                safe: false,
-                ..CastOptions::default()
-            },
-        )?;
-        if !self.target.is_nullable() && converted.null_count() != 0 {
+        },
+    )?;
+    if !target.is_nullable() && converted.null_count() != 0 {
+        return Err(DataFusionError::Execution(format!(
+            "required durable field {} contains nulls",
+            target.name()
+        )));
+    }
+    if decode && roundtrip {
+        // CastOptions::safe=false rejects integer overflow, but float narrowing
+        // may still round. Native Arrow logical array equality checks the inverse
+        // conversion recursively, respecting null parent masks and dictionaries.
+        // The inverse of a null fixed-size container introduces masked child
+        // slots into variable-size storage. Comparison-only nullable children
+        // allow those placeholders; the returned declaration stays unchanged.
+        let comparison = visibility::comparison_type(intermediate);
+        let original = cast_with_options(&array, &comparison, &options)?;
+        let restored = cast_with_options(&converted, &comparison, &options)?;
+        if original.to_data() != restored.to_data() {
             return Err(DataFusionError::Execution(format!(
-                "required durable field {} contains nulls",
-                self.target.name()
+                "durable field {} cannot be decoded without changing values",
+                target.name()
             )));
         }
-        if self.name == "pse_delta_decode" && converted.data_type() != &self.intermediate {
-            // CastOptions::safe=false rejects integer overflow, but float narrowing
-            // may still round. Native Arrow logical array equality checks the inverse
-            // conversion recursively, respecting null parent masks and dictionaries.
-            // The inverse of a null fixed-size container introduces masked child
-            // slots into variable-size storage. Comparison-only nullable children
-            // allow those placeholders; the returned declaration stays unchanged.
-            let comparison = visibility::comparison_type(&self.intermediate);
-            let original = cast_with_options(&array, &comparison, &options)?;
-            let restored = cast_with_options(&converted, &comparison, &options)?;
-            if original.to_data() != restored.to_data() {
-                return Err(DataFusionError::Execution(format!(
-                    "durable field {} cannot be decoded without changing values",
-                    self.target.name()
-                )));
-            }
-        }
-        Ok(ColumnarValue::Array(converted))
     }
+    Ok(converted)
 }

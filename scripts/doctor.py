@@ -150,9 +150,7 @@ def check_env_synced() -> Check:
         return Check("env", False, "no .venv", "just bootstrap-venv")
     if not (ROOT / "uv.lock").exists():
         return Check("env", False, "no uv.lock", "uv lock")
-    code, out = run(
-        "uv", "sync", "--check", "--locked", "--offline", "--extra", "pyomo", timeout=30
-    )
+    code, out = run("uv", "sync", "--check", "--locked", "--offline", timeout=30)
     if code != 0:
         last = out.strip().splitlines()[-1] if out else "out of date"
         return Check("env", False, last[:80], "just py-sync")

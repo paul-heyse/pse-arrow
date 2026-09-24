@@ -1,0 +1,35 @@
+{
+  "invariant": "authored.native_providers:unique:pk",
+  "rows": {
+    "authored.native_providers": [
+      {
+        "caloric_reference": "[\"id\",\"01010101010101010101010101010101\"]",
+        "components": "[\"list\",[]]",
+        "envelope": "[\"struct\",[[\"list\",[]],[\"list\",[]],[\"list\",[]],[\"list\",[]],[\"text\",\"value-1\"]]]",
+        "inputs": "[\"list\",[]]",
+        "kind": "[\"text\",\"value-1\"]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "output": "[\"i64\",1]",
+        "outputs": "[\"list\",[]]"
+      },
+      {
+        "caloric_reference": "[\"id\",\"01010101010101010101010101010101\"]",
+        "components": "[\"list\",[]]",
+        "envelope": "[\"struct\",[[\"list\",[]],[\"list\",[]],[\"list\",[]],[\"list\",[]],[\"text\",\"value-1\"]]]",
+        "inputs": "[\"list\",[]]",
+        "kind": "[\"text\",\"value-1\"]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "output": "[\"i64\",1]",
+        "outputs": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

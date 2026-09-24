@@ -1,0 +1,117 @@
+[
+  {
+    "id": "82f51df0c389cf739d2f6461",
+    "path": "opentelemetry",
+    "name": "opentelemetry",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod opentelemetry",
+    "docs": "Implements the [`API`] component of [OpenTelemetry].\n\n*[Supported Rust Versions](#supported-rust-versions)*\n\n[`API`]: https://opentelemetry.io/docs/specs/otel/overview/#api\n[OpenTelemetry]: https://opentelemetry.io/docs/what-is-opentelemetry/\n\n# Getting Started with Traces\n\nThe [`trace`] module includes types for tracking the progression of a single\nrequest while it is handled by services that make up an application. A trace\nis a tree of [`Span`]s which are objects that represent the work being done\nby individual services or components involved in a request as it flows\nthrough a system.\n\n```\n# #[cfg(feature = \"trace\")]\n# {\nuse opentelemetry::{global, trace::{Span, Tracer}, KeyValue};\n\n// get a tracer from a provider\nlet tracer = global::tracer(\"my_service\");\n\n// start a new span\nlet mut span = tracer.start(\"my_span\");\n\n// set some attributes\nspan.set_attribute(KeyValue::new(\"http.client_ip\", \"83.164.160.102\"));\n\n// perform some more work...\n\n// end or drop the span to export\nspan.end();\n# }\n```\n\nSee the [examples](https://github.com/open-telemetry/opentelemetry-rust/tree/main/examples) directory for different integration patterns.\n\nSee the [`trace`] module docs for more information on creating and managing\nspans.\n\n[`Span`]: crate::trace::Span\n\n# Getting Started with Metrics\n\nThe [`metrics`] module provides types for recording measurements about a\nservice at runtime. Below are the key steps to report measurements using\nOpenTelemetry Metrics:\n\n1. **Obtain a Meter:** Get a `Meter` from a `MeterProvider`.\n2. **Create Instruments:** Use the `Meter` to create one or more instruments\n   (e.g., counters, histograms).\n3. **Record Measurements:** Use the instruments to record measurement values\n   along with optional attributes.\n\n## How Metrics work in OpenTelemetry\nIn OpenTelemetry, raw measurements recorded using instruments are\n**aggregated in memory** to form metrics. These aggregated metrics are\nperiodically exported by the [`opentelemetry_sdk`] at fixed intervals (e.g.,\nevery 60 seconds) via exporters such as [`opentelemetry-stdout`] or\n[`opentelemetry-otlp`]. This reduces reporting overhead while ensuring\nup-to-date data. The aggregation strategy and export interval can be\ncustomized in the [`opentelemetry_sdk`] based on your use case.\n\n## Choosing the Right Instrument\nSelecting the correct instrument is critical for accurately representing\nyour metrics data:\n\n- Use **Counters** for values that only increase, such as the number of\n  requests served or errors encountered.\n- Use **UpDownCounters** for values that can increase or decrease, such as\n  the number of active connections, number of items in a queue etc.\n- **Gauges:** Use for values that can go up or down and represent the\n  current state, such as CPU usage, temperature etc.\n- Use **Histograms** for measuring the distribution of a value, such as\n  response times or payload sizes.\n\n### Observable Instruments\n\nCounters, UpDownCounters, and Gauges have Observable variants that allow\nvalues to be reported through a callback function. Observable instruments\nare ideal when the metric value is managed elsewhere and needs to be\nobserved by OpenTelemetry instrumentation. The callbacks are automatically\ninvoked by the OpenTelemetry SDK before every export (e.g., every 60\nseconds).\n\nFor example:\n- An **ObservableCounter** can monitor the number of page faults in a\n  process as reported by the operating system.\n- An **ObservableUpDownCounter** can monitor the size of an in-memory queue\n  by reporting the size using queue's len() method within the callback\n  function.\n- An **ObservableGauge** can monitor the CPU temperature by using\n  temperature sensor APIs within the callback function.\n   \nFor detailed guidance, refer to [OpenTelemetry Metrics API - Instrumentation\nGuidance](https://opentelemetry.io/docs/specs/otel/metrics/supplementary-guidelines/#instrument-selection).\n\n## Best Practices\n- **Re-use Instruments:** Instruments are designed for\n  reuse. Avoid creating new instruments repeatedly.\n- **Clone for Sharing:** If the same instrument needs to be used across\n  multiple parts of your code, you can safely clone it to share.\n\n## Example Usage\n```\nuse opentelemetry::{global, KeyValue};\n\n// Get a meter from a provider.\nlet meter = global::meter(\"my_service\");\n\n// Create an instrument (in this case, a Counter).\nlet counter = meter.u64_counter(\"request.count\").build();\n\n// Record a measurement by passing the value and a set of attributes.\ncounter.add(1, &[KeyValue::new(\"http.client_ip\", \"83.164.160.102\")]);\n\n// Create an ObservableCounter and register a callback that reports the measurement.\nlet _observable_counter = meter\n.u64_observable_counter(\"bytes_received\")\n.with_callback(|observer| {\n    observer.observe(\n        100,\n        &[\n            KeyValue::new(\"protocol\", \"udp\"),\n        ],\n    )\n})\n.build();\n```\n\nSee the\n[examples](https://github.com/open-telemetry/opentelemetry-rust/tree/main/examples/metrics-basic)\ndirectory that show a runnable example with all type of instruments.\n\n\nSee the [`metrics`] module docs for more information on creating and\nmanaging instruments.\n\n\n# Getting Started with Logs\n\n The [`logs`] module contains the Logs Bridge API. It is not intended to be\n called by application developers directly. It is provided for logging\n library authors to build log appenders, that bridges existing logging\n systems with OpenTelemetry. Bridges for\n [`log`](https://crates.io/crates/log) and\n [`tracing`](https://crates.io/crates/tracing) libraries are provided via\n the\n [`opentelemetry-appender-log`](https://crates.io/crates/opentelemetry-appender-log)\n and\n [`opentelemetry-appender-tracing`](https://crates.io/crates/opentelemetry-appender-tracing)\n crates.\n\n# Crate Feature Flags\n\nThe following core crate feature flags are available:\n\n* `trace`: Includes the trace API.\n* `metrics`: Includes the metrics API.\n* `logs`: Includes the logs bridge API.\n* `internal-logs`: Includes internal logging for the OpenTelemetry library via `tracing`.\n\nThe default feature flags are [\"trace\", \"metrics\", \"logs\", \"internal-logs\"].\n\nThe following feature flags provides additional configuration for `logs`:\n* `spec_unstable_logs_enabled`: Allow users to control the log level\n\nThe following feature flags enable APIs defined in OpenTelemetry specification that is in experimental phase:\n* `otel_unstable`: Includes unstable APIs. There are no features behind this flag at the moment.\n\n# Related Crates\n\nIn addition to `opentelemetry`, the [`open-telemetry/opentelemetry-rust`]\nrepository contains several additional crates designed to be used with the\n`opentelemetry` ecosystem. This includes exporters, samplers, as well as\nutility and adapter crates to assist in propagating context and\ninstrumenting applications.\n\nIn particular, the following crates are likely to be of interest:\n\n- [`opentelemetry_sdk`] provides the OpenTelemetry SDK used to configure providers.\n- [`opentelemetry-http`] provides an interface for injecting and extracting\n  trace information from [`http`] headers.\n- [`opentelemetry-otlp`] exporter for sending telemetry in the\n  OTLP format.\n- [`opentelemetry-stdout`] provides ability to output telemetry to stdout,\n  primarily used for learning/debugging purposes.\n- [`opentelemetry-prometheus`] provides a pipeline and exporter for sending\n  metrics information to [`Prometheus`].\n- [`opentelemetry-zipkin`] provides a pipeline and exporter for sending\n  trace information to [`Zipkin`].\n\n In addition, there are several other useful crates in the [OTel Rust\n Contrib\n repo](https://github.com/open-telemetry/opentelemetry-rust-contrib). A lot\n of crates maintained outside OpenTelemetry owned repos can be found in the\n [OpenTelemetry\n Registry](https://opentelemetry.io/ecosystem/registry/?language=rust).\n\n[`http`]: https://crates.io/crates/http\n[`open-telemetry/opentelemetry-rust`]: https://github.com/open-telemetry/opentelemetry-rust\n[`opentelemetry_sdk`]: https://crates.io/crates/opentelemetry_sdk\n[`opentelemetry-stdout`]: https://crates.io/crates/opentelemetry_stdout\n[`opentelemetry-http`]: https://crates.io/crates/opentelemetry-http\n[`opentelemetry-otlp`]: https://crates.io/crates/opentelemetry-otlp\n[`opentelemetry-prometheus`]: https://crates.io/crates/opentelemetry-prometheus\n[`opentelemetry-zipkin`]: https://crates.io/crates/opentelemetry-zipkin\n[`Prometheus`]: https://prometheus.io\n[`Zipkin`]: https://zipkin.io\n\n# Supported Rust Versions\n\nOpenTelemetry is built against the latest stable release. The minimum\nsupported version is 1.70. The current OpenTelemetry version is not\nguaranteed to build on Rust versions earlier than the minimum supported\nversion.\n\nThe current stable Rust compiler and the three most recent minor versions\nbefore it will always be supported. For example, if the current stable\ncompiler version is 1.49, the minimum supported version will not be\nincreased past 1.46, three minor versions prior. Increasing the minimum\nsupported compiler version is not considered a semver breaking change as\nlong as doing so complies with this policy.",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        307,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[warn(future_incompatible, missing_debug_implementations, missing_docs,\nnonstandard_style, rust_2018_idioms, unreachable_pub, unused)]"
+      },
+      {
+        "other": "#[allow(clippy::needless_doctest_main)]"
+      },
+      {
+        "other": "#[<cfg_attr>(docsrs, feature(doc_cfg, doc_auto_cfg),\ndeny(rustdoc::broken_intra_doc_links))]"
+      },
+      {
+        "other": "#[feature(doc_cfg, doc_auto_cfg)]"
+      },
+      {
+        "other": "#[deny(rustdoc::broken_intra_doc_links)]"
+      },
+      {
+        "other": "#[doc(html_logo_url =\n\"https://raw.githubusercontent.com/open-telemetry/opentelemetry-rust/main/assets/logo.svg\")]"
+      },
+      {
+        "other": "#[<cfg_attr>(test, deny(warnings))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          12,
+          364,
+          503,
+          1357,
+          1438,
+          1987,
+          2180,
+          2188,
+          2189,
+          2190,
+          2191,
+          2192,
+          2193,
+          2194,
+          2195,
+          2196,
+          2197,
+          2198,
+          2199,
+          2200,
+          2201,
+          2202,
+          2203
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`trace`": 1987,
+      "crate::trace::Span": 34,
+      "`metrics`": 1357,
+      "`logs`": 2180
+    },
+    "link_paths": {
+      "`trace`": "opentelemetry::trace",
+      "crate::trace::Span": "opentelemetry::trace::span::Span",
+      "`metrics`": "opentelemetry::metrics",
+      "`logs`": "opentelemetry::logs"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2204",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.md",
+    "record_file": "modules/opentelemetry.json",
+    "anchor": "op-82f51df0c389cf739d2f6461",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`trace`": "../modules/opentelemetry.trace.md#op-860b44a9d0353bc997e5d841",
+      "crate::trace::Span": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8",
+      "`metrics`": "../modules/opentelemetry.metrics.md#op-90240d71d0a57ae249e23ab7",
+      "`logs`": "../modules/opentelemetry.logs.md#op-65fa9de49f164822d54da084"
+    }
+  }
+]

@@ -1,0 +1,28 @@
+{
+  "invariant": "authored.computation_models:unique:pk",
+  "rows": {
+    "authored.computation_models": [
+      {
+        "cases": "[\"list\",[]]",
+        "definitions": "[\"list\",[]]",
+        "domains": "[\"list\",[]]",
+        "groups": "[\"list\",[]]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]"
+      },
+      {
+        "cases": "[\"list\",[]]",
+        "definitions": "[\"list\",[]]",
+        "domains": "[\"list\",[]]",
+        "groups": "[\"list\",[]]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

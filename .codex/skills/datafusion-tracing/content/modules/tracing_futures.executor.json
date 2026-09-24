@@ -1,0 +1,59 @@
+[
+  {
+    "id": "436f5fc1b1710c038c159d28",
+    "path": "tracing_futures::executor",
+    "name": "executor",
+    "owner": null,
+    "crate": "tracing-futures",
+    "version": "0.2.5",
+    "kind": "module",
+    "signature": "mod executor",
+    "docs": "Implementations for `Instrument`ed future executors.",
+    "span": {
+      "filename": "src/executor/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        14,
+        29
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          6,
+          7
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "c557c30b8b1bf5d5306a7ff2175742b8261d0a54688b3e0b4a48b36e8bcb768f",
+      "capture": "hosted",
+      "format_version": 60,
+      "item_id": "4",
+      "origin": "https://docs.rs/crate/tracing-futures/0.2.5/json",
+      "compressed_sha256": "e939cad91f4617800445dcaf3eab7817f4c621ef98700891a7c5e1f49ca6ee74",
+      "local_file": "build/acquired/rustdoc/tracing-futures@0.2.5.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_futures.executor.md",
+    "record_file": "modules/tracing_futures.executor.json",
+    "anchor": "op-436f5fc1b1710c038c159d28",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

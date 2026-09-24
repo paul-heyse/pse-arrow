@@ -1,0 +1,1063 @@
+[
+  {
+    "id": "4887053d893406b1deb7b89d",
+    "path": "opentelemetry_otlp::Protocol",
+    "name": "Protocol",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "enum",
+    "signature": "enum Protocol",
+    "docs": "The communication protocol to use when exporting data.",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        441,
+        1
+      ],
+      "end": [
+        448,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg_attr>(feature = \"serialize\", derive(Deserialize, Serialize))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          790,
+          791,
+          792
+        ],
+        "impls": [
+          793,
+          794,
+          795,
+          796,
+          797,
+          798,
+          799,
+          800,
+          801,
+          802,
+          803,
+          804,
+          805,
+          806,
+          807,
+          808,
+          809,
+          810,
+          811,
+          812,
+          813,
+          814,
+          815,
+          816,
+          817,
+          818,
+          819,
+          821,
+          822,
+          824,
+          825,
+          826,
+          828,
+          830,
+          832
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "45",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.Protocol.md",
+    "record_file": "operations/opentelemetry_otlp.Protocol.json",
+    "anchor": "op-4887053d893406b1deb7b89d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bd5f34407cfd33490f086a2e",
+    "path": "opentelemetry_otlp::Protocol::Grpc",
+    "name": "Grpc",
+    "owner": "opentelemetry_otlp::Protocol",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Grpc",
+    "docs": "GRPC protocol",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        443,
+        5
+      ],
+      "end": [
+        443,
+        9
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "790",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.Protocol.md",
+    "record_file": "operations/opentelemetry_otlp.Protocol.json",
+    "anchor": "op-bd5f34407cfd33490f086a2e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b33e3f8c28d5de297101b6f3",
+    "path": "opentelemetry_otlp::Protocol::HttpBinary",
+    "name": "HttpBinary",
+    "owner": "opentelemetry_otlp::Protocol",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "HttpBinary",
+    "docs": "HTTP protocol with binary protobuf",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        445,
+        5
+      ],
+      "end": [
+        445,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "791",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.Protocol.md",
+    "record_file": "operations/opentelemetry_otlp.Protocol.json",
+    "anchor": "op-b33e3f8c28d5de297101b6f3",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b6ea27b6aa12a36a65537390",
+    "path": "opentelemetry_otlp::Protocol::HttpJson",
+    "name": "HttpJson",
+    "owner": "opentelemetry_otlp::Protocol",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "HttpJson",
+    "docs": "HTTP protocol with JSON payload",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        447,
+        5
+      ],
+      "end": [
+        447,
+        13
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "792",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.Protocol.md",
+    "record_file": "operations/opentelemetry_otlp.Protocol.json",
+    "anchor": "op-b6ea27b6aa12a36a65537390",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a47077179265239f16fa7007",
+    "path": "opentelemetry_otlp::Protocol::clone",
+    "name": "clone",
+    "owner": "opentelemetry_otlp::Protocol",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Protocol",
+    "docs": "",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        440,
+        10
+      ],
+      "end": [
+        440,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Protocol",
+              "id": 45,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "45": "opentelemetry_otlp::Protocol"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Protocol",
+          "id": "opentelemetry_otlp::Protocol",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/lib.rs",
+        "begin": [
+          440,
+          10
+        ],
+        "end": [
+          440,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "820",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.Protocol.md",
+    "record_file": "operations/opentelemetry_otlp.Protocol.json",
+    "anchor": "op-a47077179265239f16fa7007",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "90cd517e757eed0b5cb7a6e6",
+    "path": "opentelemetry_otlp::Protocol::deserialize",
+    "name": "deserialize",
+    "owner": "opentelemetry_otlp::Protocol",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn deserialize<__D>(__deserializer: __D) -> _serde::__private226::Result<Self, __D::Error> where __D: _serde::Deserializer<'de>",
+    "docs": "",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        439,
+        42
+      ],
+      "end": [
+        439,
+        53
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "__deserializer",
+              {
+                "generic": "__D"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "_serde::__private226::Result",
+              "id": 11,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Error",
+                          "args": null,
+                          "self_type": {
+                            "generic": "__D"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 378,
+                            "args": null
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "__D",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "__D"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "_serde::Deserializer",
+                        "id": 378,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'de"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "11": "core::result::Result",
+      "378": "serde_core::de::Deserializer"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Protocol",
+          "id": "opentelemetry_otlp::Protocol",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Deserialize",
+        "id": "serde_core::de::Deserialize",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'de"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "serde_core::de::Deserialize",
+      "generics": {
+        "params": [
+          {
+            "name": "'de",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/lib.rs",
+        "begin": [
+          439,
+          42
+        ],
+        "end": [
+          439,
+          53
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "829",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.Protocol.md",
+    "record_file": "operations/opentelemetry_otlp.Protocol.json",
+    "anchor": "op-90cd517e757eed0b5cb7a6e6",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "15902a622171017ec1ff83ba",
+    "path": "opentelemetry_otlp::Protocol::eq",
+    "name": "eq",
+    "owner": "opentelemetry_otlp::Protocol",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &Protocol) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        440,
+        34
+      ],
+      "end": [
+        440,
+        43
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Protocol",
+                      "id": 45,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "45": "opentelemetry_otlp::Protocol"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Protocol",
+          "id": "opentelemetry_otlp::Protocol",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/lib.rs",
+        "begin": [
+          440,
+          34
+        ],
+        "end": [
+          440,
+          43
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "827",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.Protocol.md",
+    "record_file": "operations/opentelemetry_otlp.Protocol.json",
+    "anchor": "op-15902a622171017ec1ff83ba",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "196f9c88aac4af7976875484",
+    "path": "opentelemetry_otlp::Protocol::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_otlp::Protocol",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        440,
+        23
+      ],
+      "end": [
+        440,
+        28
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 109,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 110,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "109": "core::fmt::Formatter",
+      "110": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Protocol",
+          "id": "opentelemetry_otlp::Protocol",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/lib.rs",
+        "begin": [
+          440,
+          23
+        ],
+        "end": [
+          440,
+          28
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "823",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.Protocol.md",
+    "record_file": "operations/opentelemetry_otlp.Protocol.json",
+    "anchor": "op-196f9c88aac4af7976875484",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "97ae18512d0dec3b23c49123",
+    "path": "opentelemetry_otlp::Protocol::serialize",
+    "name": "serialize",
+    "owner": "opentelemetry_otlp::Protocol",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn serialize<__S>(&self, __serializer: __S) -> _serde::__private226::Result<__S::Ok, __S::Error> where __S: _serde::Serializer",
+    "docs": "",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        439,
+        55
+      ],
+      "end": [
+        439,
+        64
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "__serializer",
+              {
+                "generic": "__S"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "_serde::__private226::Result",
+              "id": 11,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Ok",
+                          "args": null,
+                          "self_type": {
+                            "generic": "__S"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 381,
+                            "args": null
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Error",
+                          "args": null,
+                          "self_type": {
+                            "generic": "__S"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 381,
+                            "args": null
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "__S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "__S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "_serde::Serializer",
+                        "id": 381,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "11": "core::result::Result",
+      "381": "serde_core::ser::Serializer"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Protocol",
+          "id": "opentelemetry_otlp::Protocol",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Serialize",
+        "id": "serde_core::ser::Serialize",
+        "args": null
+      },
+      "trait_path": "serde_core::ser::Serialize",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/lib.rs",
+        "begin": [
+          439,
+          55
+        ],
+        "end": [
+          439,
+          64
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "831",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.Protocol.md",
+    "record_file": "operations/opentelemetry_otlp.Protocol.json",
+    "anchor": "op-97ae18512d0dec3b23c49123",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

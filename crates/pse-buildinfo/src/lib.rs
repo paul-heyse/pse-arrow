@@ -9,7 +9,7 @@
 //! compares against the working tree's lockfiles: an extension built against a stale
 //! `Cargo.lock` is a test failure, not a surprise at run time.
 //!
-//! This crate embeds bytes and never hashes them; `pse-ids` is the workspace's only
+//! This crate delegates stable build-input hashing to `pse-ids`, the workspace's only
 //! hasher (blueprint §5.1).
 
 /// The workspace version (`CARGO_PKG_VERSION`): one version authority for the crates, the
@@ -31,3 +31,16 @@ pub const CARGO_LOCK: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/cargo.lo
 /// The workspace `uv.lock` as of the build. Empty until the Python skeleton lands
 /// (plan §11 step 4).
 pub const UV_LOCK: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/uv.lock"));
+
+/// Actual product source bytes, including uncommitted generated and handwritten changes.
+pub const SOURCE_IDENTITY: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes(
+    *include_bytes!(concat!(env!("OUT_DIR"), "/source.identity")),
+);
+/// Locks, toolchain, target and captured build configuration.
+pub const BUILD_IDENTITY: pse_ids::ContentHash =
+    pse_ids::ContentHash::from_bytes(*include_bytes!(concat!(env!("OUT_DIR"), "/build.identity")));
+/// Artifact producers must also supply their actual consumer feature and plugin ABI contracts.
+pub const PERSISTENT_IDENTITY_QUALIFIED: bool = !CARGO_LOCK.is_empty() && !UV_LOCK.is_empty();
+#[cfg(test)]
+#[path = "../identity.rs"]
+mod identity;

@@ -15,7 +15,7 @@
 //! Because the alternative is two descriptions. A registry that could not emit its own
 //! rows would need a second, hand-written account of what it declares for the manifest,
 //! the documentation and the Python contracts — and nothing would tell you which of the
-//! two was authoritative when they disagreed. [`builder::Registry::schema_rows`] is the
+//! two was authoritative when they disagreed. [`builder::Registry::schema_batches`] is the
 //! one account; [`fingerprint::registry`] is its digest; `pse-relations` materializes the
 //! same rows into `RecordBatch`es.
 //!
@@ -30,7 +30,7 @@
 //!   construction (§4.3).
 //! - [`ext_metadata`] — the canonical `ARROW:extension:metadata` strings (§4.4).
 //! - [`delta`] — declared native Delta policies and field storage contracts.
-//! - [`codegen`] — the generated trees (ADR-0031, ADR-0051).
+//! - `pse-codegen` owns generation; this crate exposes admitted registry contracts.
 //! - [`error`] — [`SchemaError`] with its §23.2 codes.
 //!
 //! # Example
@@ -49,21 +49,26 @@ pub mod arrow;
 pub mod builder;
 pub mod catalog;
 mod checks;
-pub mod codegen;
-pub mod compiled_contract;
+/// Registry-owned selected-product support closure.
+pub mod product;
+
 pub mod delta;
 pub mod error;
 pub mod ext_metadata;
 pub mod field_contract;
 pub mod fingerprint;
-pub mod math;
+mod implementation_cache;
+pub mod literal;
+
 pub mod model;
-mod rule_deps;
+pub mod resolved_contract;
+pub mod validation;
 
 use std::sync::{Arc, OnceLock};
 
 pub use crate::builder::{REGISTRY_PACKAGE_ID, REGISTRY_PACKAGE_NAME, Registry, RegistryBuilder};
 pub use crate::error::SchemaError;
+pub use crate::literal::NativeLiteral;
 
 /// The assembled registry, built once per process.
 ///

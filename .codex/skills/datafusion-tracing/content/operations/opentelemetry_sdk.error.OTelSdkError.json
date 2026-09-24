@@ -1,0 +1,559 @@
+[
+  {
+    "id": "48c8a15a23d655b79e7162f9",
+    "path": "opentelemetry_sdk::error::OTelSdkError",
+    "name": "OTelSdkError",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "enum",
+    "signature": "enum OTelSdkError",
+    "docs": "Errors that can occur during SDK operations export(), force_flush() and shutdown().",
+    "span": {
+      "filename": "src/error.rs",
+      "begin": [
+        15,
+        1
+      ],
+      "end": [
+        42,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          3230,
+          3232,
+          3234
+        ],
+        "impls": [
+          3236,
+          3237,
+          3238,
+          3239,
+          3240,
+          3241,
+          3242,
+          3243,
+          3244,
+          3245,
+          3246,
+          3247,
+          3248,
+          3249,
+          3250,
+          3251,
+          3252,
+          3253,
+          3254,
+          3255,
+          3256,
+          3258,
+          3260
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3235",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.error.OTelSdkError.md",
+    "record_file": "operations/opentelemetry_sdk.error.OTelSdkError.json",
+    "anchor": "op-48c8a15a23d655b79e7162f9",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e107c7119b13fa1f868c6209",
+    "path": "opentelemetry_sdk::error::OTelSdkError::AlreadyShutdown",
+    "name": "AlreadyShutdown",
+    "owner": "opentelemetry_sdk::error::OTelSdkError",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "AlreadyShutdown",
+    "docs": "Shutdown has already been invoked.\n\nWhile shutdown is idempotent and calling it multiple times has no\nimpact, this error suggests that another part of the application is\ninvoking `shutdown` earlier than intended. Users should review their\ncode to identify unintended or duplicate shutdown calls and ensure it is\nonly triggered once at the correct place.",
+    "span": {
+      "filename": "src/error.rs",
+      "begin": [
+        24,
+        5
+      ],
+      "end": [
+        24,
+        20
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[error(\"Shutdown already invoked\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": "plain",
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3230",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.error.OTelSdkError.md",
+    "record_file": "operations/opentelemetry_sdk.error.OTelSdkError.json",
+    "anchor": "op-e107c7119b13fa1f868c6209",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6a8a5873effeba0ca6983d09",
+    "path": "opentelemetry_sdk::error::OTelSdkError::InternalFailure",
+    "name": "InternalFailure",
+    "owner": "opentelemetry_sdk::error::OTelSdkError",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "InternalFailure",
+    "docs": "Operation failed due to an internal error.\n\nThe error message is intended for logging purposes only and should not\nbe used to make programmatic decisions. It is implementation-specific\nand subject to change without notice. Consumers of this error should not\nrely on its content beyond logging.",
+    "span": {
+      "filename": "src/error.rs",
+      "begin": [
+        41,
+        5
+      ],
+      "end": [
+        41,
+        28
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[error(\"Operation failed: {0}\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            3233
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3234",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.error.OTelSdkError.md",
+    "record_file": "operations/opentelemetry_sdk.error.OTelSdkError.json",
+    "anchor": "op-6a8a5873effeba0ca6983d09",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "19a196ead7d9c76e161741ef",
+    "path": "opentelemetry_sdk::error::OTelSdkError::Timeout",
+    "name": "Timeout",
+    "owner": "opentelemetry_sdk::error::OTelSdkError",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "Timeout",
+    "docs": "Operation timed out before completing.\n\nThis does not necessarily indicate a failure—operation may still be\ncomplete. If this occurs frequently, consider increasing the timeout\nduration to allow more time for completion.",
+    "span": {
+      "filename": "src/error.rs",
+      "begin": [
+        32,
+        5
+      ],
+      "end": [
+        32,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[error(\"Operation timed out after {0:?}\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            3231
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3232",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.error.OTelSdkError.md",
+    "record_file": "operations/opentelemetry_sdk.error.OTelSdkError.json",
+    "anchor": "op-19a196ead7d9c76e161741ef",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5efec7e4441d13a2c8ae025f",
+    "path": "opentelemetry_sdk::error::OTelSdkError::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::error::OTelSdkError",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/error.rs",
+      "begin": [
+        13,
+        17
+      ],
+      "end": [
+        13,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OTelSdkError",
+          "id": "opentelemetry_sdk::error::OTelSdkError",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/error.rs",
+        "begin": [
+          13,
+          17
+        ],
+        "end": [
+          13,
+          22
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3259",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.error.OTelSdkError.md",
+    "record_file": "operations/opentelemetry_sdk.error.OTelSdkError.json",
+    "anchor": "op-5efec7e4441d13a2c8ae025f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fc824e47937a0719f055ea01",
+    "path": "opentelemetry_sdk::error::OTelSdkError::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::error::OTelSdkError",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, __formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/error.rs",
+      "begin": [
+        13,
+        10
+      ],
+      "end": [
+        13,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "__formatter",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "::core::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "::core::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OTelSdkError",
+          "id": "opentelemetry_sdk::error::OTelSdkError",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Display",
+        "id": "core::fmt::Display",
+        "args": null
+      },
+      "trait_path": "core::fmt::Display",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/error.rs",
+        "begin": [
+          13,
+          10
+        ],
+        "end": [
+          13,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3257",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.error.OTelSdkError.md",
+    "record_file": "operations/opentelemetry_sdk.error.OTelSdkError.json",
+    "anchor": "op-fc824e47937a0719f055ea01",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

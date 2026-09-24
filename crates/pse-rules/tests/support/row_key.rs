@@ -2,11 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Test fixtures obtain tokens from actual typed native projections.
-#![allow(
-    dead_code,
-    clippy::unwrap_used,
-    reason = "shared test-only native projections"
-)]
+#![allow(clippy::unwrap_used, reason = "shared test-only native projections")]
 
 use datafusion::{
     arrow::{
@@ -16,17 +12,14 @@ use datafusion::{
     execution::context::SessionContext,
     logical_expr::col,
 };
-use pse_schema::{
-    Registry,
-    model::{Cell, FieldContract, RelationSpec, RuleSpec},
-};
+use pse_schema::{Registry, model::FieldContract};
 use std::sync::Arc;
 
 pub(crate) async fn values(
     registry: &Registry,
     relation: pse_ids::SemanticId,
     columns: &[&FieldContract],
-    values: &[Cell],
+    values: &[serde_json::Value],
 ) -> pse_ids::ContentHash {
     let fields = columns
         .iter()
@@ -36,15 +29,19 @@ pub(crate) async fn values(
         .iter()
         .zip(values)
         .map(|(field, value)| {
-            pse_relations::cells::array_from_cells(registry, field, std::slice::from_ref(value))
-                .unwrap()
+            pse_relations::testing::array_from_literals(
+                registry,
+                field,
+                std::slice::from_ref(value),
+            )
+            .unwrap()
         })
         .collect();
     let batch = RecordBatch::try_new(Arc::new(Schema::new(fields)), arrays).unwrap();
     let batches = SessionContext::new()
         .read_batch(batch)
         .unwrap()
-        .select(vec![pse_catalog::session::scalar::key(
+        .select(vec![pse_relations::identity::key(
             relation,
             columns
                 .iter()
@@ -64,48 +61,4 @@ pub(crate) async fn values(
             .value(0),
     )
     .unwrap()
-}
-pub(crate) async fn relation(
-    spec: &RelationSpec,
-    registry: &Registry,
-    row: &[Cell],
-) -> pse_ids::ContentHash {
-    let indices = spec
-        .primary_key
-        .iter()
-        .map(|name| {
-            spec.columns
-                .iter()
-                .position(|column| column.name() == *name)
-                .unwrap()
-        })
-        .collect::<Vec<_>>();
-    values(
-        registry,
-        spec.id,
-        &indices
-            .iter()
-            .map(|i| &spec.columns[*i])
-            .collect::<Vec<_>>(),
-        &indices.iter().map(|i| row[*i].clone()).collect::<Vec<_>>(),
-    )
-    .await
-}
-pub(crate) async fn rule(
-    spec: &RuleSpec,
-    registry: &Registry,
-    row: &[Cell],
-) -> pse_ids::ContentHash {
-    let target = registry.relation(&spec.head).unwrap();
-    let names = &target.primary_key;
-    values(
-        registry,
-        target.id,
-        &names
-            .iter()
-            .map(|name| target.column(name).unwrap())
-            .collect::<Vec<_>>(),
-        row,
-    )
-    .await
 }

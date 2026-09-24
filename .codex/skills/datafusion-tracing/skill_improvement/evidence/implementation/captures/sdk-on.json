@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "open",
+    "id": 274877906945,
+    "parent": null,
+    "name": "local-name",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "exported-name",
+      "value": "7"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 274877906945,
+    "name": "local-name",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "exported-name",
+      "value": "7"
+    }
+  }
+]

@@ -61,7 +61,7 @@ fn bind(
     record: &mut publications::Row,
     registry: &Registry,
     relation: &str,
-    rows: &[Vec<Cell>],
+    rows: &[Vec<serde_json::Value>],
     catalog: &str,
 ) {
     let spec = registry.relation(relation).unwrap();
@@ -70,7 +70,7 @@ fn bind(
     context
         .register_batch(
             reference,
-            pse_relations::cells::batch_from_cells(registry, spec, rows).unwrap(),
+            pse_relations::testing::untrusted_batch_from_literals(registry, spec, rows).unwrap(),
         )
         .unwrap();
     record
@@ -94,7 +94,7 @@ fn identity(value: u8) -> SemanticId {
 
 #[test]
 fn complete_artifact_profiles_refuse_missing_members_but_allow_explicit_partial_collections() {
-    let registry = pse_schema::registry().unwrap();
+    let registry = pse_engine::validation::registry().unwrap();
     let mut request = record();
     admit_profile(&request, registry).unwrap();
     request.kind = PublicationKind::Source;
@@ -123,47 +123,14 @@ fn complete_artifact_profiles_refuse_missing_members_but_allow_explicit_partial_
     assert!(admit_profile(&request, registry).is_err());
 }
 
-#[tokio::test]
-async fn token_collisions_are_checked_against_actual_primary_key_tuples() {
-    let registry = registry();
-    let spec = registry.relation("authored.targets").unwrap();
-    let context = SessionContext::new();
-    for (ids, expected) in [(vec![1, 1], 0), (vec![1, 2], 1)] {
-        let rows = ids
-            .into_iter()
-            .map(|id| vec![Cell::Id(identity(id))])
-            .collect::<Vec<_>>();
-        let input = context
-            .read_batch(pse_relations::cells::batch_from_cells(&registry, spec, &rows).unwrap())
-            .unwrap()
-            .into_unoptimized_plan();
-        let collision = key_collisions(
-            input,
-            spec,
-            lit(datafusion::common::ScalarValue::FixedSizeBinary(
-                32,
-                Some(vec![0; 32]),
-            )),
-        )
-        .unwrap();
-        let batches = context
-            .execute_logical_plan(collision)
-            .await
-            .unwrap()
-            .collect()
-            .await
-            .unwrap();
-        assert_eq!(
-            batches
-                .iter()
-                .map(pse_relations::RecordBatch::num_rows)
-                .sum::<usize>(),
-            expected
-        );
-    }
-}
-fn reference(value: u8) -> Cell {
-    Cell::List(vec![Cell::Struct(vec![Cell::Id(identity(value))])])
+fn reference(value: u8) -> serde_json::Value {
+    serde_json::json!([
+        "list",
+        vec![serde_json::json!([
+            "struct",
+            vec![serde_json::json!(["id", (identity(value)).to_hex()])]
+        ])]
+    ])
 }
 
 #[tokio::test]
@@ -188,7 +155,7 @@ async fn an_explicit_singleton_admits_zero_or_one_row_and_refuses_two() {
     for count in 0..=2 {
         let context = SessionContext::new();
         let mut record = record();
-        let rows = vec![vec![Cell::I64(7)]; count];
+        let rows = vec![vec![serde_json::json!(["i64", 7])]; count];
         bind(
             &context,
             &mut record,
@@ -213,11 +180,21 @@ async fn nested_references_are_native_and_mask_aware() {
         (reference(10), true, true),
         (reference(11), true, false),
         (reference(10), false, false),
-        (Cell::Null, false, true),
-        (Cell::List(vec![]), false, true),
-        (Cell::List(vec![Cell::Null]), false, true),
+        (serde_json::json!(["null", null]), false, true),
+        (serde_json::json!(["list", []]), false, true),
         (
-            Cell::List(vec![Cell::Struct(vec![Cell::Null])]),
+            serde_json::json!(["list", vec![serde_json::json!(["null", null])]]),
+            false,
+            true,
+        ),
+        (
+            serde_json::json!([
+                "list",
+                vec![serde_json::json!([
+                    "struct",
+                    vec![serde_json::json!(["null", null])]
+                ])]
+            ]),
             false,
             true,
         ),
@@ -229,7 +206,10 @@ async fn nested_references_are_native_and_mask_aware() {
             &mut record,
             &registry,
             "authored.sources",
-            &[vec![Cell::Id(identity(1)), value]],
+            &[vec![
+                serde_json::json!(["id", (identity(1)).to_hex()]),
+                value,
+            ]],
             "datafusion",
         );
         if include_target {
@@ -238,7 +218,7 @@ async fn nested_references_are_native_and_mask_aware() {
                 &mut record,
                 &registry,
                 "authored.targets",
-                &[vec![Cell::Id(identity(10))]],
+                &[vec![serde_json::json!(["id", (identity(10)).to_hex()])]],
                 "datafusion",
             );
         }
@@ -280,7 +260,10 @@ async fn nested_references_cannot_borrow_another_catalogs_identity() {
         &mut record,
         &registry,
         "authored.sources",
-        &[vec![Cell::Id(identity(1)), reference(10)]],
+        &[vec![
+            serde_json::json!(["id", (identity(1)).to_hex()]),
+            reference(10),
+        ]],
         "datafusion",
     );
     bind(
@@ -288,7 +271,7 @@ async fn nested_references_cannot_borrow_another_catalogs_identity() {
         &mut record,
         &registry,
         "authored.targets",
-        &[vec![Cell::Id(identity(10))]],
+        &[vec![serde_json::json!(["id", (identity(10)).to_hex()])]],
         "other",
     );
     assert!(admit(&record, registry, &context.state()).await.is_err());
@@ -304,7 +287,10 @@ async fn conflicting_exact_target_selections_refuse_before_execution() {
         &mut record,
         &registry,
         "authored.sources",
-        &[vec![Cell::Id(identity(1)), reference(10)]],
+        &[vec![
+            serde_json::json!(["id", (identity(1)).to_hex()]),
+            reference(10),
+        ]],
         "datafusion",
     );
     bind(
@@ -312,7 +298,7 @@ async fn conflicting_exact_target_selections_refuse_before_execution() {
         &mut record,
         &registry,
         "authored.targets",
-        &[vec![Cell::Id(identity(10))]],
+        &[vec![serde_json::json!(["id", (identity(10)).to_hex()])]],
         "datafusion",
     );
     let mut another = record.members.last().unwrap().clone();
@@ -382,10 +368,22 @@ fn composite_registry(policy: ReferenceNullPolicy, scalar: bool) -> Arc<Registry
     Arc::new(builder.build().unwrap())
 }
 
-fn pair(tenant: Option<i64>, id: Option<i64>) -> Cell {
-    Cell::Struct(vec![
-        tenant.map_or(Cell::Null, Cell::I64),
-        Cell::Struct(vec![id.map_or(Cell::Null, Cell::I64)]),
+fn pair(tenant: Option<i64>, id: Option<i64>) -> serde_json::Value {
+    serde_json::json!([
+        "struct",
+        vec![
+            tenant.map_or(
+                serde_json::json!(["null", null]),
+                |value| serde_json::json!(["i64", value])
+            ),
+            serde_json::json!([
+                "struct",
+                vec![id.map_or(
+                    serde_json::json!(["null", null]),
+                    |value| serde_json::json!(["i64", value])
+                )]
+            ]),
+        ]
     ])
 }
 
@@ -393,37 +391,48 @@ fn pair(tenant: Option<i64>, id: Option<i64>) -> Cell {
 async fn composite_references_preserve_occurrence_correlation_and_null_policy() {
     for (value, policy, valid) in [
         (
-            Cell::List(vec![pair(Some(1), Some(10)), pair(Some(2), Some(20))]),
+            serde_json::json!([
+                "list",
+                vec![pair(Some(1), Some(10)), pair(Some(2), Some(20))]
+            ]),
             ReferenceNullPolicy::Required,
             true,
         ),
         (
-            Cell::List(vec![pair(Some(1), Some(20))]),
+            serde_json::json!(["list", vec![pair(Some(1), Some(20))]]),
             ReferenceNullPolicy::Required,
             false,
         ),
         (
-            Cell::List(vec![pair(None, None)]),
+            serde_json::json!(["list", vec![pair(None, None)]]),
             ReferenceNullPolicy::AllOrNone,
             true,
         ),
         (
-            Cell::List(vec![pair(None, None)]),
+            serde_json::json!(["list", vec![pair(None, None)]]),
             ReferenceNullPolicy::Required,
             false,
         ),
         (
-            Cell::List(vec![pair(Some(1), None)]),
+            serde_json::json!(["list", vec![pair(Some(1), None)]]),
             ReferenceNullPolicy::AllOrNone,
             false,
         ),
         (
-            Cell::List(vec![Cell::Null]),
+            serde_json::json!(["list", vec![serde_json::json!(["null", null])]]),
             ReferenceNullPolicy::Required,
             true,
         ),
-        (Cell::List(vec![]), ReferenceNullPolicy::Required, true),
-        (Cell::Null, ReferenceNullPolicy::Required, true),
+        (
+            serde_json::json!(["list", []]),
+            ReferenceNullPolicy::Required,
+            true,
+        ),
+        (
+            serde_json::json!(["null", null]),
+            ReferenceNullPolicy::Required,
+            true,
+        ),
     ] {
         let registry = composite_registry(policy, false);
         let context = SessionContext::new();
@@ -433,7 +442,7 @@ async fn composite_references_preserve_occurrence_correlation_and_null_policy() 
             &mut record,
             &registry,
             "authored.sources",
-            &[vec![Cell::I64(1), value]],
+            &[vec![serde_json::json!(["i64", 1]), value]],
             "datafusion",
         );
         bind(
@@ -442,8 +451,14 @@ async fn composite_references_preserve_occurrence_correlation_and_null_policy() 
             &registry,
             "authored.targets",
             &[
-                vec![Cell::I64(1), Cell::I64(10)],
-                vec![Cell::I64(2), Cell::I64(20)],
+                vec![
+                    serde_json::json!(["i64", 1]),
+                    serde_json::json!(["i64", 10]),
+                ],
+                vec![
+                    serde_json::json!(["i64", 2]),
+                    serde_json::json!(["i64", 20]),
+                ],
             ],
             "datafusion",
         );
@@ -464,7 +479,10 @@ async fn a_scalar_reference_cannot_claim_a_nonunique_selected_target_key() {
         &mut record,
         &registry,
         "authored.sources",
-        &[vec![Cell::I64(1), Cell::I64(10)]],
+        &[vec![
+            serde_json::json!(["i64", 1]),
+            serde_json::json!(["i64", 10]),
+        ]],
         "datafusion",
     );
     bind(
@@ -473,8 +491,14 @@ async fn a_scalar_reference_cannot_claim_a_nonunique_selected_target_key() {
         &registry,
         "authored.targets",
         &[
-            vec![Cell::I64(1), Cell::I64(10)],
-            vec![Cell::I64(2), Cell::I64(10)],
+            vec![
+                serde_json::json!(["i64", 1]),
+                serde_json::json!(["i64", 10]),
+            ],
+            vec![
+                serde_json::json!(["i64", 2]),
+                serde_json::json!(["i64", 10]),
+            ],
         ],
         "datafusion",
     );

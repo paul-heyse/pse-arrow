@@ -1,0 +1,71 @@
+[
+  {
+    "id": "edc30291093ffb974aa610bd",
+    "path": "instrumented_object_store::instrumented_object_store",
+    "name": "instrumented_object_store",
+    "owner": null,
+    "crate": "instrumented-object-store",
+    "version": "55.0.0",
+    "kind": "module",
+    "signature": "mod instrumented_object_store",
+    "docs": "",
+    "span": {
+      "filename": "src/instrumented_object_store.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        373,
+        2
+      ]
+    },
+    "visibility": "crate",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          0,
+          7,
+          127,
+          142,
+          146
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "d4e00139e3a8b1fe6a5b9e35f66ec6b93cc801c613eb053f7427694a9afd71d7",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "4",
+      "origin": "../../build/acquired/rustdoc/instrumented-object-store@55.0.0.private.json.zst",
+      "compressed_sha256": "7bde671818e0da59b2b3ab8203ffad736a840ccb3f9eeeda821758a103115061",
+      "local_file": "build/acquired/rustdoc/instrumented-object-store@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/instrumented_object_store.instrumented_object_store.md",
+    "record_file": "modules/instrumented_object_store.instrumented_object_store.json",
+    "anchor": "op-edc30291093ffb974aa610bd",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

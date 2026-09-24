@@ -1,0 +1,121 @@
+[
+  {
+    "id": "477f165c4ba5dcf863f23dd0",
+    "path": "tracing_core::field",
+    "name": "field",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "module",
+    "signature": "mod field",
+    "docs": "`Span` and `Event` key-value data.\n\nSpans and events may be annotated with key-value data, known as _fields_.\nThese fields consist of a mapping from a key (corresponding to a `&str` but\nrepresented internally as an array index) to a [`Value`].\n\n# `Value`s and `Subscriber`s\n\n`Subscriber`s consume `Value`s as fields attached to [span]s or [`Event`]s.\nThe set of field keys on a given span or event is defined on its [`Metadata`].\nWhen a span is created, it provides [`Attributes`] to the `Subscriber`'s\n[`new_span`] method, containing any fields whose values were provided when\nthe span was created; and may call the `Subscriber`'s [`record`] method\nwith additional [`Record`]s if values are added for more of its fields.\nSimilarly, the [`Event`] type passed to the subscriber's [`event`] method\nwill contain any fields attached to each event.\n\n`tracing` represents values as either one of a set of Rust primitives\n(`i64`, `u64`, `f64`, `i128`, `u128`, `bool`, and `&str`) or using a\n`fmt::Display` or `fmt::Debug` implementation. `Subscriber`s are provided\nthese primitive value types as `dyn Value` trait objects.\n\nThese trait objects can be formatted using `fmt::Debug`, but may also be\nrecorded as typed data by calling the [`Value::record`] method on these\ntrait objects with a _visitor_ implementing the [`Visit`] trait. This trait\nrepresents the behavior used to record values of various types. For example,\nan implementation of `Visit` might record integers by incrementing counters\nfor their field names rather than printing them.\n\n\n# Using `valuable`\n\n`tracing`'s [`Value`] trait is intentionally minimalist: it supports only a small\nnumber of Rust primitives as typed values, and only permits recording\nuser-defined types with their [`fmt::Debug`] or [`fmt::Display`]\nimplementations. However, there are some cases where it may be useful to record\nnested values (such as arrays, `Vec`s, or `HashMap`s containing values), or\nuser-defined `struct` and `enum` types without having to format them as\nunstructured text.\n\nTo address `Value`'s limitations, `tracing` offers experimental support for\nthe [`valuable`] crate, which provides object-safe inspection of structured\nvalues. User-defined types can implement the [`valuable::Valuable`] trait,\nand be recorded as a `tracing` field by calling their [`as_value`] method.\nIf the [`Subscriber`] also supports the `valuable` crate, it can\nthen visit those types fields as structured values using `valuable`.\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: <code>valuable</code> support is an\n    <a href = \"../index.html#unstable-features\">unstable feature</a>. See\n    the documentation on unstable features for details on how to enable it.\n</pre>\n\nFor example:\n```ignore\n// Derive `Valuable` for our types:\nuse valuable::Valuable;\n\n#[derive(Clone, Debug, Valuable)]\nstruct User {\n    name: String,\n    age: u32,\n    address: Address,\n}\n\n#[derive(Clone, Debug, Valuable)]\nstruct Address {\n    country: String,\n    city: String,\n    street: String,\n}\n\nlet user = User {\n    name: \"Arwen Undomiel\".to_string(),\n    age: 3000,\n    address: Address {\n        country: \"Middle Earth\".to_string(),\n        city: \"Rivendell\".to_string(),\n        street: \"leafy lane\".to_string(),\n    },\n};\n\n// Recording `user` as a `valuable::Value` will allow the `tracing` subscriber\n// to traverse its fields as a nested, typed structure:\ntracing::info!(current_user = user.as_value());\n```\n\nAlternatively, the [`valuable()`] function may be used to convert a type\nimplementing [`Valuable`] into a `tracing` field value.\n\nWhen the `valuable` feature is enabled, the [`Visit`] trait will include an\noptional [`record_value`] method. `Visit` implementations that wish to\nrecord `valuable` values can implement this method with custom behavior.\nIf a visitor does not implement `record_value`, the [`valuable::Value`] will\nbe forwarded to the visitor's [`record_debug`] method.\n\n[`valuable`]: https://crates.io/crates/valuable\n[`as_value`]: valuable::Valuable::as_value\n[`Subscriber`]: crate::Subscriber\n[`record_value`]: Visit::record_value\n[`record_debug`]: Visit::record_debug\n\n[span]: super::span\n[`Event`]: super::event::Event\n[`Metadata`]: super::metadata::Metadata\n[`Attributes`]:  super::span::Attributes\n[`Record`]: super::span::Record\n[`new_span`]: super::subscriber::Subscriber::new_span\n[`record`]: super::subscriber::Subscriber::record\n[`event`]:  super::subscriber::Subscriber::event\n[`Value::record`]: Value::record",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        1372,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          299,
+          340,
+          306,
+          268,
+          275,
+          272,
+          300,
+          570,
+          573,
+          626,
+          627,
+          628
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "super::span::Record": 134,
+      "super::subscriber::Subscriber::new_span": 129,
+      "super::span::Attributes": 131,
+      "Visit::record_value": 452,
+      "Value::record": 464,
+      "`fmt::Display`": 252,
+      "super::metadata::Metadata": 13,
+      "super::event::Event": 138,
+      "valuable::Valuable::as_value": 629,
+      "`valuable()`": 628,
+      "`Visit`": 272,
+      "Visit::record_debug": 463,
+      "`Value`": 300,
+      "`valuable::Valuable`": 578,
+      "super::span": 228,
+      "crate::Subscriber": 112,
+      "`fmt::Debug`": 82,
+      "`valuable::Value`": 453
+    },
+    "link_paths": {
+      "super::span::Record": "tracing_core::span::Record",
+      "super::subscriber::Subscriber::new_span": "tracing_core::subscriber::Subscriber::new_span",
+      "super::span::Attributes": "tracing_core::span::Attributes",
+      "Visit::record_value": "tracing_core::field::Visit::record_value",
+      "Value::record": "tracing_core::field::Value::record",
+      "`fmt::Display`": "core::fmt::Display",
+      "super::metadata::Metadata": "tracing_core::metadata::Metadata",
+      "super::event::Event": "tracing_core::event::Event",
+      "valuable::Valuable::as_value": "valuable::valuable::Valuable::as_value",
+      "`valuable()`": "tracing_core::field::valuable",
+      "`Visit`": "tracing_core::field::Visit",
+      "Visit::record_debug": "tracing_core::field::Visit::record_debug",
+      "`Value`": "tracing_core::field::Value",
+      "`valuable::Valuable`": "valuable::valuable::Valuable",
+      "super::span": "tracing_core::span",
+      "crate::Subscriber": "tracing_core::subscriber::Subscriber",
+      "`fmt::Debug`": "core::fmt::Debug",
+      "`valuable::Value`": "valuable::value::Value"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "266",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_core.field.md",
+    "record_file": "modules/tracing_core.field.json",
+    "anchor": "op-477f165c4ba5dcf863f23dd0",
+    "aliases": [],
+    "resolved_doc_links": {
+      "super::span::Record": "../operations/tracing_core.span.Record.md#op-13fdacc651796b5522602d2e",
+      "super::subscriber::Subscriber::new_span": "../operations/tracing_core.subscriber.Subscriber.md#op-2078a9c33e5e65d3b31ba990",
+      "super::span::Attributes": "../operations/tracing_core.span.Attributes.md#op-c26f3e8618922ff48422c6fb",
+      "Visit::record_value": "../operations/tracing_core.field.Visit.md#op-e972cfbab7dc71a36f9118c2",
+      "Value::record": "../operations/tracing_core.field.Value.md#op-95b4d7e923013aac166173fc",
+      "super::metadata::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "super::event::Event": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039",
+      "`valuable()`": "../operations/tracing_core.field.valuable.md#op-87eb250a15d063ef506bcd78",
+      "`Visit`": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b",
+      "Visit::record_debug": "../operations/tracing_core.field.Visit.md#op-f4add0c4dcfe340ec2b370a0",
+      "`Value`": "../operations/tracing_core.field.Value.md#op-3bdffa798a494864d07fca1b",
+      "super::span": "../modules/tracing_core.span.md#op-88b35a40e3f6d669d17c6260",
+      "crate::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  }
+]

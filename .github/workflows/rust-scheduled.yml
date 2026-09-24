@@ -129,9 +129,9 @@ jobs:
           save-if: "true"
           tools: cargo-mutants
       - name: mutate the two crates whose correctness is pure logic
-        # pse-ids (hashing and identity) and pse-mathir (the IR and its invariants) have
+        # pse-ids (hashing and identity) and pse-math (typed library mathematics and guarded execution) have
         # no I/O and no solver, so a surviving mutant there is a real gap in the tests.
-        run: cargo mutants --no-shuffle -p pse-ids -p pse-mathir -- --locked
+        run: cargo mutants --no-shuffle -p pse-ids -p pse-math -- --locked
       - name: upload the mutants report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

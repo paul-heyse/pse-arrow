@@ -1,0 +1,626 @@
+[
+  {
+    "id": "d7c6b73cb89ec7e7de4ace28",
+    "path": "tracing_subscriber::filter::targets::IntoIter",
+    "name": "IntoIter",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct IntoIter",
+    "docs": "An owning iterator over the [target]-[level] pairs of a `Targets` filter.\n\nThis struct is created by the `IntoIterator` trait implementation of [`Targets`].\n\n# Examples\n\nMerge the targets from one `Targets` with another:\n\n```\nuse tracing_subscriber::filter::Targets;\nuse tracing_core::Level;\n\nlet mut filter = Targets::new().with_target(\"my_crate\", Level::INFO);\nlet overrides = Targets::new().with_target(\"my_crate::interesting_module\", Level::DEBUG);\n\nfilter.extend(overrides);\n# drop(filter);\n```\n\n[target]: tracing_core::Metadata::target\n[level]: tracing_core::Level",
+    "span": {
+      "filename": "src/filter/targets.rs",
+      "begin": [
+        527,
+        1
+      ],
+      "end": [
+        533,
+        3
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "tuple": [
+            null
+          ]
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          907,
+          908,
+          909,
+          910,
+          911,
+          912,
+          913,
+          914,
+          915,
+          916,
+          917,
+          918,
+          919,
+          920,
+          925,
+          926,
+          927,
+          929,
+          933
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Targets`": 516,
+      "tracing_core::Metadata::target": 835,
+      "tracing_core::Level": 285
+    },
+    "link_paths": {
+      "`Targets`": "tracing_subscriber::filter::targets::Targets",
+      "tracing_core::Metadata::target": null,
+      "tracing_core::Level": "tracing_core::metadata::Level"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "897",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.targets.IntoIter.md",
+    "record_file": "operations/tracing_subscriber.filter.targets.IntoIter.json",
+    "anchor": "op-d7c6b73cb89ec7e7de4ace28",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`Targets`": "../operations/tracing_subscriber.filter.targets.Targets.md#op-641e1a5b3033eaed5a14d773",
+      "tracing_core::Level": "../operations/tracing_core.metadata.Level.md#op-f8804717be954252aadd54ff"
+    }
+  },
+  {
+    "id": "8c77c505a102e70f37dba8d8",
+    "path": "tracing_subscriber::filter::targets::IntoIter::Item",
+    "name": "Item",
+    "owner": "tracing_subscriber::filter::targets::IntoIter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "assoc_type",
+    "signature": "Item",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/targets.rs",
+      "begin": [
+        545,
+        5
+      ],
+      "end": [
+        545,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "tuple": [
+            {
+              "resolved_path": {
+                "path": "String",
+                "id": 440,
+                "args": null
+              }
+            },
+            {
+              "resolved_path": {
+                "path": "LevelFilter",
+                "id": 288,
+                "args": null
+              }
+            }
+          ]
+        }
+      }
+    },
+    "type_references": {
+      "440": "alloc::string::String",
+      "288": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "IntoIter",
+          "id": "tracing_subscriber::filter::targets::IntoIter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Iterator",
+        "id": "core::iter::traits::iterator::Iterator",
+        "args": null
+      },
+      "trait_path": "core::iter::traits::iterator::Iterator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/targets.rs",
+        "begin": [
+          544,
+          1
+        ],
+        "end": [
+          554,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "930",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.targets.IntoIter.md",
+    "record_file": "operations/tracing_subscriber.filter.targets.IntoIter.json",
+    "anchor": "op-8c77c505a102e70f37dba8d8",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c737dbafb5b92f2b5ee5565b",
+    "path": "tracing_subscriber::filter::targets::IntoIter::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::filter::targets::IntoIter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/targets.rs",
+      "begin": [
+        526,
+        10
+      ],
+      "end": [
+        526,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "IntoIter",
+          "id": "tracing_subscriber::filter::targets::IntoIter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/targets.rs",
+        "begin": [
+          526,
+          10
+        ],
+        "end": [
+          526,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "928",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.targets.IntoIter.md",
+    "record_file": "operations/tracing_subscriber.filter.targets.IntoIter.json",
+    "anchor": "op-c737dbafb5b92f2b5ee5565b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1f7aa871d04c1185c9643ec1",
+    "path": "tracing_subscriber::filter::targets::IntoIter::next",
+    "name": "next",
+    "owner": "tracing_subscriber::filter::targets::IntoIter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn next(&mut self) -> Option<Self::Item>",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/targets.rs",
+      "begin": [
+        547,
+        5
+      ],
+      "end": [
+        549,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "qualified_path": {
+                          "name": "Item",
+                          "args": null,
+                          "self_type": {
+                            "generic": "Self"
+                          },
+                          "trait": {
+                            "path": "",
+                            "id": 922,
+                            "args": null
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "325": "core::option::Option",
+      "922": "core::iter::traits::iterator::Iterator"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "IntoIter",
+          "id": "tracing_subscriber::filter::targets::IntoIter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Iterator",
+        "id": "core::iter::traits::iterator::Iterator",
+        "args": null
+      },
+      "trait_path": "core::iter::traits::iterator::Iterator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/targets.rs",
+        "begin": [
+          544,
+          1
+        ],
+        "end": [
+          554,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "931",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.targets.IntoIter.md",
+    "record_file": "operations/tracing_subscriber.filter.targets.IntoIter.json",
+    "anchor": "op-1f7aa871d04c1185c9643ec1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "726e784e33fe34ec18756862",
+    "path": "tracing_subscriber::filter::targets::IntoIter::size_hint",
+    "name": "size_hint",
+    "owner": "tracing_subscriber::filter::targets::IntoIter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn size_hint(&self) -> (usize, Option<usize>)",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/targets.rs",
+      "begin": [
+        551,
+        5
+      ],
+      "end": [
+        553,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "tuple": [
+              {
+                "primitive": "usize"
+              },
+              {
+                "resolved_path": {
+                  "path": "Option",
+                  "id": 325,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "primitive": "usize"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "325": "core::option::Option"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "IntoIter",
+          "id": "tracing_subscriber::filter::targets::IntoIter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Iterator",
+        "id": "core::iter::traits::iterator::Iterator",
+        "args": null
+      },
+      "trait_path": "core::iter::traits::iterator::Iterator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/targets.rs",
+        "begin": [
+          544,
+          1
+        ],
+        "end": [
+          554,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "932",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.targets.IntoIter.md",
+    "record_file": "operations/tracing_subscriber.filter.targets.IntoIter.json",
+    "anchor": "op-726e784e33fe34ec18756862",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

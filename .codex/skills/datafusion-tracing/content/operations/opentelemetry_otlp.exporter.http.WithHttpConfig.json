@@ -1,0 +1,394 @@
+[
+  {
+    "id": "ea0ad5995876c4d86bba38bb",
+    "path": "opentelemetry_otlp::exporter::http::WithHttpConfig",
+    "name": "WithHttpConfig",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait WithHttpConfig",
+    "docs": "This trait will be implemented for every struct that implemented [`HasHttpConfig`] trait.\n\n## Examples\n```\n# #[cfg(all(feature = \"trace\", feature = \"grpc-tonic\"))]\n# {\nuse crate::opentelemetry_otlp::WithHttpConfig;\nlet exporter_builder = opentelemetry_otlp::SpanExporter::builder()\n    .with_http()\n    .with_headers(std::collections::HashMap::new());\n# }\n```",
+    "span": {
+      "filename": "src/exporter/http/mod.rs",
+      "begin": [
+        520,
+        1
+      ],
+      "end": [
+        529,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          131,
+          132,
+          133
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          134
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`HasHttpConfig`": 40
+    },
+    "link_paths": {
+      "`HasHttpConfig`": "opentelemetry_otlp::exporter::http::HasHttpConfig"
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "41",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.http.WithHttpConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.http.WithHttpConfig.json",
+    "anchor": "op-ea0ad5995876c4d86bba38bb",
+    "aliases": [
+      "opentelemetry_otlp::WithHttpConfig"
+    ],
+    "resolved_doc_links": {
+      "`HasHttpConfig`": "../operations/opentelemetry_otlp.exporter.http.HasHttpConfig.md#op-a3a67b71029b24402184a807"
+    }
+  },
+  {
+    "id": "9f34168f733a6be8e2db905e",
+    "path": "opentelemetry_otlp::exporter::http::WithHttpConfig::with_compression",
+    "name": "with_compression",
+    "owner": "opentelemetry_otlp::exporter::http::WithHttpConfig",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_compression(self, compression: Compression) -> Self",
+    "docs": "Set the compression algorithm to use when communicating with the collector.",
+    "span": {
+      "filename": "src/exporter/http/mod.rs",
+      "begin": [
+        528,
+        5
+      ],
+      "end": [
+        528,
+        72
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "compression",
+              {
+                "resolved_path": {
+                  "path": "crate::Compression",
+                  "id": 38,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "38": "opentelemetry_otlp::exporter::Compression"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "133",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.http.WithHttpConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.http.WithHttpConfig.json",
+    "anchor": "op-9f34168f733a6be8e2db905e",
+    "aliases": [
+      "opentelemetry_otlp::WithHttpConfig::with_compression"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "14247c52f57a70e56e07d462",
+    "path": "opentelemetry_otlp::exporter::http::WithHttpConfig::with_headers",
+    "name": "with_headers",
+    "owner": "opentelemetry_otlp::exporter::http::WithHttpConfig",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_headers(self, headers: HashMap<String, String>) -> Self",
+    "docs": "Set additional headers to send to the collector.",
+    "span": {
+      "filename": "src/exporter/http/mod.rs",
+      "begin": [
+        525,
+        5
+      ],
+      "end": [
+        525,
+        69
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "headers",
+              {
+                "resolved_path": {
+                  "path": "HashMap",
+                  "id": 35,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "String",
+                              "id": 36,
+                              "args": null
+                            }
+                          }
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "String",
+                              "id": 36,
+                              "args": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "35": "std::collections::hash::map::HashMap",
+      "36": "alloc::string::String"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "132",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.http.WithHttpConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.http.WithHttpConfig.json",
+    "anchor": "op-14247c52f57a70e56e07d462",
+    "aliases": [
+      "opentelemetry_otlp::WithHttpConfig::with_headers"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3c0f548a95abbcb14e99a5b7",
+    "path": "opentelemetry_otlp::exporter::http::WithHttpConfig::with_http_client",
+    "name": "with_http_client",
+    "owner": "opentelemetry_otlp::exporter::http::WithHttpConfig",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_http_client<T: HttpClient + 'static>(self, client: T) -> Self",
+    "docs": "Assign client implementation",
+    "span": {
+      "filename": "src/exporter/http/mod.rs",
+      "begin": [
+        522,
+        5
+      ],
+      "end": [
+        522,
+        75
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "client",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "HttpClient",
+                          "id": 33,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "outlives": "'static"
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "33": "opentelemetry_http::HttpClient"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "131",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.http.WithHttpConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.http.WithHttpConfig.json",
+    "anchor": "op-3c0f548a95abbcb14e99a5b7",
+    "aliases": [
+      "opentelemetry_otlp::WithHttpConfig::with_http_client"
+    ],
+    "resolved_doc_links": {}
+  }
+]

@@ -1,0 +1,121 @@
+[
+  {
+    "id": "f3636f2044ea0dc03f1ed8e4",
+    "path": "tracing_subscriber::fmt::layer",
+    "name": "layer",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn layer<S>() -> Layer<S>",
+    "docs": "Returns a new [formatting layer] that can be [composed] with other layers to\nconstruct a [`Subscriber`].\n\nThis is a shorthand for the equivalent [`Layer::default()`] function.\n\n[formatting layer]: Layer\n[composed]: crate::layer\n[`Layer::default()`]: Layer::default",
+    "span": {
+      "filename": "src/fmt/mod.rs",
+      "begin": [
+        337,
+        1
+      ],
+      "end": [
+        339,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(all(feature = \"fmt\", feature = \"std\")))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "Layer",
+              "id": 1147,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1147": "tracing_subscriber::fmt::fmt_layer::Layer"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::layer": 279,
+      "Layer::default": 1721,
+      "`Subscriber`": 1151,
+      "Layer": 1147
+    },
+    "link_paths": {
+      "crate::layer": "tracing_subscriber::layer",
+      "Layer::default": null,
+      "`Subscriber`": "tracing_subscriber::fmt::Subscriber",
+      "Layer": "tracing_subscriber::fmt::fmt_layer::Layer"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "3040",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.layer.md",
+    "record_file": "operations/tracing_subscriber.fmt.layer.json",
+    "anchor": "op-f3636f2044ea0dc03f1ed8e4",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::layer": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "Layer::default": "../operations/tracing_subscriber.fmt.fmt_layer.Layer.md#op-39f18a7c4766439d45756c09",
+      "`Subscriber`": "../operations/tracing_subscriber.fmt.Subscriber.md#op-7360e26773e1081257bf258e",
+      "Layer": "../operations/tracing_subscriber.fmt.fmt_layer.Layer.md#op-fa1a59e4f05bcd8ea89adaa4"
+    }
+  }
+]

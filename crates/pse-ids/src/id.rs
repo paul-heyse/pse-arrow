@@ -296,27 +296,6 @@ hash_role! {
     EncodingChecksum
 }
 
-/// An artifact-local ordinal (blueprint §5.1).
-///
-/// Deterministic within the artifact that defined it and meaningless outside it. A
-/// cross-artifact reference is a [`SemanticId`], never an ordinal, which is why this is a
-/// newtype and not a bare `u64`.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
-pub struct Ordinal(pub u64);
-
-impl Ordinal {
-    /// The ordinal as eight little-endian bytes, which is how it enters a hash frame.
-    pub const fn to_le_bytes(self) -> [u8; 8] {
-        self.0.to_le_bytes()
-    }
-}
-
-impl fmt::Display for Ordinal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 /// The `@N` version of a relation's declared schema (blueprint §4.1).
 ///
 /// A `u32` because that is the width the `pse.canon.v2` and `pse.snapshot.v2` frames
@@ -459,9 +438,7 @@ mod tests {
 
     #[test]
     fn ordinal_and_schema_version_frame_little_endian() {
-        assert_eq!(Ordinal(1).to_le_bytes(), [1, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(SchemaVersion(1).to_le_bytes(), [1, 0, 0, 0]);
-        assert_eq!(Ordinal(7).to_string(), "7");
         assert_eq!(SchemaVersion(3).to_string(), "3");
     }
 

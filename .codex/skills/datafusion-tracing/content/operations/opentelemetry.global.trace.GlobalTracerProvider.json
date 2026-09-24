@@ -1,0 +1,603 @@
+[
+  {
+    "id": "41d9d444ae131d3115b9c6a7",
+    "path": "opentelemetry::global::trace::GlobalTracerProvider",
+    "name": "GlobalTracerProvider",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct GlobalTracerProvider",
+    "docs": "Represents the globally configured [`TracerProvider`] instance for this\napplication. This allows generic tracing through the returned\n[`BoxedTracer`] instances.\n\n[`TracerProvider`]: crate::trace::TracerProvider",
+    "span": {
+      "filename": "src/global/trace.rs",
+      "begin": [
+        327,
+        1
+      ],
+      "end": [
+        329,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          146,
+          147,
+          148,
+          149,
+          150,
+          151,
+          152,
+          153,
+          154,
+          155,
+          157,
+          160,
+          161,
+          162,
+          163,
+          164,
+          168,
+          170,
+          171,
+          173,
+          175,
+          178
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`BoxedTracer`": 47,
+      "crate::trace::TracerProvider": 141
+    },
+    "link_paths": {
+      "`BoxedTracer`": "opentelemetry::global::trace::BoxedTracer",
+      "crate::trace::TracerProvider": "opentelemetry::trace::tracer_provider::TracerProvider"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "107",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.trace.GlobalTracerProvider.md",
+    "record_file": "operations/opentelemetry.global.trace.GlobalTracerProvider.json",
+    "anchor": "op-41d9d444ae131d3115b9c6a7",
+    "aliases": [
+      "opentelemetry::global::GlobalTracerProvider"
+    ],
+    "resolved_doc_links": {
+      "`BoxedTracer`": "../operations/opentelemetry.global.trace.BoxedTracer.md#op-716a226937c40d7602b7e516",
+      "crate::trace::TracerProvider": "../operations/opentelemetry.trace.tracer_provider.TracerProvider.md#op-3d14c743f48c20c76241bcf3"
+    }
+  },
+  {
+    "id": "4d0643839766f54b06b41716",
+    "path": "opentelemetry::global::trace::GlobalTracerProvider::Tracer",
+    "name": "Tracer",
+    "owner": "opentelemetry::global::trace::GlobalTracerProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "assoc_type",
+    "signature": "Tracer",
+    "docs": "",
+    "span": {
+      "filename": "src/global/trace.rs",
+      "begin": [
+        352,
+        5
+      ],
+      "end": [
+        352,
+        31
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "BoxedTracer",
+            "id": 47,
+            "args": null
+          }
+        }
+      }
+    },
+    "type_references": {
+      "47": "opentelemetry::global::trace::BoxedTracer"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "GlobalTracerProvider",
+          "id": "opentelemetry::global::trace::GlobalTracerProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "TracerProvider",
+        "id": "opentelemetry::trace::tracer_provider::TracerProvider",
+        "args": null
+      },
+      "trait_path": "opentelemetry::trace::tracer_provider::TracerProvider",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/global/trace.rs",
+        "begin": [
+          351,
+          1
+        ],
+        "end": [
+          358,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "176",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.trace.GlobalTracerProvider.md",
+    "record_file": "operations/opentelemetry.global.trace.GlobalTracerProvider.json",
+    "anchor": "op-4d0643839766f54b06b41716",
+    "aliases": [
+      "opentelemetry::global::GlobalTracerProvider::Tracer"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "089296d4aaced3551fdb8adc",
+    "path": "opentelemetry::global::trace::GlobalTracerProvider::clone",
+    "name": "clone",
+    "owner": "opentelemetry::global::trace::GlobalTracerProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> GlobalTracerProvider",
+    "docs": "",
+    "span": {
+      "filename": "src/global/trace.rs",
+      "begin": [
+        326,
+        10
+      ],
+      "end": [
+        326,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "GlobalTracerProvider",
+              "id": 107,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "107": "opentelemetry::global::trace::GlobalTracerProvider"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "GlobalTracerProvider",
+          "id": "opentelemetry::global::trace::GlobalTracerProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/global/trace.rs",
+        "begin": [
+          326,
+          10
+        ],
+        "end": [
+          326,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "172",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.trace.GlobalTracerProvider.md",
+    "record_file": "operations/opentelemetry.global.trace.GlobalTracerProvider.json",
+    "anchor": "op-089296d4aaced3551fdb8adc",
+    "aliases": [
+      "opentelemetry::global::GlobalTracerProvider::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c163a3afb5afaa969cf2b5c8",
+    "path": "opentelemetry::global::trace::GlobalTracerProvider::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::global::trace::GlobalTracerProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/global/trace.rs",
+      "begin": [
+        332,
+        5
+      ],
+      "end": [
+        334,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "GlobalTracerProvider",
+          "id": "opentelemetry::global::trace::GlobalTracerProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/global/trace.rs",
+        "begin": [
+          331,
+          1
+        ],
+        "end": [
+          335,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "174",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.trace.GlobalTracerProvider.md",
+    "record_file": "operations/opentelemetry.global.trace.GlobalTracerProvider.json",
+    "anchor": "op-c163a3afb5afaa969cf2b5c8",
+    "aliases": [
+      "opentelemetry::global::GlobalTracerProvider::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2c7a555142ffcc96ea90ab01",
+    "path": "opentelemetry::global::trace::GlobalTracerProvider::tracer_with_scope",
+    "name": "tracer_with_scope",
+    "owner": "opentelemetry::global::trace::GlobalTracerProvider",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn tracer_with_scope(&self, scope: InstrumentationScope) -> Self::Tracer",
+    "docs": "Create a tracer using the global provider.",
+    "span": {
+      "filename": "src/global/trace.rs",
+      "begin": [
+        355,
+        5
+      ],
+      "end": [
+        357,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "scope",
+              {
+                "resolved_path": {
+                  "path": "InstrumentationScope",
+                  "id": 10,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Tracer",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 141,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "10": "opentelemetry::common::InstrumentationScope",
+      "141": "opentelemetry::trace::tracer_provider::TracerProvider"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "GlobalTracerProvider",
+          "id": "opentelemetry::global::trace::GlobalTracerProvider",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "TracerProvider",
+        "id": "opentelemetry::trace::tracer_provider::TracerProvider",
+        "args": null
+      },
+      "trait_path": "opentelemetry::trace::tracer_provider::TracerProvider",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/global/trace.rs",
+        "begin": [
+          351,
+          1
+        ],
+        "end": [
+          358,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "177",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.global.trace.GlobalTracerProvider.md",
+    "record_file": "operations/opentelemetry.global.trace.GlobalTracerProvider.json",
+    "anchor": "op-2c7a555142ffcc96ea90ab01",
+    "aliases": [
+      "opentelemetry::global::GlobalTracerProvider::tracer_with_scope"
+    ],
+    "resolved_doc_links": {}
+  }
+]

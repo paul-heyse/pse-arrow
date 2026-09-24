@@ -1,5 +1,67 @@
 # Project status
 
+**Current: Plan 14 M00–M20 — 2026-09-24.** Library-owned mathematics, FeOS,
+matching/DM/BTF and Salsa preparation now feed one admitted native solver lifecycle.
+Ipopt, POUNCE, KINSOL, HiGHS and Clarabel adapters, finite native reuse/warm starts,
+conditional initialization, explicit recycle maps and weighted tear selection are
+implemented. Runtime reports preserve native status, source-space quality, available
+metrics and diagnostic scope. Shared presolve/postsolve, Rust/Python workflows,
+exact publication, Diffsol BDF dynamics and steady/transient/mixed fitting are now
+implemented. M19 removes residual empty crates, unused generated families and
+confirmed unused dependencies; M20 authors physical acceptance, reference and
+measurement bodies. Legacy mathematics and Pyomo routes remain deleted.
+
+**Tested, baseline zero:** M19–M20's selected generator, enum, physical-fixture and
+algebra commands pass eight Rust units with explicit force-validation; the shared
+Python source-contract unit passes once. The isolated validation/phase/tool suite
+passes 38 tests. Commands and conditions are in the
+[packet verification](docs/plans/14-m19-m20-execution.md#verification).
+`just plan14-discover` compiles/enumerates all 109 native Rust tests and collects three
+Python tests; it does not execute those journeys. `just check` and
+`just check-native-python` pass. The transitive `proc-macro-error2` future-compatibility
+notice remains for final qualification. No full static, physical-convergence,
+publication or performance campaign is claimed. Foreign allocation allowances are
+estimates, not process RSS enforcement.
+
+**Next: M21, final implementation/deletion closure.** Review the final consumer,
+capability and retained-mechanism inventory, assemble current classified development
+evidence and issue a fresh seal. M22 then runs Q01–Q17 and all applicable repository
+gates, measures Q18 and obtains independent G1–G7 decisions. The v3 manifest has
+29 case groups and 135 exact witnesses, all still declared unqualified.
+ADR-0082–0084 remain proposed pending formal decision/blueprint reconciliation.
+
+The [execution packet](docs/plans/14-m19-m20-execution.md),
+[inventory](docs/plans/14-execution-inventory.md),
+[foundation contract](docs/plans/14-math-foundation-contract.md) and
+[scoped review](docs/design_review/reviews/design_review_unified-native-solvers_2026-09-24.md)
+record the current boundary. Earlier receipts below retain their historical scope.
+
+## Historical Plan 13 checkpoint
+
+**Historical Plan 13 repair checkpoint — 2026-09-23.** W00–W17 and L01–L16 are
+implemented in the shared working tree. Typed compilation, bounded Salsa reuse,
+library graph projections, relational execution and selected Delta publication have
+their target owners. W18 seals implementation evidence; it is not product acceptance.
+
+**Tested, baseline zero:** the latest isolated repair sweep reports 530 passing
+controls, with native ci-mode force-validation; separate generator and registry
+admission suites each pass 16 controls. Compile, Clippy, family, pure generation and
+fixture checks pass in their recorded modes. These results do not replace the failed
+first W19 campaign: its ordinary native gate recorded 2,757 passed and 119 failed,
+and later campaign gates were interrupted or unrun. W19 remains incomplete; W20
+measurements and final G1–G7 verdicts remain unrun. ADR-0076–ADR-0081 remain proposed.
+
+Historical references: the [W19 repair checkpoint](docs/plans/13-w19-repair-checkpoint.md), and
+the [execution inventory](docs/plans/13-execution-inventory.md) and
+[W15–W20 packet](docs/plans/13-w15-w20-execution.md). This checkpoint ends after
+repair validation and documentation; the functional campaign has not been restarted.
+
+## Historical Plan 09 acceptance
+
+The receipts below describe their original source boundaries. Plan 14 owns current
+execution and does not inherit old acceptance automatically; historical
+success is not qualification of the current compiler or working tree.
+
 **Plan 09 complete — 2026-09-18.** The DataFusion/Arrow/Delta architecture,
 shared native caches, prepared strata, exact dependency reuse, maintenance protection,
 Python boundaries and legacy deletions are implemented and qualified for the current
@@ -23,10 +85,10 @@ destructive coordination or universal cache speedups. ADR-0068–ADR-0070 remain
 
 ## Historical Plan 08 implementation receipts
 
-The following receipts describe prior source boundaries; Plan 09 owns all remaining
-execution. They do not certify the latest cache/schema/compiler tree.
+The following receipts describe prior source boundaries; Plan 09 subsequently closed
+their remaining scope. They do not certify the current tree.
 
-## Current implementation direction — schema-first architecture pivot
+## Historical Plan 08 direction — schema-first architecture pivot
 
 **Latest continuation — 2026-09-17:** native SQL now owns invariant and inference
 queries. The closed rule algebra, its lowering/type modules and rule reflection tables

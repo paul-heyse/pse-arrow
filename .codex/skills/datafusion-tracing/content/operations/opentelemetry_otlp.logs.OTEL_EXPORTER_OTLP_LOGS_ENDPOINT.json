@@ -1,0 +1,69 @@
+[
+  {
+    "id": "7301a5a596248f1ffdbc9c47",
+    "path": "opentelemetry_otlp::logs::OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+    "name": "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "constant",
+    "signature": "const OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: &str = \"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT\"",
+    "docs": "Target to which the exporter is going to send logs",
+    "span": {
+      "filename": "src/logs.rs",
+      "begin": [
+        23,
+        1
+      ],
+      "end": [
+        23,
+        87
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "constant": {
+        "type": {
+          "borrowed_ref": {
+            "lifetime": null,
+            "is_mutable": false,
+            "type": {
+              "primitive": "str"
+            }
+          }
+        },
+        "const": {
+          "expr": "\"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT\"",
+          "value": null,
+          "is_literal": true
+        }
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "410",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.logs.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT.md",
+    "record_file": "operations/opentelemetry_otlp.logs.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT.json",
+    "anchor": "op-7301a5a596248f1ffdbc9c47",
+    "aliases": [
+      "opentelemetry_otlp::OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"
+    ],
+    "resolved_doc_links": {}
+  }
+]

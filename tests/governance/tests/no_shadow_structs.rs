@@ -25,27 +25,29 @@ use regex::Regex;
 #[test]
 fn no_hand_written_struct_shadows_a_generated_one() {
     let root = common::workspace_root();
-    let generated_dir = root.join("crates/pse-relations/src/generated");
-    assert!(generated_dir.is_dir(), "run just codegen before governance");
-
     let struct_re =
         Regex::new(r"(?m)^\s*pub(?:\([^)]*\))?\s+struct\s+(\w+)").expect("static regex");
-
     let mut generated: BTreeMap<String, String> = BTreeMap::new();
-    for path in common::rust_sources(&generated_dir) {
-        for caps in struct_re.captures_iter(&common::read(&path)) {
-            generated.insert(caps[1].to_owned(), common::rel(&path));
+    for directory in ["pse-model", "pse-relations"] {
+        let directory = root.join(format!("crates/{directory}/src/generated"));
+        assert!(
+            directory.is_dir(),
+            "missing generated root: {}",
+            directory.display()
+        );
+        let mut count = 0;
+        for path in common::rust_sources(&directory) {
+            for caps in struct_re.captures_iter(&common::read(&path)) {
+                generated.insert(caps[1].to_owned(), common::rel(&path));
+                count += 1;
+            }
         }
+        assert!(count > 0, "empty generated root: {}", directory.display());
     }
-    assert!(
-        !generated.is_empty(),
-        "crates/pse-relations/src/generated exists but declares no `pub struct`; the \
-         generator emitted nothing"
-    );
 
     let mut problems: Vec<String> = Vec::new();
     for path in common::crate_sources() {
-        if common::rel(&path).starts_with("crates/pse-relations/src/generated/") {
+        if common::rel(&path).contains("/src/generated/") {
             continue;
         }
         for caps in struct_re.captures_iter(&common::read(&path)) {

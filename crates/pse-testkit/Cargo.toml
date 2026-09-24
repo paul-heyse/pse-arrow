@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-testkit"
+description = "Development-only native fixtures and execution evidence."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+pse-columnar.workspace = true
+pse-engine.workspace = true
+pse-schema.workspace = true
+datafusion.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tempfile.workspace = true
+object_store.workspace = true
+serde_json.workspace = true
+futures-util.workspace = true
+async-trait.workspace = true
+
+tokio.workspace = true

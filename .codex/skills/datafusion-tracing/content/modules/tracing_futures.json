@@ -1,0 +1,84 @@
+[
+  {
+    "id": "bd2e91199977886d9a1e911e",
+    "path": "tracing_futures",
+    "name": "tracing_futures",
+    "owner": null,
+    "crate": "tracing-futures",
+    "version": "0.2.5",
+    "kind": "module",
+    "signature": "mod tracing_futures",
+    "docs": "Futures compatibility for [`tracing`].\n\n# Overview\n\n[`tracing`] is a framework for instrumenting Rust programs to collect\nstructured, event-based diagnostic information. This crate provides utilities\nfor using `tracing` to instrument asynchronous code written using futures and\nasync/await.\n\nThe crate provides the following traits:\n\n* [`Instrument`] allows a `tracing` [span] to be attached to a future, sink,\n  stream, or executor.\n\n* [`WithSubscriber`] allows a `tracing` [`Subscriber`] to be attached to a\n  future, sink, stream, or executor.\n\n*Compiler support: [requires `rustc` 1.42+][msrv]*\n\n[msrv]: #supported-rust-versions\n\n# Feature flags\n\nThis crate provides a number of feature flags that enable compatibility\nfeatures with other crates in the asynchronous ecosystem:\n\n- `tokio`: Enables compatibility with the `tokio` crate, including\n   [`Instrument`] and [`WithSubscriber`] implementations for\n   `tokio::executor::Executor`, `tokio::runtime::Runtime`, and\n   `tokio::runtime::current_thread`. Enabled by default.\n- `tokio-executor`: Enables compatibility with the `tokio-executor`\n   crate, including [`Instrument`] and [`WithSubscriber`]\n   implementations for types implementing `tokio_executor::Executor`.\n   This is intended primarily for use in crates which depend on\n   `tokio-executor` rather than `tokio`; in general the `tokio` feature\n   should be used instead.\n- `std-future`: Enables compatibility with `std::future::Future`.\n- `futures-01`: Enables compatibility with version 0.1.x of the [`futures`]\n  crate.\n- `futures-03`: Enables compatibility with version 0.3.x of the `futures`\n  crate's `Spawn` and `LocalSpawn` traits.\n- `tokio-alpha`: Enables compatibility with `tokio` 0.2's alpha releases,\n  including the `tokio` 0.2 `Executor` and `TypedExecutor` traits.\n- `std`: Depend on the Rust standard library.\n\n  `no_std` users may disable this feature with `default-features = false`:\n\n  ```toml\n  [dependencies]\n  tracing-futures = { version = \"0.2.5\", default-features = false }\n  ```\n\nThe `tokio`, `std-future` and `std` features are enabled by default.\n\n[`tracing`]: https://crates.io/crates/tracing\n[span]: https://docs.rs/tracing/latest/tracing/span/index.html\n[`Subscriber`]: https://docs.rs/tracing/latest/tracing/subscriber/index.html\n[`Instrument`]: trait.Instrument.html\n[`WithSubscriber`]: trait.WithSubscriber.html\n[`futures`]: https://crates.io/crates/futures\n\n## Supported Rust Versions\n\nTracing is built against the latest stable release. The minimum supported\nversion is 1.42. The current Tracing version is not guaranteed to build on\nRust versions earlier than the minimum supported version.\n\nTracing follows the same compiler support policies as the rest of the Tokio\nproject. The current stable Rust compiler and the three most recent minor\nversions before it will always be supported. For example, if the current\nstable compiler version is 1.45, the minimum supported version will not be\nincreased past 1.42, three minor versions prior. Increasing the minimum\nsupported compiler version is not considered a semver breaking change as\nlong as doing so complies with this policy.\n",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        707,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[warn(missing_debug_implementations, missing_docs, rust_2018_idioms,\nunreachable_pub, bad_style, const_err, dead_code, improper_ctypes,\nnon_shorthand_field_patterns, no_mangle_generic_items, overflowing_literals,\npath_statements, patterns_in_fns_without_body, private_in_public,\nunconditional_recursion, unused, unused_allocation, unused_comparisons,\nunused_parens, while_true)]"
+      },
+      {
+        "other": "#[deny(broken_intra_doc_links)]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(html_logo_url = \"https://raw.githubusercontent.com/tokio-rs/tracing/master/assets/logo-type.png\")]"
+      },
+      {
+        "other": "#[doc(html_root_url = \"https://docs.rs/tracing-futures/0.2.5\")]"
+      },
+      {
+        "other": "#[doc(issue_tracker_base_url = \"https://github.com/tokio-rs/tracing/issues/\")]"
+      },
+      {
+        "other": "#[attr = Feature([doc_cfg#0])]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          4,
+          12,
+          20,
+          10,
+          16
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "c557c30b8b1bf5d5306a7ff2175742b8261d0a54688b3e0b4a48b36e8bcb768f",
+      "capture": "hosted",
+      "format_version": 60,
+      "item_id": "278",
+      "origin": "https://docs.rs/crate/tracing-futures/0.2.5/json",
+      "compressed_sha256": "e939cad91f4617800445dcaf3eab7817f4c621ef98700891a7c5e1f49ca6ee74",
+      "local_file": "build/acquired/rustdoc/tracing-futures@0.2.5.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_futures.md",
+    "record_file": "modules/tracing_futures.json",
+    "anchor": "op-bd2e91199977886d9a1e911e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

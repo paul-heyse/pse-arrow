@@ -3,10 +3,7 @@
 
 //! Actual selected tuple and guard evidence, independent of rule evaluation.
 use super::{Rows, id, put, set};
-use pse_schema::{
-    Registry,
-    model::{Cell, InvariantSpec},
-};
+use pse_schema::{Registry, model::InvariantSpec};
 
 #[expect(
     clippy::too_many_lines,
@@ -22,10 +19,30 @@ pub(super) fn populate(
     match invariant.name.as_str() {
         "active_read_coordinate" => {
             valid.insert(relation.to_owned(), vec![]);
-            set(invalid, relation, "guard_source_id", Cell::Null);
-            set(invalid, relation, "guard_node_id", Cell::Null);
-            set(invalid, relation, "outer_guard_source_id", Cell::Null);
-            set(invalid, relation, "outer_guard_node_id", Cell::Null);
+            set(
+                invalid,
+                relation,
+                "guard_source_id",
+                serde_json::json!(["null", null]),
+            );
+            set(
+                invalid,
+                relation,
+                "guard_node_id",
+                serde_json::json!(["null", null]),
+            );
+            set(
+                invalid,
+                relation,
+                "outer_guard_source_id",
+                serde_json::json!(["null", null]),
+            );
+            set(
+                invalid,
+                relation,
+                "outer_guard_node_id",
+                serde_json::json!(["null", null]),
+            );
         }
         "provides_matches_complete_contract" | "requires_matches_complete_contract" => {
             let field = if invariant.name.starts_with("provides") {
@@ -33,9 +50,14 @@ pub(super) fn populate(
             } else {
                 "requires"
             };
-            set(valid, relation, field, Cell::List(vec![]));
+            set(valid, relation, field, serde_json::json!(["list", []]));
             *invalid = valid.clone();
-            set(invalid, relation, field, Cell::List(vec![id(1)]));
+            set(
+                invalid,
+                relation,
+                field,
+                serde_json::json!(["list", vec![id(1)]]),
+            );
         }
         "child_guards_decided" | "all_state_targets_bound" => {
             valid.insert(relation.to_owned(), vec![]);
@@ -60,37 +82,89 @@ pub(super) fn populate(
                 valid,
                 relation,
                 "outcome",
-                Cell::Struct(vec![Cell::Enum("resolved"), Cell::Struct(vec![id(1)])]),
+                serde_json::json!([
+                    "struct",
+                    vec![
+                        serde_json::json!(["enum", "resolved"]),
+                        serde_json::json!(["struct", vec![id(1)]])
+                    ]
+                ]),
             );
             *invalid = valid.clone();
             set(
                 invalid,
                 relation,
                 "outcome",
-                Cell::Struct(vec![Cell::Enum("unresolved"), Cell::Null]),
+                serde_json::json!([
+                    "struct",
+                    vec![
+                        serde_json::json!(["enum", "unresolved"]),
+                        serde_json::json!(["null", null])
+                    ]
+                ]),
             );
         }
         "selection_compatible" => {
-            set(valid, relation, "compatible", Cell::Bool(true));
+            set(
+                valid,
+                relation,
+                "compatible",
+                serde_json::json!(["bool", true]),
+            );
             *invalid = valid.clone();
-            set(invalid, relation, "compatible", Cell::Bool(false));
+            set(
+                invalid,
+                relation,
+                "compatible",
+                serde_json::json!(["bool", false]),
+            );
         }
         "material_bounds_satisfied" | "feature_resolved" | "feature_rule_satisfied" => {
-            set(valid, relation, "truth", Cell::Enum("true"));
+            set(
+                valid,
+                relation,
+                "truth",
+                serde_json::json!(["enum", "true"]),
+            );
             *invalid = valid.clone();
-            set(invalid, relation, "truth", Cell::Enum("false"));
+            set(
+                invalid,
+                relation,
+                "truth",
+                serde_json::json!(["enum", "false"]),
+            );
         }
         "relative_target_present" => {
-            set(valid, relation, "op", Cell::Enum("self"));
+            set(valid, relation, "op", serde_json::json!(["enum", "self"]));
             set(valid, relation, "target_entity_id", id(1));
             *invalid = valid.clone();
-            set(invalid, relation, "target_entity_id", Cell::Null);
+            set(
+                invalid,
+                relation,
+                "target_entity_id",
+                serde_json::json!(["null", null]),
+            );
         }
         "kind_has_actual_universe" => {
-            set(valid, relation, "op", Cell::Enum("kind_is"));
-            set(valid, relation, "target_kind", Cell::Enum("instance"));
+            set(
+                valid,
+                relation,
+                "op",
+                serde_json::json!(["enum", "kind_is"]),
+            );
+            set(
+                valid,
+                relation,
+                "target_kind",
+                serde_json::json!(["enum", "instance"]),
+            );
             *invalid = valid.clone();
-            set(invalid, relation, "target_kind", Cell::Null);
+            set(
+                invalid,
+                relation,
+                "target_kind",
+                serde_json::json!(["null", null]),
+            );
         }
         "actual_guard_tuple"
         | "guard_not_conflict"
@@ -109,18 +183,28 @@ pub(super) fn populate(
             };
             set(valid, relation, source, id(1));
             // Local predicate node IDs remain unsigned until the coherent math cut.
-            set(valid, relation, node, Cell::I64(1));
+            set(valid, relation, node, serde_json::json!(["i64", 1]));
             let outcomes = "inferred.predicate_outcomes";
             put(registry, valid, outcomes, 1);
-            set(valid, outcomes, "outcome", Cell::Enum("true"));
+            set(
+                valid,
+                outcomes,
+                "outcome",
+                serde_json::json!(["enum", "true"]),
+            );
             if outer {
-                set(valid, outcomes, "index", Cell::List(vec![]));
+                set(valid, outcomes, "index", serde_json::json!(["list", []]));
             }
             *invalid = valid.clone();
             if invariant.name.starts_with("actual") {
                 invalid.insert(outcomes.to_owned(), vec![]);
             } else {
-                set(invalid, outcomes, "outcome", Cell::Enum("conflict"));
+                set(
+                    invalid,
+                    outcomes,
+                    "outcome",
+                    serde_json::json!(["enum", "conflict"]),
+                );
             }
         }
         _ => return false,

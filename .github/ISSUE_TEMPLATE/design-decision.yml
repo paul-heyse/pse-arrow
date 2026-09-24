@@ -10,7 +10,7 @@ body:
       value: >-
         This form opens the *discussion* that an ADR closes. Filling it well means the
         ADR is mostly written: the fields below map onto the MADR sections and the
-        charter §H front matter in `docs/adr/template.md`.
+        design principles §H front matter in `docs/adr/template.md`.
 
 
         Check the table in
@@ -44,7 +44,7 @@ body:
       label: Level
       description: >-
         `decision` is a normal architectural choice. `should-deviation` departs from a
-        SHOULD in the design charter and needs a compensating control.
+        SHOULD in the design principles and needs a compensating control.
         `must-gap` narrows scope — it records that something is not done and never
         claims compliance.
       options:

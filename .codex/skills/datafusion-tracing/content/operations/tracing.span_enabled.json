@@ -1,0 +1,63 @@
+[
+  {
+    "id": "aeaa6345fd504f0ab1a2dfdf",
+    "path": "tracing::span_enabled",
+    "name": "span_enabled",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "macro",
+    "signature": "macro_rules! span_enabled",
+    "docs": "Tests whether a span with the specified level and target would be enabled.\n\nThis is similar to [`enabled!`], but queries the current subscriber specifically for\nan event, whereas [`enabled!`] queries for an event _or_ span.\n\nSee the documentation for [`enabled!]` for more details on using this macro.\nSee also [`span_enabled!`].\n\n# Examples\n\n```rust\n# use tracing::{span_enabled, Level};\nif span_enabled!(target: \"my_crate\", Level::DEBUG) {\n    // some expensive work...\n}\n// simpler\nif span_enabled!(Level::DEBUG) {\n    // some expensive work...\n}\n// with fields\nif span_enabled!(Level::DEBUG, foo_field) {\n    // some expensive work...\n}\n```\n\n[`enabled!`]: crate::enabled\n[`span_enabled!`]: crate::span_enabled",
+    "span": {
+      "filename": "src/macros.rs",
+      "begin": [
+        1117,
+        1
+      ],
+      "end": [
+        1121,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! span_enabled {\n    ($($rest:tt)*) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::enabled": 388,
+      "crate::span_enabled": 389
+    },
+    "link_paths": {
+      "crate::enabled": "tracing::enabled",
+      "crate::span_enabled": "tracing::span_enabled"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "389",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing.span_enabled.md",
+    "record_file": "operations/tracing.span_enabled.json",
+    "anchor": "op-aeaa6345fd504f0ab1a2dfdf",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::enabled": "../operations/tracing.enabled.md#op-3383abc1e97aee1544e7701c",
+      "crate::span_enabled": "../operations/tracing.span_enabled.md#op-aeaa6345fd504f0ab1a2dfdf"
+    }
+  }
+]

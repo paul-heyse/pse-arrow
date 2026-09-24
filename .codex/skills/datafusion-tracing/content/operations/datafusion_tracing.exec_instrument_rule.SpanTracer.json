@@ -1,0 +1,622 @@
+[
+  {
+    "id": "5edc3b97b64c10ccfbdcd352",
+    "path": "datafusion_tracing::exec_instrument_rule::SpanTracer",
+    "name": "SpanTracer",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct SpanTracer",
+    "docs": "A simple tracer that ensures any spawned task or blocking closure\ninherits the current span via `in_current_span`.",
+    "span": {
+      "filename": "src/exec_instrument_rule.rs",
+      "begin": [
+        99,
+        1
+      ],
+      "end": [
+        99,
+        19
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 10,
+        "path": "::exec_instrument_rule"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": "unit",
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          105
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "77",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.exec_instrument_rule.SpanTracer.md",
+    "record_file": "operations/datafusion_tracing.exec_instrument_rule.SpanTracer.json",
+    "anchor": "op-5edc3b97b64c10ccfbdcd352",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1b0bf7f53e311d5a6662e823",
+    "path": "datafusion_tracing::exec_instrument_rule::SpanTracer::trace_block",
+    "name": "trace_block",
+    "owner": "datafusion_tracing::exec_instrument_rule::SpanTracer",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn trace_block(&self, f: Box<dyn FnOnce() -> Box<dyn Any + Send> + Send>) -> Box<dyn FnOnce() -> Box<dyn Any + Send> + Send>",
+    "docs": "Instruments a boxed blocking closure by running it inside the\n`Span::current()` context.",
+    "span": {
+      "filename": "src/exec_instrument_rule.rs",
+      "begin": [
+        113,
+        5
+      ],
+      "end": [
+        115,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "resolved_path": {
+                  "path": "Box",
+                  "id": 102,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "dyn_trait": {
+                              "traits": [
+                                {
+                                  "trait": {
+                                    "path": "FnOnce",
+                                    "id": 104,
+                                    "args": {
+                                      "parenthesized": {
+                                        "inputs": [],
+                                        "output": {
+                                          "resolved_path": {
+                                            "path": "Box",
+                                            "id": 102,
+                                            "args": {
+                                              "angle_bracketed": {
+                                                "args": [
+                                                  {
+                                                    "type": {
+                                                      "dyn_trait": {
+                                                        "traits": [
+                                                          {
+                                                            "trait": {
+                                                              "path": "Any",
+                                                              "id": 50,
+                                                              "args": null
+                                                            },
+                                                            "generic_params": []
+                                                          },
+                                                          {
+                                                            "trait": {
+                                                              "path": "Send",
+                                                              "id": 5,
+                                                              "args": null
+                                                            },
+                                                            "generic_params": []
+                                                          }
+                                                        ],
+                                                        "lifetime": null
+                                                      }
+                                                    }
+                                                  }
+                                                ],
+                                                "constraints": []
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "generic_params": []
+                                },
+                                {
+                                  "trait": {
+                                    "path": "Send",
+                                    "id": 5,
+                                    "args": null
+                                  },
+                                  "generic_params": []
+                                }
+                              ],
+                              "lifetime": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Box",
+              "id": 102,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "dyn_trait": {
+                          "traits": [
+                            {
+                              "trait": {
+                                "path": "FnOnce",
+                                "id": 104,
+                                "args": {
+                                  "parenthesized": {
+                                    "inputs": [],
+                                    "output": {
+                                      "resolved_path": {
+                                        "path": "Box",
+                                        "id": 102,
+                                        "args": {
+                                          "angle_bracketed": {
+                                            "args": [
+                                              {
+                                                "type": {
+                                                  "dyn_trait": {
+                                                    "traits": [
+                                                      {
+                                                        "trait": {
+                                                          "path": "Any",
+                                                          "id": 50,
+                                                          "args": null
+                                                        },
+                                                        "generic_params": []
+                                                      },
+                                                      {
+                                                        "trait": {
+                                                          "path": "Send",
+                                                          "id": 5,
+                                                          "args": null
+                                                        },
+                                                        "generic_params": []
+                                                      }
+                                                    ],
+                                                    "lifetime": null
+                                                  }
+                                                }
+                                              }
+                                            ],
+                                            "constraints": []
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Send",
+                                "id": 5,
+                                "args": null
+                              },
+                              "generic_params": []
+                            }
+                          ],
+                          "lifetime": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "102": "alloc::boxed::Box",
+      "104": "core::ops::function::FnOnce",
+      "50": "core::any::Any",
+      "5": "core::marker::Send"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SpanTracer",
+          "id": "datafusion_tracing::exec_instrument_rule::SpanTracer",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "JoinSetTracer",
+        "id": "datafusion_common_runtime::trace_utils::JoinSetTracer",
+        "args": null
+      },
+      "trait_path": "datafusion_common_runtime::trace_utils::JoinSetTracer",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exec_instrument_rule.rs",
+        "begin": [
+          103,
+          1
+        ],
+        "end": [
+          116,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "103",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.exec_instrument_rule.SpanTracer.md",
+    "record_file": "operations/datafusion_tracing.exec_instrument_rule.SpanTracer.json",
+    "anchor": "op-1b0bf7f53e311d5a6662e823",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b201d0a499cfd174ff497569",
+    "path": "datafusion_tracing::exec_instrument_rule::SpanTracer::trace_future",
+    "name": "trace_future",
+    "owner": "datafusion_tracing::exec_instrument_rule::SpanTracer",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn trace_future(&self, fut: futures::future::BoxFuture<'static, Box<dyn Any + Send>>) -> futures::future::BoxFuture<'static, Box<dyn Any + Send>>",
+    "docs": "Instruments a boxed future to run in the current span. The future's\nreturn type is erased to `BoxedAny`, which we simply\nrun inside the `Span::current()` context.",
+    "span": {
+      "filename": "src/exec_instrument_rule.rs",
+      "begin": [
+        107,
+        5
+      ],
+      "end": [
+        109,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "fut",
+              {
+                "resolved_path": {
+                  "path": "futures::future::BoxFuture",
+                  "id": 101,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'static"
+                        },
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "Box",
+                              "id": 102,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "dyn_trait": {
+                                          "traits": [
+                                            {
+                                              "trait": {
+                                                "path": "Any",
+                                                "id": 50,
+                                                "args": null
+                                              },
+                                              "generic_params": []
+                                            },
+                                            {
+                                              "trait": {
+                                                "path": "Send",
+                                                "id": 5,
+                                                "args": null
+                                              },
+                                              "generic_params": []
+                                            }
+                                          ],
+                                          "lifetime": null
+                                        }
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "futures::future::BoxFuture",
+              "id": 101,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'static"
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Box",
+                          "id": 102,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "dyn_trait": {
+                                      "traits": [
+                                        {
+                                          "trait": {
+                                            "path": "Any",
+                                            "id": 50,
+                                            "args": null
+                                          },
+                                          "generic_params": []
+                                        },
+                                        {
+                                          "trait": {
+                                            "path": "Send",
+                                            "id": 5,
+                                            "args": null
+                                          },
+                                          "generic_params": []
+                                        }
+                                      ],
+                                      "lifetime": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "101": "futures_core::future::BoxFuture",
+      "102": "alloc::boxed::Box",
+      "50": "core::any::Any",
+      "5": "core::marker::Send"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "SpanTracer",
+          "id": "datafusion_tracing::exec_instrument_rule::SpanTracer",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "JoinSetTracer",
+        "id": "datafusion_common_runtime::trace_utils::JoinSetTracer",
+        "args": null
+      },
+      "trait_path": "datafusion_common_runtime::trace_utils::JoinSetTracer",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/exec_instrument_rule.rs",
+        "begin": [
+          103,
+          1
+        ],
+        "end": [
+          116,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "100",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.exec_instrument_rule.SpanTracer.md",
+    "record_file": "operations/datafusion_tracing.exec_instrument_rule.SpanTracer.json",
+    "anchor": "op-b201d0a499cfd174ff497569",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

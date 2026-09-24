@@ -7,7 +7,7 @@ use std::any::{Any, TypeId};
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
 
-use pse_ids::{CancellationToken, CanonError, MemoryReserver, Reservation, ReservationLease};
+use pse_columnar::{CancellationToken, CanonError, MemoryPool};
 use pse_schema::{Registry, model::RelationKey};
 
 use super::{FieldCheckedBatch, RelationRow, allocation_add, mismatch};
@@ -16,10 +16,42 @@ use crate::RelationError;
 type ErasedBuilder = Box<dyn Any + Send>;
 type Finish = fn(ErasedBuilder) -> Result<FieldCheckedBatch, RelationError>;
 
+/// Shared typed phase encoder. The generated dispatcher supplies only the row type.
+pub(crate) fn encode_rows<R: RelationRow + Clone + pse_model::HeapUsage>(
+    rows: &[R],
+    registry: &Registry,
+    pool: &std::sync::Arc<dyn MemoryPool>,
+    cancel: &CancellationToken,
+) -> Result<FieldCheckedBatch, RelationError> {
+    cancel.checkpoint()?;
+    let scratch = pse_columnar::MemoryConsumer::new("relations:typed-encode").register(pool);
+    // Only one row is copied at a time. Its lease overlaps the retained pure values
+    // and independently charged Arrow builders until push has consumed the copy.
+    scratch
+        .try_grow(
+            rows.iter()
+                .map(pse_model::HeapUsage::owned_bytes)
+                .max()
+                .unwrap_or(0),
+        )
+        .map_err(CanonError::from)?;
+    let mut columns = Collection::new(registry, pool, cancel);
+    columns.ensure::<R>()?;
+    for row in rows {
+        cancel.checkpoint()?;
+        columns.push(row.clone())?;
+    }
+    columns
+        .finish()?
+        .pop_first()
+        .map(|(_, value)| value)
+        .ok_or_else(|| mismatch("one declared typed relation"))
+}
+
 struct Columns {
     // Drop native columns before releasing their construction reservation.
     builder: ErasedBuilder,
-    reservation: Box<dyn Reservation>,
+    reservation: pse_columnar::MemoryReservation,
     key: RelationKey,
     finish: Finish,
 }
@@ -36,7 +68,7 @@ struct Columns {
 pub struct Collection<'a> {
     columns: BTreeMap<TypeId, Columns>,
     registry: &'a Registry,
-    reserver: &'a dyn MemoryReserver,
+    pool: &'a std::sync::Arc<dyn MemoryPool>,
     cancel: &'a CancellationToken,
 }
 
@@ -53,13 +85,13 @@ impl<'a> Collection<'a> {
     /// Starts an empty collection using the caller's shared resource configuration.
     pub fn new(
         registry: &'a Registry,
-        reserver: &'a dyn MemoryReserver,
+        pool: &'a std::sync::Arc<dyn MemoryPool>,
         cancel: &'a CancellationToken,
     ) -> Self {
         Self {
             columns: BTreeMap::new(),
             registry,
-            reserver,
+            pool,
             cancel,
         }
     }
@@ -73,7 +105,8 @@ impl<'a> Collection<'a> {
         if self.columns.contains_key(&TypeId::of::<T>()) {
             return Ok(());
         }
-        let mut reservation = self.reserver.open("relations:generated-columns");
+        let reservation =
+            pse_columnar::MemoryConsumer::new("relations:generated-columns").register(self.pool);
         reservation
             .try_grow(allocation_add(
                 T::builder_allocation_size(),
@@ -151,11 +184,12 @@ impl<'a> Collection<'a> {
                 return Err(mismatch("the declared generated builder result"));
             }
             checked.check_declaration(self.registry, spec)?;
-            checked.batch = pse_ids::owned_buffer::attach_reservation(
+            let owned = pse_columnar::owned_buffer::OwnedRecordBatch::from_reserved(
                 checked.batch,
-                ReservationLease::new(reservation),
+                reservation,
             )?;
-            checked.leased = true;
+            checked.batch = owned.batch().clone();
+            checked.owned = Some(owned);
             match result.entry(key) {
                 Entry::Vacant(entry) => {
                     entry.insert(checked);

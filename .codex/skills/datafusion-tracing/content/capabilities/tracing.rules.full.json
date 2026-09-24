@@ -1,0 +1,148 @@
+{
+  "id": "tracing.rules.full",
+  "title": "Planning instrumentation: full",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "identify optimizer rule changes plan",
+    "planning is slow but execution is fast",
+    "full"
+  ],
+  "crates": [
+    "datafusion-tracing"
+  ],
+  "input": [
+    "SessionState",
+    "RuleInstrumentationOptions"
+  ],
+  "output": [
+    "SessionState",
+    "Phase spans"
+  ],
+  "properties": [
+    "planning",
+    "full",
+    "state-transform"
+  ],
+  "operations": [
+    "datafusion_tracing::instrument_rules_with_info_spans",
+    "datafusion_tracing::rule_options::RuleInstrumentationOptions"
+  ],
+  "brief": "Per-rule detail increases observable activity; volume depends on the plan.",
+  "choices": [
+    {
+      "candidate": "phase_only()",
+      "choose_when": "Phase duration is the question",
+      "tradeoff": "No individual Rule detail."
+    },
+    {
+      "candidate": "full()",
+      "choose_when": "Individual rule activity is useful",
+      "tradeoff": "More spans; no fixed volume multiplier."
+    },
+    {
+      "candidate": "builder()",
+      "choose_when": "A subset of planning activity matters",
+      "tradeoff": "Builder is returned through a public call, but has no public import path."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.rules.full.1",
+      "aspect": "Composition",
+      "kind": "source_observation",
+      "statement": "instrument_rules_with_info_spans!(options: options, state: state) returns the wrapped SessionState.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.rules.full.2",
+      "aspect": "Selection",
+      "kind": "source_observation",
+      "statement": "The builder has analyzer, optimizer and physical_optimizer selectors plus phase-only variants. Exact selected phases should be checked against the emitted structure.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.rules.full.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "Full instrumentation emits per-rule spans parented to the observed phases; phase-only emits no Rule spans for the same query.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Apply planning instrumentation to the configured state before creating SessionContext.",
+    "Execution instrumentation is a separate optimizer rule; combine when both observations matter."
+  ],
+  "unknowns": [
+    "Individual optimizer semantics and cost belong to DataFusion.",
+    "Plan diffs and volume are workload-dependent."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/source/datafusion-tracing/rule_options.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "phase_selection_and_rule_parentage"
+      ],
+      "scope": "Full instrumentation emits per-rule spans parented to the observed phases; phase-only emits no Rule spans for the same query."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ],
+  "resolved_operations": [
+    {
+      "path": "datafusion_tracing::instrument_rules_with_info_spans",
+      "id": "01e5687a47e5f7757a71a3ce",
+      "kind": "macro",
+      "crate": "datafusion-tracing",
+      "record": "operations/datafusion_tracing.instrument_rules_with_info_spans.json",
+      "page": "operations/datafusion_tracing.instrument_rules_with_info_spans.md#op-01e5687a47e5f7757a71a3ce",
+      "signature": "macro_rules! instrument_rules_with_info_spans"
+    },
+    {
+      "path": "datafusion_tracing::instrument_rules_with_info_spans",
+      "id": "dead3b541632d01ee6f1caec",
+      "kind": "macro",
+      "crate": "datafusion-tracing",
+      "record": "operations/datafusion_tracing.instrument_rules_with_info_spans.json",
+      "page": "operations/datafusion_tracing.instrument_rules_with_info_spans.md#op-dead3b541632d01ee6f1caec",
+      "signature": "macro_rules! instrument_rules_with_info_spans"
+    },
+    {
+      "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+      "id": "a12428b574074fc1e6db1e0d",
+      "kind": "struct",
+      "crate": "datafusion-tracing",
+      "record": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+      "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md#op-a12428b574074fc1e6db1e0d",
+      "signature": "struct RuleInstrumentationOptions"
+    },
+    {
+      "path": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+      "id": "a1e41f5dc1584eed32cb9de8",
+      "kind": "struct",
+      "crate": "datafusion-tracing",
+      "record": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.json",
+      "page": "operations/datafusion_tracing.rule_options.RuleInstrumentationOptions.md#op-a1e41f5dc1584eed32cb9de8",
+      "signature": "struct RuleInstrumentationOptions"
+    }
+  ],
+  "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+  "source": "authoring/capabilities/tracing.rules.full.json"
+}

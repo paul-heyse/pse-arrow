@@ -40,13 +40,13 @@ cp "$EV"/rust/probe_*.rs "$WORK/support/src/bin/"
    cargo "+$NIGHTLY" run --quiet --offline --locked --bin "$b"; done) > "$EV/rust/probe_output_support.txt"
 
 echo "==> python api dumps and probes"
-uv sync --locked --extra pyomo --group evidence
-uv run --no-sync python "$EV/python/apidump.py" "$WORK/api-platform" pyarrow attrs cattrs msgspec numpy pyomo scipy
-for p in probe_arrow probe_contracts probe_pyomo; do uv run --no-sync python "$EV/python/$p.py"; done
-UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --extra pyomo --group parity --python 3.13
+uv sync --locked --group evidence
+uv run --no-sync python "$EV/python/apidump.py" "$WORK/api-platform" pyarrow attrs cattrs msgspec numpy scipy
+for p in probe_arrow probe_contracts; do uv run --no-sync python "$EV/python/$p.py"; done
+UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --python 3.13
 UV_PROJECT_ENVIRONMENT=.venv-parity uv run --no-sync python "$EV/python/apidump.py" "$WORK/api-parity" idaes
 
 echo "==> exported requirement files (derived from uv.lock)"
-uv export --frozen --no-hashes --no-dev --extra pyomo --group evidence -o "$EV/python/requirements-platform.txt"
-uv export --frozen --no-hashes --no-dev --extra pyomo --group parity --python-version 3.13 -o "$EV/python/requirements-parity.txt"
+uv export --frozen --no-hashes --no-dev --group evidence -o "$EV/python/requirements-platform.txt"
+uv export --frozen --no-hashes --no-dev --group parity --python-version 3.13 -o "$EV/python/requirements-parity.txt"
 echo "done; review the diff under $EV and update the maps' [probe] quotes if measurements changed"

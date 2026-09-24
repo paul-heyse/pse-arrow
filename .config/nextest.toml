@@ -9,11 +9,12 @@
 solver = { max-threads = 2 }
 # Serialize resource-intensive object-store and source-pipeline admission tests.
 serial = { max-threads = 1 }
-# Each engineering workflow has its own 32 GiB runtime ceiling and one worker.
-engineering = { max-threads = 2 }
+# Each engineering workflow has its own 32 GiB ceiling and two workers.
+# At most two such processes run together (64 GiB aggregate declared ceiling).
+engineering = { max-threads = 4 }
 
 [profile.default]
-fail-fast = true
+fail-fast = false
 slow-timeout = { period = "60s", terminate-after = 2 }
 leak-timeout = "500ms"
 
@@ -24,32 +25,11 @@ threads-required = 2
 slow-timeout = { period = "300s", terminate-after = 2 }
 
 [[profile.default.overrides]]
-# Actual commit, three execution modes, durable reopening and producer-refusal control
-# took 148.035s with a 512 MiB, single-thread runtime (CI diagnostic, baseline zero).
-# Changed-source commits, reuse and a fresh complete execution took 209.859s under
-# the same limits. Keep the allowance scoped to these measured integration tests.
-filter = 'package(pse-tests-engine) & (test(actual_p3_outputs_match_in_process_durable_and_uncached_execution) | test(changed_species_commit_invalidates_p3_and_matches_a_clean_complete_run))'
-test-group = "serial"
-slow-timeout = { period = "120s", terminate-after = 3 }
-
-[[profile.default.overrides]]
-# The target heater reached P10 after 293.374s (2026-09-15, ci/force-validation).
-# Give complete heater/mixer graphs a diagnostic timeout, without a timing gate.
-filter = 'package(pse-tests-engine) & binary(native_engineering_workflows)'
+# Ordinary workflows consume two scheduler slots. Pure catalog/engine units use
+# normal nextest scheduling; no package-wide serialization remains.
+filter = 'package(pse-tests-engine)'
 test-group = "engineering"
-slow-timeout = { period = "300s", terminate-after = 3 }
-
-[[profile.default.overrides]]
-# The typed-key/source-span template journey completed in 395.369s on 2026-09-16
-# (ci/force-validation, one worker, 32 GiB shared ceiling). Keep its diagnostic
-# allowance scoped; this is not a latency acceptance threshold.
-filter = 'package(pse-tests-engine) & binary(native_template_graph)'
-test-group = "serial"
-slow-timeout = { period = "300s", terminate-after = 2 }
-
-[[profile.default.overrides]]
-filter = 'package(pse-tests-engine) | package(pse-catalog) | test(/object_store/)'
-test-group = "serial"
+threads-required = 2
 
 # CI: run everything, retry nothing. A flaky test is a red test.
 [profile.ci]

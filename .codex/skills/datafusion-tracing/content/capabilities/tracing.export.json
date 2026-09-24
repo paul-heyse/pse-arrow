@@ -1,0 +1,165 @@
+{
+  "id": "tracing.export",
+  "title": "Own the bridge, provider and export lifecycle",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "OTLP exporter wiring",
+    "flush buffered spans shutdown",
+    "collector receipt",
+    "batch versus simple exporter"
+  ],
+  "crates": [
+    "tracing-opentelemetry",
+    "opentelemetry",
+    "opentelemetry_sdk",
+    "opentelemetry-otlp"
+  ],
+  "input": [
+    "subscriber layer",
+    "tracer provider",
+    "finished spans"
+  ],
+  "output": [
+    "SDK exporter records",
+    "OTLP attempts"
+  ],
+  "properties": [
+    "export",
+    "shutdown",
+    "features"
+  ],
+  "operations": [
+    "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "opentelemetry_sdk::trace::provider::SdkTracerProvider",
+    "opentelemetry_sdk::trace::span_processor::SimpleSpanProcessor",
+    "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+    "opentelemetry_otlp::span::SpanExporterBuilder"
+  ],
+  "brief": "The bridge connects tracing spans to an SDK tracer. Provider/processor lifetime and span completion govern export; transport success and collector retention are further observations.",
+  "choices": [
+    {
+      "candidate": "local formatting",
+      "choose_when": "Only local tracing output is required",
+      "tradeoff": "No SDK or OTLP transport needed."
+    },
+    {
+      "candidate": "simple processor",
+      "choose_when": "Immediate local export behavior is useful",
+      "tradeoff": "Invokes exporter on completed spans."
+    },
+    {
+      "candidate": "batch processor",
+      "choose_when": "Buffering is useful",
+      "tradeoff": "Queue, timer, flush and shutdown affect delivery."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.export.1",
+      "aspect": "Ownership",
+      "kind": "source_observation",
+      "statement": "Keep the provider and any required runtime alive through completed work, then inspect force_flush/shutdown results.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.export.2",
+      "aspect": "Boundary",
+      "kind": "source_observation",
+      "statement": "An in-memory exporter establishes local SDK output only. OTLP transport and backend persistence need separately recorded evidence.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.export.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "An in-memory batch exporter has no completed record while the span lives. Dropping the span and force-flushing makes one record available; successful default shutdown clears the in-memory records. No OTLP transport or collector is involved.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Select exporter transport features compatible with the runtime and endpoint.",
+    "Use a tracer from the provider in tracing_opentelemetry::layer().with_tracer(tracer)."
+  ],
+  "unknowns": [
+    "No collector deployment, delivery SLA, queue-loss bound or backend persistence qualification."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/examples/otlp.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "batch_flush_exports_completed_spans_and_shutdown_is_observed",
+        "local_layer_and_otel_sampling_are_independent"
+      ],
+      "scope": "An in-memory batch exporter has no completed record while the span lives. Dropping the span and force-flushing makes one record available; successful default shutdown clears the in-memory records. No OTLP transport or collector is involved."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ],
+  "resolved_operations": [
+    {
+      "path": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+      "id": "62abbc216c2acb69ef65794a",
+      "kind": "struct",
+      "crate": "tracing-opentelemetry",
+      "record": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+      "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md#op-62abbc216c2acb69ef65794a",
+      "signature": "struct OpenTelemetryLayer<S, T>"
+    },
+    {
+      "path": "opentelemetry_sdk::trace::provider::SdkTracerProvider",
+      "id": "68f8d3c6d535fa6ce330056b",
+      "kind": "struct",
+      "crate": "opentelemetry_sdk",
+      "record": "operations/opentelemetry_sdk.trace.provider.SdkTracerProvider.json",
+      "page": "operations/opentelemetry_sdk.trace.provider.SdkTracerProvider.md#op-68f8d3c6d535fa6ce330056b",
+      "signature": "struct SdkTracerProvider"
+    },
+    {
+      "path": "opentelemetry_sdk::trace::span_processor::SimpleSpanProcessor",
+      "id": "251eecc5a13ec3fb5a757796",
+      "kind": "struct",
+      "crate": "opentelemetry_sdk",
+      "record": "operations/opentelemetry_sdk.trace.span_processor.SimpleSpanProcessor.json",
+      "page": "operations/opentelemetry_sdk.trace.span_processor.SimpleSpanProcessor.md#op-251eecc5a13ec3fb5a757796",
+      "signature": "struct SimpleSpanProcessor<T: SpanExporter>"
+    },
+    {
+      "path": "opentelemetry_sdk::trace::span_processor::BatchSpanProcessor",
+      "id": "7b6dded2e02e9c652c240628",
+      "kind": "struct",
+      "crate": "opentelemetry_sdk",
+      "record": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.json",
+      "page": "operations/opentelemetry_sdk.trace.span_processor.BatchSpanProcessor.md#op-7b6dded2e02e9c652c240628",
+      "signature": "struct BatchSpanProcessor"
+    },
+    {
+      "path": "opentelemetry_otlp::span::SpanExporterBuilder",
+      "id": "065d94718617452bd0b1b303",
+      "kind": "struct",
+      "crate": "opentelemetry-otlp",
+      "record": "operations/opentelemetry_otlp.span.SpanExporterBuilder.json",
+      "page": "operations/opentelemetry_otlp.span.SpanExporterBuilder.md#op-065d94718617452bd0b1b303",
+      "signature": "struct SpanExporterBuilder<C>"
+    }
+  ],
+  "coverage": "reviewed decision brief; runtime scope is limited to named tests",
+  "source": "authoring/capabilities/tracing.export.json"
+}

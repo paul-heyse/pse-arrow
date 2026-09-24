@@ -200,79 +200,16 @@ Version: 1. Snapshot class: `model`. Primary key: `engine_profile_id`.
 | `semantic_settings.item.value` | `Utf8` | false | `payload` | — | — |
 | `setting_allow_list_version` | `Utf8` | false | `payload` | — | — |
 
-## `kernel_specs`
+## `function_capabilities`
 
-blueprint §6.11 numerical and rule: kernel_specs.
+Actual typed function handler; unsupported syntax is explicitly marked unavailable.
 
-Version: 1. Snapshot class: `model`. Primary key: `kernel_id`.
+Version: 1. Snapshot class: `model`. Primary key: `name`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `kernel_id` | `semantic_id` | false | `key` | — | — |
-| `name` | `Utf8` | false | `payload` | — | — |
-| `version` | `Utf8` | false | `payload` | — | — |
-| `provider` | `Utf8` | false | `payload` | — | — |
-| `artifact_digest` | `content_hash` | false | `payload` | — | — |
-| `behavior` | `enum:KernelBehavior` | false | `payload` | — | — |
-| `inputs` | `List` | false | `payload` | — | — |
-| `inputs.item` | `Struct` | false | `payload` | — | — |
-| `inputs.item.name` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.quantity_type_id` | `semantic_id` | false | `payload` | — | — |
-| `inputs.item.natural_unit_id` | `semantic_id` | false | `payload` | — | — |
-| `inputs.item.nullable` | `Boolean` | false | `payload` | — | — |
-| `inputs.item.shape` | `List` | false | `payload` | — | — |
-| `inputs.item.shape.item` | `enum:DomainKind` | false | `payload` | — | — |
-| `outputs` | `List` | false | `payload` | — | — |
-| `outputs.item` | `Struct` | false | `payload` | — | — |
-| `outputs.item.name` | `Utf8` | false | `payload` | — | — |
-| `outputs.item.quantity_type_id` | `semantic_id` | false | `payload` | — | — |
-| `outputs.item.natural_unit_id` | `semantic_id` | false | `payload` | — | — |
-| `outputs.item.shape` | `List` | false | `payload` | — | — |
-| `outputs.item.shape.item` | `enum:DomainKind` | false | `payload` | — | — |
-| `parameters` | `List` | false | `payload` | — | — |
-| `parameters.item` | `Struct` | false | `payload` | — | — |
-| `parameters.item.name` | `Utf8` | false | `payload` | — | — |
-| `parameters.item.quantity_type_id` | `semantic_id` | false | `payload` | — | — |
-| `parameters.item.natural_unit_id` | `semantic_id` | false | `payload` | — | — |
-| `parameters.item.indexed_by` | `List` | false | `payload` | — | — |
-| `parameters.item.indexed_by.item` | `enum:DomainKind` | false | `payload` | — | — |
-| `null_input_policy` | `enum:KernelNullPolicy` | false | `payload` | — | — |
-| `failure_policy` | `enum:KernelFailurePolicy` | false | `payload` | — | — |
-| `tolerant_batch` | `Boolean` | false | `payload` | — | — |
-| `effects` | `enum:KernelEffects` | false | `payload` | — | — |
-| `argument_evaluation` | `enum:ArgumentEvaluation` | false | `payload` | — | — |
-| `smoothness` | `enum:Differentiability` | false | `payload` | — | — |
-| `validity` | `List` | false | `payload` | — | — |
-| `validity.item` | `Struct` | false | `payload` | — | — |
-| `validity.item.input` | `Utf8` | false | `payload` | — | — |
-| `validity.item.lower` | `bound` | false | `payload` | — | — |
-| `validity.item.upper` | `bound` | false | `payload` | — | — |
-| `monotonicity` | `List` | false | `payload` | — | — |
-| `monotonicity.item` | `Struct` | false | `payload` | — | — |
-| `monotonicity.item.input` | `Utf8` | false | `payload` | — | — |
-| `monotonicity.item.direction` | `enum:Monotonicity` | false | `payload` | — | — |
-| `convexity` | `enum:Convexity` | false | `payload` | — | — |
-| `derivative_bindings` | `List` | false | `payload` | — | — |
-| `derivative_bindings.item` | `Struct` | false | `payload` | — | — |
-| `derivative_bindings.item.kind` | `enum:DerivativeKind` | false | `payload` | — | — |
-| `derivative_bindings.item.implementation_id` | `semantic_id` | false | `payload` | — | — |
-| `derivative_bindings.item.validity_invariant_ids` | `List` | false | `payload` | — | — |
-| `derivative_bindings.item.validity_invariant_ids.item` | `semantic_id` | false | `payload` | — | — |
-| `execution_forms` | `List` | false | `payload` | — | — |
-| `execution_forms.item` | `Struct` | false | `payload` | — | — |
-| `execution_forms.item.form` | `enum:ExecutionForm` | false | `payload` | — | — |
-| `execution_forms.item.implementation_id` | `semantic_id` | false | `payload` | — | — |
-| `thread_safe` | `Boolean` | false | `payload` | — | — |
-| `failure_classes` | `List` | false | `payload` | — | — |
-| `failure_classes.item` | `enum:KernelFailure` | false | `payload` | — | — |
-| `bindings` | `List` | false | `payload` | — | — |
-| `bindings.item` | `Struct` | false | `payload` | — | — |
-| `bindings.item.backend` | `enum:BackendBinding` | false | `payload` | — | — |
-| `bindings.item.implementation_id` | `semantic_id` | false | `payload` | — | — |
-| `bindings.item.conformance_suite` | `Utf8` | false | `payload` | — | — |
-| `nl_function_name` | `Utf8` | true | `payload` | — | — |
-| `doc` | `Utf8` | false | `payload` | — | — |
-| `test_suite` | `Utf8` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `implementation` | `Utf8` | false | `payload` | — | — |
 
 ## `law_bindings`
 
@@ -448,60 +385,6 @@ Version: 1. Snapshot class: `model`. Primary key: `method_id`.
 | `method_id` | `semantic_id` | false | `key` | `reference.method_specs.method_id` | — |
 | `parameter_name` | `Utf8` | false | `payload` | — | — |
 
-## `numerical_policies`
-
-blueprint §6.11 numerical and rule: numerical_policies.
-
-Version: 1. Snapshot class: `model`. Primary key: `policy_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `policy_id` | `semantic_id` | false | `key` | — | — |
-| `name` | `Utf8` | false | `payload` | — | — |
-| `version` | `Utf8` | false | `payload` | — | — |
-| `reassociation` | `enum:ReassociationPolicy` | false | `payload` | — | — |
-| `fma` | `enum:FmaPolicy` | false | `payload` | — | — |
-| `nonfinite` | `enum:NonfinitePolicy` | false | `payload` | — | — |
-| `rewrite_mode` | `enum:RewriteMode` | false | `payload` | — | — |
-| `absolute_tolerance` | `Float64` | false | `payload` | — | — |
-| `relative_tolerance` | `Float64` | false | `payload` | — | — |
-| `signed_zero_equal` | `Boolean` | false | `payload` | — | — |
-
-## `operator_specs`
-
-blueprint §7.3 operator: operator_specs.
-
-Version: 1. Snapshot class: `model`. Primary key: `opcode`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `opcode` | `enum:Opcode` | false | `key` | — | — |
-| `arity` | `enum:Arity` | false | `payload` | — | — |
-| `fixed_arity` | `Int64` | true | `payload` | — | — |
-| `quantity_operation_ids` | `List` | false | `payload` | — | — |
-| `quantity_operation_ids.item` | `semantic_id` | false | `payload` | — | — |
-| `shape_rule` | `Utf8` | false | `payload` | — | — |
-| `derivative_rule` | `Utf8` | false | `payload` | — | — |
-| `argument_evaluation` | `enum:ArgumentEvaluation` | false | `payload` | — | — |
-| `failure_classes` | `List` | false | `payload` | — | — |
-| `failure_classes.item` | `enum:KernelFailure` | false | `payload` | — | — |
-| `domain_restrictions` | `List` | false | `payload` | — | — |
-| `domain_restrictions.item` | `Struct` | false | `payload` | — | — |
-| `domain_restrictions.item.argument` | `Int64` | false | `payload` | — | — |
-| `domain_restrictions.item.relation` | `enum:RelationOp` | false | `payload` | — | — |
-| `domain_restrictions.item.bound` | `Float64` | false | `payload` | — | — |
-| `domain_rule` | `Utf8` | false | `payload` | — | — |
-| `smoothness` | `enum:Differentiability` | false | `payload` | — | — |
-| `convexity_rule` | `Utf8` | false | `payload` | — | — |
-| `monotonicity_rule` | `Utf8` | false | `payload` | — | — |
-| `sparsity_rule` | `Utf8` | false | `payload` | — | — |
-| `rewrite_conditions` | `List` | false | `payload` | — | — |
-| `rewrite_conditions.item` | `Utf8` | false | `payload` | — | — |
-| `lowering` | `List` | false | `payload` | — | — |
-| `lowering.item` | `enum:BackendBinding` | false | `payload` | — | — |
-| `family` | `enum:OperatorFamily` | false | `payload` | — | — |
-| `foldable` | `Boolean` | false | `payload` | — | — |
-
 ## `property_kinds`
 
 blueprint §6.5 property: property_kinds.
@@ -635,42 +518,6 @@ Version: 1. Snapshot class: `model`. Primary key: `reference_state_id`.
 | `include_enthalpy_of_formation` | `Boolean` | false | `payload` | — | — |
 | `phase_id` | `semantic_id` | true | `payload` | `authored.phases.phase_id` | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
-
-## `rule_dependencies`
-
-blueprint §6.11 numerical and rule: rule_dependencies.
-
-Version: 1. Snapshot class: `model`. Primary key: `rule_id, relation_id, mode, derivation_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `rule_id` | `semantic_id` | false | `key` | — | — |
-| `relation_id` | `semantic_id` | false | `key` | — | — |
-| `input_port` | `Utf8` | true | `payload` | — | — |
-| `mode` | `enum:DependencyMode` | false | `key` | — | — |
-| `stratum` | `Int64` | false | `payload` | — | — |
-| `derivation_id` | `semantic_id` | false | `key` | — | — |
-
-## `rule_specs`
-
-blueprint §6.11 numerical and rule: rule_specs.
-
-Version: 2. Snapshot class: `model`. Primary key: `rule_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `rule_id` | `semantic_id` | false | `key` | — | — |
-| `version` | `Utf8` | false | `payload` | — | — |
-| `stratum` | `Int64` | false | `payload` | — | — |
-| `head_relation_id` | `semantic_id` | false | `payload` | — | — |
-| `assertion_relation_id` | `semantic_id` | true | `payload` | — | — |
-| `queries` | `List` | false | `payload` | — | — |
-| `queries.item` | `Struct` | false | `payload` | — | — |
-| `queries.item.truth` | `Utf8` | false | `payload` | — | — |
-| `queries.item.sql` | `Utf8` | false | `payload` | — | — |
-| `negation` | `enum:NegationPolicy` | false | `payload` | — | — |
-| `monotonic` | `Boolean` | false | `payload` | — | — |
-| `conflict_policy` | `enum:ConflictPolicy` | false | `payload` | — | — |
 
 ## `schema_columns`
 

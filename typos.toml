@@ -4,6 +4,9 @@
 # evidence and vendored reading copies; checks our prose, code and the design corpus.
 [files]
 extend-exclude = [
+  "**/.codex/skills/**",
+  "**/.claude/skills/**",
+  "**/.agents/skills/**",
   "Cargo.lock",
   "uv.lock",
   "*.snap",
@@ -42,6 +45,7 @@ cocurrent = "cocurrent"
 Nd = "Nd"
 nd = "nd"
 ue = "ue"
+Stoer = "Stoer"                 # Stoer-Wagner minimum cut
 ba = "ba"
 HEL = "HEL"
 inh = "inh"
@@ -57,3 +61,4 @@ Serializeable = "Serializeable"
 [default.extend-identifiers]
 # Exact crate/feature name retained from Cargo metadata, not prose.
 flate2 = "flate2"
+writeable = "writeable"

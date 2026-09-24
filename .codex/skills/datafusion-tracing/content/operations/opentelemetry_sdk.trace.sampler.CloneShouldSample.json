@@ -1,0 +1,177 @@
+[
+  {
+    "id": "51a17bdf3efb9d99559a2d6f",
+    "path": "opentelemetry_sdk::trace::sampler::CloneShouldSample",
+    "name": "CloneShouldSample",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait CloneShouldSample",
+    "docs": "This trait should not be used directly instead users should use [`ShouldSample`].",
+    "span": {
+      "filename": "src/trace/sampler.rs",
+      "begin": [
+        86,
+        1
+      ],
+      "end": [
+        88,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          2742
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": []
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2739",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.CloneShouldSample.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.CloneShouldSample.json",
+    "anchor": "op-51a17bdf3efb9d99559a2d6f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "34e7e5a4042a10d57f232d01",
+    "path": "opentelemetry_sdk::trace::sampler::CloneShouldSample::box_clone",
+    "name": "box_clone",
+    "owner": "opentelemetry_sdk::trace::sampler::CloneShouldSample",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn box_clone(&self) -> Box<dyn ShouldSample>",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/sampler.rs",
+      "begin": [
+        87,
+        5
+      ],
+      "end": [
+        87,
+        50
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Box",
+              "id": 1423,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "dyn_trait": {
+                          "traits": [
+                            {
+                              "trait": {
+                                "path": "ShouldSample",
+                                "id": 2311,
+                                "args": null
+                              },
+                              "generic_params": []
+                            }
+                          ],
+                          "lifetime": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "1423": "alloc::boxed::Box",
+      "2311": "opentelemetry_sdk::trace::sampler::ShouldSample"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2742",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.sampler.CloneShouldSample.md",
+    "record_file": "operations/opentelemetry_sdk.trace.sampler.CloneShouldSample.json",
+    "anchor": "op-34e7e5a4042a10d57f232d01",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

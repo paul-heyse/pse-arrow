@@ -1,0 +1,410 @@
+[
+  {
+    "id": "9c7c0607dc3adcadbbf65e89",
+    "path": "opentelemetry_sdk::runtime::Runtime",
+    "name": "Runtime",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait Runtime: Clone + Send + Sync + 'static",
+    "docs": "A runtime is an abstraction of an async runtime like [Tokio]. It allows\nOpenTelemetry to work with any current and hopefully future runtime implementations.\n\n[Tokio]: https://crates.io/crates/tokio\n\n# Note\n\nOpenTelemetry expects a *multithreaded* runtime because its types can move across threads.\nFor this reason, this trait requires the `Send` and `Sync` bounds. Single-threaded runtimes\ncan implement this trait in a way that spawns the tasks on the same thread as the calling code.",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        23,
+        1
+      ],
+      "end": [
+        41,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"experimental_async_runtime\")]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": false,
+        "items": [
+          2150,
+          2151
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Clone",
+                "id": 258,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Send",
+                "id": 16,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Sync",
+                "id": 18,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          },
+          {
+            "outlives": "'static"
+          }
+        ],
+        "implementations": [
+          2154,
+          2158
+        ]
+      }
+    },
+    "type_references": {
+      "258": "core::clone::Clone",
+      "16": "core::marker::Send",
+      "18": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1706",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.Runtime.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.Runtime.json",
+    "anchor": "op-9c7c0607dc3adcadbbf65e89",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1531642c4b7fd2d75ef46c95",
+    "path": "opentelemetry_sdk::runtime::Runtime::delay",
+    "name": "delay",
+    "owner": "opentelemetry_sdk::runtime::Runtime",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn delay(&self, duration: Duration) -> impl Future<Output = ()> + Send + 'static",
+    "docs": "Return a future that resolves after the specified [Duration].",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        40,
+        5
+      ],
+      "end": [
+        40,
+        86
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "duration",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "impl_trait": [
+              {
+                "trait_bound": {
+                  "trait": {
+                    "path": "Future",
+                    "id": 203,
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [],
+                        "constraints": [
+                          {
+                            "name": "Output",
+                            "args": null,
+                            "binding": {
+                              "equality": {
+                                "type": {
+                                  "tuple": []
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "generic_params": [],
+                  "modifier": "none"
+                }
+              },
+              {
+                "trait_bound": {
+                  "trait": {
+                    "path": "Send",
+                    "id": 16,
+                    "args": null
+                  },
+                  "generic_params": [],
+                  "modifier": "none"
+                }
+              },
+              {
+                "outlives": "'static"
+              }
+            ]
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration",
+      "203": "core::future::future::Future",
+      "16": "core::marker::Send"
+    },
+    "impl_context": null,
+    "links": {
+      "Duration": 79
+    },
+    "link_paths": {
+      "Duration": "core::time::Duration"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2151",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.Runtime.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.Runtime.json",
+    "anchor": "op-1531642c4b7fd2d75ef46c95",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ad4d64d2e2f75b37201908f6",
+    "path": "opentelemetry_sdk::runtime::Runtime::spawn",
+    "name": "spawn",
+    "owner": "opentelemetry_sdk::runtime::Runtime",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn spawn<F>(&self, future: F) where F: Future<Output = ()> + Send + 'static",
+    "docs": "Spawn a new task or thread, which executes the given future.\n\n# Note\n\nThis is mainly used to run batch span processing in the background. Note, that the function\ndoes not return a handle. OpenTelemetry will use a different way to wait for the future to\nfinish when the caller shuts down.\n\nAt the moment, the shutdown happens by blocking the\ncurrent thread. This means runtime implementations need to make sure they can still execute\nthe given future even if the main thread is blocked.",
+    "span": {
+      "filename": "src/runtime.rs",
+      "begin": [
+        35,
+        5
+      ],
+      "end": [
+        37,
+        49
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "future",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "F"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Future",
+                        "id": 203,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [],
+                            "constraints": [
+                              {
+                                "name": "Output",
+                                "args": null,
+                                "binding": {
+                                  "equality": {
+                                    "type": {
+                                      "tuple": []
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 16,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "203": "core::future::future::Future",
+      "16": "core::marker::Send"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2150",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.runtime.Runtime.md",
+    "record_file": "operations/opentelemetry_sdk.runtime.Runtime.json",
+    "anchor": "op-ad4d64d2e2f75b37201908f6",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

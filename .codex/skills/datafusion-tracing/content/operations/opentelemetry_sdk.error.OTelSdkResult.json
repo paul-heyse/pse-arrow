@@ -1,0 +1,87 @@
+[
+  {
+    "id": "f679ec97d54627042378207b",
+    "path": "opentelemetry_sdk::error::OTelSdkResult",
+    "name": "OTelSdkResult",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "type_alias",
+    "signature": "type OTelSdkResult = std::result::Result<(), OTelSdkError>",
+    "docs": "A specialized `Result` type for Shutdown operations.",
+    "span": {
+      "filename": "src/error.rs",
+      "begin": [
+        45,
+        1
+      ],
+      "end": [
+        45,
+        51
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "type_alias": {
+        "type": {
+          "resolved_path": {
+            "path": "std::result::Result",
+            "id": 43,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "type": {
+                      "tuple": []
+                    }
+                  },
+                  {
+                    "type": {
+                      "resolved_path": {
+                        "path": "OTelSdkError",
+                        "id": 3235,
+                        "args": null
+                      }
+                    }
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        }
+      }
+    },
+    "type_references": {
+      "43": "core::result::Result",
+      "3235": "opentelemetry_sdk::error::OTelSdkError"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "77",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.error.OTelSdkResult.md",
+    "record_file": "operations/opentelemetry_sdk.error.OTelSdkResult.json",
+    "anchor": "op-f679ec97d54627042378207b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

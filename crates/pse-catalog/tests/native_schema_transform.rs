@@ -3,16 +3,14 @@
 
 //! Explicit schema edits use native projection and checked nullability operations.
 
-use datafusion::execution::runtime_env::RuntimeEnv;
-use pse_catalog::session::{
-    ExecutionSettings, SessionFactory, SnapshotSession, ThreadBudget, native_engine_profile,
-};
-use pse_ids::{CancellationToken, FixedBudget, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget};
+use pse_ids::SemanticId;
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{
     RegistryBuilder,
     model::{
-        Authority, Cell, FieldContract, MigrationSpec, MigrationStep, Namespace, RelationDecl,
+        Authority, FieldContract, MigrationSpec, MigrationStep, Namespace, RelationDecl,
         SnapshotClass,
     },
 };
@@ -26,7 +24,7 @@ use std::{collections::BTreeMap, sync::Arc};
     clippy::too_many_lines,
     reason = "keep the complete independent nested fixture and its assertions together"
 )]
-fn fixture(values: &[Cell]) -> SnapshotSession {
+fn fixture(values: &[serde_json::Value]) -> EngineSession {
     let declaration = |version, columns| {
         RelationDecl::new(
             Namespace::Authored,
@@ -95,6 +93,25 @@ fn fixture(values: &[Cell]) -> SnapshotSession {
             ),
         ],
     ));
+    let default = |name: &str, value: serde_json::Value| {
+        let field = builder
+            .declared_relations()
+            .iter()
+            .find(|r| r.key.version == 2)
+            .unwrap()
+            .columns
+            .iter()
+            .find(|f| f.name() == name)
+            .unwrap()
+            .field()
+            .clone();
+        pse_schema::NativeLiteral::from_json(Arc::new(field), &value.to_string()).unwrap()
+    };
+    let exact = default("exact", serde_json::json!(["f64", "8000000000000000"]));
+    let tags = default(
+        "tags",
+        serde_json::json!(["list", [["id", SemanticId::from_bytes([7; 16]).to_hex()]]]),
+    );
     builder.declare_migration(MigrationSpec {
         relation: "authored.samples",
         from_version: 1,
@@ -107,11 +124,11 @@ fn fixture(values: &[Cell]) -> SnapshotSession {
             MigrationStep::DropColumn("obsolete"),
             MigrationStep::AddColumn {
                 name: "exact",
-                default: Cell::F64(-0.0),
+                default: exact,
             },
             MigrationStep::AddColumn {
                 name: "tags",
-                default: Cell::List(vec![Cell::Id(SemanticId::from_bytes([7; 16]))]),
+                default: tags,
             },
             MigrationStep::ChangeNullable {
                 name: "required",
@@ -131,24 +148,22 @@ fn fixture(values: &[Cell]) -> SnapshotSession {
         .enumerate()
         .map(|(index, value)| {
             vec![
-                Cell::U64(u64::try_from(index).unwrap()),
-                Cell::text(format!("row-{index}")),
-                Cell::F64(99.),
+                serde_json::json!(["u64", u64::try_from(index).unwrap()]),
+                serde_json::json!(["text", format!("row-{index}")]),
+                serde_json::json!(["f64", format!("{:016x}", f64::to_bits(99.))]),
                 value.clone(),
             ]
         })
         .collect::<Vec<_>>();
-    let batch = pse_relations::cells::batch_from_cells(&registry, source, &rows).unwrap();
+    let batch = pse_relations::testing::batch_from_literals(&registry, source, &rows).unwrap();
     let checked = FieldCheckedBatch::admit(&registry, source, batch).unwrap();
-    SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
+    pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
             target_partitions: 2.try_into().unwrap(),
         },
-        native_engine_profile(),
     )
     .unwrap()
     .candidate_checked_roles(
@@ -161,7 +176,10 @@ fn fixture(values: &[Cell]) -> SnapshotSession {
 
 #[tokio::test]
 async fn declared_schema_edits_preserve_rows_and_exact_defaults_in_the_native_plan() {
-    let session = fixture(&[Cell::F64(7.), Cell::F64(-2.)]);
+    let session = fixture(&[
+        serde_json::json!(["f64", format!("{:016x}", f64::to_bits(7.))]),
+        serde_json::json!(["f64", format!("{:016x}", f64::to_bits(-2.))]),
+    ]);
     let cancel = CancellationToken::new();
     let prepared = session
         .prepare_schema_transform("authored.samples@1->2", "source", &cancel)
@@ -175,17 +193,33 @@ async fn declared_schema_edits_preserve_rows_and_exact_defaults_in_the_native_pl
         .checked_relation(session.registry(), target, &cancel)
         .unwrap();
     let mut rows =
-        pse_relations::cells::cells_from_batch(session.registry(), target, result.batch()).unwrap();
-    rows.sort_by_key(|row| row[0].literal_spec());
+        pse_relations::testing::literals_from_batch(session.registry(), target, result.batch())
+            .unwrap();
+    rows.sort_by_key(|row| row[0].to_string());
     assert_eq!(rows.len(), 2);
     for (index, row) in rows.iter().enumerate() {
-        assert_eq!(row[0], Cell::U64(u64::try_from(index).unwrap()));
-        assert_eq!(row[1], Cell::text(format!("row-{index}")));
-        assert_eq!(row[2], Cell::F64([7., -2.][index]));
-        assert_eq!(row[3].literal_spec(), Cell::F64(-0.0).literal_spec());
+        assert_eq!(
+            row[0],
+            serde_json::json!(["u64", u64::try_from(index).unwrap()])
+        );
+        assert_eq!(row[1], serde_json::json!(["text", format!("row-{index}")]));
+        assert_eq!(
+            row[2],
+            serde_json::json!(["f64", format!("{:016x}", f64::to_bits([7., -2.][index]))])
+        );
+        assert_eq!(
+            row[3].to_string(),
+            serde_json::json!(["f64", format!("{:016x}", f64::to_bits(-0.0))]).to_string()
+        );
         assert_eq!(
             row[4],
-            Cell::List(vec![Cell::Id(SemanticId::from_bytes([7; 16]))])
+            serde_json::json!([
+                "list",
+                vec![serde_json::json!([
+                    "id",
+                    (SemanticId::from_bytes([7; 16])).to_hex()
+                ])]
+            ])
         );
     }
     assert!(
@@ -215,7 +249,7 @@ async fn declared_schema_edits_preserve_rows_and_exact_defaults_in_the_native_pl
         .unwrap()
         .1;
     let source = session.registry().relation_by_key(source_key).unwrap();
-    let source_plan = pse_catalog::session::output::declare_relation_output(
+    let source_plan = pse_engine::session::output::declare_relation_output(
         session.scan_role("source").unwrap(),
         session.registry(),
         source,
@@ -243,7 +277,10 @@ async fn declared_schema_edits_preserve_rows_and_exact_defaults_in_the_native_pl
 
 #[tokio::test]
 async fn narrowing_nullability_fails_execution_on_an_actual_null() {
-    let session = fixture(&[Cell::F64(7.), Cell::Null]);
+    let session = fixture(&[
+        serde_json::json!(["f64", format!("{:016x}", f64::to_bits(7.))]),
+        serde_json::json!(["null", null]),
+    ]);
     let cancel = CancellationToken::new();
     let prepared = session
         .prepare_schema_transform("authored.samples@1->2", "source", &cancel)

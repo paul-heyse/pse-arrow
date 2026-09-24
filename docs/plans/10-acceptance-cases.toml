@@ -1,0 +1,1492 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+version = 1
+
+[[cases]]
+id = "repairs.source_span_decode_preserves_fields"
+obligations = ["A02", "A11"]
+gate = "test"
+source = "crates/pse-catalog/src/delta/layout/tests.rs"
+test = "delta::layout::tests::source_span_obligations_preserve_decoded_view_fields"
+class = "pse-catalog"
+
+[[cases]]
+id = "repairs.deep_contract_protection"
+obligations = ["A05", "A15"]
+gate = "test"
+source = "crates/pse-engine/src/session/contract/tests.rs"
+test = "session::contract::tests::deep_native_contract_protection_is_bounded_and_preserves_requirements"
+class = "pse-engine"
+
+[[cases]]
+id = "repairs.physical_producer_observation"
+obligations = ["A05", "A15"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::diagnostic_physical_graph_includes_independently_planned_producers"
+class = "pse-engine"
+
+[[cases]]
+id = "repairs.native_error_source_chain"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-diagnostics/src/consolidation_unit.rs"
+test = "consolidation_unit::standard_error_walk_reaches_the_domain_through_native_context_and_shared_wrappers"
+class = "pse-diagnostics"
+
+[[cases]]
+id = "repairs.constant_power_derivatives"
+obligations = ["A09"]
+gate = "test"
+source = "crates/pse-numerics/src/pivot_unit.rs"
+test = "pivot_unit::constant_power_exponents_preserve_exact_zero_and_one_derivatives"
+class = "pse-numerics"
+
+[packages]
+N00 = ["xtask/src/architecture_acceptance.rs"]
+N01 = [
+  "crates/pse-compiler/src/passes/p4/predicates/scalar.rs",
+  "python/pse/_transfer.py",
+]
+N02 = ["crates/pse-schema/src/resolved_contract.rs"]
+N03 = ["crates/pse-relations/src/validate/mod.rs"]
+N04 = ["crates/pse-schema/src/literal.rs", "crates/pse-ids/src/native_value.rs"]
+N05 = ["crates/pse-diagnostics/src/lib.rs"]
+N06 = ["crates/pse-engine/src/lib.rs", "crates/pse-runtime/src/lib.rs"]
+N07 = ["crates/pse-engine/src/session/commands.rs"]
+N08 = ["crates/pse-engine/src/session/functions.rs"]
+N09 = ["crates/pse-engine/src/session/config.rs"]
+N10 = ["crates/pse-compiler/src/passes/native_matches.rs"]
+N11 = ["crates/pse-mathir/src/topo.rs"]
+N12 = [
+  "crates/pse-numerics/src/expressions.rs",
+  "crates/pse-numerics/src/stages.rs",
+  "crates/pse-backend-native/src/lib.rs",
+]
+N13 = ["crates/pse-ids/src/owned_buffer.rs"]
+N14 = [
+  "crates/pse-catalog/src/delta/operation.rs",
+  "crates/pse-catalog/src/delta/actions.rs",
+  "crates/pse-catalog/src/delta/maintenance.rs",
+]
+N15 = [
+  "crates/pse-py/src/inspection/settings.rs",
+  "crates/pse-py/src/inspection/errors.rs",
+]
+N16 = ["crates/pse-testkit/src/lib.rs", "tests/support/workflow_runtime.rs"]
+
+[deletions]
+L01 = [
+  "crates/pse-compiler/src/passes/p4/predicates/scalar.rs",
+  "python/pse/_transfer.py",
+]
+L02 = ["crates/pse-schema/src/resolved_contract.rs"]
+L03 = ["crates/pse-schema/src/literal.rs", "crates/pse-ids/src/native_value.rs"]
+L04 = ["crates/pse-relations/src/validate/mod.rs"]
+L05 = ["crates/pse-schema/src/literal.rs", "crates/pse-ids/src/native_value.rs"]
+L06 = ["crates/pse-schema/src/literal.rs", "crates/pse-ids/src/native_value.rs"]
+L07 = ["crates/pse-engine/src/lib.rs", "crates/pse-runtime/src/lib.rs"]
+L08 = ["crates/pse-engine/src/session/commands.rs"]
+L09 = ["crates/pse-engine/src/session/functions.rs"]
+L10 = ["crates/pse-engine/src/session/config.rs"]
+L11 = ["crates/pse-compiler/src/passes/native_matches.rs"]
+L12 = ["crates/pse-mathir/src/topo.rs"]
+L13 = ["crates/pse-backend-native/src/lib.rs"]
+L14 = ["crates/pse-ids/src/owned_buffer.rs"]
+L15 = [
+  "crates/pse-catalog/src/delta/operation.rs",
+  "crates/pse-catalog/src/delta/actions.rs",
+  "crates/pse-catalog/src/delta/maintenance.rs",
+]
+L16 = ["crates/pse-diagnostics/src/lib.rs"]
+L17 = [
+  "crates/pse-py/src/inspection/settings.rs",
+  "crates/pse-py/src/inspection/errors.rs",
+]
+L18 = ["crates/pse-testkit/src/lib.rs", "tests/support/workflow_runtime.rs"]
+
+[[cases]]
+id = "contracts.every_relation_and_column_fact_survives_an_unchanged_fingerprint"
+obligations = ["A01", "A03"]
+gate = "test"
+source = "crates/pse-schema/src/resolved_contract/consolidation_unit.rs"
+test = "resolved_contract::consolidation_unit::every_relation_and_column_fact_survives_an_unchanged_fingerprint"
+class = "pse-schema"
+
+[[cases]]
+id = "contracts.equivalent_owners_and_transitive_enum_changes"
+obligations = ["A01", "A03"]
+gate = "test"
+source = "crates/pse-schema/src/resolved_contract/consolidation_unit.rs"
+test = "resolved_contract::consolidation_unit::equivalent_owners_and_transitive_enum_changes"
+class = "pse-schema"
+
+[[cases]]
+id = "contracts.documentation_is_projected_but_unknown_metadata_is_semantic"
+obligations = ["A01", "A03"]
+gate = "test"
+source = "crates/pse-schema/src/resolved_contract/consolidation_unit.rs"
+test = "resolved_contract::consolidation_unit::documentation_is_projected_but_unknown_metadata_is_semantic"
+class = "pse-schema"
+
+[[cases]]
+id = "contracts.generated_proof_is_cached_and_failed_comparison_publishes_nothing"
+obligations = ["A01", "A03"]
+gate = "test"
+source = "crates/pse-schema/src/resolved_contract/consolidation_unit.rs"
+test = "resolved_contract::consolidation_unit::generated_proof_is_cached_and_failed_comparison_publishes_nothing"
+class = "pse-schema"
+
+[[cases]]
+id = "contracts.graph_checks_extensions_checks_policies_and_missing_edges"
+obligations = ["A01", "A03"]
+gate = "test"
+source = "crates/pse-schema/src/resolved_contract/consolidation_unit.rs"
+test = "resolved_contract::consolidation_unit::graph_checks_extensions_checks_policies_and_missing_edges"
+class = "pse-schema"
+
+[[cases]]
+id = "contracts.handles_retain_and_release_their_actual_arena"
+obligations = ["A01", "A03"]
+gate = "test"
+source = "crates/pse-schema/src/resolved_contract/consolidation_unit.rs"
+test = "resolved_contract::consolidation_unit::handles_retain_and_release_their_actual_arena"
+class = "pse-schema"
+
+[[cases]]
+id = "contracts.mutual_cycles_compare_transitive_targets_without_binding_unrelated_nodes"
+obligations = ["A01", "A03"]
+gate = "test"
+source = "crates/pse-schema/src/resolved_contract/consolidation_unit.rs"
+test = "resolved_contract::consolidation_unit::mutual_cycles_compare_transitive_targets_without_binding_unrelated_nodes"
+class = "pse-schema"
+
+[[cases]]
+id = "contracts.nested_dictionary_ordering_survives_native_equality_projection"
+obligations = ["A01", "A03"]
+gate = "test"
+source = "crates/pse-schema/src/resolved_contract/consolidation_unit.rs"
+test = "resolved_contract::consolidation_unit::nested_dictionary_ordering_survives_native_equality_projection"
+class = "pse-schema"
+
+[[cases]]
+id = "contracts.docs_only_owner_changes_bind_even_when_transport_fingerprints_change"
+obligations = ["A01", "A03"]
+gate = "test"
+source = "crates/pse-schema/src/resolved_contract/consolidation_unit.rs"
+test = "resolved_contract::consolidation_unit::docs_only_owner_changes_bind_even_when_transport_fingerprints_change"
+class = "pse-schema"
+
+[[cases]]
+id = "values.dictionary_codes_and_slices_encode_actual_meanings"
+obligations = ["A03"]
+gate = "test"
+source = "crates/pse-ids/src/native_value/consolidation_unit.rs"
+test = "native_value::consolidation_unit::dictionary_codes_and_slices_encode_actual_meanings"
+class = "pse-ids"
+
+[[cases]]
+id = "values.visible_parent_nulls_mask_nested_payload_and_list_offsets_are_exact"
+obligations = ["A03"]
+gate = "test"
+source = "crates/pse-ids/src/native_value/consolidation_unit.rs"
+test = "native_value::consolidation_unit::visible_parent_nulls_mask_nested_payload_and_list_offsets_are_exact"
+class = "pse-ids"
+
+[[cases]]
+id = "fields.collection_bounds_uniqueness_and_empty_values_use_native_array_functions"
+obligations = ["A02"]
+gate = "test"
+source = "crates/pse-relations/src/validate/predicates/consolidation_unit.rs"
+test = "validate::predicates::consolidation_unit::collection_bounds_uniqueness_and_empty_values_use_native_array_functions"
+class = "pse-relations"
+
+[[cases]]
+id = "fields.map_key_and_value_domains_and_uniqueness_respect_parent_masks"
+obligations = ["A02"]
+gate = "test"
+source = "crates/pse-relations/src/validate/predicates/consolidation_unit.rs"
+test = "validate::predicates::consolidation_unit::map_key_and_value_domains_and_uniqueness_respect_parent_masks"
+class = "pse-relations"
+
+[[cases]]
+id = "fields.list_view_child_ranges_respect_visible_slices_and_null_parents"
+obligations = ["A02"]
+gate = "test"
+source = "crates/pse-relations/src/validate/predicates/consolidation_unit.rs"
+test = "validate::predicates::consolidation_unit::list_view_child_ranges_respect_visible_slices_and_null_parents"
+class = "pse-relations"
+
+[[cases]]
+id = "fields.half_precision_reals_reject_nonfinite_values"
+obligations = ["A02"]
+gate = "test"
+source = "crates/pse-relations/src/validate/predicates/consolidation_unit.rs"
+test = "validate::predicates::consolidation_unit::half_precision_reals_reject_nonfinite_values"
+class = "pse-relations"
+
+[[cases]]
+id = "admission.preparation_reuses_exact_owner_and_schema_and_rejects_foreign_registry"
+obligations = ["A02", "A11"]
+gate = "test"
+source = "crates/pse-relations/src/validate/prepared/consolidation_unit.rs"
+test = "validate::prepared::consolidation_unit::preparation_reuses_exact_owner_and_schema_and_rejects_foreign_registry"
+class = "pse-relations"
+
+[[cases]]
+id = "admission.nested_findings_retain_original_rows_exact_paths_and_total_when_sampled"
+obligations = ["A02", "A11"]
+gate = "test"
+source = "crates/pse-relations/src/validate/prepared/consolidation_unit.rs"
+test = "validate::prepared::consolidation_unit::nested_findings_retain_original_rows_exact_paths_and_total_when_sampled"
+class = "pse-relations"
+
+[[cases]]
+id = "admission.hidden_struct_values_and_inactive_union_arms_are_not_evaluated"
+obligations = ["A02", "A11"]
+gate = "test"
+source = "crates/pse-relations/src/validate/prepared/consolidation_unit.rs"
+test = "validate::prepared::consolidation_unit::hidden_struct_values_and_inactive_union_arms_are_not_evaluated"
+class = "pse-relations"
+
+[[cases]]
+id = "admission.encoded_values_use_visible_logical_occurrences_and_cancel_never_certifies"
+obligations = ["A02", "A11"]
+gate = "test"
+source = "crates/pse-relations/src/validate/prepared/consolidation_unit.rs"
+test = "validate::prepared::consolidation_unit::encoded_values_use_visible_logical_occurrences_and_cancel_never_certifies"
+class = "pse-relations"
+
+[[cases]]
+id = "admission.local_masks_and_delta_expression_lowering_agree_without_storage_execution"
+obligations = ["A02", "A11"]
+gate = "test"
+source = "crates/pse-relations/src/validate/prepared/consolidation_unit.rs"
+test = "validate::prepared::consolidation_unit::local_masks_and_delta_expression_lowering_agree_without_storage_execution"
+class = "pse-relations"
+
+[[cases]]
+id = "admission.actual_session_function_bindings_are_prepared_in_each_owner"
+obligations = ["A02", "A11"]
+gate = "test"
+source = "crates/pse-relations/src/validate/prepared/consolidation_unit.rs"
+test = "validate::prepared::consolidation_unit::actual_session_function_bindings_are_prepared_in_each_owner"
+class = "pse-relations"
+
+[[cases]]
+id = "operations.requirement_survives_zero_limit_and_no_value_poll"
+obligations = ["A05"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_operation_unit.rs"
+test = "session::native_operation_unit::requirement_survives_zero_limit_and_no_value_poll"
+class = "pse-engine"
+
+[[cases]]
+id = "operations.cloned_command_executes_once_even_when_value_is_unused"
+obligations = ["A05"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_operation_unit.rs"
+test = "session::native_operation_unit::cloned_command_executes_once_even_when_value_is_unused"
+class = "pse-engine"
+
+[[cases]]
+id = "operations.pure_completion_failure_and_abandonment_are_terminal"
+obligations = ["A05"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_operation_unit.rs"
+test = "session::native_operation_unit::pure_completion_failure_and_abandonment_are_terminal"
+class = "pse-engine"
+
+[[cases]]
+id = "operations.rewrite_checks_arity_and_actual_identity"
+obligations = ["A05"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_operation_unit.rs"
+test = "session::native_operation_unit::rewrite_checks_arity_and_actual_identity"
+class = "pse-engine"
+
+[[cases]]
+id = "operations.metrics_are_native_and_unpolled_work_does_not_start"
+obligations = ["A05"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_operation_unit.rs"
+test = "session::native_operation_unit::metrics_are_native_and_unpolled_work_does_not_start"
+class = "pse-engine"
+
+[[cases]]
+id = "operations.abandoned_command_settles_without_replay"
+obligations = ["A05"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_operation_unit.rs"
+test = "session::native_operation_unit::abandoned_command_settles_without_replay"
+class = "pse-engine"
+
+[[cases]]
+id = "operations.transparent_owner_survives_reconstruction_fetch_and_stream_drop"
+obligations = ["A05"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_operation_unit.rs"
+test = "session::native_operation_unit::transparent_owner_survives_reconstruction_fetch_and_stream_drop"
+class = "pse-engine"
+
+[[cases]]
+id = "operations.explain_does_not_execute_commands_and_distinct_commands_do_not_merge"
+obligations = ["A05"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_operation_unit.rs"
+test = "session::native_operation_unit::explain_does_not_execute_commands_and_distinct_commands_do_not_merge"
+class = "pse-engine"
+
+[[cases]]
+id = "operations.protecting_pure_requirements_does_not_invent_volatility"
+obligations = ["A05"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_operation_unit.rs"
+test = "session::native_operation_unit::protecting_pure_requirements_does_not_invent_volatility"
+class = "pse-engine"
+
+[[cases]]
+id = "functions.min_max_delegate_statistics_order_and_sliding_state"
+obligations = ["A06"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_function_unit.rs"
+test = "session::native_function_unit::min_max_delegate_statistics_order_and_sliding_state"
+class = "pse-engine"
+
+[[cases]]
+id = "functions.collection_keeps_fields_through_state_groups_reversal_and_empty"
+obligations = ["A06"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_function_unit.rs"
+test = "session::native_function_unit::collection_keeps_fields_through_state_groups_reversal_and_empty"
+class = "pse-engine"
+
+[[cases]]
+id = "functions.element_keeps_scalar_fast_path_and_exact_nested_scalar_fields"
+obligations = ["A06"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_function_unit.rs"
+test = "session::native_function_unit::element_keeps_scalar_fast_path_and_exact_nested_scalar_fields"
+class = "pse-engine"
+
+[[cases]]
+id = "functions.native_statistics_substitution_retains_selected_field_metadata"
+obligations = ["A06"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_function_unit.rs"
+test = "session::native_function_unit::native_statistics_substitution_retains_selected_field_metadata"
+class = "pse-engine"
+
+[[cases]]
+id = "functions.named_struct_delegates_argument_mapping_and_keeps_child_meaning"
+obligations = ["A06"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_function_unit.rs"
+test = "session::native_function_unit::named_struct_delegates_argument_mapping_and_keeps_child_meaning"
+class = "pse-engine"
+
+[[cases]]
+id = "functions.ordered_collection_reversal_and_merge_follow_the_returned_native_implementation"
+obligations = ["A06"]
+gate = "test"
+source = "crates/pse-engine/src/session/native_function_unit.rs"
+test = "session::native_function_unit::ordered_collection_reversal_and_merge_follow_the_returned_native_implementation"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.shared_producer_optimization_compares_original_schemas_before_native_refinement"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::shared_producer_optimization_compares_original_schemas_before_native_refinement"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.abandoned_reader_is_terminal_and_does_not_restart_partial_input"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::abandoned_reader_is_terminal_and_does_not_restart_partial_input"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.completed_physical_reuse_requires_live_owners_success_and_the_current_epoch"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::completed_physical_reuse_requires_live_owners_success_and_the_current_epoch"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.caller_cache_factory_is_retained"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::caller_cache_factory_is_retained"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.lazy_siblings_share_input_and_release_reservations"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::lazy_siblings_share_input_and_release_reservations"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.native_spill_preserves_values_and_charges_live_decoded_buffers"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::native_spill_preserves_values_and_charges_live_decoded_buffers"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.spill_reader_cannot_bypass_the_native_allocation_budget"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::spill_reader_cannot_bypass_the_native_allocation_budget"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.resident_cache_and_export_share_allocation_capacity"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::resident_cache_and_export_share_allocation_capacity"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.a_new_epoch_discards_completed_input"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::a_new_epoch_discards_completed_input"
+class = "pse-engine"
+
+[[cases]]
+id = "reuse.exported_cached_arrays_keep_the_unique_reservation_after_eviction_and_stream_drop"
+obligations = ["A07", "A10"]
+gate = "test"
+source = "crates/pse-engine/src/session/cache/tests.rs"
+test = "session::cache::tests::exported_cached_arrays_keep_the_unique_reservation_after_eviction_and_stream_drop"
+class = "pse-engine"
+
+[[cases]]
+id = "correspondence.qualified_matches_preserve_multiplicity_null_semantics_and_stable_keys"
+obligations = ["A08"]
+gate = "test"
+source = "crates/pse-compiler/src/passes/native_matches/pivot_unit.rs"
+test = "passes::native_matches::pivot_unit::qualified_matches_preserve_multiplicity_null_semantics_and_stable_keys"
+class = "pse-compiler"
+
+[[cases]]
+id = "graph.loaded_cycles_report_the_actual_path_even_through_a_guard"
+obligations = ["A09"]
+gate = "test"
+source = "crates/pse-mathir/src/topo.rs"
+test = "topo::tests::loaded_cycles_report_the_actual_path_even_through_a_guard"
+class = "pse-mathir"
+
+[[cases]]
+id = "graph.graph_contract_unit_binding_edges_close_cycles_without_cloning_nodes"
+obligations = ["A09"]
+gate = "test"
+source = "crates/pse-mathir/src/topo.rs"
+test = "topo::tests::graph_contract_unit_binding_edges_close_cycles_without_cloning_nodes"
+class = "pse-mathir"
+
+[[cases]]
+id = "graph.dangling_and_unreachable_cycles_are_rejected"
+obligations = ["A09"]
+gate = "test"
+source = "crates/pse-mathir/src/topo.rs"
+test = "topo::tests::dangling_and_unreachable_cycles_are_rejected"
+class = "pse-mathir"
+
+[[cases]]
+id = "graph.numbering_preserves_root_and_child_order_without_recursive_stack_growth"
+obligations = ["A09"]
+gate = "test"
+source = "crates/pse-mathir/src/topo.rs"
+test = "topo::tests::numbering_preserves_root_and_child_order_without_recursive_stack_growth"
+class = "pse-mathir"
+
+[[cases]]
+id = "arithmetic.integer_division_checks_the_actual_i128_domain"
+obligations = ["A04"]
+gate = "test"
+source = "crates/pse-compiler/src/passes/p4/predicates/scalar.rs"
+test = "passes::p4::predicates::scalar::consolidation_unit::integer_division_checks_the_actual_i128_domain"
+class = "pse-compiler"
+
+[[cases]]
+id = "arithmetic.nonintegral_division_preserves_exact_operand_conversion"
+obligations = ["A04"]
+gate = "test"
+source = "crates/pse-compiler/src/passes/p4/predicates/scalar.rs"
+test = "passes::p4::predicates::scalar::consolidation_unit::nonintegral_division_preserves_exact_operand_conversion"
+class = "pse-compiler"
+
+[[cases]]
+id = "owner.every_nested_dictionary_and_validity_buffer_keeps_the_reservation"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::every_nested_dictionary_and_validity_buffer_keeps_the_reservation"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.array_and_batch_clones_do_not_charge_again_or_release_early"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::array_and_batch_clones_do_not_charge_again_or_release_early"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.result_copy_accounts_for_coexistence_with_the_source"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::result_copy_accounts_for_coexistence_with_the_source"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.insufficient_budget_and_cancelled_work_release_all_claims"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::insufficient_budget_and_cancelled_work_release_all_claims"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.query_export_retains_native_buffers_without_copying_values"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::query_export_retains_native_buffers_without_copying_values"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.shared_columns_and_sliced_buffers_charge_each_actual_allocation_once"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::shared_columns_and_sliced_buffers_charge_each_actual_allocation_once"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.copy_bounds_are_checked_before_reservation"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::copy_bounds_are_checked_before_reservation"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.strict_decode_alignment_copy_retains_bytes_and_budget_through_slices"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::strict_decode_alignment_copy_retains_bytes_and_budget_through_slices"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.cancellation_after_acquiring_budget_releases_before_copying"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::cancellation_after_acquiring_budget_releases_before_copying"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.cancellation_after_acquiring_export_claim_releases_native_result"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::tests::cancellation_after_acquiring_export_claim_releases_native_result"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.repeated_exports_share_one_allocation_and_preserve_origin_pool"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::pivot_unit::repeated_exports_share_one_allocation_and_preserve_origin_pool"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.metadata_projection_preserves_buffers_and_native_owner"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::pivot_unit::metadata_projection_preserves_buffers_and_native_owner"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.concurrent_exports_do_not_duplicate_allocation_admission"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::pivot_unit::concurrent_exports_do_not_duplicate_allocation_admission"
+class = "pse-ids"
+
+[[cases]]
+id = "owner.copy_has_independent_capacity_and_failed_export_has_no_owner"
+obligations = ["A10"]
+gate = "test"
+source = "crates/pse-ids/src/owned_buffer.rs"
+test = "owned_buffer::pivot_unit::copy_has_independent_capacity_and_failed_export_has_no_owner"
+class = "pse-ids"
+
+[[cases]]
+id = "durable.native_member_writes_feed_actual_versions_into_coherent_publication"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "native_member_writes_feed_actual_versions_into_coherent_publication"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.publication_retry_checks_complete_request_after_head_advancement"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "publication_retry_checks_complete_request_after_head_advancement"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.unavailable_declared_input_prevents_publication"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "unavailable_declared_input_prevents_publication"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.a_nested_delta_write_without_scans_cannot_bypass_inspection_policy"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "a_nested_delta_write_without_scans_cannot_bypass_inspection_policy"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.concurrent_publication_creation_and_parent_updates_have_one_winner"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "concurrent_publication_creation_and_parent_updates_have_one_winner"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.publication_reconciles_actual_lost_commit_acknowledgments"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "publication_reconciles_actual_lost_commit_acknowledgments"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.numerical_publication_checks_exact_program_after_durable_member_writes"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "numerical_publication_checks_exact_program_after_durable_member_writes"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.publication_admits_real_members_and_rejects_duplicates_and_dangling_references"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "publication_admits_real_members_and_rejects_duplicates_and_dangling_references"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.nested_write_uses_real_child_caller_rules_functions_and_runtime"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "nested_write_uses_real_child_caller_rules_functions_and_runtime"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.validating_route_rejects_bad_rows_and_constraint_addition_scans_existing_rows"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "validating_route_rejects_bad_rows_and_constraint_addition_scans_existing_rows"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.every_registry_relation_has_a_declared_delta_layout"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "every_registry_relation_has_a_declared_delta_layout"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.durable_projection_refuses_overflow_and_bad_identity_width"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "durable_projection_refuses_overflow_and_bad_identity_width"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.cold_native_hierarchy_pins_versions_and_views_refuse_write_bypass"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "cold_native_hierarchy_pins_versions_and_views_refuse_write_bypass"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.float_precision_admission_checks_visible_children_and_preserves_signed_zero"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "float_precision_admission_checks_visible_children_and_preserves_signed_zero"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.durable_admission_rejects_nested_relabeling_before_physical_planning"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "durable_admission_rejects_nested_relabeling_before_physical_planning"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.conditional_control_update_conflicts_with_a_stale_writer"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "conditional_control_update_conflicts_with_a_stale_writer"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.application_transaction_records_do_not_implement_replay_deduplication"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "application_transaction_records_do_not_implement_replay_deduplication"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.generated_publication_control_reopens_its_exact_member_catalog"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "generated_publication_control_reopens_its_exact_member_catalog"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.publication_selection_preserves_full_tables_and_exact_identity_slices"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "publication_selection_preserves_full_tables_and_exact_identity_slices"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.publication_root_records_native_checks_and_refuses_empty_or_invalid_heads"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "publication_root_records_native_checks_and_refuses_empty_or_invalid_heads"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "durable.a_lost_control_schema_creation_response_is_reconciled_before_publishing"
+obligations = ["A02", "A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_contracts.rs"
+test = "a_lost_control_schema_creation_response_is_reconciled_before_publishing"
+class = "pse-catalog::unified_delta_contracts"
+
+[[cases]]
+id = "dml.sql_mutations_use_native_checks_children_and_caller_functions"
+obligations = ["A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_dml.rs"
+test = "sql_mutations_use_native_checks_children_and_caller_functions"
+class = "pse-catalog::unified_delta_dml"
+
+[[cases]]
+id = "dml.every_writing_sql_hook_enforces_delta_check_before_commit"
+obligations = ["A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_dml.rs"
+test = "every_writing_sql_hook_enforces_delta_check_before_commit"
+class = "pse-catalog::unified_delta_dml"
+
+[[cases]]
+id = "dml.merge_by_source_and_stale_mutation_are_native_delta_semantics"
+obligations = ["A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_dml.rs"
+test = "merge_by_source_and_stale_mutation_are_native_delta_semantics"
+class = "pse-catalog::unified_delta_dml"
+
+[[cases]]
+id = "dml.declared_delta_check_enforces_enum_and_identity_contracts_through_sql"
+obligations = ["A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_dml.rs"
+test = "declared_delta_check_enforces_enum_and_identity_contracts_through_sql"
+class = "pse-catalog::unified_delta_dml"
+
+[[cases]]
+id = "dml.cold_mapped_checks_bind_from_the_stored_execution_descriptor"
+obligations = ["A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_dml.rs"
+test = "cold_mapped_checks_bind_from_the_stored_execution_descriptor"
+class = "pse-catalog::unified_delta_dml"
+
+[[cases]]
+id = "dml.delete_counts_real_files_without_delta_row_statistics"
+obligations = ["A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/unified_delta_dml.rs"
+test = "delete_counts_real_files_without_delta_row_statistics"
+class = "pse-catalog::unified_delta_dml"
+
+[[cases]]
+id = "faults.every_actual_delta_write_boundary_preserves_a_complete_publication"
+obligations = ["A12"]
+gate = "test"
+source = "tests/lifecycle/tests/publication_each_object.rs"
+test = "every_actual_delta_write_boundary_preserves_a_complete_publication"
+class = "pse-tests-lifecycle::publication_each_object"
+
+[[cases]]
+id = "fixtures.native_unit_factory_shares_resources_and_observation_preserves_identity"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_factory_shares_resources_and_observation_preserves_identity"
+class = "pse-testkit"
+
+[[cases]]
+id = "fixtures.native_unit_execution_capture_has_terminal_and_negative_controls"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_execution_capture_has_terminal_and_negative_controls"
+class = "pse-testkit"
+
+[[cases]]
+id = "fixtures.native_unit_abandonment_is_not_completion"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_abandonment_is_not_completion"
+class = "pse-testkit"
+
+[[cases]]
+id = "fixtures.native_unit_truncation_and_missing_execution_are_inconclusive"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_truncation_and_missing_execution_are_inconclusive"
+class = "pse-testkit"
+
+[[cases]]
+id = "fixtures.native_unit_settings_resolve_actual_extensions_and_refuse_zero_capacity"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_settings_resolve_actual_extensions_and_refuse_zero_capacity"
+class = "pse-testkit"
+
+[[cases]]
+id = "fixtures.native_unit_registered_store_reads_keep_actual_identity"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_registered_store_reads_keep_actual_identity"
+class = "pse-testkit"
+
+[[cases]]
+id = "fixtures.native_unit_custom_assembly_and_freshness_survive_observation_modes"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_custom_assembly_and_freshness_survive_observation_modes"
+class = "pse-testkit"
+
+[[cases]]
+id = "fixtures.native_unit_cancelled_preparation_records_explicit_terminal"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_cancelled_preparation_records_explicit_terminal"
+class = "pse-testkit"
+
+[[cases]]
+id = "fixtures.native_unit_poll_failure_is_not_successful_span_closure"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_poll_failure_is_not_successful_span_closure"
+class = "pse-testkit"
+
+[[cases]]
+id = "fixtures.native_unit_reusable_rounds_have_distinct_terminal_evidence"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_reusable_rounds_have_distinct_terminal_evidence"
+class = "pse-testkit"
+
+[[cases]]
+id = "quantity.actual_reference_inventory_retains_explicit_context_and_full_physical_types"
+obligations = ["A08", "A09"]
+gate = "test"
+source = "crates/pse-compiler/tests/quantity_relations.rs"
+test = "actual_reference_inventory_retains_explicit_context_and_full_physical_types"
+class = "pse-compiler::quantity_relations"
+
+[[cases]]
+id = "quantity.native_conversion_uses_point_or_difference_and_exact_selected_units"
+obligations = ["A08", "A09"]
+gate = "test"
+source = "crates/pse-compiler/tests/quantity_relations.rs"
+test = "native_conversion_uses_point_or_difference_and_exact_selected_units"
+class = "pse-compiler::quantity_relations"
+
+[[cases]]
+id = "quantity.mixture_normalization_preserves_differences_and_requires_actual_fraction_contracts"
+obligations = ["A08", "A09"]
+gate = "test"
+source = "crates/pse-compiler/tests/quantity_relations.rs"
+test = "mixture_normalization_preserves_differences_and_requires_actual_fraction_contracts"
+class = "pse-compiler::quantity_relations"
+
+[[cases]]
+id = "quantity.energy_density_cancels_molar_basis_and_preserves_thermochemical_datum"
+obligations = ["A08", "A09"]
+gate = "test"
+source = "crates/pse-compiler/tests/quantity_relations.rs"
+test = "energy_density_cancels_molar_basis_and_preserves_thermochemical_datum"
+class = "pse-compiler::quantity_relations"
+
+[[cases]]
+id = "quantity.inlet_pressure_equality_has_an_indexed_absolute_difference_contract"
+obligations = ["A08", "A09"]
+gate = "test"
+source = "crates/pse-compiler/tests/quantity_relations.rs"
+test = "inlet_pressure_equality_has_an_indexed_absolute_difference_contract"
+class = "pse-compiler::quantity_relations"
+
+[[cases]]
+id = "quantity.normalized_unit_union_requires_complete_exact_definitions"
+obligations = ["A08", "A09"]
+gate = "test"
+source = "crates/pse-compiler/tests/quantity_relations.rs"
+test = "normalized_unit_union_requires_complete_exact_definitions"
+class = "pse-compiler::quantity_relations"
+
+[[cases]]
+id = "quantity.missing_context_is_not_inferred_and_cancellation_propagates"
+obligations = ["A08", "A09"]
+gate = "test"
+source = "crates/pse-compiler/tests/quantity_relations.rs"
+test = "missing_context_is_not_inferred_and_cancellation_propagates"
+class = "pse-compiler::quantity_relations"
+
+[[cases]]
+id = "python.test_consumer_schema_reports_nested_semantics_and_degradation"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_consumer_schema_reports_nested_semantics_and_degradation"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_consumer_schema_report_checks_order_metadata_and_unknown_fields"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_consumer_schema_report_checks_order_metadata_and_unknown_fields"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_every_native_child_is_observed"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_every_native_child_is_observed"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_nested_extensions_retain_all_four_observation_states"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_nested_extensions_retain_all_four_observation_states"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_container_parameters_are_semantic"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_container_parameters_are_semantic"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_native_canonical_extensions_are_not_treated_as_plain_storage"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_native_canonical_extensions_are_not_treated_as_plain_storage"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_dictionary_value_paths_and_duplicate_fields"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_dictionary_value_paths_and_duplicate_fields"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_native_name_type_and_nullability_are_preserved"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_native_name_type_and_nullability_are_preserved"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_duplicate_metadata_keys_use_native_equality"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_duplicate_metadata_keys_use_native_equality"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_duplicate_schema_metadata_does_not_mask_extension_degradation"
+obligations = ["A04", "A13"]
+gate = "py-test"
+source = "python/pse/tests/test_transfer_contracts.py"
+test = "test_duplicate_schema_metadata_does_not_mask_extension_degradation"
+class = "python.pse.tests.test_transfer_contracts"
+
+[[cases]]
+id = "python.test_native_cache_integer_boundary_rejects_coercion"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_boundary_contracts.py"
+test = "test_native_cache_integer_boundary_rejects_coercion"
+class = "python.pse.tests.test_native_boundary_contracts"
+
+[[cases]]
+id = "python.test_unsigned_millisecond_boundary_rejects_coercion"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_boundary_contracts.py"
+test = "test_unsigned_millisecond_boundary_rejects_coercion"
+class = "python.pse.tests.test_native_boundary_contracts"
+
+[[cases]]
+id = "python.test_milliseconds_round_trip_without_truncation"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_boundary_contracts.py"
+test = "test_milliseconds_round_trip_without_truncation"
+class = "python.pse.tests.test_native_boundary_contracts"
+
+[[cases]]
+id = "python.test_generated_settings_admit_native_defaults_and_expose_named_diagnostics"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_boundary_contracts.py"
+test = "test_generated_settings_admit_native_defaults_and_expose_named_diagnostics"
+class = "python.pse.tests.test_native_boundary_contracts"
+
+[[cases]]
+id = "python.test_identity_text_uses_native_case_normalization_and_exact_width"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_boundary_contracts.py"
+test = "test_identity_text_uses_native_case_normalization_and_exact_width"
+class = "python.pse.tests.test_native_boundary_contracts"
+
+[[cases]]
+id = "python.test_named_report_types_have_no_legacy_tuple_surface"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_boundary_contracts.py"
+test = "test_named_report_types_have_no_legacy_tuple_surface"
+class = "python.pse.tests.test_native_boundary_contracts"
+
+[[cases]]
+id = "python.test_stub_exists_beside_the_extension"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_stub_surface.py"
+test = "test_stub_exists_beside_the_extension"
+class = "python.pse.tests.test_native_stub_surface"
+
+[[cases]]
+id = "python.test_stub_declares_exactly_the_extension_surface"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_stub_surface.py"
+test = "test_stub_declares_exactly_the_extension_surface"
+class = "python.pse.tests.test_native_stub_surface"
+
+[[cases]]
+id = "python.test_build_info_returns_a_string_mapping"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_stub_surface.py"
+test = "test_build_info_returns_a_string_mapping"
+class = "python.pse.tests.test_native_stub_surface"
+
+[[cases]]
+id = "python.test_stub_is_generated_and_every_declared_member_exists_at_runtime"
+obligations = ["A13"]
+gate = "py-test"
+source = "python/pse/tests/test_native_stub_surface.py"
+test = "test_stub_is_generated_and_every_declared_member_exists_at_runtime"
+class = "python.pse.tests.test_native_stub_surface"
+
+[[cases]]
+id = "measurements"
+obligations = ["A15"]
+gate = "bench-consolidation"
+source = "benches/benches/native_consolidation.rs"
+artifact = "measurements/consolidation.json"
+
+[[cases]]
+id = "boundaries"
+obligations = ["A14", "A16"]
+gate = "engine-boundary-check"
+source = "scripts/native-engine-boundaries.py"
+artifact = "checks.json"
+
+[[cases]]
+id = "generation"
+obligations = ["A03", "A16"]
+gate = "codegen-check"
+source = "xtask/src/codegen.rs"
+artifact = "checks.json"
+
+[[cases]]
+id = "numerical.shared_diamonds_have_linear_nodes_stages_and_edges"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/src/pivot_unit.rs"
+test = "pivot_unit::shared_diamonds_have_linear_nodes_stages_and_edges"
+class = "pse-numerics"
+
+[[cases]]
+id = "numerical.guarded_invalid_arithmetic_runs_only_in_its_region"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/src/pivot_unit.rs"
+test = "pivot_unit::guarded_invalid_arithmetic_runs_only_in_its_region"
+class = "pse-numerics"
+
+[[cases]]
+id = "numerical.sparse_jacobian_agrees_with_independent_finite_difference"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/src/pivot_unit.rs"
+test = "pivot_unit::sparse_jacobian_agrees_with_independent_finite_difference"
+class = "pse-numerics"
+
+[[cases]]
+id = "numerical.variable_guards_volatile_inputs_and_wrong_root_types_are_refused"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/src/pivot_unit.rs"
+test = "pivot_unit::variable_guards_volatile_inputs_and_wrong_root_types_are_refused"
+class = "pse-numerics"
+
+[[cases]]
+id = "numerical.nonlinear_residuals_and_sparse_jacobians_match_independent_oracles"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "nonlinear_residuals_and_sparse_jacobians_match_independent_oracles"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.native_batches_keep_order_and_omit_structurally_absent_derivatives"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "native_batches_keep_order_and_omit_structurally_absent_derivatives"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.every_supported_unary_binding_and_variable_power_has_a_derivative_oracle"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "every_supported_unary_binding_and_variable_power_has_a_derivative_oracle"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.inactive_native_case_branch_is_not_evaluated_but_nonfinite_intermediates_fail"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "inactive_native_case_branch_is_not_evaluated_but_nonfinite_intermediates_fail"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.derivative_admission_uses_actual_udf_and_refuses_variable_dependent_guards"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "derivative_admission_uses_actual_udf_and_refuses_variable_dependent_guards"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.cancellation_resource_refusal_and_buffer_lifetimes_are_explicit"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "cancellation_resource_refusal_and_buffer_lifetimes_are_explicit"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.native_resource_errors_remain_resource_failures"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "native_resource_errors_remain_resource_failures"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.fixed_native_transforms_need_no_derivative_binding_or_numeric_argument_restriction"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "fixed_native_transforms_need_no_derivative_binding_or_numeric_argument_restriction"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.the_same_numerical_program_executes_as_a_native_operation"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "the_same_numerical_program_executes_as_a_native_operation"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.zero_dimensions_keep_scenario_identity_and_explicit_empty_vectors"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "zero_dimensions_keep_scenario_identity_and_explicit_empty_vectors"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.scenario_identity_and_exact_nonnull_input_contract_are_required"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "scenario_identity_and_exact_nonnull_input_contract_are_required"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "numerical.repeated_callback_vectors_keep_contiguous_values_and_release_their_reservations"
+obligations = ["A09", "A15"]
+gate = "test"
+source = "crates/pse-numerics/tests/native_expressions.rs"
+test = "repeated_callback_vectors_keep_contiguous_values_and_release_their_reservations"
+class = "pse-numerics::native_expressions"
+
+[[cases]]
+id = "delta-native-maintenance"
+obligations = ["A11", "A12"]
+gate = "test"
+source = "crates/pse-catalog/tests/native_artifact_lifecycle.rs"
+test = "exact_reuse_cdf_and_maintenance_share_native_ownership"
+class = "pse-catalog::native_artifact_lifecycle"
+
+[[cases]]
+id = "engineering-heater-ftpx"
+obligations = ["A08", "A11", "A13", "A15"]
+gate = "heater-ftpx"
+source = "xtask/src/engineering_inspection.rs"
+artifact = "engineering-heater-ftpx/heater-ftpx/python.xml"
+
+[[cases]]
+id = "engineering-heater-fctp"
+obligations = ["A08", "A11", "A13", "A15"]
+gate = "heater-fctp"
+source = "xtask/src/engineering_inspection.rs"
+artifact = "engineering-heater-fctp/heater-fctp/python.xml"
+
+[[cases]]
+id = "engineering-mixer-ftpx"
+obligations = ["A08", "A11", "A13", "A15"]
+gate = "mixer-ftpx"
+source = "xtask/src/engineering_inspection.rs"
+artifact = "engineering-mixer-ftpx/mixer-ftpx/python.xml"
+
+[[cases]]
+id = "engineering-mixer-fctp"
+obligations = ["A08", "A11", "A13", "A15"]
+gate = "mixer-fctp"
+source = "xtask/src/engineering_inspection.rs"
+artifact = "engineering-mixer-fctp/mixer-fctp/python.xml"
+
+[[cases]]
+id = "nested-constraint-extension"
+obligations = ["A02", "A11", "A15"]
+gate = "test"
+source = "crates/pse-catalog/tests/nested_contract_journey.rs"
+test = "new_collection_constraint_has_one_decision_across_local_native_delta_and_publication"
+class = "pse-catalog::nested_contract_journey"
+
+[[cases]]
+id = "pse-catalog.observation_failure_preserves_native_source_and_the_known_commit"
+obligations = ["A12"]
+gate = "test"
+source = "crates/pse-catalog/src/delta/settlement.rs"
+test = "delta::settlement::delta_boundary_unit::observation_failure_preserves_native_source_and_the_known_commit"
+class = "pse-catalog"
+
+[[cases]]
+id = "pse-testkit.native_unit_async_and_blocking_tasks_keep_dispatch_and_parent"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_async_and_blocking_tasks_keep_dispatch_and_parent"
+class = "pse-testkit"
+
+[[cases]]
+id = "pse-testkit.native_unit_store_wrappers_preserve_conditions_ranges_and_consumption"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_store_wrappers_preserve_conditions_ranges_and_consumption"
+class = "pse-testkit"
+
+[[cases]]
+id = "pse-testkit.native_unit_caller_pool_is_the_native_runtime_pool"
+obligations = ["A14"]
+gate = "test"
+source = "crates/pse-testkit/src/tests.rs"
+test = "tests::native_unit_caller_pool_is_the_native_runtime_pool"
+class = "pse-testkit"
+
+[[cases]]
+id = "acceptance-tools.receipt_requires_complete_inventory_and_current_untracked_bytes"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::receipt_requires_complete_inventory_and_current_untracked_bytes"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.an_open_package_or_deletion_cannot_be_sealed"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::an_open_package_or_deletion_cannot_be_sealed"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.legacy_path_and_duplicate_inventory_rows_fail_closed"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::legacy_path_and_duplicate_inventory_rows_fail_closed"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.evidence_outputs_cannot_become_their_own_source_inputs"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::evidence_outputs_cannot_become_their_own_source_inputs"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.coverage_and_development_evidence_cannot_be_empty_or_stale"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::coverage_and_development_evidence_cannot_be_empty_or_stale"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.source_diff_includes_additions_deletions_and_changes"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::source_diff_includes_additions_deletions_and_changes"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.case_evidence_requires_exact_binary_and_all_parameterizations"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::case_evidence_requires_exact_binary_and_all_parameterizations"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.continuation_authenticates_all_retained_ancestors"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::continuation_authenticates_all_retained_ancestors"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.source_receipts_include_executable_modes_and_symlink_targets"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::source_receipts_include_executable_modes_and_symlink_targets"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.repository_acceptance_index_names_existing_tests_and_sources"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::repository_acceptance_index_names_existing_tests_and_sources"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.ignored_symlink_cannot_redirect_evidence_into_source"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::ignored_symlink_cannot_redirect_evidence_into_source"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.junit_parser_preserves_binary_failures_skips_and_refuses_truncation"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::junit_parser_preserves_binary_failures_skips_and_refuses_truncation"
+class = "xtask::bin/xtask"
+
+[[cases]]
+id = "acceptance-tools.old_junit_report_is_not_evidence_for_a_new_command"
+obligations = ["A16"]
+gate = "test"
+source = "xtask/src/architecture_acceptance/consolidation_unit.rs"
+test = "architecture_acceptance::consolidation_unit::old_junit_report_is_not_evidence_for_a_new_command"
+class = "xtask::bin/xtask"

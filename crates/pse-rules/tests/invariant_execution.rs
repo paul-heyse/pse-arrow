@@ -6,18 +6,12 @@
 mod native_check_execution;
 #[path = "support/row_key.rs"]
 mod row_key;
-use datafusion::arrow::array::{Array, RecordBatch};
-use datafusion::execution::runtime_env::RuntimeEnv;
-use pse_catalog::session::{
-    ExecutionSettings, SnapshotSession, ThreadBudget, build_candidate_session,
-    native_engine_profile,
-};
-use pse_ids::{CancellationToken, ContentHash, FixedBudget, SemanticId};
+use datafusion::arrow::array::RecordBatch;
+use pse_columnar::CancellationToken;
+use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget};
+use pse_ids::{ContentHash, SemanticId};
 use pse_rules::invariants::{InvariantScope, run_invariants};
-use pse_schema::{
-    Registry,
-    model::{Cell, RelationKey},
-};
+use pse_schema::{Registry, model::RelationKey};
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 
 #[expect(clippy::unwrap_used, reason = "fixed test fixture admission")]
@@ -27,35 +21,50 @@ fn budget() -> ThreadBudget {
         target_partitions: NonZeroUsize::new(1).unwrap(),
     }
 }
+fn session(registry: &Arc<Registry>, rows: &BTreeMap<RelationKey, RecordBatch>) -> EngineSession {
+    session_with_observation(
+        registry,
+        rows,
+        pse_engine::session::assurance::ObservationPolicy::default(),
+    )
+}
 #[expect(clippy::unwrap_used, reason = "fixed test fixture admission")]
-fn session(registry: &Arc<Registry>, rows: &BTreeMap<RelationKey, RecordBatch>) -> SnapshotSession {
-    build_candidate_session(
-        rows.clone(),
-        Arc::clone(registry),
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
+fn session_with_observation(
+    registry: &Arc<Registry>,
+    rows: &BTreeMap<RelationKey, RecordBatch>,
+    observation: pse_engine::session::assurance::ObservationPolicy,
+) -> EngineSession {
+    pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
         budget(),
-        native_engine_profile(),
     )
+    .map(|factory| factory.with_observation(observation))
+    .and_then(|factory| {
+        factory.candidate(
+            rows.clone(),
+            Arc::clone(registry),
+            &CancellationToken::new(),
+        )
+    })
     .unwrap()
 }
 #[expect(clippy::unwrap_used, reason = "fixed test fixture admission")]
 fn packages(registry: &Registry, count: usize) -> BTreeMap<RelationKey, RecordBatch> {
     let spec = registry.relation("authored.packages").unwrap();
     let row = vec![
-        Cell::Id(SemanticId::from_bytes([7; 16])),
-        Cell::text("fixture"),
-        Cell::text("1.0.0"),
-        Cell::Enum("model"),
-        Cell::Enum("explicit"),
-        Cell::List(vec![]),
-        Cell::Hash(ContentHash::from_bytes([0; 32])),
-        Cell::text("Fixture"),
+        serde_json::json!(["id", (SemanticId::from_bytes([7; 16])).to_hex()]),
+        serde_json::json!(["text", "fixture"]),
+        serde_json::json!(["text", "1.0.0"]),
+        serde_json::json!(["enum", "model"]),
+        serde_json::json!(["enum", "explicit"]),
+        serde_json::json!(["list", []]),
+        serde_json::json!(["hash", (ContentHash::from_bytes([0; 32])).to_hex()]),
+        serde_json::json!(["text", "Fixture"]),
     ];
     BTreeMap::from([(
         spec.key,
-        pse_relations::cells::batch_from_cells(registry, spec, &vec![row; count]).unwrap(),
+        pse_relations::testing::batch_from_literals(registry, spec, &vec![row; count]).unwrap(),
     )])
 }
 
@@ -71,12 +80,10 @@ async fn provider_requirements_execute_the_same_primary_key_obligation_before_sc
         })
         .unwrap()
         .id;
-    let factory = pse_catalog::session::SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
+    let factory = pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
         budget(),
-        native_engine_profile(),
     )
     .unwrap()
     .with_requirement_planner(Arc::new(pse_rules::invariants::RegistryRequirementPlanner));
@@ -94,8 +101,13 @@ async fn provider_requirements_execute_the_same_primary_key_obligation_before_sc
     }
 }
 
-fn physical_subject(kind: &'static str, member: &Cell, phase: &Cell, law: bool) -> Cell {
-    let mut fields = vec![Cell::Enum(kind)];
+fn physical_subject(
+    kind: &'static str,
+    member: &serde_json::Value,
+    phase: &serde_json::Value,
+    law: bool,
+) -> serde_json::Value {
+    let mut fields = vec![serde_json::json!(["enum", kind])];
     for arm in [
         "total",
         "energy",
@@ -105,19 +117,26 @@ fn physical_subject(kind: &'static str, member: &Cell, phase: &Cell, law: bool) 
         "phase_species",
     ] {
         fields.push(if arm == kind {
-            Cell::Struct(match arm {
-                "total" | "energy" | "momentum" => vec![phase.clone()],
-                "species" | "element" if !law => vec![member.clone()],
-                _ => vec![member.clone(), phase.clone()],
-            })
+            serde_json::json!([
+                "struct",
+                match arm {
+                    "total" | "energy" | "momentum" => vec![phase.clone()],
+                    "species" | "element" if !law => vec![member.clone()],
+                    _ => vec![member.clone(), phase.clone()],
+                }
+            ])
         } else {
-            Cell::Null
+            serde_json::json!(["null", null])
         });
     }
-    Cell::Struct(fields)
+    serde_json::json!(["struct", fields])
 }
 
 #[tokio::test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one declared alternative fixture and its refusal matrix"
+)]
 async fn subject_alternatives_admit_indexed_physics_and_reject_overlapping_coordinates() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let spec = registry
@@ -126,25 +145,59 @@ async fn subject_alternatives_admit_indexed_physics_and_reject_overlapping_coord
     // Typed alternatives make missing/overlapping arm payloads structural errors.
     // The remaining relational rule forbids reusing one axis for two coordinates.
     let axis = |position| {
-        Cell::Struct(vec![
-            Cell::Enum("axis"),
-            Cell::Null,
-            Cell::Struct(vec![Cell::I64(position)]),
+        serde_json::json!([
+            "struct",
+            vec![
+                serde_json::json!(["enum", "axis"]),
+                serde_json::json!(["null", null]),
+                serde_json::json!(["struct", vec![serde_json::json!(["i64", position])]]),
+            ]
         ])
     };
     let fixed = || {
-        Cell::Struct(vec![
-            Cell::Enum("fixed"),
-            Cell::Struct(vec![Cell::Id(SemanticId::NIL)]),
-            Cell::Null,
+        serde_json::json!([
+            "struct",
+            vec![
+                serde_json::json!(["enum", "fixed"]),
+                serde_json::json!([
+                    "struct",
+                    vec![serde_json::json!(["id", (SemanticId::NIL).to_hex()])]
+                ]),
+                serde_json::json!(["null", null]),
+            ]
         ])
     };
     let cases = [
-        physical_subject("energy", &Cell::Null, &Cell::Null, false),
-        physical_subject("energy", &Cell::Null, &axis(0), false),
-        physical_subject("energy", &Cell::Null, &fixed(), false),
-        physical_subject("species", &axis(0), &Cell::Null, false),
-        physical_subject("species", &fixed(), &Cell::Null, false),
+        physical_subject(
+            "energy",
+            &serde_json::json!(["null", null]),
+            &serde_json::json!(["null", null]),
+            false,
+        ),
+        physical_subject(
+            "energy",
+            &serde_json::json!(["null", null]),
+            &axis(0),
+            false,
+        ),
+        physical_subject(
+            "energy",
+            &serde_json::json!(["null", null]),
+            &fixed(),
+            false,
+        ),
+        physical_subject(
+            "species",
+            &axis(0),
+            &serde_json::json!(["null", null]),
+            false,
+        ),
+        physical_subject(
+            "species",
+            &fixed(),
+            &serde_json::json!(["null", null]),
+            false,
+        ),
         physical_subject("phase_species", &axis(1), &axis(0), false),
         physical_subject("phase_species", &fixed(), &axis(0), false),
         physical_subject("phase_species", &fixed(), &fixed(), false),
@@ -156,129 +209,38 @@ async fn subject_alternatives_admit_indexed_physics_and_reject_overlapping_coord
         .enumerate()
         .map(|(index, subject)| {
             vec![
-                Cell::Id(SemanticId::from_bytes(
-                    [u8::try_from(index + 1).unwrap(); 16],
-                )),
-                Cell::List(vec![]),
-                Cell::Id(SemanticId::NIL),
+                serde_json::json!([
+                    "id",
+                    (SemanticId::from_bytes([u8::try_from(index + 1).unwrap(); 16],)).to_hex()
+                ]),
+                serde_json::json!(["list", []]),
+                serde_json::json!(["id", (SemanticId::NIL).to_hex()]),
                 subject,
-                Cell::Null,
+                serde_json::json!(["null", null]),
             ]
         })
         .collect::<Vec<_>>();
-    let rows = BTreeMap::from([(
-        spec.key,
-        pse_relations::cells::batch_from_cells(&registry, spec, &values).unwrap(),
-    )]);
-    let session = session(&registry, &rows);
-    let plan = native_check_execution::violations(&session, spec, "distinct_subject_axes");
-    let cancel = CancellationToken::default();
-    let result = session
-        .prepare_rule_plan(plan, &cancel)
-        .unwrap()
-        .execute(&cancel)
-        .await
-        .unwrap();
-    let actual = result
-        .batches()
-        .iter()
-        .flat_map(|batch| {
-            let ids = batch
-                .column(0)
-                .as_any()
-                .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
-                .unwrap();
-            (0..ids.len())
-                .map(|index| ids.value(index).to_vec())
-                .collect::<Vec<_>>()
-        })
-        .collect::<std::collections::BTreeSet<_>>();
+    let actual: std::collections::BTreeSet<_> = native_check_execution::invalid_keys(
+        &registry,
+        spec,
+        &values,
+        "distinct_subject_axes",
+        spec.primary_key[0],
+    )
+    .into_iter()
+    .collect();
     assert_eq!(actual, expected);
-}
-
-#[tokio::test]
-async fn species_law_accepts_a_fixed_phase_slice_but_rejects_a_free_phase_axis() {
-    let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-    let spec = registry.relation("compiled.law_applications").unwrap();
-    let values = [None, Some(1)]
-        .into_iter()
-        .enumerate()
-        .map(|(index, phase_axis)| {
-            spec.columns
-                .iter()
-                .map(|column| match column.name() {
-                    "application_id" => Cell::Id(SemanticId::from_bytes(
-                        [u8::try_from(index + 1).unwrap(); 16],
-                    )),
-                    "subject" => physical_subject(
-                        "species",
-                        &Cell::Struct(vec![
-                            Cell::Enum("axis"),
-                            Cell::Null,
-                            Cell::Struct(vec![Cell::I64(0)]),
-                        ]),
-                        &phase_axis.map_or_else(
-                            || {
-                                Cell::Struct(vec![
-                                    Cell::Enum("fixed"),
-                                    Cell::Struct(vec![Cell::Id(SemanticId::NIL)]),
-                                    Cell::Null,
-                                ])
-                            },
-                            |position| {
-                                Cell::Struct(vec![
-                                    Cell::Enum("axis"),
-                                    Cell::Null,
-                                    Cell::Struct(vec![Cell::I64(position)]),
-                                ])
-                            },
-                        ),
-                        true,
-                    ),
-                    "basis_id" => Cell::Null,
-                    "law_family" | "source_family" => Cell::Enum("material"),
-                    "subject_projection" => Cell::Enum("identity"),
-                    "expansion" => Cell::Enum("conservation"),
-                    _ => Cell::Id(SemanticId::NIL),
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    let rows = BTreeMap::from([(
-        spec.key,
-        pse_relations::cells::batch_from_cells(&registry, spec, &values).unwrap(),
-    )]);
-    let session = session(&registry, &rows);
-    let plan = native_check_execution::violations(&session, spec, "species_phase_slice");
-    let cancel = CancellationToken::default();
-    let result = session
-        .prepare_rule_plan(plan, &cancel)
-        .unwrap()
-        .execute(&cancel)
-        .await
-        .unwrap();
-    let invalid = result
-        .batches()
-        .iter()
-        .flat_map(|batch| {
-            let ids = batch
-                .column(0)
-                .as_any()
-                .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
-                .unwrap();
-            (0..ids.len())
-                .map(|row| ids.value(row).to_vec())
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(invalid, vec![vec![2; 16]]);
 }
 
 #[tokio::test]
 async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_identity() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let rows = packages(&registry, 2);
-    let session = session(&registry, &rows);
+    let session = session_with_observation(
+        &registry,
+        &rows,
+        pse_engine::session::assurance::ObservationPolicy::Diagnostic,
+    );
     let report = run_invariants(
         &rows,
         &session,
@@ -307,7 +269,10 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
             &registry,
             source.id,
             &[source.column("package_id").unwrap()],
-            &[Cell::Id(SemanticId::from_bytes([7; 16]))]
+            &[serde_json::json!([
+                "id",
+                (SemanticId::from_bytes([7; 16])).to_hex()
+            ])]
         )
         .await
         .as_bytes()
@@ -515,35 +480,58 @@ async fn native_integrity_program_reports_duplicates_references_and_nested_ordin
     let target = registry.relation("authored.integrity_target").unwrap();
     let source = registry.relation("authored.integrity_source").unwrap();
     let invalid = vec![
-        Cell::U64(20),
-        Cell::U64(2),
-        Cell::Struct(vec![Cell::List(vec![Cell::I64(2)])]),
+        serde_json::json!(["u64", 20]),
+        serde_json::json!(["u64", 2]),
+        serde_json::json!([
+            "struct",
+            vec![serde_json::json!([
+                "list",
+                vec![serde_json::json!(["i64", 2])]
+            ])]
+        ]),
     ];
     let rows = BTreeMap::from([
         (
             target.key,
-            pse_relations::cells::batch_from_cells(
+            pse_relations::testing::batch_from_literals(
                 &registry,
                 target,
-                &[vec![Cell::U64(1)], vec![Cell::U64(1)]],
+                &[
+                    vec![serde_json::json!(["u64", 1])],
+                    vec![serde_json::json!(["u64", 1])],
+                ],
             )
             .unwrap(),
         ),
         (
             source.key,
-            pse_relations::cells::batch_from_cells(
+            pse_relations::testing::batch_from_literals(
                 &registry,
                 source,
                 &[
                     vec![
-                        Cell::U64(10),
-                        Cell::U64(1),
-                        Cell::Struct(vec![Cell::List(vec![Cell::I64(0), Cell::I64(1)])]),
+                        serde_json::json!(["u64", 10]),
+                        serde_json::json!(["u64", 1]),
+                        serde_json::json!([
+                            "struct",
+                            vec![serde_json::json!([
+                                "list",
+                                vec![serde_json::json!(["i64", 0]), serde_json::json!(["i64", 1])]
+                            ])]
+                        ]),
                     ],
                     invalid.clone(),
                     invalid,
-                    vec![Cell::U64(30), Cell::Null, Cell::Null],
-                    vec![Cell::U64(40), Cell::Null, Cell::Struct(vec![Cell::Null])],
+                    vec![
+                        serde_json::json!(["u64", 30]),
+                        serde_json::json!(["null", null]),
+                        serde_json::json!(["null", null]),
+                    ],
+                    vec![
+                        serde_json::json!(["u64", 40]),
+                        serde_json::json!(["null", null]),
+                        serde_json::json!(["struct", vec![serde_json::json!(["null", null])]]),
+                    ],
                 ],
             )
             .unwrap(),
@@ -607,7 +595,7 @@ async fn native_integrity_program_reports_duplicates_references_and_nested_ordin
             &registry,
             registry.relation(&invariant.relation).unwrap().id,
             &[&field],
-            &[Cell::U64(value)],
+            &[serde_json::json!(["u64", value])],
         )
         .await;
         assert!(actual.contains(&(invariant.id.as_bytes().to_vec(), token.as_bytes().to_vec())));

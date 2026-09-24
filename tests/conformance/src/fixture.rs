@@ -18,7 +18,7 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
 }
 use pse_schema::{
     Registry,
-    model::{Cell, InvariantSpec, RelationKey},
+    model::{InvariantSpec, RelationKey},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -27,7 +27,7 @@ use std::{
     sync::Arc,
 };
 
-/// The tagged Cell codec retains actual numeric bits and every nested value.
+/// The field-directed native literal codec retains actual numeric bits and every nested value.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Fixture {
@@ -45,45 +45,37 @@ impl Fixture {
             .iter()
             .map(|(name, values)| {
                 let spec = registry.relation(name).expect("declared fixture relation");
-                let rows: Vec<Vec<Cell>> = values
+                let rows: Vec<Vec<serde_json::Value>> = values
                     .iter()
                     .map(|row| {
                         assert_eq!(row.len(), spec.columns.len(), "complete row: {name}");
                         spec.columns
                             .iter()
                             .map(|column| {
-                                Cell::from_literal_spec(
+                                serde_json::from_str(
                                     row.get(column.name()).expect("explicit column"),
-                                    registry,
                                 )
                                 .expect("typed literal")
                             })
                             .collect()
                     })
                     .collect();
-                let batch = pse_relations::cells::batch_from_cells(registry, spec, &rows)
-                    .unwrap_or_else(|error| panic!("{name}: {error}"));
+                let batch =
+                    pse_relations::testing::untrusted_batch_from_literals(registry, spec, &rows)
+                        .unwrap_or_else(|error| panic!("{name}: {error}"));
                 (spec.key, batch)
             })
             .collect()
     }
-    pub(crate) fn expected(&self, registry: &Registry) -> Vec<Vec<Cell>> {
+    pub(crate) fn expected(&self, _registry: &Registry) -> Vec<Vec<serde_json::Value>> {
         self.expected_keys
             .iter()
             .map(|row| {
                 row.iter()
-                    .map(|value| {
-                        Cell::from_literal_spec(value, registry).expect("expected typed key")
-                    })
+                    .map(|value| serde_json::from_str(value).expect("expected typed key"))
                     .collect()
             })
             .collect()
-    }
-    pub(crate) fn save(&self, path: &Path) {
-        std::fs::create_dir_all(path.parent().expect("fixture directory"))
-            .expect("create directory");
-        let text = serde_json::to_string_pretty(self).expect("YAML 1.2 JSON subset");
-        std::fs::write(path, format!("{text}\n")).expect("write fixture");
     }
 }
 pub(crate) fn directory(invariant: &InvariantSpec) -> PathBuf {
@@ -91,69 +83,67 @@ pub(crate) fn directory(invariant: &InvariantSpec) -> PathBuf {
         .join("fixtures/invariants")
         .join(invariant.qualified_name().replace([':', '.'], "-"))
 }
-pub(crate) async fn execute(registry: &Arc<Registry>, fixture: &Fixture) -> Vec<Vec<Cell>> {
-    use pse_catalog::session::{
-        ExecutionSettings, ThreadBudget, build_candidate_session, native_engine_profile,
+pub(crate) async fn execute(
+    registry: &Arc<Registry>,
+    fixture: &Fixture,
+) -> Vec<Vec<serde_json::Value>> {
+    use datafusion::{
+        catalog::{CatalogProvider, MemoryCatalogProvider, MemorySchemaProvider, SchemaProvider},
+        datasource::MemTable,
+        prelude::SessionContext,
     };
-    use pse_ids::{CancellationToken, FixedBudget};
-    use std::num::NonZeroUsize;
+    // These are independent oracles for each declared relational query. Negative
+    // cases deliberately enter as untrusted Arrow; full product admission is
+    // exercised separately and may refuse them before this particular query.
     let invariant = registry
         .invariants()
         .iter()
         .find(|value| value.qualified_name() == fixture.invariant)
         .expect("registered invariant");
     let rows = fixture.batches(registry);
-    let inputs = invariant
-        .inputs
-        .iter()
-        .map(|name| {
-            let key = registry.relation(name).expect("declared dependency").key;
-            assert!(
-                rows.contains_key(&key),
-                "explicit fixture dependency {name}"
-            );
-            key
-        })
-        .collect::<Vec<_>>();
-    let thread = NonZeroUsize::new(1).unwrap();
-    let session = build_candidate_session(
-        rows,
-        Arc::clone(registry),
-        Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
-        ExecutionSettings::default(),
-        ThreadBudget {
-            pool_threads: thread,
-            target_partitions: thread,
-        },
-        native_engine_profile(),
-    )
-    .expect("candidate session without constraints");
-    let cancel = CancellationToken::default();
-    let plan = session
-        .bind_declared_query(&invariant.query, &inputs, &cancel)
+    let factory = pse_testkit::NativeFixture::new(std::num::NonZeroUsize::new(64 << 20).unwrap())
+        .unwrap()
+        .into_factory();
+    let state = factory.native_state().clone();
+    let catalog_name = state.config_options().catalog.default_catalog.clone();
+    let context = SessionContext::new_with_state(state);
+    let catalog = Arc::new(MemoryCatalogProvider::new());
+    let mut schemas = BTreeMap::<String, Arc<MemorySchemaProvider>>::new();
+    for name in &invariant.inputs {
+        let spec = registry.relation(name).expect("declared dependency");
+        let batch = rows
+            .get(&spec.key)
+            .expect("explicit fixture dependency")
+            .clone();
+        let schema = schemas
+            .entry(spec.key.namespace.as_str().to_owned())
+            .or_default();
+        schema
+            .register_table(
+                spec.key.name.to_owned(),
+                Arc::new(MemTable::try_new(batch.schema(), vec![vec![batch]]).unwrap()),
+            )
+            .unwrap();
+    }
+    for (name, schema) in schemas {
+        catalog.register_schema(&name, schema).unwrap();
+    }
+    context.register_catalog(&catalog_name, catalog);
+    context
+        .sql(&invariant.query)
         .await
-        .unwrap_or_else(|error| panic!("{}: {error:?}", fixture.invariant));
-    let plan = datafusion::logical_expr::LogicalPlanBuilder::from(plan)
-        .project(
+        .unwrap_or_else(|error| panic!("{}: {error:?}", fixture.invariant))
+        .select(
             invariant
                 .key_columns
                 .iter()
                 .map(|name| datafusion::logical_expr::col(*name)),
         )
-        .and_then(datafusion::logical_expr::LogicalPlanBuilder::build)
-        .unwrap();
-    let result = session
-        .prepare_rule_plan(plan, &cancel)
         .unwrap()
-        .execute(&cancel)
+        .collect()
         .await
-        .unwrap_or_else(|error| panic!("{}: {error:?}", fixture.invariant));
-    result
-        .batches()
+        .unwrap()
         .iter()
-        .flat_map(|batch| {
-            pse_relations::cells::decode_columns(registry, batch).expect("actual typed result keys")
-        })
+        .flat_map(|batch| pse_relations::testing::literal_rows(batch).unwrap())
         .collect()
 }

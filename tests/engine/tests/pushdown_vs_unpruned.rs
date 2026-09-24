@@ -16,11 +16,10 @@ use datafusion::{
     datasource::MemTable,
     logical_expr::TableProviderFilterPushDown,
 };
-use pse_ids::FixedBudget;
 use pse_schema::{
     RegistryBuilder,
     model::{
-        Authority, Cell, ColumnRole, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl,
+        Authority, ColumnRole, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl,
         SnapshotClass,
     },
 };
@@ -72,29 +71,25 @@ async fn fixture() -> (Arc<dyn TableProvider>, RecordBatch, tempfile::TempDir) {
     let rows = (1..=36)
         .map(|id| {
             vec![
-                Cell::I64(id),
+                serde_json::json!(["i64", id]),
                 if id % 3 == 0 {
-                    Cell::Null
+                    serde_json::json!(["null", null])
                 } else {
-                    Cell::Enum(if id % 2 == 0 { "one" } else { "two" })
+                    serde_json::json!(["enum", if id % 2 == 0 { "one" } else { "two" }])
                 },
-                Cell::text(format!("row-{id}")),
+                serde_json::json!(["text", format!("row-{id}")]),
                 if id % 2 == 0 {
-                    Cell::I64(1)
+                    serde_json::json!(["i64", 1])
                 } else {
-                    Cell::Null
+                    serde_json::json!(["null", null])
                 },
             ]
         })
         .collect::<Vec<_>>();
-    let batch = pse_relations::cells::batch_from_cells(&registry, spec, &rows).expect("batch");
+    let batch = pse_relations::testing::batch_from_literals(&registry, spec, &rows).expect("batch");
     let key = spec.key;
-    let (publication, directory, _) = native_publication::publish(
-        registry,
-        BTreeMap::from([(key, batch.clone())]),
-        FixedBudget::new(64 << 20),
-    )
-    .await;
+    let (publication, directory, _) =
+        native_publication::publish(registry, BTreeMap::from([(key, batch.clone())])).await;
     let table = datafusion::datasource::source_as_provider(
         &publication
             .session()
@@ -130,7 +125,7 @@ impl TableProvider for DefectiveExact {
         projection: Option<&'p Vec<usize>>,
         filters: &'f [datafusion::logical_expr::Expr],
         limit: Option<usize>,
-    ) -> pse_catalog::BoxFut<
+    ) -> pse_engine::BoxFut<
         'future,
         datafusion::common::Result<Arc<dyn datafusion::physical_plan::ExecutionPlan>>,
     >

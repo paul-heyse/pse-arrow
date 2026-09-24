@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Native Delta/Parquet experiment fixtures; fixture construction is separately timed.
-use super::store::CountingStore;
 use datafusion::{
     arrow::{
         array::{ArrayRef, Int64Array, RecordBatch},
@@ -18,18 +17,19 @@ use datafusion::{
 };
 use deltalake::{DeltaTable, kernel::transaction::CommitProperties};
 use pse_catalog::{
-    cache_service::{CacheBudget, NativeCacheService},
+    cache_service::{DeltaCacheBudget, DeltaCacheService},
     delta::{
         layout::DurableLayout,
         provider::{open_view, table_builder},
     },
-    session::planner::UnifiedPlanner,
 };
+use pse_engine::session::planner::UnifiedPlanner;
+use pse_testkit::counting_store::CountingStore;
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
 pub(super) struct Environment {
     pub(super) state: Arc<SessionState>,
-    pub(super) caches: Arc<NativeCacheService>,
+    pub(super) caches: Arc<DeltaCacheService>,
     pub(super) store: Arc<CountingStore>,
     pub(super) pool: Arc<dyn MemoryPool>,
     peak: Arc<PeakRecordingPool>,
@@ -48,13 +48,13 @@ impl Environment {
         let store = CountingStore::new(runtime.object_store_registry.get_store(&root).unwrap());
         runtime.register_object_store(&root, store.clone());
         let mut policy = if enabled {
-            CacheBudget::for_memory(256 << 20)
+            DeltaCacheBudget::for_memory(256 << 20)
         } else {
-            CacheBudget::disabled(128 << 20)
+            DeltaCacheBudget::disabled(128 << 20)
         };
-        policy.predicate_cache_bytes = predicate;
+        policy.native.predicate_cache_bytes = predicate;
         policy.crc_replay_max_commits = crc;
-        let caches = NativeCacheService::new(policy, &pool).unwrap();
+        let caches = DeltaCacheService::new(policy, &pool).unwrap();
         let mut config =
             datafusion::execution::config::SessionConfig::new().with_target_partitions(partitions);
         config.options_mut().execution.parquet.pushdown_filters = true;
@@ -67,8 +67,14 @@ impl Environment {
             SessionStateBuilder::new()
                 .with_default_features()
                 .with_runtime_env(runtime)
-                .with_config(config.with_extension(caches.clone()))
-                .with_query_planner(Arc::new(UnifiedPlanner::default()))
+                .with_config(
+                    config
+                        .with_extension(caches.native().clone())
+                        .with_extension(caches.clone()),
+                )
+                .with_query_planner(Arc::new(UnifiedPlanner::new(
+                    pse_catalog::assembly::planners(),
+                )))
                 .build(),
         );
         Self {
@@ -81,7 +87,7 @@ impl Environment {
     }
     pub(super) fn report(&self) -> serde_json::Value {
         serde_json::json!({"io":self.store.report(),"reserved_bytes":self.pool.reserved(), "pool_peak_bytes":self.peak.max_reserved(), "process_peak_rss_bytes":super::cache_journey::process_peak_rss(),
-            "cache":self.caches.report().iter().map(|r| serde_json::json!({"name":r.name,"hits":r.hits,"misses":r.misses,"bypasses":r.bypasses,"retained_bytes":r.retained_bytes,"live_bytes":r.live_bytes,"pinned_bytes":r.pinned_bytes})).collect::<Vec<_>>()})
+            "cache":self.caches.native().report().iter().map(|r| serde_json::json!({"name":r.name,"hits":r.hits,"misses":r.misses,"bypasses":r.bypasses,"retained_bytes":r.retained_bytes,"live_bytes":r.live_bytes,"pinned_bytes":r.pinned_bytes})).collect::<Vec<_>>()})
     }
 }
 fn schema() -> Arc<Schema> {

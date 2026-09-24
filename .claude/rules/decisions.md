@@ -11,11 +11,11 @@ Two directories, two lifecycles. **ADRs record a decision** and are immutable af
 acceptance. **Plans record how work is sequenced and verified** and stay living until
 done. When the code and a plan disagree, the code is what runs.
 
-## ADR front matter (charter §H)
+## ADR front matter (design principles §H)
 
 `id`, `title`, `status` (`proposed` | `accepted` | `rejected` | `deprecated` |
 `superseded`), `date`, `deciders`, `level` (`decision` | `should-deviation` |
-`must-gap`), `principles` (`DM-xx`), `blueprint` (the sections governed), `review`
+`must-gap`), `principles` (`DP-xx` core, `PS-xx` process-simulator profile; accepted records keep legacy `DM-xx`), `blueprint` (the sections governed), `review`
 (`path#finding`, or `not-required: <reason>`), `evidence` (a §D label),
 `supersedes`/`superseded-by`, `revisit` (an *observable* trigger, not a date alone),
 `verification` (the test, lint or benchmark that shows the decision still holds).
@@ -56,6 +56,22 @@ only if it also carries `needs-review`.
 plan implements. When the work lands, append `## Outcome` with what was built, **a
 mistake made and corrected**, and **deviations that were deliberate**. Both of those
 sections are the point of the outcome; omitting them makes the plan a memo.
+
+### Execution rhythm in plans
+
+Structure every plan the way AGENTS.md *Execution rhythm* runs it:
+
+- **Packets** name targeted unit tests as their acceptance, plus the deletion of whatever
+  they replace. A packet is not done while the replaced mechanism, its callers or its
+  tests remain — delete them as soon as the replacement is proven by its tests. No
+  compatibility paths, no tests ported onto a deleted mechanism.
+- **One final qualification stage** at the end of the plan holds integration, component,
+  solver, Python and performance journeys, formatting/lint/governance/codegen/doc/ADR
+  checks, any source seal, and the evidence-labelled Verification and Outcome. Full
+  qualification is mandatory; it is just not repeated per packet.
+- **Checkpoints** record current state, decisions made and the next dependency-ordered
+  steps. They do not record per-command receipts, numbered rerun logs or static checks
+  rerun after documentation edits. Failed-run detail is kept only while it drives a repair.
 
 `docs/adr/register.md` holds every deferred decision with its trigger, its check, an
 owner and a next-review date. A decision deferred without an observable trigger is a

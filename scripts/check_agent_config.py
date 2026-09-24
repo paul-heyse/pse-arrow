@@ -6,7 +6,7 @@
 Agent instructions are the one class of document with no compiler and no test: a
 `CLAUDE.md` that points at a directory which was renamed six months ago fails silently,
 at the moment an agent tries to follow it. This script is the missing compiler. It
-checks four things:
+checks five things:
 
 1. **Skill aliases resolve and native agent definitions match.** Skills are canonical in ``.codex/skills`` with
    ``.claude/skills`` and ``.agents/skills`` pointing at them; agents are canonical in
@@ -18,12 +18,20 @@ checks four things:
    which is the drift this exists to catch.
 2. **``CLAUDE.md`` starts with ``@AGENTS.md``.** That import is why ``AGENTS.md`` can be
    canonical for both runtimes.
-3. **Every repository path named in the instructions exists.** Paths that are created
+3. **Every repository path named in the repository instructions exists.** Skill
+   contents are outside this lint scope; their aliases are still checked. Paths created
    later in the build-out live in ``.claude/path-allowlist.txt``, each with a comment
    saying when it appears; a line carrying ``agent-config: ignore`` is skipped.
 4. **Every ``just`` recipe named in the instructions exists.** ``just --list`` is
    advertised as the contract, so a recipe that was renamed without updating the prose
    is a broken contract.
+5. **Every file-path deny rule in ``.claude/settings.json`` is an anchored ``Edit`` or
+   ``Read`` rule.** Claude Code consults only ``Edit(...)`` and ``Read(...)`` for file paths
+   (``Edit`` covers every editing tool), so a ``Write(...)`` path rule is accepted and never
+   applied. A ``./path`` or bare ``path`` resolves against the session's current directory,
+   and a single-segment deny such as ``./build/**`` matches a ``build`` directory at any depth
+   below it -- which denied every skill's own ``build/``. ``/path`` anchors at the repository
+   root, which is what the protection means.
 
 Run by ``just lint-agents`` and by the ``governance / agent-config`` CI job.
 Standard library only: it has to run before any environment exists.
@@ -95,11 +103,6 @@ def scanned_files() -> list[Path]:
     files = [ROOT / "AGENTS.md", ROOT / "CLAUDE.md"]
     files += sorted((ROOT / ".claude" / "rules").glob("*.md"))
     files += sorted((ROOT / ".claude" / "agents").glob("*.md"))
-    skills = ROOT / ".codex" / "skills"
-    if skills.is_dir():
-        files += sorted(
-            p for p in skills.rglob("*.md") if p.name in {"SKILL.md", "REFERENCE.md"}
-        )
     return [f for f in files if f.is_file()]
 
 
@@ -207,6 +210,34 @@ def check_link(link: Path, target: Path, problems: list[str]) -> None:
     )
 
 
+FILE_TOOLS = ("Edit", "Read", "Write", "NotebookEdit", "MultiEdit", "Glob")
+ANCHORS = ("/", "~/")
+
+
+def check_deny_rules(settings: Path, problems: list[str]) -> int:
+    """Every file-path deny rule must be an ``Edit``/``Read`` rule anchored at a fixed root."""
+    rules = json.loads(settings.read_text()).get("permissions", {}).get("deny", [])
+    checked = 0
+    for rule in rules:
+        found = re.fullmatch(r"(\w+)\((.*)\)", rule)
+        if not found or found.group(1) not in FILE_TOOLS:
+            continue
+        checked += 1
+        tool, path = found.groups()
+        if tool not in ("Edit", "Read"):
+            problems.append(
+                f"{settings.name}: deny rule {rule!r} is never consulted -- Claude Code checks "
+                f"file paths against Edit(...) and Read(...) only; write Edit({path})"
+            )
+        if not path.startswith(ANCHORS):
+            problems.append(
+                f"{settings.name}: deny rule {rule!r} resolves against the current directory "
+                f"and, as a deny, may match the same name at any depth; anchor it as "
+                f"{tool}(/{path.removeprefix('./')})"
+            )
+    return checked
+
+
 def main() -> int:
     """Run every check, report each problem with its fix, and return an exit code."""
     problems: list[str] = []
@@ -234,6 +265,8 @@ def main() -> int:
                 for hook in group["hooks"]:
                     if "scripts/agent-hooks.py" not in hook["command"]:
                         problems.append(f"{config}: hook does not use shared policy")
+
+    deny_rules = check_deny_rules(ROOT / ".claude/settings.json", problems)
 
     # 2. the CLAUDE.md import
     claude_md = ROOT / "CLAUDE.md"
@@ -282,7 +315,8 @@ def main() -> int:
 
     print(
         f"  {len(files)} file(s), {checked_paths} path reference(s), "
-        f"{checked_recipes} recipe reference(s), {len(allowlist)} allowlist entr(ies)"
+        f"{checked_recipes} recipe reference(s), {len(allowlist)} allowlist entr(ies), "
+        f"{deny_rules} file-path deny rule(s)"
     )
 
     if problems:

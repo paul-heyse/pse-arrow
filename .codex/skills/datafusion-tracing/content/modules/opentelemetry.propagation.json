@@ -1,0 +1,91 @@
+[
+  {
+    "id": "ffc5d8b8e3baa059d19ad9a6",
+    "path": "opentelemetry::propagation",
+    "name": "propagation",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod propagation",
+    "docs": "# OpenTelemetry Propagator interface\nCross-cutting concerns send their state to the next process using Propagators, which are defined\nas objects used to read and write context data to and from messages exchanged by the applications.\n\n`Propagator`s leverage the [`Context`] to inject and extract data for each cross-cutting concern,\nsuch as `TraceContext` and [`Baggage`].\n\nThe Propagators API is expected to be leveraged by users writing instrumentation libraries.\n\nCurrently, the following `Propagator` types are supported:\n-  [`TextMapPropagator`], inject values into and extracts values from carriers as string key/value pairs\n\nA binary Propagator type will be added in\nthe future, See [tracking issues](https://github.com/open-telemetry/opentelemetry-specification/issues/437)).\n\n`Propagator`s uses [`Injector`] and [`Extractor`] to read and write context data to and from messages.\nEach specific Propagator type defines its expected carrier type, such as a string map or a byte array.\n\n[`Baggage`]: crate::baggage::Baggage\n[`Context`]: crate::Context",
+    "span": {
+      "filename": "src/propagation/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        120,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"trace\")]"
+      },
+      {
+        "other": "#[<cfg_attr>(docsrs, doc(cfg(feature = \"trace\")))]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"trace\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          1388,
+          1424,
+          1425,
+          1426,
+          1382,
+          1384
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::baggage::Baggage": 189,
+      "crate::Context": 121,
+      "`Injector`": 1382,
+      "`TextMapPropagator`": 13,
+      "`Extractor`": 1384
+    },
+    "link_paths": {
+      "crate::baggage::Baggage": "opentelemetry::baggage::Baggage",
+      "crate::Context": "opentelemetry::context::Context",
+      "`Injector`": "opentelemetry::propagation::Injector",
+      "`TextMapPropagator`": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+      "`Extractor`": "opentelemetry::propagation::Extractor"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1438",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.propagation.md",
+    "record_file": "modules/opentelemetry.propagation.json",
+    "anchor": "op-ffc5d8b8e3baa059d19ad9a6",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::baggage::Baggage": "../operations/opentelemetry.baggage.Baggage.md#op-2c88c4516fa3cd4da1db039e",
+      "crate::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1",
+      "`Injector`": "../operations/opentelemetry.propagation.Injector.md#op-6df55495bf9714237f4c3690",
+      "`TextMapPropagator`": "../operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md#op-1877064155d794d3de73d8d3",
+      "`Extractor`": "../operations/opentelemetry.propagation.Extractor.md#op-295c86db9e9eeabe7894a847"
+    }
+  }
+]

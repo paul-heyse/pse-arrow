@@ -1,0 +1,423 @@
+[
+  {
+    "id": "f71c6d57702e5d6dfe4a8abb",
+    "path": "tracing_subscriber::fmt::format::FormatEvent",
+    "name": "FormatEvent",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait FormatEvent<S, N> where S: Subscriber + for<'a> LookupSpan<'a>, N: for<'a> FormatFields<'a> + 'static",
+    "docs": "A type that can format a tracing [`Event`] to a [`Writer`].\n\n[`FormatEvent`] is primarily used in the context of [`fmt::Subscriber`] or\n[`fmt::Layer`]. Each time an event is dispatched to [`fmt::Subscriber`] or\n[`fmt::Layer`], the subscriber or layer\nforwards it to its associated [`FormatEvent`] to emit a log message.\n\nThis trait is already implemented for function pointers with the same\nsignature as `format_event`.\n\n# Arguments\n\nThe following arguments are passed to [`FormatEvent::format_event`]:\n\n* A [`FmtContext`]. This is an extension of the [`layer::Context`] type,\n  which can be used for accessing stored information such as the current\n  span context an event occurred in.\n\n  In addition, [`FmtContext`] exposes access to the [`FormatFields`]\n  implementation that the subscriber was configured to use via the\n  [`FmtContext::field_format`] method. This can be used when the\n  [`FormatEvent`] implementation needs to format the event's fields.\n\n  For convenience, [`FmtContext`] also implements [`FormatFields`],\n  forwarding to the configured [`FormatFields`] type.\n\n* A [`Writer`] to which the formatted representation of the event is\n  written. This type implements the [`std::fmt::Write`] trait, and therefore\n  can be used with the [`std::write!`] and [`std::writeln!`] macros, as well\n  as calling [`std::fmt::Write`] methods directly.\n\n  The [`Writer`] type also implements additional methods that provide\n  information about how the event should be formatted. The\n  [`Writer::has_ansi_escapes`] method indicates whether [ANSI terminal\n  escape codes] are supported by the underlying I/O writer that the event\n  will be written to. If this returns `true`, the formatter is permitted to\n  use ANSI escape codes to add colors and other text formatting to its\n  output. If it returns `false`, the event will be written to an output that\n  does not support ANSI escape codes (such as a log file), and they should\n  not be emitted.\n\n  Crates like [`nu_ansi_term`] and [`owo-colors`] can be used to add ANSI\n  escape codes to formatted output.\n\n* The actual [`Event`] to be formatted.\n\n# Examples\n\nThis example re-implements a simplified version of this crate's [default\nformatter]:\n\n```rust\nuse std::fmt;\nuse tracing_core::{Subscriber, Event};\nuse tracing_subscriber::fmt::{\n    format::{self, FormatEvent, FormatFields},\n    FmtContext,\n    FormattedFields,\n};\nuse tracing_subscriber::registry::LookupSpan;\n\nstruct MyFormatter;\n\nimpl<S, N> FormatEvent<S, N> for MyFormatter\nwhere\n    S: Subscriber + for<'a> LookupSpan<'a>,\n    N: for<'a> FormatFields<'a> + 'static,\n{\n    fn format_event(\n        &self,\n        ctx: &FmtContext<'_, S, N>,\n        mut writer: format::Writer<'_>,\n        event: &Event<'_>,\n    ) -> fmt::Result {\n        // Format values from the event's's metadata:\n        let metadata = event.metadata();\n        write!(&mut writer, \"{} {}: \", metadata.level(), metadata.target())?;\n\n        // Format all the spans in the event's span context.\n        if let Some(scope) = ctx.event_scope() {\n            for span in scope.from_root() {\n                write!(writer, \"{}\", span.name())?;\n\n                // `FormattedFields` is a formatted representation of the span's\n                // fields, which is stored in its extensions by the `fmt` layer's\n                // `new_span` method. The fields will have been formatted\n                // by the same field formatter that's provided to the event\n                // formatter in the `FmtContext`.\n                let ext = span.extensions();\n                let fields = &ext\n                    .get::<FormattedFields<N>>()\n                    .expect(\"will never be `None`\");\n\n                // Skip formatting the fields if the span had no fields.\n                if !fields.is_empty() {\n                    write!(writer, \"{{{}}}\", fields)?;\n                }\n                write!(writer, \": \")?;\n            }\n        }\n\n        // Write fields on the event\n        ctx.field_format().format_fields(writer.by_ref(), event)?;\n\n        writeln!(writer)\n    }\n}\n\nlet _subscriber = tracing_subscriber::fmt()\n    .event_format(MyFormatter)\n    .init();\n\nlet _span = tracing::info_span!(\"my_span\", answer = 42).entered();\ntracing::info!(question = \"life, the universe, and everything\", \"hello world\");\n```\n\nThis formatter will print events like this:\n\n```text\nDEBUG yak_shaving::shaver: some-span{field-on-span=foo}: started shaving yak\n```\n\n[`layer::Context`]: crate::layer::Context\n[`fmt::Layer`]: super::Layer\n[`fmt::Subscriber`]: super::Subscriber\n[`Event`]: tracing::Event\n[implements `FormatFields`]: super::FmtContext#impl-FormatFields<'writer>\n[ANSI terminal escape codes]: https://en.wikipedia.org/wiki/ANSI_escape_code\n[`Writer::has_ansi_escapes`]: Writer::has_ansi_escapes\n[`nu_ansi_term`]: https://crates.io/crates/nu_ansi_term\n[`owo-colors`]: https://crates.io/crates/owo-colors\n[default formatter]: Full",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        198,
+        1
+      ],
+      "end": [
+        210,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          1981
+        ],
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "N",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Subscriber",
+                        "id": 317,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'a"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'a",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "N"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "FormatFields",
+                        "id": 1441,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'a"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'a",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "bounds": [],
+        "implementations": [
+          1986,
+          1988,
+          1990,
+          1992,
+          1994
+        ]
+      }
+    },
+    "type_references": {
+      "317": "tracing_core::subscriber::Subscriber",
+      "790": "tracing_subscriber::registry::LookupSpan",
+      "1441": "tracing_subscriber::fmt::format::FormatFields"
+    },
+    "impl_context": null,
+    "links": {
+      "tracing::Event": 246,
+      "`FormatFields`": 1441,
+      "Writer::has_ansi_escapes": 1984,
+      "super::Subscriber": 1151,
+      "`Writer`": 218,
+      "super::Layer": 1147,
+      "`FormatEvent`": 1442,
+      "super::FmtContext#impl-FormatFields<'writer>": 1653,
+      "`std::fmt::Write`": 91,
+      "crate::layer::Context": 313,
+      "`std::writeln!`": 1983,
+      "`std::write!`": 1982,
+      "`FmtContext`": 1653,
+      "`FmtContext::field_format`": 1775,
+      "Full": 1649,
+      "`FormatEvent::format_event`": 1981
+    },
+    "link_paths": {
+      "tracing::Event": "tracing_core::event::Event",
+      "`FormatFields`": "tracing_subscriber::fmt::format::FormatFields",
+      "Writer::has_ansi_escapes": null,
+      "super::Subscriber": "tracing_subscriber::fmt::Subscriber",
+      "`Writer`": "tracing_subscriber::fmt::format::Writer",
+      "super::Layer": "tracing_subscriber::fmt::fmt_layer::Layer",
+      "`FormatEvent`": "tracing_subscriber::fmt::format::FormatEvent",
+      "super::FmtContext#impl-FormatFields<'writer>": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+      "`std::fmt::Write`": "core::fmt::Write",
+      "crate::layer::Context": "tracing_subscriber::layer::context::Context",
+      "`std::writeln!`": "core::writeln",
+      "`std::write!`": "core::write",
+      "`FmtContext`": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+      "`FmtContext::field_format`": null,
+      "Full": "tracing_subscriber::fmt::format::Full",
+      "`FormatEvent::format_event`": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1442",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.FormatEvent.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.FormatEvent.json",
+    "anchor": "op-f71c6d57702e5d6dfe4a8abb",
+    "aliases": [
+      "tracing_subscriber::fmt::FormatEvent"
+    ],
+    "resolved_doc_links": {
+      "tracing::Event": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039",
+      "`FormatFields`": "../operations/tracing_subscriber.fmt.format.FormatFields.md#op-9bc846bbdc7bd7bc3e4045c0",
+      "Writer::has_ansi_escapes": "../operations/tracing_subscriber.fmt.format.Writer.md#op-598c2cbda5806c9880f83e08",
+      "super::Subscriber": "../operations/tracing_subscriber.fmt.Subscriber.md#op-7360e26773e1081257bf258e",
+      "`Writer`": "../operations/tracing_subscriber.fmt.format.Writer.md#op-6b52b7d913af9a7ea5497021",
+      "super::Layer": "../operations/tracing_subscriber.fmt.fmt_layer.Layer.md#op-fa1a59e4f05bcd8ea89adaa4",
+      "`FormatEvent`": "../operations/tracing_subscriber.fmt.format.FormatEvent.md#op-f71c6d57702e5d6dfe4a8abb",
+      "super::FmtContext#impl-FormatFields<'writer>": "../operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md#op-edf8024d45f27b1a256d34ab",
+      "crate::layer::Context": "../operations/tracing_subscriber.layer.context.Context.md#op-0acb651e530d235188552e7d",
+      "`FmtContext`": "../operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md#op-edf8024d45f27b1a256d34ab",
+      "`FmtContext::field_format`": "../operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md#op-071d5b13e98cb914d4209740",
+      "Full": "../operations/tracing_subscriber.fmt.format.Full.md#op-b6feb895c3a5317d8f8397fd",
+      "`FormatEvent::format_event`": "../operations/tracing_subscriber.fmt.format.FormatEvent.md#op-f2311ad8285c947f806e24ac"
+    }
+  },
+  {
+    "id": "f2311ad8285c947f806e24ac",
+    "path": "tracing_subscriber::fmt::format::FormatEvent::format_event",
+    "name": "format_event",
+    "owner": "tracing_subscriber::fmt::format::FormatEvent",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn format_event(&self, ctx: &FmtContext<'_, S, N>, writer: Writer<'_>, event: &Event<'_>) -> fmt::Result",
+    "docs": "Write a log message for [`Event`] in [`FmtContext`] to the given [`Writer`].",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        204,
+        5
+      ],
+      "end": [
+        209,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "FmtContext",
+                      "id": 1653,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            },
+                            {
+                              "type": {
+                                "generic": "S"
+                              }
+                            },
+                            {
+                              "type": {
+                                "generic": "N"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "writer",
+              {
+                "resolved_path": {
+                  "path": "Writer",
+                  "id": 218,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 246,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "1653": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+      "218": "tracing_subscriber::fmt::format::Writer",
+      "246": "tracing_core::event::Event",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": null,
+    "links": {
+      "`FmtContext`": 1653,
+      "`Writer`": 218,
+      "`Event`": 246
+    },
+    "link_paths": {
+      "`FmtContext`": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+      "`Writer`": "tracing_subscriber::fmt::format::Writer",
+      "`Event`": "tracing_core::event::Event"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1981",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.FormatEvent.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.FormatEvent.json",
+    "anchor": "op-f2311ad8285c947f806e24ac",
+    "aliases": [
+      "tracing_subscriber::fmt::FormatEvent::format_event"
+    ],
+    "resolved_doc_links": {
+      "`FmtContext`": "../operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md#op-edf8024d45f27b1a256d34ab",
+      "`Writer`": "../operations/tracing_subscriber.fmt.format.Writer.md#op-6b52b7d913af9a7ea5497021",
+      "`Event`": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039"
+    }
+  }
+]

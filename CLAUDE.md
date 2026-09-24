@@ -18,9 +18,9 @@ is not a shell sandbox. Do not ask again for actions already authorized by the u
 Path-scoped guidance is in `.claude/rules/`. The nine role definitions in
 `.claude/agents/` are canonical; `just agent-config-sync` produces Codex's native TOML
 roles. Skills are canonical in `.codex/skills/`, exposed through `.claude/skills` and
-`.agents/skills`. On Windows, run `just agent-config-sync` to materialize aliases when
-symlinks are unavailable. `just lint-agents` checks drift and `just setup-test` checks
-behavior.
+`.agents/skills`; library skills there are local-only and gitignored. On Windows, run
+`just agent-config-sync` to materialize aliases when symlinks are unavailable.
+`just lint-agents` checks drift and `just setup-test` checks behavior.
 
 Use planning for architecture, pinned-family-major, generation and Python-boundary
 changes. Adding a third-party dependency is not one of them: no library and no licence is

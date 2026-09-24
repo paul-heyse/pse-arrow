@@ -1,0 +1,854 @@
+[
+  {
+    "id": "cd6c30b8b499d6236b40d4b6",
+    "path": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+    "name": "AggregatedMetrics",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "enum",
+    "signature": "enum AggregatedMetrics",
+    "docs": "Aggregated metrics data from an instrument",
+    "span": {
+      "filename": "src/metrics/data/mod.rs",
+      "begin": [
+        101,
+        1
+      ],
+      "end": [
+        108,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "enum": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "has_stripped_variants": false,
+        "variants": [
+          852,
+          854,
+          856
+        ],
+        "impls": [
+          857,
+          858,
+          859,
+          860,
+          861,
+          862,
+          863,
+          864,
+          865,
+          866,
+          867,
+          868,
+          869,
+          870,
+          871,
+          872,
+          873,
+          874,
+          875,
+          877,
+          879,
+          881,
+          883
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "827",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.json",
+    "anchor": "op-cd6c30b8b499d6236b40d4b6",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4115fa7953b83a366a437325",
+    "path": "opentelemetry_sdk::metrics::data::AggregatedMetrics::F64",
+    "name": "F64",
+    "owner": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "F64",
+    "docs": "All metric data with `f64` value type",
+    "span": {
+      "filename": "src/metrics/data/mod.rs",
+      "begin": [
+        103,
+        5
+      ],
+      "end": [
+        103,
+        25
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            850
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "852",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.json",
+    "anchor": "op-4115fa7953b83a366a437325",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3e00fe08ff6554d75b5acd7f",
+    "path": "opentelemetry_sdk::metrics::data::AggregatedMetrics::I64",
+    "name": "I64",
+    "owner": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "I64",
+    "docs": "All metric data with `i64` value type",
+    "span": {
+      "filename": "src/metrics/data/mod.rs",
+      "begin": [
+        107,
+        5
+      ],
+      "end": [
+        107,
+        25
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            855
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "856",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.json",
+    "anchor": "op-3e00fe08ff6554d75b5acd7f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d5cf3ad0a6bc33f65d3d65cc",
+    "path": "opentelemetry_sdk::metrics::data::AggregatedMetrics::U64",
+    "name": "U64",
+    "owner": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "variant",
+    "signature": "U64",
+    "docs": "All metric data with `u64` value type",
+    "span": {
+      "filename": "src/metrics/data/mod.rs",
+      "begin": [
+        105,
+        5
+      ],
+      "end": [
+        105,
+        25
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "variant": {
+        "kind": {
+          "tuple": [
+            853
+          ]
+        },
+        "discriminant": null
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "854",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.json",
+    "anchor": "op-d5cf3ad0a6bc33f65d3d65cc",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "419f482a276ff1242e88456c",
+    "path": "opentelemetry_sdk::metrics::data::AggregatedMetrics::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/data/mod.rs",
+      "begin": [
+        100,
+        10
+      ],
+      "end": [
+        100,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AggregatedMetrics",
+          "id": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/data/mod.rs",
+        "begin": [
+          100,
+          10
+        ],
+        "end": [
+          100,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "876",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.json",
+    "anchor": "op-419f482a276ff1242e88456c",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3c9d27ae05dc4561b746ed05",
+    "path": "opentelemetry_sdk::metrics::data::AggregatedMetrics::from",
+    "name": "from",
+    "owner": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(value: MetricData<u64>) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/data/mod.rs",
+      "begin": [
+        136,
+        5
+      ],
+      "end": [
+        138,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "value",
+              {
+                "resolved_path": {
+                  "path": "MetricData",
+                  "id": 851,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "primitive": "u64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "851": "opentelemetry_sdk::metrics::data::MetricData"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AggregatedMetrics",
+          "id": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "MetricData",
+                    "id": "opentelemetry_sdk::metrics::data::MetricData",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "type": {
+                              "primitive": "u64"
+                            }
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/data/mod.rs",
+        "begin": [
+          135,
+          1
+        ],
+        "end": [
+          139,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "882",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.json",
+    "anchor": "op-3c9d27ae05dc4561b746ed05",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3ee0759b0a269709eb13e139",
+    "path": "opentelemetry_sdk::metrics::data::AggregatedMetrics::from",
+    "name": "from",
+    "owner": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(value: MetricData<i64>) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/data/mod.rs",
+      "begin": [
+        130,
+        5
+      ],
+      "end": [
+        132,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "value",
+              {
+                "resolved_path": {
+                  "path": "MetricData",
+                  "id": 851,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "primitive": "i64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "851": "opentelemetry_sdk::metrics::data::MetricData"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AggregatedMetrics",
+          "id": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "MetricData",
+                    "id": "opentelemetry_sdk::metrics::data::MetricData",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "type": {
+                              "primitive": "i64"
+                            }
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/data/mod.rs",
+        "begin": [
+          129,
+          1
+        ],
+        "end": [
+          133,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "880",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.json",
+    "anchor": "op-3ee0759b0a269709eb13e139",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "e5ed356489c840ed24709256",
+    "path": "opentelemetry_sdk::metrics::data::AggregatedMetrics::from",
+    "name": "from",
+    "owner": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(value: MetricData<f64>) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/data/mod.rs",
+      "begin": [
+        124,
+        5
+      ],
+      "end": [
+        126,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "value",
+              {
+                "resolved_path": {
+                  "path": "MetricData",
+                  "id": 851,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "primitive": "f64"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "851": "opentelemetry_sdk::metrics::data::MetricData"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "AggregatedMetrics",
+          "id": "opentelemetry_sdk::metrics::data::AggregatedMetrics",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "MetricData",
+                    "id": "opentelemetry_sdk::metrics::data::MetricData",
+                    "args": {
+                      "angle_bracketed": {
+                        "args": [
+                          {
+                            "type": {
+                              "primitive": "f64"
+                            }
+                          }
+                        ],
+                        "constraints": []
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/data/mod.rs",
+        "begin": [
+          123,
+          1
+        ],
+        "end": [
+          127,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "878",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.data.AggregatedMetrics.json",
+    "anchor": "op-e5ed356489c840ed24709256",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

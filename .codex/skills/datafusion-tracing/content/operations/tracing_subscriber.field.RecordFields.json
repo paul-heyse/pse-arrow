@@ -1,0 +1,225 @@
+[
+  {
+    "id": "fc1ac43117ab810b7a7cfedb",
+    "path": "tracing_subscriber::field::RecordFields",
+    "name": "RecordFields",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait RecordFields: sealed::Sealed<RecordFieldsMarker>",
+    "docs": "Extension trait implemented by types which can be recorded by a [visitor].\n\nThis allows writing code that is generic over `tracing_core`'s\n[`span::Attributes`][attr], [`span::Record`][rec], and [`Event`]\ntypes. These types all provide inherent `record` methods that allow a\nvisitor to record their fields, but there is no common trait representing this.\n\nWith `RecordFields`, we can write code like this:\n```\nuse tracing_core::field::Visit;\n# use tracing_core::field::Field;\nuse tracing_subscriber::field::RecordFields;\n\nstruct MyVisitor {\n    // ...\n}\n# impl MyVisitor { fn new() -> Self { Self{} } }\nimpl Visit for MyVisitor {\n    // ...\n# fn record_debug(&mut self, _: &Field, _: &dyn std::fmt::Debug) {}\n}\n\nfn record_with_my_visitor<R>(r: R)\nwhere\n    R: RecordFields,\n{\n    let mut visitor = MyVisitor::new();\n    r.record(&mut visitor);\n}\n```\n[visitor]: tracing_core::field::Visit\n[attr]: tracing_core::span::Attributes\n[rec]: tracing_core::span::Record",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        88,
+        1
+      ],
+      "end": [
+        91,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          243
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "crate::sealed::Sealed",
+                "id": 21,
+                "args": {
+                  "angle_bracketed": {
+                    "args": [
+                      {
+                        "type": {
+                          "resolved_path": {
+                            "path": "RecordFieldsMarker",
+                            "id": 247,
+                            "args": null
+                          }
+                        }
+                      }
+                    ],
+                    "constraints": []
+                  }
+                }
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          249,
+          251,
+          253,
+          255
+        ]
+      }
+    },
+    "type_references": {
+      "21": "tracing_subscriber::sealed::Sealed",
+      "247": null
+    },
+    "impl_context": null,
+    "links": {
+      "tracing_core::field::Visit": 82,
+      "tracing_core::span::Record": 245,
+      "`Event`": 246,
+      "tracing_core::span::Attributes": 244
+    },
+    "link_paths": {
+      "tracing_core::field::Visit": "tracing_core::field::Visit",
+      "tracing_core::span::Record": "tracing_core::span::Record",
+      "`Event`": "tracing_core::event::Event",
+      "tracing_core::span::Attributes": "tracing_core::span::Attributes"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "233",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.RecordFields.md",
+    "record_file": "operations/tracing_subscriber.field.RecordFields.json",
+    "anchor": "op-fc1ac43117ab810b7a7cfedb",
+    "aliases": [
+      "tracing_subscriber::prelude::__tracing_subscriber_field_RecordFields"
+    ],
+    "resolved_doc_links": {
+      "tracing_core::field::Visit": "../operations/tracing_core.field.Visit.md#op-5756ad7dac310ca14da0016b",
+      "tracing_core::span::Record": "../operations/tracing_core.span.Record.md#op-13fdacc651796b5522602d2e",
+      "`Event`": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039",
+      "tracing_core::span::Attributes": "../operations/tracing_core.span.Attributes.md#op-c26f3e8618922ff48422c6fb"
+    }
+  },
+  {
+    "id": "68f3eb12dd36dee3ec4fa696",
+    "path": "tracing_subscriber::field::RecordFields::record",
+    "name": "record",
+    "owner": "tracing_subscriber::field::RecordFields",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn record(&self, visitor: &mut dyn Visit)",
+    "docs": "Record all the fields in `self` with the provided `visitor`.",
+    "span": {
+      "filename": "src/field/mod.rs",
+      "begin": [
+        90,
+        5
+      ],
+      "end": [
+        90,
+        47
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "visitor",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Visit",
+                            "id": 82,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "82": "tracing_core::field::Visit"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "243",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.field.RecordFields.md",
+    "record_file": "operations/tracing_subscriber.field.RecordFields.json",
+    "anchor": "op-68f3eb12dd36dee3ec4fa696",
+    "aliases": [
+      "tracing_subscriber::prelude::__tracing_subscriber_field_RecordFields::record"
+    ],
+    "resolved_doc_links": {}
+  }
+]

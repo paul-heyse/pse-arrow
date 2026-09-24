@@ -1,0 +1,453 @@
+[
+  {
+    "id": "58efe95b35cd74f5deb12539",
+    "path": "opentelemetry_sdk::metrics::instrument::Stream",
+    "name": "Stream",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct Stream",
+    "docs": "Describes the stream of data an instrument produces. Used in `with_view`\nmethods on `MeterProviderBuilder` to customize the metric output.",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        302,
+        1
+      ],
+      "end": [
+        320,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1456,
+          1457,
+          1458,
+          1459,
+          1460,
+          1461,
+          1462,
+          1463,
+          1464,
+          1465,
+          1466,
+          1467,
+          1468,
+          1469,
+          1470,
+          1471,
+          1472,
+          1473,
+          1474,
+          1475,
+          1477,
+          1479
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1375",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.Stream.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.Stream.json",
+    "anchor": "op-58efe95b35cd74f5deb12539",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Stream"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4e6ef68c696a217a385fa05e",
+    "path": "opentelemetry_sdk::metrics::instrument::Stream::builder",
+    "name": "builder",
+    "owner": "opentelemetry_sdk::metrics::instrument::Stream",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn builder() -> StreamBuilder",
+    "docs": "Create a new stream builder with default values.",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        324,
+        5
+      ],
+      "end": [
+        326,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "StreamBuilder",
+              "id": 1415,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1415": "opentelemetry_sdk::metrics::instrument::StreamBuilder"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Stream",
+          "id": "opentelemetry_sdk::metrics::instrument::Stream",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          322,
+          1
+        ],
+        "end": [
+          327,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1455",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.Stream.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.Stream.json",
+    "anchor": "op-4e6ef68c696a217a385fa05e",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Stream::builder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "91aab3ad45181d3a8b3d5839",
+    "path": "opentelemetry_sdk::metrics::instrument::Stream::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::metrics::instrument::Stream",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> Stream",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        301,
+        10
+      ],
+      "end": [
+        301,
+        17
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "Stream",
+              "id": 1375,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1375": "opentelemetry_sdk::metrics::instrument::Stream"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Stream",
+          "id": "opentelemetry_sdk::metrics::instrument::Stream",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          301,
+          10
+        ],
+        "end": [
+          301,
+          17
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1476",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.Stream.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.Stream.json",
+    "anchor": "op-91aab3ad45181d3a8b3d5839",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Stream::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7293b622ac3ac073493ad499",
+    "path": "opentelemetry_sdk::metrics::instrument::Stream::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::instrument::Stream",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/instrument.rs",
+      "begin": [
+        301,
+        19
+      ],
+      "end": [
+        301,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Stream",
+          "id": "opentelemetry_sdk::metrics::instrument::Stream",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instrument.rs",
+        "begin": [
+          301,
+          19
+        ],
+        "end": [
+          301,
+          24
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1478",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.instrument.Stream.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.instrument.Stream.json",
+    "anchor": "op-7293b622ac3ac073493ad499",
+    "aliases": [
+      "opentelemetry_sdk::metrics::Stream::fmt"
+    ],
+    "resolved_doc_links": {}
+  }
+]

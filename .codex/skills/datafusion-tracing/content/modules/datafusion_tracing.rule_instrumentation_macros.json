@@ -1,0 +1,65 @@
+[
+  {
+    "id": "0d32aced1cff66bdffec687f",
+    "path": "datafusion_tracing::rule_instrumentation_macros",
+    "name": "rule_instrumentation_macros",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "module",
+    "signature": "mod rule_instrumentation_macros",
+    "docs": "",
+    "span": {
+      "filename": "src/rule_instrumentation_macros.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        297,
+        2
+      ]
+    },
+    "visibility": "crate",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "771",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/datafusion_tracing.rule_instrumentation_macros.md",
+    "record_file": "modules/datafusion_tracing.rule_instrumentation_macros.json",
+    "anchor": "op-0d32aced1cff66bdffec687f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

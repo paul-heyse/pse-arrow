@@ -4,16 +4,17 @@
 //! Typed dependencies of one retained immutable native composition. Generation
 //! identities retain actual implementations; names and fingerprints cannot replace them.
 use super::{ArtifactPlan, invalid};
-use crate::{
-    CatalogError,
-    session::{RelationPlan, SnapshotSession},
-};
 use datafusion::{
     common::{ResolvedTableReference, TableReference},
     logical_expr::{LogicalPlan, LogicalPlanBuilder},
 };
 use deps::RuntimeNativeDependenciesFieldEvidence as Evidence;
-use pse_ids::{CancellationToken, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_engine::{
+    EngineError,
+    session::{EngineSession, RelationPlan},
+};
+use pse_ids::SemanticId;
 use pse_relations::generated::{
     enums::NativeDependencyKind as Kind,
     runtime::{native_dependencies as deps, publications},
@@ -21,7 +22,10 @@ use pse_relations::generated::{
 use pse_schema::model::provider::ProviderScope;
 use std::collections::BTreeMap;
 
-pub(super) fn capture(artifact: &ArtifactPlan) -> Result<Vec<deps::Row>, CatalogError> {
+pub(super) fn capture(
+    artifact: &ArtifactPlan,
+    cancel: &CancellationToken,
+) -> Result<Vec<deps::Row>, EngineError> {
     let generation = artifact.session.implementation_generation();
     let mut rows = vec![fact(
         Kind::Operation,
@@ -83,7 +87,7 @@ pub(super) fn capture(artifact: &ArtifactPlan) -> Result<Vec<deps::Row>, Catalog
     for policy in semantics.policies {
         policy_facts(policy, &mut rows);
     }
-    source_facts(artifact, &mut rows)?;
+    source_facts(artifact, &mut rows, cancel)?;
     rows.sort_by(|a, b| (&a.kind, &a.scope, &a.name).cmp(&(&b.kind, &b.scope, &b.name)));
     rows.dedup();
     if rows.windows(2).any(|pair| {
@@ -138,12 +142,18 @@ fn policy_facts(policy: pse_schema::model::provider::ProviderPolicy, rows: &mut 
     }
 }
 
-fn source_facts(artifact: &ArtifactPlan, rows: &mut Vec<deps::Row>) -> Result<(), CatalogError> {
+fn source_facts(
+    artifact: &ArtifactPlan,
+    rows: &mut Vec<deps::Row>,
+    cancel: &CancellationToken,
+) -> Result<(), EngineError> {
     let generation = artifact.operation_id;
     let mut selected = BTreeMap::new();
     let mut providers = BTreeMap::new();
     for output in artifact.outputs.values() {
-        for member in artifact.session.selected_dependencies(&output.plan)? {
+        for member in
+            crate::selection::selected_dependencies(&artifact.session, &output.plan, cancel)?
+        {
             let name = reference(&member).to_quoted_string();
             if selected
                 .insert(name, member.clone())
@@ -152,11 +162,11 @@ fn source_facts(artifact: &ArtifactPlan, rows: &mut Vec<deps::Row>) -> Result<()
                 return Err(invalid("conflicting exact input roles"));
             }
         }
-        for binding in artifact.session.source_bindings(&output.plan)? {
+        for binding in artifact.session.source_bindings(&output.plan, cancel)? {
             providers.insert(binding.reference.to_quoted_string(), binding);
         }
     }
-    let mut consumption = super::consumption::columns(artifact)?;
+    let mut consumption = super::consumption::columns(artifact, cancel)?;
     for (name, member) in selected {
         let mut row = fact(Kind::Input, "selected", &name, None, None);
         row.evidence = match consumption.remove(&name).filter(|columns| {
@@ -191,7 +201,7 @@ fn source_facts(artifact: &ArtifactPlan, rows: &mut Vec<deps::Row>) -> Result<()
             ));
         }
     }
-    for (catalog, resolution) in artifact.session.bindings.resolutions() {
+    for (catalog, resolution) in artifact.session.bindings().resolutions() {
         rows.push(fact(
             Kind::Scope,
             catalog,
@@ -205,7 +215,7 @@ fn source_facts(artifact: &ArtifactPlan, rows: &mut Vec<deps::Row>) -> Result<()
         for name in &resolution.references {
             let present = artifact
                 .session
-                .bindings
+                .bindings()
                 .iter()
                 .any(|(_, binding)| binding.reference == *name);
             rows.push(fact(
@@ -274,9 +284,13 @@ fn reference(member: &publications::RuntimePublicationsFieldMembersItem) -> Tabl
 }
 fn selection(
     member: publications::RuntimePublicationsFieldMembersItem,
-) -> Result<deps::RuntimeNativeDependenciesFieldEvidenceSelection, CatalogError> {
+) -> Result<deps::RuntimeNativeDependenciesFieldEvidenceSelection, EngineError> {
     use publications::RuntimePublicationsFieldMembersItemSelectionSelected as Selected;
-    let selection = match member.selection.selected()? {
+    let selection = match member
+        .selection
+        .selected()
+        .map_err(pse_relations::RelationError::from)?
+    {
         Selected::Full => {
             deps::RuntimeNativeDependenciesFieldEvidenceSelectionSelection::from_full()
         }
@@ -303,11 +317,11 @@ fn selection(
 }
 
 pub(super) fn bind(
-    session: &SnapshotSession,
+    session: &EngineSession,
     role: &str,
     rows: &[deps::Row],
     cancel: &CancellationToken,
-) -> Result<(SnapshotSession, RelationPlan), CatalogError> {
+) -> Result<(EngineSession, RelationPlan), EngineError> {
     let mut builder = deps::Builder::with_registry(session.registry(), rows.len())?;
     for row in rows {
         builder.push(row.clone())?;

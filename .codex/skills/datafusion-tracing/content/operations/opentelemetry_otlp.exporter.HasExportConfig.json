@@ -1,0 +1,184 @@
+[
+  {
+    "id": "3fee529c9e1df0847979bb0a",
+    "path": "opentelemetry_otlp::exporter::HasExportConfig",
+    "name": "HasExportConfig",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait HasExportConfig",
+    "docs": "Provide access to the [ExportConfig] field within the exporter builders.",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        215,
+        1
+      ],
+      "end": [
+        218,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          390
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "implementations": [
+          217,
+          119,
+          392,
+          394,
+          396,
+          398,
+          400,
+          402
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "ExportConfig": 49
+    },
+    "link_paths": {
+      "ExportConfig": "opentelemetry_otlp::exporter::ExportConfig"
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "51",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.HasExportConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.HasExportConfig.json",
+    "anchor": "op-3fee529c9e1df0847979bb0a",
+    "aliases": [
+      "opentelemetry_otlp::HasExportConfig"
+    ],
+    "resolved_doc_links": {
+      "ExportConfig": "../operations/opentelemetry_otlp.exporter.ExportConfig.md#op-cdfcaa8d369d011331bae7f7"
+    }
+  },
+  {
+    "id": "168a9dcf791dd6d592f10167",
+    "path": "opentelemetry_otlp::exporter::HasExportConfig::export_config",
+    "name": "export_config",
+    "owner": "opentelemetry_otlp::exporter::HasExportConfig",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn export_config(&mut self) -> &mut ExportConfig",
+    "docs": "Return a mutable reference to the [ExportConfig] within the exporter builders.",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        217,
+        5
+      ],
+      "end": [
+        217,
+        54
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": true,
+              "type": {
+                "resolved_path": {
+                  "path": "ExportConfig",
+                  "id": 49,
+                  "args": null
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "49": "opentelemetry_otlp::exporter::ExportConfig"
+    },
+    "impl_context": null,
+    "links": {
+      "ExportConfig": 49
+    },
+    "link_paths": {
+      "ExportConfig": "opentelemetry_otlp::exporter::ExportConfig"
+    },
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "390",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.HasExportConfig.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.HasExportConfig.json",
+    "anchor": "op-168a9dcf791dd6d592f10167",
+    "aliases": [
+      "opentelemetry_otlp::HasExportConfig::export_config"
+    ],
+    "resolved_doc_links": {
+      "ExportConfig": "../operations/opentelemetry_otlp.exporter.ExportConfig.md#op-cdfcaa8d369d011331bae7f7"
+    }
+  }
+]

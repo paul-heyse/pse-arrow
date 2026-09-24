@@ -7,8 +7,7 @@
     clippy::expect_used,
     reason = "integration assertions"
 )]
-#[path = "support/native_execution.rs"]
-mod native_execution;
+use pse_testkit::execution as native_execution;
 
 use datafusion::{
     arrow::{
@@ -21,7 +20,8 @@ use datafusion::{
     prelude::SessionConfig,
 };
 use deltalake::{DeltaTable, DeltaTableBuilder, kernel::transaction::CommitProperties};
-use pse_catalog::{delta::dml::WritableTable, session::planner::UnifiedPlanner};
+use pse_catalog::delta::dml::WritableTable;
+use pse_engine::session::planner::UnifiedPlanner;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -43,7 +43,9 @@ fn context() -> (SessionContext, Arc<AtomicUsize>) {
     let state = SessionStateBuilder::new()
         .with_default_features()
         .with_config(SessionConfig::new().with_batch_size(13))
-        .with_query_planner(Arc::new(UnifiedPlanner::default()))
+        .with_query_planner(Arc::new(UnifiedPlanner::new(
+            pse_catalog::assembly::planners(),
+        )))
         .build();
     let context = SessionContext::new_with_state(state);
     context.register_udf(udf);
@@ -101,9 +103,9 @@ async fn sql_count(context: &SessionContext, location: &url::Url, sql: &str) -> 
     );
     let rows = plan
         .clone()
-        .execute(&pse_ids::CancellationToken::new())
+        .execute(&pse_columnar::CancellationToken::new())
         .await
-        .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))?
+        .map_err(datafusion::common::DataFusionError::from)?
         .into_batches();
     let result = rows[0]
         .column(0)
@@ -112,7 +114,7 @@ async fn sql_count(context: &SessionContext, location: &url::Url, sql: &str) -> 
         .unwrap();
     assert_eq!(result.len(), 1);
     assert!(
-        plan.execute(&pse_ids::CancellationToken::new())
+        plan.execute(&pse_columnar::CancellationToken::new())
             .await
             .is_err(),
         "prepared effect must execute once"
@@ -239,7 +241,7 @@ async fn merge_by_source_and_stale_mutation_are_native_delta_semantics() {
     );
     assert!(
         prior_plan
-            .execute(&pse_ids::CancellationToken::new())
+            .execute(&pse_columnar::CancellationToken::new())
             .await
             .is_err()
     );
@@ -398,19 +400,24 @@ async fn declared_delta_check_enforces_enum_and_identity_contracts_through_sql()
 }
 
 #[tokio::test]
-async fn cold_scalar_checks_need_only_native_delta_functions() {
+async fn cold_mapped_checks_bind_from_the_stored_execution_descriptor() {
     use datafusion::{common::Column, logical_expr::lit};
     use deltalake::delta_datafusion::{SessionFallbackPolicy, planner::DeltaPlanner};
     let root = tempfile::tempdir().unwrap();
     let location = url::Url::from_directory_path(root.path()).unwrap();
     let (context, _) = context();
     let check = seed_declared(&context, &location).await;
-    assert!(!check.properties()["delta.constraints.pse_contract"].contains("pse_nested_"));
+    assert!(check.properties().contains_key("pse.check.field.encoding"));
     let cold = SessionStateBuilder::new()
         .with_default_features()
         .with_query_planner(DeltaPlanner::new())
         .build();
-    let version = load(&location).await.version();
+    let table = load(&location).await;
+    let cold = pse_catalog::delta::contract::DeclaredCheck::open(&table, &cold)
+        .unwrap()
+        .bind(&cold)
+        .unwrap();
+    let version = table.version();
     let refused = load(&location)
         .await
         .update()

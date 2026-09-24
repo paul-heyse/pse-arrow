@@ -11,10 +11,9 @@
 
 use pse_schema::builder::RegistryBuilder;
 use pse_schema::model::{
-    AlgorithmDecl, ArgumentSpec, Authority, Cell, ColumnRole, DependencyMode, Determinism,
-    DocumentKind, DocumentSection, DocumentSpec, EnumDecl, EnumMember, ExtensionUse, FieldContract,
-    InvariantDecl, InvariantKind, MigrationSpec, MigrationStep, Namespace, RelationDecl,
-    ResultSpec, RuleDecl, RuleInput, RuleQuery, SnapshotClass,
+    AlgorithmDecl, ArgumentSpec, Authority, ColumnRole, Determinism, DocumentKind, DocumentSection,
+    DocumentSpec, EnumDecl, EnumMember, ExtensionUse, FieldContract, InvariantDecl, InvariantKind,
+    MigrationSpec, MigrationStep, Namespace, RelationDecl, ResultSpec, SnapshotClass,
 };
 use pse_schema::{Registry, SchemaError};
 
@@ -88,95 +87,6 @@ fn native_sql_checks_are_part_of_exact_contract_identity() {
         )
         .is_err()
     );
-}
-
-fn rule(version: &'static str, sql: &str) -> RuleDecl {
-    RuleDecl::new(
-        "fixture",
-        version,
-        0,
-        "inferred.output",
-        sql,
-        vec![RuleInput {
-            relation: "authored.base".into(),
-            port: "base",
-            mode: DependencyMode::Read,
-        }],
-    )
-}
-
-fn rules(rules: Vec<RuleDecl>) -> Result<Registry, SchemaError> {
-    let mut builder = RegistryBuilder::new();
-    builder.declare_relation(relation("base", 1, vec![]));
-    builder.declare_relation(
-        RelationDecl::new(
-            Namespace::Inferred,
-            "output",
-            1,
-            Authority::Derived,
-            SnapshotClass::Model,
-            "Native query output",
-        )
-        .granularity(pse_schema::model::DerivationGranularity::Row)
-        .pk(&["id"])
-        .columns(vec![FieldContract::key(
-            "id",
-            FieldContract::id(),
-            "identity",
-        )]),
-    );
-    for rule in rules {
-        builder.declare_rule(rule);
-    }
-    builder.build()
-}
-
-#[test]
-fn native_rule_declarations_require_outcomes_and_resolved_scopes() {
-    let base = rule("1", "SELECT id FROM authored.base");
-    assert!(rules(vec![base.clone()]).is_ok());
-    let mut invalid = Vec::new();
-    let mut empty = base.clone();
-    empty.queries.clear();
-    invalid.push(empty);
-    for (truth, sql) in [("true", " "), ("conflict", "SELECT id FROM authored.base")] {
-        let mut query = base.clone();
-        query.queries = vec![RuleQuery {
-            truth,
-            sql: sql.into(),
-        }];
-        invalid.push(query);
-    }
-    let mut missing = base.clone();
-    missing.inputs[0].relation = "authored.absent".into();
-    invalid.push(missing);
-    let mut write_input = base.clone();
-    write_input.inputs[0].mode = DependencyMode::Write;
-    invalid.push(write_input);
-    for head in ["authored.base", "inferred.absent"] {
-        let mut wrong_head = base.clone();
-        wrong_head.head = head.into();
-        invalid.push(wrong_head);
-    }
-    let mut ambiguous = base;
-    ambiguous.inputs.push(RuleInput {
-        relation: "inferred.output".into(),
-        port: "base",
-        mode: DependencyMode::Read,
-    });
-    invalid.push(ambiguous);
-    for declaration in invalid {
-        assert!(rules(vec![declaration]).is_err());
-    }
-}
-
-fn rows(registry: &Registry, name: &str) -> Vec<Vec<Cell>> {
-    registry
-        .schema_rows()
-        .into_iter()
-        .find(|(key, _)| key.name == name)
-        .unwrap()
-        .1
 }
 
 #[test]
@@ -404,65 +314,19 @@ fn a_conflicting_manual_integrity_projection_cannot_replace_the_declaration() {
 }
 
 #[test]
-fn native_query_text_and_outcomes_are_reflected_and_change_identity() {
-    let before = rules(vec![rule("1", "SELECT id FROM authored.base WHERE true")]).unwrap();
-    let after = rules(vec![rule("1", "SELECT id FROM authored.base WHERE false")]).unwrap();
-    assert_eq!(
-        rows(&before, "rule_specs")[0][5],
-        Cell::List(vec![Cell::Struct(vec![
-            Cell::text("true"),
-            Cell::text("SELECT id FROM authored.base WHERE true"),
-        ])])
-    );
-    assert_ne!(
-        rows(&before, "rule_specs")[0][5],
-        rows(&after, "rule_specs")[0][5]
-    );
-    assert_ne!(before.fingerprint(), after.fingerprint());
-    let mut unknown = rule("1", "SELECT id FROM authored.base WHERE true");
-    unknown.queries[0].truth = "unknown";
-    let unknown = rules(vec![unknown]).unwrap();
-    assert_ne!(before.fingerprint(), unknown.fingerprint());
-    assert_eq!(
-        unknown.rule("fixture@1").unwrap().queries[0].truth,
-        "unknown"
-    );
-}
-
-#[test]
-fn rule_versions_have_exact_read_and_write_dependencies_and_unambiguous_names() {
-    let registry = rules(vec![
-        rule("1", "SELECT id FROM authored.base WHERE true"),
-        rule("2", "SELECT id FROM authored.base WHERE false"),
-    ])
-    .unwrap();
-    assert!(registry.rule("fixture").is_none());
-    let source = registry.relation("authored.base").unwrap().id;
-    let output = registry.relation("inferred.output").unwrap().id;
-    for version in ["fixture@1", "fixture@2"] {
-        let id = registry.rule(version).unwrap().id;
-        let dependencies = registry
-            .rule_dependencies()
-            .iter()
-            .filter(|dependency| dependency.rule_id == id)
-            .collect::<Vec<_>>();
-        assert_eq!(dependencies.len(), 2);
-        assert!(dependencies.iter().any(|dep| dep.relation_id == source
-            && dep.mode == DependencyMode::Read
-            && dep.input_port == Some("base")));
-        assert!(dependencies.iter().any(|dep| dep.relation_id == output
-            && dep.mode == DependencyMode::Write
-            && dep.input_port.is_none()));
-    }
-    assert_ne!(
-        registry.rule("fixture@1").unwrap().id,
-        registry.rule("fixture@2").unwrap().id
-    );
-}
-
-#[test]
 fn migration_defaults_are_lossless_and_type_checked() {
-    let build = |default| {
+    let field = FieldContract::new(
+        "value",
+        FieldContract::native(arrow_schema::DataType::Float64),
+        false,
+        ColumnRole::Measure,
+        "value",
+    );
+    let build = |scalar| {
+        let default = pse_schema::literal::NativeLiteral::from_scalar(
+            std::sync::Arc::new(field.field().clone()),
+            &scalar,
+        )?;
         let mut builder = RegistryBuilder::new();
         builder.declare_relation(relation("base", 1, vec![]));
         builder.declare_relation(relation(
@@ -488,22 +352,46 @@ fn migration_defaults_are_lossless_and_type_checked() {
         });
         builder.build()
     };
-    let positive = build(Cell::F64(0.0)).unwrap();
-    let negative = build(Cell::F64(-0.0)).unwrap();
+    let positive = build(datafusion_common::ScalarValue::Float64(Some(0.0))).unwrap();
+    let negative = build(datafusion_common::ScalarValue::Float64(Some(-0.0))).unwrap();
     assert!(
         negative.migrations()[0]
             .plan_spec()
             .contains("8000000000000000")
     );
     assert_ne!(positive.fingerprint(), negative.fingerprint());
-    assert!(build(Cell::text("not a float")).is_err());
-    let nested = Cell::List(vec![Cell::Struct(vec![
-        Cell::text("quote\"\n"),
-        Cell::Enum("a"),
-        Cell::F64(f64::from_bits(0x7ff8_0000_0000_0001)),
-    ])]);
-    assert!(nested.literal_spec().contains("7ff8000000000001"));
-    assert!(nested.literal_spec().contains("quote\\\"\\n"));
+    assert!(
+        build(datafusion_common::ScalarValue::Utf8(Some(
+            "not a float".into()
+        )))
+        .is_err()
+    );
+    let field = std::sync::Arc::new(arrow_schema::Field::new(
+        "nested",
+        arrow_schema::DataType::List(std::sync::Arc::new(arrow_schema::Field::new(
+            "item",
+            arrow_schema::DataType::Struct(
+                vec![
+                    arrow_schema::Field::new("text", arrow_schema::DataType::Utf8, false),
+                    arrow_schema::Field::new("value", arrow_schema::DataType::Float64, false),
+                ]
+                .into(),
+            ),
+            false,
+        ))),
+        false,
+    ));
+    let encoded = serde_json::json!([
+        "list",
+        [[
+            "struct",
+            [["text", "quote\"\n"], ["f64", "7ff8000000000001"]]
+        ]]
+    ])
+    .to_string();
+    let nested = pse_schema::NativeLiteral::from_json(field, &encoded).unwrap();
+    assert!(nested.as_json().contains("7ff8000000000001"));
+    assert!(nested.as_json().contains("quote\\\"\\n"));
 }
 
 #[test]
@@ -697,7 +585,7 @@ fn document_dsl_grammar_requires_complete_nested_leaf_coverage_and_affects_proje
     }
     let expression = build(&[("bindings[].value", DslSyntax::Expression)]).unwrap();
     let predicate = build(&[("bindings[].value", DslSyntax::Predicate)]).unwrap();
-    assert_ne!(expression.schema_rows(), predicate.schema_rows());
+    assert_ne!(expression.schema_batches(), predicate.schema_batches());
     assert_ne!(expression.fingerprint(), predicate.fingerprint());
     for fields in [
         &[][..],

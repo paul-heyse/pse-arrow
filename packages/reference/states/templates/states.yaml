@@ -1104,8 +1104,6 @@
       "filter": null,
       "expression": "sum(k in j | mole_frac_comp[k]) == 1",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": "8daa4c575a51465b8b1faa00a972207d",
       "idaes_name": null,
       "doc": "First-principles state definition or exact algebraic identity."
@@ -1120,8 +1118,6 @@
       "filter": null,
       "expression": "flow_mol_comp[j] == mole_frac_comp[j]*broadcast(flow_mol, j)",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": null,
       "idaes_name": null,
       "doc": "First-principles state definition or exact algebraic identity."
@@ -1134,8 +1130,6 @@
       "filter": null,
       "expression": "sum(k in j | mole_frac_comp[k]) == 1",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": "9174abf263d64ea6b4978775d5baa3ce",
       "idaes_name": null,
       "doc": "First-principles state definition or exact algebraic identity."

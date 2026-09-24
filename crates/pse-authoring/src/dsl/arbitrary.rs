@@ -60,7 +60,6 @@ impl Arbitrary for Expr {
                 inner.clone().prop_map(|value| expression(ExprKind::Call {
                     function: Function::Exp,
                     args: vec![value],
-                    named: vec![]
                 })),
                 inner.clone().prop_map(|body| expression(ExprKind::Reduce {
                     kind: ReduceKind::Sum,

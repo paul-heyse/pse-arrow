@@ -17,25 +17,37 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+native-process = ["pse-runtime/native-solvers"]
+
 [dev-dependencies]
+pse-diagnostics.workspace = true
+pse-runtime.workspace = true
+pse-backend-native.workspace = true
+pse-kernels.workspace = true
+pse-compiler.workspace = true
+pse-testkit.workspace = true
+pse-quantity = { workspace = true, features = ["fixtures"] }
+pse-engine.workspace = true
 criterion.workspace = true
-# The canonicalization group measures pse-ids over Arrow batches it builds itself.
-pse-ids = { workspace = true, features = ["bench-instrumentation"] }
+allocation-counter.workspace = true
+# The canonicalization group measures native canonicalization over Arrow batches.
+pse-ids.workspace = true
+pse-columnar = { workspace = true, features = ["bench-instrumentation"] }
+pse-codegen.workspace = true
 arrow.workspace = true
 datafusion.workspace = true
 deltalake.workspace = true
 pse-catalog.workspace = true
 pse-relations.workspace = true
 pse-schema.workspace = true
-pse-rules.workspace = true
+tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tokio.workspace = true
 tempfile.workspace = true
 url.workspace = true
 serde_json.workspace = true
-object_store.workspace = true
 futures-util.workspace = true
-async-trait.workspace = true
 
 [[bench]]
 name = "canonicalization"
@@ -47,3 +59,12 @@ harness = false
 [[bench]]
 name = "native_cache"
 harness = false
+
+[[bench]]
+name = "native_consolidation"
+harness = false
+
+[[bench]]
+name = "native_process"
+harness = false
+required-features = ["native-process"]

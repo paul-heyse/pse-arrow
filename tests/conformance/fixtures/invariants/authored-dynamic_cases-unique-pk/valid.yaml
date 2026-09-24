@@ -1,0 +1,18 @@
+{
+  "invariant": "authored.dynamic_cases:unique:pk",
+  "rows": {
+    "authored.dynamic_cases": [
+      {
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "dynamic_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "modes": "[\"list\",[]]",
+        "outputs": "[\"list\",[]]",
+        "parameters": "[\"list\",[]]",
+        "states": "[\"list\",[]]",
+        "time_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

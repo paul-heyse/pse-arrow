@@ -1,0 +1,1270 @@
+[
+  {
+    "operation": "e9673574618183b011501acc",
+    "reference": "`datafusion::arrow::util::pretty::pretty_format_batches`",
+    "artifact_local_target": "162",
+    "state": "unresolved"
+  },
+  {
+    "operation": "1104862d35b6f39948ef2f52",
+    "reference": "`datafusion::arrow::util::pretty::pretty_format_batches`",
+    "artifact_local_target": "1282",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6b12316c8f26fe0ad5f029de",
+    "reference": "`ExecutionPlan`",
+    "artifact_local_target": "71",
+    "state": "unresolved"
+  },
+  {
+    "operation": "fe7c4b8dcc803831646648e1",
+    "state": "display_placeholder",
+    "note": "Inspect preserved type_tree; display is not type authority."
+  },
+  {
+    "operation": "18bd3974dee1397bfeccf5b9",
+    "state": "display_placeholder",
+    "note": "Inspect preserved type_tree; display is not type authority."
+  },
+  {
+    "operation": "453dc255572fd1dae898b80a",
+    "reference": "`None`",
+    "artifact_local_target": "197",
+    "state": "unresolved"
+  },
+  {
+    "operation": "45b73a2bdeeeb1ed7ddd3607",
+    "reference": "`None`",
+    "artifact_local_target": "197",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a87fa61076cf2b7384423932",
+    "reference": "`std::future::Future`",
+    "artifact_local_target": "383",
+    "state": "unresolved"
+  },
+  {
+    "operation": "04856461615192ea1c63e20e",
+    "reference": "opentelemetry_sdk::metrics::SdkMeterProvider::builder()",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "04856461615192ea1c63e20e",
+    "reference": "opentelemetry_sdk::trace::SdkTracerProvider::builder()",
+    "artifact_local_target": "834",
+    "state": "unresolved"
+  },
+  {
+    "operation": "04856461615192ea1c63e20e",
+    "reference": "opentelemetry_sdk::metrics::PeriodicReader::builder()",
+    "artifact_local_target": "833",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6955b20e13d3bef091eb76d2",
+    "state": "display_placeholder",
+    "note": "Inspect preserved type_tree; display is not type authority."
+  },
+  {
+    "operation": "1dc0eafef051ed5e96a1a2a9",
+    "reference": "tonic::transport::Channel",
+    "artifact_local_target": "173",
+    "state": "unresolved"
+  },
+  {
+    "operation": "aa35adec4514e43d89129e3f",
+    "reference": "core::option::Option",
+    "artifact_local_target": "208",
+    "state": "unresolved"
+  },
+  {
+    "operation": "86d8f51e89ba576a4b39fa84",
+    "reference": "Pipeline",
+    "artifact_local_target": "1520",
+    "state": "unresolved"
+  },
+  {
+    "operation": "1531642c4b7fd2d75ef46c95",
+    "reference": "Duration",
+    "artifact_local_target": "79",
+    "state": "unresolved"
+  },
+  {
+    "operation": "3bdbe3bfffc3e5aebc797b71",
+    "reference": "`Status::Unset`",
+    "artifact_local_target": "2820",
+    "state": "unresolved"
+  },
+  {
+    "operation": "9c1f7d23f358e3a0a8455190",
+    "reference": "std::fmt#usage",
+    "artifact_local_target": "401",
+    "state": "unresolved"
+  },
+  {
+    "operation": "9c1f7d23f358e3a0a8455190",
+    "reference": "Metadata::target",
+    "artifact_local_target": "322",
+    "state": "unresolved"
+  },
+  {
+    "operation": "9c1f7d23f358e3a0a8455190",
+    "reference": "std::fmt::Debug",
+    "artifact_local_target": "41",
+    "state": "unresolved"
+  },
+  {
+    "operation": "9c1f7d23f358e3a0a8455190",
+    "reference": "span::Attributes::is_contextual",
+    "artifact_local_target": "404",
+    "state": "unresolved"
+  },
+  {
+    "operation": "9c1f7d23f358e3a0a8455190",
+    "reference": "std::fmt::Display",
+    "artifact_local_target": "400",
+    "state": "unresolved"
+  },
+  {
+    "operation": "9c1f7d23f358e3a0a8455190",
+    "reference": "span::Attributes::parent",
+    "artifact_local_target": "399",
+    "state": "unresolved"
+  },
+  {
+    "operation": "3383abc1e97aee1544e7701c",
+    "reference": "crate::Metadata::is_span",
+    "artifact_local_target": "392",
+    "state": "unresolved"
+  },
+  {
+    "operation": "3383abc1e97aee1544e7701c",
+    "reference": "crate::Metadata::is_event",
+    "artifact_local_target": "391",
+    "state": "unresolved"
+  },
+  {
+    "operation": "0ea37d75ae03563c04f411dc",
+    "reference": "std::fmt::Debug",
+    "artifact_local_target": "41",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f3255b14b518b17fdbec7041",
+    "reference": "`std::future::Future`",
+    "artifact_local_target": "48",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6c17bae75c8707a1c5840700",
+    "reference": "`Drop`",
+    "artifact_local_target": "49",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6c17bae75c8707a1c5840700",
+    "reference": "std::future::Future",
+    "artifact_local_target": "48",
+    "state": "unresolved"
+  },
+  {
+    "operation": "07b9b2ea22c2f17a5b513497",
+    "reference": "`Drop`",
+    "artifact_local_target": "49",
+    "state": "unresolved"
+  },
+  {
+    "operation": "07b9b2ea22c2f17a5b513497",
+    "reference": "std::future::Future",
+    "artifact_local_target": "48",
+    "state": "unresolved"
+  },
+  {
+    "operation": "0ed511920bac15e24130ac7d",
+    "reference": "std::future::Future",
+    "artifact_local_target": "48",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f37fe528a1c49c9d37012bbc",
+    "reference": "std::future::Future",
+    "artifact_local_target": "48",
+    "state": "unresolved"
+  },
+  {
+    "operation": "76e6327da42dff6ad95a6736",
+    "reference": "std::future::Future",
+    "artifact_local_target": "48",
+    "state": "unresolved"
+  },
+  {
+    "operation": "ef3821a7bc4c08d5246c199d",
+    "reference": "std::future::Future",
+    "artifact_local_target": "48",
+    "state": "unresolved"
+  },
+  {
+    "operation": "c693e208df2ae5728297fcde",
+    "state": "display_placeholder",
+    "note": "Inspect preserved type_tree; display is not type authority."
+  },
+  {
+    "operation": "43afab263f564d04279776cf",
+    "reference": "std::task::Poll::Ready",
+    "artifact_local_target": "328",
+    "state": "unresolved"
+  },
+  {
+    "operation": "43afab263f564d04279776cf",
+    "reference": "super::Metadata::target",
+    "artifact_local_target": "322",
+    "state": "unresolved"
+  },
+  {
+    "operation": "e09c60244cda76a108832e96",
+    "reference": "crate::Level::INFO",
+    "artifact_local_target": "216",
+    "state": "unresolved"
+  },
+  {
+    "operation": "e09c60244cda76a108832e96",
+    "reference": "crate::Level::DEBUG",
+    "artifact_local_target": "215",
+    "state": "unresolved"
+  },
+  {
+    "operation": "e09c60244cda76a108832e96",
+    "reference": "std::task",
+    "artifact_local_target": "214",
+    "state": "unresolved"
+  },
+  {
+    "operation": "500c292d24d29b3397643254",
+    "reference": "std::fmt::Debug",
+    "artifact_local_target": "3",
+    "state": "unresolved"
+  },
+  {
+    "operation": "500c292d24d29b3397643254",
+    "reference": "`std::fmt::Debug`",
+    "artifact_local_target": "3",
+    "state": "unresolved"
+  },
+  {
+    "operation": "500c292d24d29b3397643254",
+    "reference": "`Result::Ok`",
+    "artifact_local_target": "4",
+    "state": "unresolved"
+  },
+  {
+    "operation": "500c292d24d29b3397643254",
+    "reference": "`std::fmt::Display`",
+    "artifact_local_target": "5",
+    "state": "unresolved"
+  },
+  {
+    "operation": "500c292d24d29b3397643254",
+    "reference": "`Result::Err`",
+    "artifact_local_target": "6",
+    "state": "unresolved"
+  },
+  {
+    "operation": "3d911653bdde5f29cad4eafd",
+    "reference": "std::sync::Arc::downgrade",
+    "artifact_local_target": "125",
+    "state": "unresolved"
+  },
+  {
+    "operation": "0beab352f71fbbf38e94b386",
+    "reference": "`std::sync::Weak`",
+    "artifact_local_target": "184",
+    "state": "unresolved"
+  },
+  {
+    "operation": "0beab352f71fbbf38e94b386",
+    "reference": "std::sync::Arc",
+    "artifact_local_target": "185",
+    "state": "unresolved"
+  },
+  {
+    "operation": "477f165c4ba5dcf863f23dd0",
+    "reference": "`fmt::Display`",
+    "artifact_local_target": "252",
+    "state": "unresolved"
+  },
+  {
+    "operation": "477f165c4ba5dcf863f23dd0",
+    "reference": "valuable::Valuable::as_value",
+    "artifact_local_target": "629",
+    "state": "unresolved"
+  },
+  {
+    "operation": "477f165c4ba5dcf863f23dd0",
+    "reference": "`valuable::Valuable`",
+    "artifact_local_target": "578",
+    "state": "unresolved"
+  },
+  {
+    "operation": "477f165c4ba5dcf863f23dd0",
+    "reference": "`fmt::Debug`",
+    "artifact_local_target": "82",
+    "state": "unresolved"
+  },
+  {
+    "operation": "477f165c4ba5dcf863f23dd0",
+    "reference": "`valuable::Value`",
+    "artifact_local_target": "453",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f8804717be954252aadd54ff",
+    "reference": "`PartialOrd`",
+    "artifact_local_target": "705",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f8804717be954252aadd54ff",
+    "reference": "`Ord`",
+    "artifact_local_target": "706",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f243e5074e9b46025b5433b9",
+    "reference": "`std::sync::Weak`",
+    "artifact_local_target": "184",
+    "state": "unresolved"
+  },
+  {
+    "operation": "b2d4d13813d110125bd8a282",
+    "reference": "tracing::Level::ERROR",
+    "artifact_local_target": "128",
+    "state": "unresolved"
+  },
+  {
+    "operation": "258799a24358c6bc8652e675",
+    "reference": "opentelemetry::trace::SpanBuilder::attributes",
+    "artifact_local_target": "124",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f18b1a3b867d9bc485e30055",
+    "reference": "`std::fmt::Debug`",
+    "artifact_local_target": "68",
+    "state": "unresolved"
+  },
+  {
+    "operation": "34d51594cc4efd6155835835",
+    "reference": "tracing::Level::ERROR",
+    "artifact_local_target": "525",
+    "state": "unresolved"
+  },
+  {
+    "operation": "b4a50fc9e41d55f2cea17a21",
+    "reference": "tracing::Level::ERROR",
+    "artifact_local_target": "525",
+    "state": "unresolved"
+  },
+  {
+    "operation": "b31a315ca1f32d8198b5bdab",
+    "reference": "`Layer::max_level_hint`",
+    "artifact_local_target": "529",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f8fe00fcf0fcfd1748747b50",
+    "reference": "tracing::Level::ERROR",
+    "artifact_local_target": "525",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a958def5822864286cdf0e87",
+    "reference": "tracing::Level::ERROR",
+    "artifact_local_target": "525",
+    "state": "unresolved"
+  },
+  {
+    "operation": "715f1faf0a14b4dd81617ecf",
+    "reference": "`std::fmt::Debug`",
+    "artifact_local_target": "68",
+    "state": "unresolved"
+  },
+  {
+    "operation": "965ee52fcf3d19c61b305d92",
+    "reference": "std::boxed::Box::new",
+    "artifact_local_target": "825",
+    "state": "unresolved"
+  },
+  {
+    "operation": "965ee52fcf3d19c61b305d92",
+    "reference": "std::boxed",
+    "artifact_local_target": "824",
+    "state": "unresolved"
+  },
+  {
+    "operation": "347b2c3d2ae02adcb1b1946b",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "d7c6b73cb89ec7e7de4ace28",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "117661306127b14106d9f3ac",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "641e1a5b3033eaed5a14d773",
+    "reference": "`LevelFilter::OFF`",
+    "artifact_local_target": "836",
+    "state": "unresolved"
+  },
+  {
+    "operation": "641e1a5b3033eaed5a14d773",
+    "reference": "`std::str::FromStr`",
+    "artifact_local_target": "458",
+    "state": "unresolved"
+  },
+  {
+    "operation": "641e1a5b3033eaed5a14d773",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "1f1994e5f236223fe9e037e7",
+    "reference": "`LevelFilter::OFF`",
+    "artifact_local_target": "836",
+    "state": "unresolved"
+  },
+  {
+    "operation": "34012252f643521ea6388131",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "fd131d09f5ac8e5cf64732b3",
+    "reference": "`LevelFilter::OFF`",
+    "artifact_local_target": "836",
+    "state": "unresolved"
+  },
+  {
+    "operation": "e0cf17aec9cce99753d8dbdf",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "e0cf17aec9cce99753d8dbdf",
+    "reference": "`LevelFilter::OFF`",
+    "artifact_local_target": "836",
+    "state": "unresolved"
+  },
+  {
+    "operation": "d5bd65760c6d9aef583dcb63",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "d5bd65760c6d9aef583dcb63",
+    "reference": "`LevelFilter::OFF`",
+    "artifact_local_target": "836",
+    "state": "unresolved"
+  },
+  {
+    "operation": "055f2975d042cfde7e5df394",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "055f2975d042cfde7e5df394",
+    "reference": "std::module_path!",
+    "artifact_local_target": "845",
+    "state": "unresolved"
+  },
+  {
+    "operation": "8b85a50ef7b8ba3365b799f4",
+    "reference": "tracing_core::Metadata::file",
+    "artifact_local_target": "1679",
+    "state": "unresolved"
+  },
+  {
+    "operation": "8295bdd9decf62a863e39338",
+    "reference": "tracing_core::Metadata::line",
+    "artifact_local_target": "1681",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49794169753c4eda44b0dcca",
+    "reference": "std::thread::ThreadId",
+    "artifact_local_target": "1684",
+    "state": "unresolved"
+  },
+  {
+    "operation": "b930034fe5f0edf008cfc8b0",
+    "reference": "std::thread#naming-threads",
+    "artifact_local_target": "1686",
+    "state": "unresolved"
+  },
+  {
+    "operation": "b3688a2fc644462edfaf50d8",
+    "reference": "tracing_core::Metadata::file",
+    "artifact_local_target": "1679",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6575f04916e3f13805537d71",
+    "reference": "tracing_core::Metadata::line",
+    "artifact_local_target": "1681",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a717df783e1e38944750f8d0",
+    "reference": "std::thread::ThreadId",
+    "artifact_local_target": "1684",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a113a14c8463c97cabd5e7ee",
+    "reference": "std::thread#naming-threads",
+    "artifact_local_target": "1686",
+    "state": "unresolved"
+  },
+  {
+    "operation": "aca173cb26cad44ca8546155",
+    "reference": "tracing_core::Metadata::file",
+    "artifact_local_target": "1679",
+    "state": "unresolved"
+  },
+  {
+    "operation": "0fb793da8b61eed27be6690d",
+    "reference": "tracing_core::Metadata::line",
+    "artifact_local_target": "1681",
+    "state": "unresolved"
+  },
+  {
+    "operation": "954b1d1774917a7ddfe02e5d",
+    "reference": "std::thread::ThreadId",
+    "artifact_local_target": "1684",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2468db3e28fbbb1ff099a86d",
+    "reference": "std::thread#naming-threads",
+    "artifact_local_target": "1686",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f71c6d57702e5d6dfe4a8abb",
+    "reference": "`std::fmt::Write`",
+    "artifact_local_target": "91",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f71c6d57702e5d6dfe4a8abb",
+    "reference": "`std::writeln!`",
+    "artifact_local_target": "1983",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f71c6d57702e5d6dfe4a8abb",
+    "reference": "`std::write!`",
+    "artifact_local_target": "1982",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6b52b7d913af9a7ea5497021",
+    "reference": "`std::fmt::Write`",
+    "artifact_local_target": "91",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6b52b7d913af9a7ea5497021",
+    "reference": "`std::writeln!`",
+    "artifact_local_target": "1983",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6b52b7d913af9a7ea5497021",
+    "reference": "`std::write!`",
+    "artifact_local_target": "1982",
+    "state": "unresolved"
+  },
+  {
+    "operation": "02ebe3c9fbf615cd3692711f",
+    "reference": "alloc::string::String",
+    "artifact_local_target": "440",
+    "state": "unresolved"
+  },
+  {
+    "operation": "02ebe3c9fbf615cd3692711f",
+    "reference": "`fmt::Write`",
+    "artifact_local_target": "91",
+    "state": "unresolved"
+  },
+  {
+    "operation": "7d3e455339364c0fa37ffef4",
+    "reference": "std::fmt::Write::write_char",
+    "artifact_local_target": "2010",
+    "state": "unresolved"
+  },
+  {
+    "operation": "7d3e455339364c0fa37ffef4",
+    "reference": "`char`",
+    "artifact_local_target": "2009",
+    "state": "unresolved"
+  },
+  {
+    "operation": "7d3e455339364c0fa37ffef4",
+    "reference": "`std::fmt::Error`",
+    "artifact_local_target": "160",
+    "state": "unresolved"
+  },
+  {
+    "operation": "7d3e455339364c0fa37ffef4",
+    "reference": "`std::fmt::Write`",
+    "artifact_local_target": "91",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a0a3fb12d68980fb7b4959a6",
+    "reference": "std::fmt::Write::write_fmt",
+    "artifact_local_target": "2012",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a0a3fb12d68980fb7b4959a6",
+    "reference": "`std::fmt::Write`",
+    "artifact_local_target": "91",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a0a3fb12d68980fb7b4959a6",
+    "reference": "`write!`",
+    "artifact_local_target": "1982",
+    "state": "unresolved"
+  },
+  {
+    "operation": "51f663bad44fc6e7795172f0",
+    "reference": "`std::fmt::Error`",
+    "artifact_local_target": "160",
+    "state": "unresolved"
+  },
+  {
+    "operation": "51f663bad44fc6e7795172f0",
+    "reference": "std::fmt::Write::write_str",
+    "artifact_local_target": "2007",
+    "state": "unresolved"
+  },
+  {
+    "operation": "51f663bad44fc6e7795172f0",
+    "reference": "`std::fmt::Write`",
+    "artifact_local_target": "91",
+    "state": "unresolved"
+  },
+  {
+    "operation": "8e1265e43c2726c9a4be086c",
+    "reference": "`std::fmt::Debug`",
+    "artifact_local_target": "68",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6d053f6f706f9b40e3ded0c2",
+    "reference": "`chrono`",
+    "artifact_local_target": "2418",
+    "state": "unresolved"
+  },
+  {
+    "operation": "6d053f6f706f9b40e3ded0c2",
+    "reference": "chrono::format",
+    "artifact_local_target": "2417",
+    "state": "unresolved"
+  },
+  {
+    "operation": "df627a9f740b9f8d3941893d",
+    "reference": "`chrono::format::strftime`",
+    "artifact_local_target": "2421",
+    "state": "unresolved"
+  },
+  {
+    "operation": "1a9e8e86151e34f219696556",
+    "reference": "chrono::Utc::now()",
+    "artifact_local_target": "2455",
+    "state": "unresolved"
+  },
+  {
+    "operation": "1a9e8e86151e34f219696556",
+    "reference": "`chrono`",
+    "artifact_local_target": "2418",
+    "state": "unresolved"
+  },
+  {
+    "operation": "1a9e8e86151e34f219696556",
+    "reference": "chrono::format",
+    "artifact_local_target": "2417",
+    "state": "unresolved"
+  },
+  {
+    "operation": "9972b8d21be9479412a59c18",
+    "reference": "`chrono::format::strftime`",
+    "artifact_local_target": "2421",
+    "state": "unresolved"
+  },
+  {
+    "operation": "aafaf1b0b948bafe945fd50f",
+    "reference": "time",
+    "artifact_local_target": "2315",
+    "state": "unresolved"
+  },
+  {
+    "operation": "aafaf1b0b948bafe945fd50f",
+    "reference": "time::OffsetDateTime::now_local",
+    "artifact_local_target": "2313",
+    "state": "unresolved"
+  },
+  {
+    "operation": "aafaf1b0b948bafe945fd50f",
+    "reference": "time::formatting::Formattable",
+    "artifact_local_target": "2314",
+    "state": "unresolved"
+  },
+  {
+    "operation": "aafaf1b0b948bafe945fd50f",
+    "reference": "time::OffsetDateTime::now_utc",
+    "artifact_local_target": "2316",
+    "state": "unresolved"
+  },
+  {
+    "operation": "3b4ca5d5fd8a2c16656b45a6",
+    "reference": "time",
+    "artifact_local_target": "2315",
+    "state": "unresolved"
+  },
+  {
+    "operation": "3b4ca5d5fd8a2c16656b45a6",
+    "reference": "time::OffsetDateTime::now_local()",
+    "artifact_local_target": "2313",
+    "state": "unresolved"
+  },
+  {
+    "operation": "3b4ca5d5fd8a2c16656b45a6",
+    "reference": "time::format_description::parse()",
+    "artifact_local_target": "2322",
+    "state": "unresolved"
+  },
+  {
+    "operation": "3b4ca5d5fd8a2c16656b45a6",
+    "reference": "time::formatting::Formattable",
+    "artifact_local_target": "2314",
+    "state": "unresolved"
+  },
+  {
+    "operation": "3b4ca5d5fd8a2c16656b45a6",
+    "reference": "time::format_description::well_known",
+    "artifact_local_target": "2321",
+    "state": "unresolved"
+  },
+  {
+    "operation": "dcc01e7454f132b35f9d7d2a",
+    "reference": "time::OffsetDateTime::now_local",
+    "artifact_local_target": "2313",
+    "state": "unresolved"
+  },
+  {
+    "operation": "4aaabac2cead751c68b88774",
+    "reference": "time::formatting::Formattable",
+    "artifact_local_target": "2314",
+    "state": "unresolved"
+  },
+  {
+    "operation": "4aaabac2cead751c68b88774",
+    "reference": "time",
+    "artifact_local_target": "2315",
+    "state": "unresolved"
+  },
+  {
+    "operation": "57e77b3f984a16a533160ac3",
+    "reference": "time::UtcOffset::current_local_offset",
+    "artifact_local_target": "2384",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2f7877d7e05117a90d9d27bc",
+    "reference": "time",
+    "artifact_local_target": "2315",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2f7877d7e05117a90d9d27bc",
+    "reference": "time::UtcOffset",
+    "artifact_local_target": "2388",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2f7877d7e05117a90d9d27bc",
+    "reference": "time::format_description::parse",
+    "artifact_local_target": "2322",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2f7877d7e05117a90d9d27bc",
+    "reference": "time::formatting::Formattable",
+    "artifact_local_target": "2314",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2f7877d7e05117a90d9d27bc",
+    "reference": "time::UtcOffset::current_local_offset()",
+    "artifact_local_target": "2384",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2f7877d7e05117a90d9d27bc",
+    "reference": "time::format_description::well_known",
+    "artifact_local_target": "2321",
+    "state": "unresolved"
+  },
+  {
+    "operation": "fd59c5fd5cb1ede2912f0bcf",
+    "reference": "time",
+    "artifact_local_target": "2315",
+    "state": "unresolved"
+  },
+  {
+    "operation": "fd59c5fd5cb1ede2912f0bcf",
+    "reference": "time::formatting::Formattable",
+    "artifact_local_target": "2314",
+    "state": "unresolved"
+  },
+  {
+    "operation": "fd59c5fd5cb1ede2912f0bcf",
+    "reference": "time::OffsetDateTime::now_local",
+    "artifact_local_target": "2313",
+    "state": "unresolved"
+  },
+  {
+    "operation": "fd59c5fd5cb1ede2912f0bcf",
+    "reference": "time::OffsetDateTime::now_utc",
+    "artifact_local_target": "2316",
+    "state": "unresolved"
+  },
+  {
+    "operation": "c63d5ce5195ce274dc47ab8f",
+    "reference": "time",
+    "artifact_local_target": "2315",
+    "state": "unresolved"
+  },
+  {
+    "operation": "c63d5ce5195ce274dc47ab8f",
+    "reference": "time::format_description::parse",
+    "artifact_local_target": "2322",
+    "state": "unresolved"
+  },
+  {
+    "operation": "c63d5ce5195ce274dc47ab8f",
+    "reference": "time::OffsetDateTime::now_utc()",
+    "artifact_local_target": "2316",
+    "state": "unresolved"
+  },
+  {
+    "operation": "c63d5ce5195ce274dc47ab8f",
+    "reference": "time::formatting::Formattable",
+    "artifact_local_target": "2314",
+    "state": "unresolved"
+  },
+  {
+    "operation": "c63d5ce5195ce274dc47ab8f",
+    "reference": "time::format_description::well_known",
+    "artifact_local_target": "2321",
+    "state": "unresolved"
+  },
+  {
+    "operation": "97fdfa9160a061440ce17f3f",
+    "reference": "time::OffsetDateTime::now_utc",
+    "artifact_local_target": "2316",
+    "state": "unresolved"
+  },
+  {
+    "operation": "4ef4277306114b778d441c9b",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "5360e67ef72fa1f760a6246b",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "4e2e1a917fe2fdba5b634207",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "4e2e1a917fe2fdba5b634207",
+    "reference": "`io::Write`",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f6e00051b2c8a83963973ec7",
+    "reference": "`Option::None`",
+    "artifact_local_target": "1523",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f6e00051b2c8a83963973ec7",
+    "reference": "std::io::sink",
+    "artifact_local_target": "2694",
+    "state": "unresolved"
+  },
+  {
+    "operation": "50c42a02ad55d7e674b58a59",
+    "reference": "`Option::Some`",
+    "artifact_local_target": "2695",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49cad405bcbd7170e0ab390a",
+    "reference": "`Mutex`",
+    "artifact_local_target": "2578",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49cad405bcbd7170e0ab390a",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49cad405bcbd7170e0ab390a",
+    "reference": "std::io::stdout()",
+    "artifact_local_target": "2576",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49cad405bcbd7170e0ab390a",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49cad405bcbd7170e0ab390a",
+    "reference": "std::io::stderr()",
+    "artifact_local_target": "2577",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49cad405bcbd7170e0ab390a",
+    "reference": "`std::sync::Mutex`",
+    "artifact_local_target": "2578",
+    "state": "unresolved"
+  },
+  {
+    "operation": "0b71b1694d10f2872b678698",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "04947f8cd797aae6fbf28878",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f80df00cea31d415c78108e6",
+    "reference": "tracing_core::Level::WARN",
+    "artifact_local_target": "2574",
+    "state": "unresolved"
+  },
+  {
+    "operation": "f80df00cea31d415c78108e6",
+    "reference": "tracing_core::Level::ERROR",
+    "artifact_local_target": "525",
+    "state": "unresolved"
+  },
+  {
+    "operation": "661cbfa269f4ebce10d749a7",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "7991c17e378056a2039494a3",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "bd0cba079fd2dbd015c758ab",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "32b28f7c7b09500ebeb990ce",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "32b28f7c7b09500ebeb990ce",
+    "reference": "std::sync::Mutex",
+    "artifact_local_target": "2578",
+    "state": "unresolved"
+  },
+  {
+    "operation": "32b28f7c7b09500ebeb990ce",
+    "reference": "std::sync::MutexGuard",
+    "artifact_local_target": "2899",
+    "state": "unresolved"
+  },
+  {
+    "operation": "aca5124df0ea38cd4409ff35",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "fa75bf129c566031f96a23eb",
+    "reference": "`std::io::Write`",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "70e8aaa35647fafad6df12b0",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "b8e9c667384dce2df0d37142",
+    "reference": "`eprint!`",
+    "artifact_local_target": "2638",
+    "state": "unresolved"
+  },
+  {
+    "operation": "b8e9c667384dce2df0d37142",
+    "reference": "std::print!",
+    "artifact_local_target": "2637",
+    "state": "unresolved"
+  },
+  {
+    "operation": "b8e9c667384dce2df0d37142",
+    "reference": "std::io::stderr",
+    "artifact_local_target": "2577",
+    "state": "unresolved"
+  },
+  {
+    "operation": "b8e9c667384dce2df0d37142",
+    "reference": "std::io::stdout",
+    "artifact_local_target": "2576",
+    "state": "unresolved"
+  },
+  {
+    "operation": "0000ef79db8369deb91f853a",
+    "reference": "std::io::sink",
+    "artifact_local_target": "2694",
+    "state": "unresolved"
+  },
+  {
+    "operation": "9aad0d2e98029c8c0dcbf020",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "323c2a156b0c08228a6a3518",
+    "reference": "std::io::Write",
+    "artifact_local_target": "87",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "tracing_core::Level::DEBUG",
+    "artifact_local_target": "1525",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "`Box::new`",
+    "artifact_local_target": "825",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "tracing_core::Level::INFO",
+    "artifact_local_target": "1524",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "`Interest::sometimes`",
+    "artifact_local_target": "1444",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "`Option<Filter>`",
+    "artifact_local_target": "325",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "tracing_core::subscriber::Interest::never()",
+    "artifact_local_target": "1352",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "tracing_core::Metadata::target",
+    "artifact_local_target": "835",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "`Option`",
+    "artifact_local_target": "325",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "`Subscriber::register_callsite`",
+    "artifact_local_target": "1245",
+    "state": "unresolved"
+  },
+  {
+    "operation": "2ad2c88abbc1580a0091cf9d",
+    "reference": "`None`",
+    "artifact_local_target": "1523",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49af4e3414ecfc52a0cb5887",
+    "reference": "tracing_core::Interest::always",
+    "artifact_local_target": "1351",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49af4e3414ecfc52a0cb5887",
+    "reference": "tracing_core::Interest::never",
+    "artifact_local_target": "1352",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49af4e3414ecfc52a0cb5887",
+    "reference": "tracing_core::Interest::sometimes",
+    "artifact_local_target": "1444",
+    "state": "unresolved"
+  },
+  {
+    "operation": "49af4e3414ecfc52a0cb5887",
+    "reference": "tracing_core::Subscriber::register_callsite",
+    "artifact_local_target": "1245",
+    "state": "unresolved"
+  },
+  {
+    "operation": "104b1d844775b41b079882e6",
+    "reference": "tracing_core::Subscriber::enabled",
+    "artifact_local_target": "1246",
+    "state": "unresolved"
+  },
+  {
+    "operation": "795099c45322e075d31d1b80",
+    "reference": "`Box`",
+    "artifact_local_target": "827",
+    "state": "unresolved"
+  },
+  {
+    "operation": "bf52d490c84266759988e51e",
+    "reference": "tracing_core::Subscriber::enabled()",
+    "artifact_local_target": "1246",
+    "state": "unresolved"
+  },
+  {
+    "operation": "37a0cc162283aa68420a0e50",
+    "reference": "`std::sync::Weak`",
+    "artifact_local_target": "1345",
+    "state": "unresolved"
+  },
+  {
+    "operation": "37a0cc162283aa68420a0e50",
+    "reference": "tracing_core::dispatcher::WeakDispatch::upgrade",
+    "artifact_local_target": "1346",
+    "state": "unresolved"
+  },
+  {
+    "operation": "37a0cc162283aa68420a0e50",
+    "reference": "`Dispatch::downgrade`",
+    "artifact_local_target": "1343",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a3dca9d32377d9e88d8c1899",
+    "reference": "tracing_core::subscriber::Interest::never()",
+    "artifact_local_target": "1352",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a3dca9d32377d9e88d8c1899",
+    "reference": "tracing_core::subscriber::Interest::always()",
+    "artifact_local_target": "1351",
+    "state": "unresolved"
+  },
+  {
+    "operation": "a3dca9d32377d9e88d8c1899",
+    "reference": "tracing_core::Subscriber::register_callsite()",
+    "artifact_local_target": "1245",
+    "state": "unresolved"
+  },
+  {
+    "operation": "c274004bdaeeac1a992cb490",
+    "reference": "tracing_core::subscriber::Subscriber::enabled()",
+    "artifact_local_target": "1246",
+    "state": "unresolved"
+  },
+  {
+    "operation": "c274004bdaeeac1a992cb490",
+    "reference": "tracing_core::subscriber::Subscriber::register_callsite()",
+    "artifact_local_target": "1245",
+    "state": "unresolved"
+  },
+  {
+    "operation": "4f2ca7c8c5afeda79eab4db7",
+    "reference": "`Event::parent`",
+    "artifact_local_target": "1249",
+    "state": "unresolved"
+  },
+  {
+    "operation": "cd00664c8169aa9de500e3bb",
+    "reference": "std::string::String",
+    "artifact_local_target": "440",
+    "state": "unresolved"
+  },
+  {
+    "operation": "4736e765871f1c85d718ade6",
+    "reference": "sharded_slab",
+    "artifact_local_target": "1057",
+    "state": "unresolved"
+  },
+  {
+    "operation": "4736e765871f1c85d718ade6",
+    "reference": "tracing_core::subscriber::Subscriber::try_close()",
+    "artifact_local_target": "1058",
+    "state": "unresolved"
+  }
+]

@@ -1,0 +1,714 @@
+[
+  {
+    "id": "1877064155d794d3de73d8d3",
+    "path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+    "name": "TextMapPropagator",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "trait",
+    "signature": "trait TextMapPropagator: Debug",
+    "docs": "Methods to inject and extract a value as text into injectors and extractors that travel\nin-band across process boundaries.",
+    "span": {
+      "filename": "src/propagation/text_map_propagator.rs",
+      "begin": [
+        20,
+        1
+      ],
+      "end": [
+        58,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          1389,
+          1390,
+          1391,
+          1392,
+          1393
+        ],
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "Debug",
+                "id": 96,
+                "args": null
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          1387,
+          1397
+        ]
+      }
+    },
+    "type_references": {
+      "96": "core::fmt::Debug"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "13",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md",
+    "record_file": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.json",
+    "anchor": "op-1877064155d794d3de73d8d3",
+    "aliases": [
+      "opentelemetry::propagation::TextMapPropagator"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b30d43d0921c35a9c6c5f226",
+    "path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator::extract",
+    "name": "extract",
+    "owner": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn extract(&self, extractor: &dyn Extractor) -> Context",
+    "docs": "Retrieves encoded data using the provided [`Extractor`]. If no data for this\nformat was retrieved OR if the retrieved data is invalid, then the current\n[`Context`] is returned.\n\n[`Context`]: crate::Context\n[`Injector`]: crate::propagation::Extractor",
+    "span": {
+      "filename": "src/propagation/text_map_propagator.rs",
+      "begin": [
+        43,
+        5
+      ],
+      "end": [
+        45,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "extractor",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Extractor",
+                            "id": 1384,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Context",
+              "id": 121,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1384": "opentelemetry::propagation::Extractor",
+      "121": "opentelemetry::context::Context"
+    },
+    "impl_context": null,
+    "links": {
+      "`Extractor`": 1384,
+      "crate::Context": 121,
+      "crate::propagation::Extractor": 1384
+    },
+    "link_paths": {
+      "`Extractor`": "opentelemetry::propagation::Extractor",
+      "crate::Context": "opentelemetry::context::Context",
+      "crate::propagation::Extractor": "opentelemetry::propagation::Extractor"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1391",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md",
+    "record_file": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.json",
+    "anchor": "op-b30d43d0921c35a9c6c5f226",
+    "aliases": [
+      "opentelemetry::propagation::TextMapPropagator::extract"
+    ],
+    "resolved_doc_links": {
+      "`Extractor`": "../operations/opentelemetry.propagation.Extractor.md#op-295c86db9e9eeabe7894a847",
+      "crate::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1",
+      "crate::propagation::Extractor": "../operations/opentelemetry.propagation.Extractor.md#op-295c86db9e9eeabe7894a847"
+    }
+  },
+  {
+    "id": "7f3545e4d22216f2107242af",
+    "path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator::extract_with_context",
+    "name": "extract_with_context",
+    "owner": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn extract_with_context(&self, cx: &Context, extractor: &dyn Extractor) -> Context",
+    "docs": "Retrieves encoded data using the provided [`Extractor`]. If no data for this\nformat was retrieved OR if the retrieved data is invalid, then the given\n[`Context`] is returned.\n\n[`Context`]: crate::Context\n[`Injector`]: crate::propagation::Extractor",
+    "span": {
+      "filename": "src/propagation/text_map_propagator.rs",
+      "begin": [
+        53,
+        5
+      ],
+      "end": [
+        53,
+        88
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 121,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "extractor",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Extractor",
+                            "id": 1384,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Context",
+              "id": 121,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "121": "opentelemetry::context::Context",
+      "1384": "opentelemetry::propagation::Extractor"
+    },
+    "impl_context": null,
+    "links": {
+      "`Extractor`": 1384,
+      "crate::Context": 121,
+      "crate::propagation::Extractor": 1384
+    },
+    "link_paths": {
+      "`Extractor`": "opentelemetry::propagation::Extractor",
+      "crate::Context": "opentelemetry::context::Context",
+      "crate::propagation::Extractor": "opentelemetry::propagation::Extractor"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1392",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md",
+    "record_file": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.json",
+    "anchor": "op-7f3545e4d22216f2107242af",
+    "aliases": [
+      "opentelemetry::propagation::TextMapPropagator::extract_with_context"
+    ],
+    "resolved_doc_links": {
+      "`Extractor`": "../operations/opentelemetry.propagation.Extractor.md#op-295c86db9e9eeabe7894a847",
+      "crate::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1",
+      "crate::propagation::Extractor": "../operations/opentelemetry.propagation.Extractor.md#op-295c86db9e9eeabe7894a847"
+    }
+  },
+  {
+    "id": "f6540633ee660a6f4db25ce9",
+    "path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator::fields",
+    "name": "fields",
+    "owner": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fields(&self) -> FieldIter<'_>",
+    "docs": "Returns iter of fields used by [`TextMapPropagator`]\n",
+    "span": {
+      "filename": "src/propagation/text_map_propagator.rs",
+      "begin": [
+        57,
+        5
+      ],
+      "end": [
+        57,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "FieldIter",
+              "id": 1386,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "1386": "opentelemetry::propagation::text_map_propagator::FieldIter"
+    },
+    "impl_context": null,
+    "links": {
+      "`TextMapPropagator`": 13
+    },
+    "link_paths": {
+      "`TextMapPropagator`": "opentelemetry::propagation::text_map_propagator::TextMapPropagator"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1393",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md",
+    "record_file": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.json",
+    "anchor": "op-f6540633ee660a6f4db25ce9",
+    "aliases": [
+      "opentelemetry::propagation::TextMapPropagator::fields"
+    ],
+    "resolved_doc_links": {
+      "`TextMapPropagator`": "../operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md#op-1877064155d794d3de73d8d3"
+    }
+  },
+  {
+    "id": "e40454bf6901d93e024db07a",
+    "path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator::inject",
+    "name": "inject",
+    "owner": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn inject(&self, injector: &mut dyn Injector)",
+    "docs": "Properly encodes the values of the current [`Context`] and injects them into\nthe [`Injector`].\n\n[`Context`]: crate::Context\n[`Injector`]: crate::propagation::Injector",
+    "span": {
+      "filename": "src/propagation/text_map_propagator.rs",
+      "begin": [
+        26,
+        5
+      ],
+      "end": [
+        28,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "injector",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Injector",
+                            "id": 1382,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1382": "opentelemetry::propagation::Injector"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::Context": 121,
+      "crate::propagation::Injector": 1382
+    },
+    "link_paths": {
+      "crate::Context": "opentelemetry::context::Context",
+      "crate::propagation::Injector": "opentelemetry::propagation::Injector"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1389",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md",
+    "record_file": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.json",
+    "anchor": "op-e40454bf6901d93e024db07a",
+    "aliases": [
+      "opentelemetry::propagation::TextMapPropagator::inject"
+    ],
+    "resolved_doc_links": {
+      "crate::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1",
+      "crate::propagation::Injector": "../operations/opentelemetry.propagation.Injector.md#op-6df55495bf9714237f4c3690"
+    }
+  },
+  {
+    "id": "e7c70733b0213839277ba954",
+    "path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator::inject_context",
+    "name": "inject_context",
+    "owner": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn inject_context(&self, cx: &Context, injector: &mut dyn Injector)",
+    "docs": "Properly encodes the values of the [`Context`] and injects them into the\n[`Injector`].\n\n[`Context`]: crate::Context\n[`Injector`]: crate::propagation::Injector",
+    "span": {
+      "filename": "src/propagation/text_map_propagator.rs",
+      "begin": [
+        35,
+        5
+      ],
+      "end": [
+        35,
+        73
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 121,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "injector",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Injector",
+                            "id": 1382,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": false
+      }
+    },
+    "type_references": {
+      "121": "opentelemetry::context::Context",
+      "1382": "opentelemetry::propagation::Injector"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::Context": 121,
+      "crate::propagation::Injector": 1382
+    },
+    "link_paths": {
+      "crate::Context": "opentelemetry::context::Context",
+      "crate::propagation::Injector": "opentelemetry::propagation::Injector"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1390",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.md",
+    "record_file": "operations/opentelemetry.propagation.text_map_propagator.TextMapPropagator.json",
+    "anchor": "op-e7c70733b0213839277ba954",
+    "aliases": [
+      "opentelemetry::propagation::TextMapPropagator::inject_context"
+    ],
+    "resolved_doc_links": {
+      "crate::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1",
+      "crate::propagation::Injector": "../operations/opentelemetry.propagation.Injector.md#op-6df55495bf9714237f4c3690"
+    }
+  }
+]

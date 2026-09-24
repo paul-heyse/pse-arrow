@@ -12,7 +12,7 @@
 //! Identity comes from ADR-0050 and nowhere else:
 //! `REGISTRY_PACKAGE_ID = named_id(SemanticId::NIL, "pse.schema")`, and within it
 //! `relation:<ns>.<name>@<v>`, `enum:<Name>`, `logical_type:<rendered type>`,
-//! `invariant:<relation>:<name>`, `pass:<P>@<v>` and `rule:<name>@<v>`.
+//! `invariant:<relation>:<name>` and `pass:<P>@<v>`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::LazyLock;
@@ -22,15 +22,17 @@ use pse_ids::{ContentHash, SemanticId, named_id};
 use crate::error::SchemaError;
 use crate::ext_metadata;
 use crate::model::{
-    AlgorithmDecl, AlgorithmSpec, Cell, DocumentSpec, EnumDecl, EnumSpec, ExtensionUse,
-    FieldContract, FieldTypeRow, InvariantDecl, InvariantSpec, MigrationSpec,
-    NON_DERIVABLE_NAMESPACES, Namespace, QuantityContract, RelationDecl, RelationKey, RelationSpec,
-    RuleDecl, RuleDependency, RuleSpec, render_data_type,
+    AlgorithmDecl, AlgorithmSpec, DocumentSpec, EnumDecl, EnumSpec, ExtensionUse, FieldContract,
+    FieldTypeRow, InvariantDecl, InvariantSpec, MigrationSpec, RelationDecl, RelationKey,
+    RelationSpec, render_data_type,
 };
 
 mod integrity;
 
-type SchemaRows = Vec<(RelationKey, Vec<Vec<Cell>>)>;
+mod native;
+
+/// Native self-description tables; arrays are shared when a projection is cloned.
+pub type SchemaBatches = Vec<(RelationKey, arrow_array::RecordBatch)>;
 
 /// The registry package's qualified name (ADR-0050).
 pub const REGISTRY_PACKAGE_NAME: &str = "pse.schema";
@@ -60,8 +62,8 @@ pub fn quantity_type_id(qualified_name: &str) -> SemanticId {
     registry_id(&format!("quantity_type:{qualified_name}"))
 }
 
-/// The `reference.schema_*` and `reference.pass_*`/`reference.rule_*` relations, in the
-/// fixed order [`Registry::schema_rows`] emits them.
+/// The `reference.schema_*` and `reference.pass_*` relations, in the
+/// fixed order [`Registry::schema_batches`] emits them.
 ///
 /// The names and version 1 are fixed by blueprint §4.1 and §6.11, so a table is emitted
 /// whether or not the relation describing it is declared yet. That matters: the registry
@@ -70,7 +72,7 @@ pub fn quantity_type_id(qualified_name: &str) -> SemanticId {
 /// silent equality between two different schemas, which is the failure mode a fingerprint
 /// exists to prevent. A declared relation supplies its own key, so a future version bump
 /// is picked up rather than overridden.
-const SELF_DESCRIBING_RELATIONS: [&str; 16] = [
+const SELF_DESCRIBING_RELATIONS: [&str; 14] = [
     "reference.schema_relations",
     "reference.schema_columns",
     "reference.schema_logical_types",
@@ -81,9 +83,7 @@ const SELF_DESCRIBING_RELATIONS: [&str; 16] = [
     "reference.algorithm_specs",
     "reference.algorithm_arguments",
     "reference.algorithm_results",
-    "reference.rule_specs",
-    "reference.rule_dependencies",
-    "reference.operator_specs",
+    "reference.function_capabilities",
     "reference.schema_documents",
     "reference.schema_document_sections",
     "reference.artifact_profiles",
@@ -96,9 +96,11 @@ const SELF_DESCRIBING_RELATIONS: [&str; 16] = [
 /// look like a logic bug rather than a nondeterminism (blueprint §5.3 step 8).
 #[derive(Debug)]
 pub struct Registry {
+    /// Owner-local derived implementations. This never stores declarations or admission proofs.
+    implementations: crate::implementation_cache::ImplementationCache,
     /// `named_id(SemanticId::NIL, "pse.schema")`.
     package_id: SemanticId,
-    /// The digest of [`Registry::schema_rows`].
+    /// The digest of [`Registry::schema_batches`].
     fingerprint: ContentHash,
     /// Sorted by `(namespace spelling, name, version)`.
     relations: Vec<RelationSpec>,
@@ -118,21 +120,36 @@ pub struct Registry {
     migrations: Vec<MigrationSpec>,
     /// Sorted by `<name>@<version>`.
     algorithms: Vec<AlgorithmSpec>,
-    /// Sorted by `<name>@<version>`.
-    rules: Vec<RuleSpec>,
-    /// Derived from the rule plans at assembly, sorted.
-    rule_dependencies: Vec<RuleDependency>,
     /// Sorted by name.
     documents: Vec<DocumentSpec>,
     /// Required member declarations by artifact kind, independent of execution order.
     artifact_profiles: BTreeMap<String, BTreeSet<SemanticId>>,
     /// Immutable projection of the completed declarations, materialized during assembly.
-    self_description: Vec<(RelationKey, Vec<Vec<Cell>>)>,
-    /// Exact compiled declaration projection, aligned with the immutable relations.
-    compiled_declarations: Vec<String>,
+    self_description: SchemaBatches,
+    /// Immutable resolved graph; installed after declaration assembly.
+    contracts: Option<std::sync::Arc<crate::resolved_contract::ContractArena>>,
 }
 
 impl Registry {
+    pub(crate) fn contracts_ready(&self) -> bool {
+        self.contracts.is_some()
+    }
+
+    /// Memoize a derived implementation for this immutable registry only. Consumers
+    /// use private key types; session-dependent implementations require their own owner.
+    /// # Errors
+    /// Preparation failure or a poisoned owner lock.
+    pub fn derived_implementation<T: std::any::Any + Send + Sync>(
+        &self,
+        build: impl FnOnce() -> Result<T, SchemaError>,
+    ) -> Result<std::sync::Arc<T>, SchemaError> {
+        self.implementations.get(build)
+    }
+    /// Opaque lifetime identity for derived implementation contexts, not semantic equality.
+    pub fn implementation_owner(&self) -> std::sync::Arc<()> {
+        self.implementations.owner()
+    }
+
     /// Complete required relation identities for a declared artifact kind. Empty
     /// profiles still require explicit member inventory and all member obligations.
     pub fn artifact_profile(&self, name: &str) -> Option<&BTreeSet<SemanticId>> {
@@ -173,28 +190,62 @@ impl Registry {
             .and_then(|index| self.relations.get(*index))
     }
 
-    /// The complete compiled declaration of this actual relation. Registry-owned
-    /// declarations borrow the assembly projection; external values are reconstructed
-    /// and compared independently, even when their identity and fingerprint match.
-    ///
+    /// Resolve a local declaration assertion against this actual registry.
+    /// Foreign registry transfers must carry a handle with their source definitions.
     /// # Errors
-    /// A referenced declaration is absent or its Arrow storage is unsupported.
-    pub fn compiled_declaration(
+    /// Missing relation, unresolved graph or a changed semantic declaration.
+    pub fn contract(
         &self,
         spec: &RelationSpec,
-    ) -> Result<std::borrow::Cow<'_, str>, SchemaError> {
-        if let Some(index) = self.relation_by_id.get(&spec.id)
-            && self
-                .relations
-                .get(*index)
-                .is_some_and(|actual| std::ptr::eq(actual, spec))
-            && let Some(value) = self.compiled_declarations.get(*index)
+    ) -> Result<crate::resolved_contract::RelationContractHandle, SchemaError> {
+        let actual = self
+            .relation_by_id(spec.id)
+            .ok_or_else(|| SchemaError::UnknownReference {
+                context: "contract admission".into(),
+                reference: spec.qualified_name(),
+            })?;
+        let handle = self.contract_arena()?.handle(actual.id)?;
+        if !std::ptr::eq(actual, spec)
+            && crate::resolved_contract::resolve_relation(self, spec)? != *handle.resolved()
         {
-            return Ok(std::borrow::Cow::Borrowed(value));
+            return Err(SchemaError::InvalidDeclaration {
+                context: spec.qualified_name(),
+                reason: "candidate differs from the authoritative resolved contract".into(),
+            });
         }
-        Ok(std::borrow::Cow::Owned(
-            crate::compiled_contract::relation(self, spec)?.literal_spec(),
-        ))
+        Ok(handle)
+    }
+
+    /// Admit a contract from an independent owner and return this owner's handle.
+    /// # Errors
+    /// Any reachable semantic definition differs.
+    pub fn admit_contract(
+        &self,
+        foreign: &crate::resolved_contract::RelationContractHandle,
+    ) -> Result<crate::resolved_contract::RelationContractHandle, SchemaError> {
+        let local = self.contract_arena()?.handle(foreign.relation_id())?;
+        local.require_equivalent(foreign)?;
+        Ok(local)
+    }
+
+    /// Complete resolved declarations for pure code generation.
+    /// # Errors
+    /// Registry assembly has not completed.
+    pub fn generated_contracts(
+        &self,
+    ) -> Result<&crate::resolved_contract::GeneratedContracts, SchemaError> {
+        Ok(&self.contract_arena()?.graph)
+    }
+
+    pub(crate) fn contract_arena(
+        &self,
+    ) -> Result<&std::sync::Arc<crate::resolved_contract::ContractArena>, SchemaError> {
+        self.contracts
+            .as_ref()
+            .ok_or_else(|| SchemaError::InvalidDeclaration {
+                context: "contract arena".into(),
+                reason: "registry assembly has not completed".into(),
+            })
     }
 
     /// The exact declared relation version, without selecting the current alias.
@@ -292,472 +343,15 @@ impl Registry {
         candidates.next().is_none().then_some(candidate)
     }
 
-    /// Every declared rule, sorted by `<name>@<version>`.
-    pub fn rules(&self) -> &[RuleSpec] {
-        &self.rules
-    }
-
-    /// The rule of that name or qualified name.
-    pub fn rule(&self, name: &str) -> Option<&RuleSpec> {
-        let mut candidates = self
-            .rules
-            .iter()
-            .filter(|rule| rule.name == name || rule.qualified_name() == name);
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then_some(candidate)
-    }
-
-    /// The `reference.rule_dependencies` facts derived from the rule plans
-    /// (blueprint §6.11).
-    pub fn rule_dependencies(&self) -> &[RuleDependency] {
-        &self.rule_dependencies
-    }
-
     /// Every declared authoring document shape (blueprint §22.1).
     pub fn documents(&self) -> &[DocumentSpec] {
         &self.documents
     }
 
-    /// The registry as its own rows: `reference.schema_*`, `reference.pass_*` and
-    /// `reference.rule_*`, each primary-key sorted with its cells in column order
-    /// (blueprint §4.1).
-    ///
-    /// This is the preimage of [`Registry::fingerprint`] and the input
-    /// `pse-relations` materializes into `RecordBatch`es, so the two cannot disagree
-    /// about what the registry says.
-    pub fn schema_rows(&self) -> Vec<(RelationKey, Vec<Vec<Cell>>)> {
-        self.self_description.clone()
-    }
-
-    /// Borrow the complete immutable declaration projection without allocating row copies.
-    /// Producers can inspect actual values and reserve space before materializing another
-    /// representation. This projection is initialized from the sole declarations at assembly.
-    pub fn schema_rows_ref(&self) -> &[(RelationKey, Vec<Vec<Cell>>)] {
+    /// Immutable native self-description, sorted by each declaration's primary key.
+    /// Empty and custom registries use the same intrinsic declarations as the platform.
+    pub fn schema_batches(&self) -> &[(RelationKey, arrow_array::RecordBatch)] {
         &self.self_description
-    }
-
-    fn materialize_schema_rows(&self) -> Result<SchemaRows, SchemaError> {
-        let mut out = Vec::new();
-        for qualified in SELF_DESCRIBING_RELATIONS {
-            let spec = self.relation(qualified);
-            let rows = match qualified {
-                "reference.schema_relations" => self.schema_relations_rows(),
-                "reference.schema_columns" => self.schema_columns_rows()?,
-                "reference.schema_logical_types" => self.schema_logical_types_rows(),
-                "reference.schema_enums" => self.schema_enums_rows()?,
-                "reference.schema_enum_types" => self
-                    .enums
-                    .iter()
-                    .map(|spec| {
-                        vec![
-                            Cell::Id(spec.id),
-                            Cell::text(spec.name),
-                            Cell::opt_text(spec.idaes_source),
-                        ]
-                    })
-                    .collect(),
-                "reference.schema_invariants" => self.schema_invariants_rows(),
-                "reference.schema_migrations" => self.schema_migrations_rows(),
-                "reference.algorithm_specs" => self.algorithm_specs_rows(),
-                "reference.algorithm_arguments" => self.algorithm_arguments_rows(),
-                "reference.algorithm_results" => self.algorithm_results_rows(),
-                "reference.rule_specs" => self.rule_specs_rows(),
-                "reference.rule_dependencies" => self.rule_dependencies_rows(),
-                "reference.schema_documents" => self.document_rows(),
-                "reference.schema_document_sections" => self.document_section_rows()?,
-                "reference.artifact_profiles" => self
-                    .artifact_profiles
-                    .iter()
-                    .map(|(name, members)| {
-                        vec![
-                            Cell::text(name),
-                            Cell::List(members.iter().copied().map(Cell::Id).collect()),
-                        ]
-                    })
-                    .collect(),
-                _ => crate::catalog::s7_operators::rows(),
-            };
-            let key = spec.map_or_else(
-                || RelationKey::new(Namespace::Reference, bare_name(qualified), 1),
-                |spec| spec.key,
-            );
-            out.push((key, sort_by_primary_key(spec, rows)));
-        }
-        Ok(out)
-    }
-
-    fn document_rows(&self) -> Vec<Vec<Cell>> {
-        self.documents
-            .iter()
-            .map(|document| {
-                vec![
-                    Cell::text(document.name),
-                    Cell::text(document.kind.as_str()),
-                    Cell::text(document.path_glob),
-                    Cell::text(document.doc),
-                ]
-            })
-            .collect()
-    }
-
-    fn document_section_rows(&self) -> Result<Vec<Vec<Cell>>, SchemaError> {
-        self.documents
-            .iter()
-            .flat_map(|document| {
-                document
-                    .sections
-                    .iter()
-                    .enumerate()
-                    .map(move |(ordinal, section)| {
-                        Ok(vec![
-                            Cell::text(document.name),
-                            signed_ordinal(ordinal)?,
-                            Cell::text(section.key),
-                            self.relation(section.relation)
-                                .map_or(Cell::Null, |relation| Cell::Id(relation.id)),
-                            Cell::Bool(section.repeated),
-                            section.identity_column.map_or(Cell::Null, Cell::text),
-                            section.entity_kind.map_or(Cell::Null, Cell::text),
-                            section.name_column.map_or(Cell::Null, Cell::text),
-                            section.naming_scope_column.map_or(Cell::Null, Cell::text),
-                            section
-                                .expression_owner_column
-                                .map_or(Cell::Null, Cell::text),
-                            section
-                                .expression_owner_kind
-                                .map_or(Cell::Null, |owner| Cell::Enum(owner.as_str())),
-                            Cell::text(section.doc),
-                            Cell::List(
-                                section
-                                    .expression_fields
-                                    .iter()
-                                    .map(|(path, syntax)| {
-                                        Cell::Struct(vec![
-                                            Cell::text(*path),
-                                            Cell::Enum(syntax.as_str()),
-                                        ])
-                                    })
-                                    .collect(),
-                            ),
-                        ])
-                    })
-            })
-            .collect()
-    }
-
-    /// One `reference.schema_relations` row.
-    pub(crate) fn schema_relations_row(spec: &RelationSpec) -> Vec<Cell> {
-        vec![
-            Cell::Id(spec.id),
-            Cell::Enum(spec.key.namespace.as_str()),
-            Cell::text(spec.key.name),
-            Cell::I64(i64::from(spec.key.version)),
-            Cell::Enum(spec.authority.as_str()),
-            Cell::Enum(spec.snapshot_class.as_str()),
-            Cell::List(
-                spec.primary_key
-                    .iter()
-                    .map(|name| Cell::text(*name))
-                    .collect(),
-            ),
-            Cell::opt_enum(
-                spec.derivation_granularity
-                    .map(crate::model::DerivationGranularity::as_str),
-            ),
-            Cell::Enum(spec.stability.as_str()),
-            Cell::text(spec.doc),
-            Cell::List(
-                spec.checks
-                    .iter()
-                    .map(|(name, sql)| Cell::Struct(vec![Cell::text(name), Cell::text(sql)]))
-                    .collect(),
-            ),
-            Cell::List(
-                spec.delta_properties
-                    .iter()
-                    .map(|(name, value)| Cell::Struct(vec![Cell::text(name), Cell::text(value)]))
-                    .collect(),
-            ),
-        ]
-    }
-
-    /// Every `reference.schema_relations` row.
-    fn schema_relations_rows(&self) -> Vec<Vec<Cell>> {
-        self.relations
-            .iter()
-            .map(Self::schema_relations_row)
-            .collect()
-    }
-
-    /// The `reference.schema_columns` rows of one relation.
-    pub(crate) fn schema_columns_rows_of(
-        &self,
-        spec: &RelationSpec,
-    ) -> Result<Vec<Vec<Cell>>, SchemaError> {
-        spec.columns
-            .iter()
-            .enumerate()
-            .map(|(ordinal, column)| {
-                let logical_type_id = self
-                    .logical_type(&column.value_type().type_name()?)
-                    .map(|row| row.id);
-                Ok(vec![
-                    Cell::Id(spec.id),
-                    signed_ordinal(ordinal)?,
-                    Cell::text(column.name()),
-                    Cell::opt_id(logical_type_id),
-                    Cell::Bool(column.nullable()),
-                    Cell::opt_id(match column.quantity() {
-                        QuantityContract::Column(name) => Some(quantity_type_id(name)),
-                        QuantityContract::None => None,
-                    }),
-                    Cell::opt_id(
-                        column
-                            .fk()
-                            .and_then(|fk| self.relation(fk.relation).map(|target| target.id)),
-                    ),
-                    Cell::opt_text(column.fk().map(|fk| fk.column)),
-                    Cell::Enum(column.role().as_str()),
-                    Cell::text(column.doc()),
-                    Cell::text(column.canonical_json()?),
-                ])
-            })
-            .collect()
-    }
-
-    /// Every `reference.schema_columns` row.
-    fn schema_columns_rows(&self) -> Result<Vec<Vec<Cell>>, SchemaError> {
-        let mut rows = Vec::new();
-        for spec in &self.relations {
-            rows.extend(self.schema_columns_rows_of(spec)?);
-        }
-        Ok(rows)
-    }
-
-    /// One `reference.schema_logical_types` row.
-    pub(crate) fn schema_logical_types_row(row: &FieldTypeRow) -> Vec<Cell> {
-        vec![
-            Cell::Id(row.id),
-            Cell::text(row.name.clone()),
-            Cell::text(row.arrow_storage.clone()),
-            Cell::opt_text(row.extension_name.as_deref()),
-            Cell::opt_text(row.metadata_schema.as_deref()),
-        ]
-    }
-
-    /// Every `reference.schema_logical_types` row.
-    fn schema_logical_types_rows(&self) -> Vec<Vec<Cell>> {
-        self.logical_types
-            .iter()
-            .map(Self::schema_logical_types_row)
-            .collect()
-    }
-
-    /// The `reference.schema_enums` rows of one enumeration.
-    pub(crate) fn schema_enums_rows_of(spec: &EnumSpec) -> Result<Vec<Vec<Cell>>, SchemaError> {
-        spec.members
-            .iter()
-            .enumerate()
-            .map(|(ordinal, member)| {
-                Ok(vec![
-                    Cell::Id(spec.id),
-                    signed_ordinal(ordinal)?,
-                    Cell::text(member.name),
-                    Cell::opt_text(member.idaes_name),
-                    Cell::Bool(member.deprecated),
-                    Cell::text(member.doc),
-                ])
-            })
-            .collect()
-    }
-
-    /// Every `reference.schema_enums` row.
-    fn schema_enums_rows(&self) -> Result<Vec<Vec<Cell>>, SchemaError> {
-        let mut rows = Vec::new();
-        for spec in &self.enums {
-            rows.extend(Self::schema_enums_rows_of(spec)?);
-        }
-        Ok(rows)
-    }
-
-    /// Every `reference.schema_invariants` row.
-    fn schema_invariants_rows(&self) -> Vec<Vec<Cell>> {
-        self.invariants
-            .iter()
-            .map(|invariant| {
-                vec![
-                    Cell::Id(invariant.id),
-                    Cell::opt_id(self.relation(&invariant.relation).map(|spec| spec.id)),
-                    Cell::Enum(invariant.kind.as_str()),
-                    Cell::text(&invariant.query),
-                    Cell::List(invariant.inputs.iter().map(Cell::text).collect()),
-                    Cell::List(
-                        invariant
-                            .key_columns
-                            .iter()
-                            .copied()
-                            .map(Cell::text)
-                            .collect(),
-                    ),
-                    Cell::Enum(invariant.severity.as_str()),
-                    Cell::text(invariant.doc),
-                ]
-            })
-            .collect()
-    }
-
-    /// Every `reference.schema_migrations` row.
-    fn schema_migrations_rows(&self) -> Vec<Vec<Cell>> {
-        self.migrations
-            .iter()
-            .map(|migration| {
-                vec![
-                    Cell::opt_id(self.relation(migration.relation).map(|spec| spec.id)),
-                    Cell::I64(i64::from(migration.from_version)),
-                    Cell::I64(i64::from(migration.to_version)),
-                    Cell::text(migration.plan_spec()),
-                    Cell::text(migration.doc),
-                ]
-            })
-            .collect()
-    }
-
-    /// Every `reference.algorithm_specs` row.
-    fn algorithm_specs_rows(&self) -> Vec<Vec<Cell>> {
-        self.algorithms
-            .iter()
-            .map(|pass| {
-                vec![
-                    Cell::Id(pass.id),
-                    Cell::text(pass.name),
-                    Cell::text(pass.version),
-                    Cell::List(
-                        pass.preconditions
-                            .iter()
-                            .map(|name| Cell::opt_id(self.invariant_id(name)))
-                            .collect(),
-                    ),
-                    Cell::List(
-                        pass.postconditions
-                            .iter()
-                            .map(|name| Cell::opt_id(self.invariant_id(name)))
-                            .collect(),
-                    ),
-                    Cell::Enum(pass.determinism.as_str()),
-                    Cell::List(pass.diagnostics.iter().copied().map(Cell::Enum).collect()),
-                    Cell::List(
-                        pass.effects
-                            .iter()
-                            .map(|effect| Cell::Enum(effect.as_str()))
-                            .collect(),
-                    ),
-                ]
-            })
-            .collect()
-    }
-
-    /// Every `reference.algorithm_arguments` row.
-    fn algorithm_arguments_rows(&self) -> Vec<Vec<Cell>> {
-        self.algorithms
-            .iter()
-            .flat_map(|pass| {
-                pass.inputs.iter().map(move |input| {
-                    vec![
-                        Cell::Id(pass.id),
-                        Cell::text(&input.port),
-                        Cell::opt_id(self.relation(&input.relation).map(|spec| spec.id)),
-                        Cell::Bool(input.required),
-                        match &input.consumption {
-                            crate::model::algorithm::InputConsumption::Whole => {
-                                Cell::Struct(vec![Cell::Enum("whole"), Cell::Null])
-                            }
-                            crate::model::algorithm::InputConsumption::Columns(columns) => {
-                                Cell::Struct(vec![
-                                    Cell::Enum("columns"),
-                                    Cell::Struct(vec![Cell::List(
-                                        columns.iter().map(Cell::text).collect(),
-                                    )]),
-                                ])
-                            }
-                        },
-                    ]
-                })
-            })
-            .collect()
-    }
-
-    /// Every `reference.algorithm_results` row.
-    fn algorithm_results_rows(&self) -> Vec<Vec<Cell>> {
-        self.algorithms
-            .iter()
-            .flat_map(|pass| {
-                pass.outputs.iter().map(move |output| {
-                    vec![
-                        Cell::Id(pass.id),
-                        Cell::text(&output.port),
-                        Cell::opt_id(self.relation(&output.relation).map(|spec| spec.id)),
-                    ]
-                })
-            })
-            .collect()
-    }
-
-    /// Every `reference.rule_specs` row.
-    fn rule_specs_rows(&self) -> Vec<Vec<Cell>> {
-        self.rules
-            .iter()
-            .map(|rule| {
-                vec![
-                    Cell::Id(rule.id),
-                    Cell::text(rule.version),
-                    Cell::I64(i64::from(rule.stratum)),
-                    Cell::opt_id(self.relation(&rule.head).map(|spec| spec.id)),
-                    Cell::opt_id(
-                        rule.assertion_relation
-                            .as_deref()
-                            .and_then(|name| self.relation(name))
-                            .map(|spec| spec.id),
-                    ),
-                    Cell::List(
-                        rule.queries
-                            .iter()
-                            .map(|query| {
-                                Cell::Struct(vec![Cell::text(query.truth), Cell::text(&query.sql)])
-                            })
-                            .collect(),
-                    ),
-                    Cell::Enum(rule.negation.as_str()),
-                    Cell::Bool(rule.monotonic),
-                    Cell::Enum(rule.conflict_policy.as_str()),
-                ]
-            })
-            .collect()
-    }
-
-    /// Every `reference.rule_dependencies` row.
-    fn rule_dependencies_rows(&self) -> Vec<Vec<Cell>> {
-        self.rule_dependencies
-            .iter()
-            .map(|dependency| {
-                vec![
-                    Cell::Id(dependency.rule_id),
-                    Cell::Id(dependency.relation_id),
-                    Cell::opt_text(dependency.input_port),
-                    Cell::Enum(dependency.mode.as_str()),
-                    Cell::I64(i64::from(dependency.stratum)),
-                    Cell::Id(named_id(
-                        dependency.rule_id,
-                        &format!(
-                            "dependency:{}:{}:{}:{}",
-                            dependency.relation_id.to_hex(),
-                            dependency.input_port.unwrap_or("").len(),
-                            dependency.input_port.unwrap_or(""),
-                            dependency.mode.as_str()
-                        ),
-                    )),
-                ]
-            })
-            .collect()
     }
 
     /// The identity of the invariant named `<relation>:<name>`.
@@ -766,106 +360,6 @@ impl Registry {
             .iter()
             .find(|invariant| invariant.qualified_name() == qualified_name)
             .map(|invariant| invariant.id)
-    }
-}
-
-/// reach.
-fn signed_ordinal(ordinal: usize) -> Result<Cell, SchemaError> {
-    i64::try_from(ordinal)
-        .map(Cell::I64)
-        .map_err(|error| SchemaError::InvalidDeclaration {
-            context: "registry ordinal".into(),
-            reason: error.to_string(),
-        })
-}
-
-/// Sorts `rows` by the relation's declared primary key (blueprint §5.3 step 1).
-fn sort_by_primary_key(spec: Option<&RelationSpec>, mut rows: Vec<Vec<Cell>>) -> Vec<Vec<Cell>> {
-    let key_positions: Vec<usize> = spec.map_or_else(Vec::new, |spec| {
-        spec.primary_key
-            .iter()
-            .filter_map(|name| {
-                spec.columns
-                    .iter()
-                    .position(|column| column.name() == *name)
-            })
-            .collect()
-    });
-    rows.sort_by_cached_key(|row| {
-        // The declared key first, then the whole row. The tail is a total, deterministic
-        // tiebreak; it is also what orders a table whose describing relation is not
-        // declared yet, and it agrees with the key order because every self-describing
-        // relation's primary key is a prefix of its row.
-        let mut key: Vec<Vec<u8>> = key_positions
-            .iter()
-            .filter_map(|position| row.get(*position))
-            .map(sort_key)
-            .collect();
-        key.extend(row.iter().map(sort_key));
-        key
-    });
-    rows
-}
-
-/// The relation name inside the `reference` namespace, for example `schema_relations`.
-fn bare_name(qualified: &'static str) -> &'static str {
-    qualified
-        .split_once('.')
-        .map_or(qualified, |(_, name)| name)
-}
-
-/// A byte string whose ordering is the declared one: text by UTF-8 bytes, identities by
-/// raw bytes, numbers numerically (blueprint §5.3 step 7).
-fn sort_key(cell: &Cell) -> Vec<u8> {
-    let mut out = Vec::new();
-    push_sort_key(cell, &mut out);
-    out
-}
-
-/// Appends `cell`'s sort key to `out`.
-fn push_sort_key(cell: &Cell, out: &mut Vec<u8>) {
-    match cell {
-        Cell::Null => out.push(0x00),
-        Cell::Bool(value) => out.extend_from_slice(&[0x01, u8::from(*value)]),
-        Cell::I64(value) => {
-            out.push(0x02);
-            // Flip the sign bit so that two's-complement order is byte order.
-            let unsigned = u64::from_be_bytes(value.to_be_bytes()) ^ (1_u64 << 63);
-            out.extend_from_slice(&unsigned.to_be_bytes());
-        }
-        Cell::U64(value) => {
-            out.push(0x03);
-            out.extend_from_slice(&value.to_be_bytes());
-        }
-        Cell::F64(value) => {
-            out.push(0x04);
-            out.extend_from_slice(&pse_ids::canonical_f64_bits(*value).to_be_bytes());
-        }
-        Cell::Text(value) => {
-            out.push(0x05);
-            out.extend_from_slice(value.as_bytes());
-            out.push(0x00);
-        }
-        Cell::Id(value) => {
-            out.push(0x06);
-            out.extend_from_slice(value.as_bytes());
-        }
-        Cell::Hash(value) => {
-            out.push(0x07);
-            out.extend_from_slice(value.as_bytes());
-        }
-        Cell::Enum(value) => {
-            out.push(0x08);
-            out.extend_from_slice(value.as_bytes());
-            out.push(0x00);
-        }
-        Cell::List(elements) | Cell::Struct(elements) => {
-            out.push(0x09);
-            for element in elements {
-                push_sort_key(element, out);
-            }
-            out.push(0x00);
-        }
     }
 }
 
@@ -882,8 +376,6 @@ pub struct RegistryBuilder {
     enums: Vec<EnumDecl>,
     /// Invariants, in declaration order.
     invariants: Vec<InvariantDecl>,
-    /// Rules, in declaration order.
-    rules: Vec<RuleDecl>,
     /// Passes, in declaration order.
     algorithms: Vec<AlgorithmDecl>,
     /// Migrations, in declaration order.
@@ -917,10 +409,6 @@ impl RegistryBuilder {
     pub fn declared_invariants(&self) -> &[InvariantDecl] {
         &self.invariants
     }
-    /// Read exact registered rule declarations when projecting their producer pass ports.
-    pub fn declared_rules(&self) -> &[RuleDecl] {
-        &self.rules
-    }
 
     /// Read the sole document-to-relation inventory when declaring authoring pass ports.
     pub fn declared_documents(&self) -> &[DocumentSpec] {
@@ -949,12 +437,6 @@ impl RegistryBuilder {
         self
     }
 
-    /// Declares a rule.
-    pub fn declare_rule(&mut self, decl: RuleDecl) -> &mut Self {
-        self.rules.push(decl);
-        self
-    }
-
     /// Declares a pass.
     pub fn declare_algorithm(&mut self, decl: AlgorithmDecl) -> &mut Self {
         self.algorithms.push(decl);
@@ -979,47 +461,13 @@ impl RegistryBuilder {
     ///
     /// [`SchemaError::DuplicateDeclaration`] when two declarations claim one name;
     /// [`SchemaError::UnknownReference`] for a dangling foreign key, enumeration,
-    /// per-row-quantity sibling, primary-key column, invariant relation or rule head;
+    /// per-row-quantity sibling, primary-key column, invariant relation;
     /// [`SchemaError::MissingGranularity`] for a derived relation without one;
-    /// [`SchemaError::RuleFloatKey`] for a rule that keys on an `f64` column.
     pub fn build(mut self) -> Result<Registry, SchemaError> {
-        let relations = self.resolve_relations()?;
+        let mut registry = self.resolve_base()?;
         self.derive_integrity();
-        let relation_index = index_relations(&relations);
-        let relation_by_id = relations
-            .iter()
-            .enumerate()
-            .map(|(index, spec)| (spec.id, index))
-            .collect();
-        let enums = self.resolve_enums()?;
-        let logical_types = collect_logical_types(&relations, &enums)?;
-
-        let mut registry = Registry {
-            package_id: *REGISTRY_PACKAGE_ID,
-            fingerprint: ContentHash::NIL,
-            relations,
-            relation_index,
-            relation_by_id,
-            enums,
-            logical_types,
-            logical_storage: Vec::new(),
-            invariants: Vec::new(),
-            migrations: Vec::new(),
-            algorithms: Vec::new(),
-            rules: Vec::new(),
-            rule_dependencies: Vec::new(),
-            documents: Vec::new(),
-            artifact_profiles: BTreeMap::new(),
-            self_description: Vec::new(),
-            compiled_declarations: Vec::new(),
-        };
-
-        registry.logical_storage = registry.compile_logical_storage()?;
 
         check_relation_references(&registry)?;
-        registry.rules = resolve_rules(self.rules, &registry)?;
-        registry.rules.sort_by_key(RuleSpec::qualified_name);
-        registry.rule_dependencies = crate::rule_deps::derive(&registry.rules, &registry)?;
         registry.invariants = resolve_invariants(self.invariants, &registry)?;
         registry
             .invariants
@@ -1055,7 +503,6 @@ impl RegistryBuilder {
             }
         }
         crate::checks::documents(&registry.documents, &registry)?;
-        crate::checks::run(&registry)?;
 
         let fingerprints: Vec<ContentHash> = registry
             .relations
@@ -1065,16 +512,45 @@ impl RegistryBuilder {
         for (spec, fingerprint) in registry.relations.iter_mut().zip(fingerprints) {
             spec.fingerprint = fingerprint;
         }
-        registry.self_description = registry.materialize_schema_rows()?;
-        registry.fingerprint = crate::fingerprint::registry(registry.schema_rows_ref());
-        registry.compiled_declarations = registry
-            .relations
+        registry.contracts = Some(crate::resolved_contract::ContractArena::resolve(&registry)?);
+        registry.self_description = native::materialize(&registry)?;
+        registry.fingerprint = crate::fingerprint::registry(registry.schema_batches())?;
+        Ok(registry)
+    }
+
+    /// Resolve only declarations. Bootstrap consumers do not recursively build a registry.
+    fn resolve_base(&self) -> Result<Registry, SchemaError> {
+        let relations = self.resolve_relations()?;
+        let relation_index = index_relations(&relations);
+        let relation_by_id = relations
             .iter()
-            .map(|spec| {
-                crate::compiled_contract::relation(&registry, spec)
-                    .map(|value| value.literal_spec())
-            })
-            .collect::<Result<_, _>>()?;
+            .enumerate()
+            .map(|(index, spec)| (spec.id, index))
+            .collect();
+        let enums = self.resolve_enums()?;
+        let logical_types = collect_logical_types(&relations, &enums)?;
+
+        let mut registry = Registry {
+            implementations: crate::implementation_cache::ImplementationCache::default(),
+            package_id: *REGISTRY_PACKAGE_ID,
+            fingerprint: ContentHash::NIL,
+            relations,
+            relation_index,
+            relation_by_id,
+            enums,
+            logical_types,
+            logical_storage: Vec::new(),
+            invariants: Vec::new(),
+            migrations: Vec::new(),
+            algorithms: Vec::new(),
+            documents: Vec::new(),
+            artifact_profiles: BTreeMap::new(),
+            self_description: Vec::new(),
+            contracts: None,
+        };
+
+        registry.logical_storage = registry.compile_logical_storage()?;
+
         Ok(registry)
     }
 
@@ -1420,84 +896,6 @@ fn check_field(
         }
     }
     Ok(())
-}
-
-/// Assigns identities to the rule declarations and checks their references.
-///
-/// # Errors
-///
-/// [`SchemaError::DuplicateDeclaration`], [`SchemaError::UnknownReference`] or
-/// [`SchemaError::RuleFloatKey`].
-fn resolve_rules(decls: Vec<RuleDecl>, registry: &Registry) -> Result<Vec<RuleSpec>, SchemaError> {
-    let mut seen: BTreeSet<String> = BTreeSet::new();
-    let mut out = Vec::with_capacity(decls.len());
-    for decl in decls {
-        let name = format!("{}@{}", decl.name, decl.version);
-        if !seen.insert(name.clone()) {
-            return Err(SchemaError::DuplicateDeclaration { kind: "rule", name });
-        }
-        if registry.relation(&decl.head).is_none() {
-            return Err(SchemaError::UnknownReference {
-                context: format!("head of rule {name}"),
-                reference: decl.head.clone(),
-            });
-        }
-        if registry
-            .relation(&decl.head)
-            .is_some_and(|relation| NON_DERIVABLE_NAMESPACES.contains(&relation.key.namespace))
-        {
-            return Err(crate::checks::invalid(
-                format!("head of rule {name}"),
-                "a derived rule cannot write authored or reference facts",
-            ));
-        }
-        for input in &decl.inputs {
-            let relation = input.relation.as_str();
-            if registry.relation(relation).is_none() {
-                return Err(SchemaError::UnknownReference {
-                    context: format!("body of rule {name}"),
-                    reference: relation.to_owned(),
-                });
-            }
-        }
-        if decl.queries.is_empty()
-            || decl.queries.iter().any(|query| {
-                query.sql.trim().is_empty() || !["true", "false", "unknown"].contains(&query.truth)
-            })
-        {
-            return Err(crate::checks::invalid(
-                format!("rule {name}"),
-                "native assertion queries require SQL and a valid truth outcome",
-            ));
-        }
-        let mut ports = BTreeMap::new();
-        for input in &decl.inputs {
-            if input.mode == crate::model::DependencyMode::Write
-                || ports
-                    .insert(input.port, &input.relation)
-                    .is_some_and(|previous| previous != &input.relation)
-            {
-                return Err(crate::checks::invalid(
-                    format!("rule {name}"),
-                    "input ports must name one read scope",
-                ));
-            }
-        }
-        out.push(RuleSpec {
-            id: registry_id(&format!("rule:{name}")),
-            name: decl.name,
-            version: decl.version,
-            stratum: decl.stratum,
-            head: decl.head,
-            assertion_relation: decl.assertion_relation,
-            queries: decl.queries,
-            inputs: decl.inputs,
-            negation: decl.negation,
-            monotonic: decl.monotonic,
-            conflict_policy: decl.conflict_policy,
-        });
-    }
-    Ok(out)
 }
 
 /// Assigns identities to the invariant declarations and checks their references.
@@ -1896,9 +1294,9 @@ mod tests {
                 .collect()
         );
         assert!(
-            full.schema_rows_ref()
+            full.schema_batches()
                 .iter()
-                .any(|(key, rows)| key.name == "artifact_profiles" && rows.len() == 1)
+                .any(|(key, rows)| key.name == "artifact_profiles" && rows.num_rows() == 1)
         );
         assert!(build(["authored.absent".into()].into_iter().collect()).is_err());
         let mut duplicate = RegistryBuilder::new();

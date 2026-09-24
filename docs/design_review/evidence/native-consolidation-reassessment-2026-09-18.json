@@ -1,0 +1,1389 @@
+{
+  "review": "docs/design_review/reviews/design_review_native-consolidation-reassessment_2026-09-18.md",
+  "date": "2026-09-18",
+  "review_status": "done",
+  "decision": "Revise initial proposal; target changes remain Proposed",
+  "workspace_commit": "a46f358bdfc2ca27f9f240ab6c045b63141c3ee9",
+  "scope": "Independent documentation-only consolidation/native-capability design review. Existing policies are not target-design constraints. No implementation or integration acceptance claimed.",
+  "preserved_preexisting_files": {
+    "docs/SUMMARY.md": "20cb52f8e8edb66b14ecb14094eb04e314ba457cf217fe47cedf88795867f605",
+    "docs/design_review/reviews/design_review_consolidation-and-native-pivot_2026-09-18.md": "6e5a4c5a7396149944dbe8acf434a00518a37a55cad5c6ac57b1f898da8226cf",
+    "docs/design_review/evidence/consolidation-native-pivot-2026-09-18.json": "a42637874b0be24931be10374da22690a37f91dc9921285215d37a01551bf9da"
+  },
+  "metadata": {
+    "command": "just metadata-resolve",
+    "mode": "offline",
+    "exit_code": 0,
+    "packages": [
+      {
+        "name": "arrow",
+        "version": "59.3.0",
+        "features": [
+          "arrow-csv",
+          "arrow-ipc",
+          "arrow-json",
+          "canonical_extension_types",
+          "chrono-tz",
+          "csv",
+          "default",
+          "ffi",
+          "ipc",
+          "json",
+          "prettyprint"
+        ],
+        "manifest": "<cargo-registry>/arrow-59.3.0/Cargo.toml"
+      },
+      {
+        "name": "arrow-array",
+        "version": "59.3.0",
+        "features": [
+          "chrono-tz",
+          "ffi"
+        ],
+        "manifest": "<cargo-registry>/arrow-array-59.3.0/Cargo.toml"
+      },
+      {
+        "name": "arrow-buffer",
+        "version": "59.3.0",
+        "features": [],
+        "manifest": "<cargo-registry>/arrow-buffer-59.3.0/Cargo.toml"
+      },
+      {
+        "name": "arrow-data",
+        "version": "59.3.0",
+        "features": [
+          "ffi"
+        ],
+        "manifest": "<cargo-registry>/arrow-data-59.3.0/Cargo.toml"
+      },
+      {
+        "name": "arrow-schema",
+        "version": "59.3.0",
+        "features": [
+          "bitflags",
+          "canonical_extension_types",
+          "ffi",
+          "serde"
+        ],
+        "manifest": "<cargo-registry>/arrow-schema-59.3.0/Cargo.toml"
+      },
+      {
+        "name": "datafusion",
+        "version": "55.1.0",
+        "features": [
+          "bzip2",
+          "compression",
+          "crypto_expressions",
+          "datafusion-datasource-parquet",
+          "datafusion-functions-nested",
+          "datafusion-sql",
+          "datetime_expressions",
+          "default",
+          "encoding_expressions",
+          "flate2",
+          "liblzma",
+          "nested_expressions",
+          "parquet",
+          "recursive_protection",
+          "regex_expressions",
+          "sql",
+          "sqlparser",
+          "string_expressions",
+          "unicode_expressions",
+          "zstd"
+        ],
+        "manifest": "<cargo-registry>/datafusion-55.1.0/Cargo.toml"
+      },
+      {
+        "name": "datafusion-common",
+        "version": "55.1.0",
+        "features": [
+          "object_store",
+          "parquet",
+          "recursive_protection",
+          "sql",
+          "sqlparser"
+        ],
+        "manifest": "<cargo-registry>/datafusion-common-55.1.0/Cargo.toml"
+      },
+      {
+        "name": "datafusion-execution",
+        "version": "55.1.0",
+        "features": [
+          "default",
+          "sql"
+        ],
+        "manifest": "<cargo-registry>/datafusion-execution-55.1.0/Cargo.toml"
+      },
+      {
+        "name": "deltalake-core",
+        "version": "1.0.0",
+        "features": [
+          "datafusion",
+          "datafusion-datasource",
+          "datafusion-physical-expr-adapter",
+          "datafusion-proto",
+          "nanosecond-timestamps",
+          "rustls"
+        ],
+        "manifest": "vendor/delta-rs/crates/core/Cargo.toml"
+      },
+      {
+        "name": "object_store",
+        "version": "0.13.2",
+        "features": [
+          "aws",
+          "azure",
+          "base64",
+          "cloud",
+          "default",
+          "form_urlencoded",
+          "fs",
+          "gcp",
+          "http",
+          "http-body-util",
+          "httparse",
+          "hyper",
+          "md-5",
+          "quick-xml",
+          "rand",
+          "reqwest",
+          "ring",
+          "rustls-pki-types",
+          "serde",
+          "serde_json",
+          "serde_urlencoded",
+          "tokio",
+          "walkdir"
+        ],
+        "manifest": "<cargo-registry>/object_store-0.13.2/Cargo.toml"
+      },
+      {
+        "name": "parquet",
+        "version": "59.3.0",
+        "features": [
+          "arrow",
+          "arrow-array",
+          "arrow-buffer",
+          "arrow-data",
+          "arrow-ipc",
+          "arrow-schema",
+          "arrow-select",
+          "async",
+          "base64",
+          "brotli",
+          "default",
+          "flate2",
+          "flate2-zlib-rs",
+          "futures",
+          "lz4",
+          "lz4_flex",
+          "object_store",
+          "simdutf8",
+          "snap",
+          "tokio",
+          "zstd"
+        ],
+        "manifest": "<cargo-registry>/parquet-59.3.0/Cargo.toml"
+      },
+      {
+        "name": "petgraph",
+        "version": "0.8.3",
+        "features": [
+          "default",
+          "graphmap",
+          "matrix_graph",
+          "stable_graph",
+          "std"
+        ],
+        "manifest": "<cargo-registry>/petgraph-0.8.3/Cargo.toml"
+      },
+      {
+        "name": "pyo3",
+        "version": "0.29.2",
+        "features": [
+          "abi3",
+          "abi3-py311",
+          "abi3-py312",
+          "abi3-py313",
+          "abi3-py314",
+          "abi3-py315",
+          "chrono",
+          "chrono-tz",
+          "default",
+          "experimental-inspect",
+          "extension-module",
+          "indexmap",
+          "macros",
+          "pyo3-macros"
+        ],
+        "manifest": "<cargo-registry>/pyo3-0.29.2/Cargo.toml"
+      },
+      {
+        "name": "serde_arrow",
+        "version": "0.15.0",
+        "features": [
+          "arrow-59",
+          "default"
+        ],
+        "manifest": "<cargo-registry>/serde_arrow-0.15.0/Cargo.toml"
+      }
+    ]
+  },
+  "library_method": {
+    "skills": [
+      ".codex/skills/design-review/SKILL.md",
+      ".codex/skills/datafusion/SKILL.md",
+      ".codex/skills/deltalake/SKILL.md"
+    ],
+    "delta_overlay": ".codex/skills/deltalake/content/overlays/pse-native-cache-seams.md",
+    "delta_revision": "58f07cd62bfbce3649a7e1c87c696288068ae184",
+    "delta_patch_sha256": "b4047f3102627082170ee5b3babc5c28fcc36123f339df84dbf192e7677854f6",
+    "context7": "Python PyArrow only; discovery was corroborated against installed 25.0.1. No Context7 for Rust Arrow, DataFusion, or Delta.",
+    "public_api_corroboration": "https://docs.rs/datafusion-expr/55.1.0/datafusion_expr/trait.AggregateUDFImpl.html"
+  },
+  "capability_scans": {
+    "datafusion": {
+      "command": "ast-grep scan -c .codex/skills/datafusion/queries/sgconfig.yml --filter '^project-' --json=compact crates",
+      "candidate_count": 84,
+      "by_rule": {
+        "project-collect-over-stream": 25,
+        "project-unbounded-session": 33,
+        "project-execution-plan-no-statistics": 16,
+        "project-tableprovider-no-pushdown": 10
+      },
+      "candidates": [
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-numerics/tests/native_expressions.rs",
+          "line": 366
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-numerics/tests/native_expressions.rs",
+          "line": 415
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-authoring/tests/native_parser.rs",
+          "line": 37
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-authoring/tests/native_parser.rs",
+          "line": 87
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-compiler/src/native/execution.rs",
+          "line": 108
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/tests/unified_delta_dml.rs",
+          "line": 168
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/tests/unified_delta_dml.rs",
+          "line": 332
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/tests/row_keys.rs",
+          "line": 32
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/tests/row_keys.rs",
+          "line": 31
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/tests/support/source_syntax.rs",
+          "line": 58
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/tests/unified_delta_contracts.rs",
+          "line": 1045
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/tests/unified_delta_contracts.rs",
+          "line": 1385
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/tests/native_value_contracts.rs",
+          "line": 43
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/tests/native_value_contracts.rs",
+          "line": 46
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/tests/provider_contracts.rs",
+          "line": 539
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/cache_service/resident.rs",
+          "line": 195
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/cache_service/resident.rs",
+          "line": 260
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/cache_service/inspection.rs",
+          "line": 97
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/cache_service/inspection.rs",
+          "line": 203
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/artifact/consumption.rs",
+          "line": 394
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/artifact/consumption.rs",
+          "line": 404
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/artifact/dependencies.rs",
+          "line": 394
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/numerical/tests.rs",
+          "line": 56
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/session/materialized.rs",
+          "line": 26
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/session/preparation.rs",
+          "line": 410
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/session/preparation.rs",
+          "line": 432
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/session/preparation.rs",
+          "line": 663
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/session/resolution/provider.rs",
+          "line": 101
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/session/resolution/provider.rs",
+          "line": 32
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/admission/tests.rs",
+          "line": 130
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/admission/tests.rs",
+          "line": 189
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/admission/tests.rs",
+          "line": 225
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/admission/tests.rs",
+          "line": 268
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/admission/tests.rs",
+          "line": 300
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/admission/tests.rs",
+          "line": 429
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/admission/tests.rs",
+          "line": 460
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/delta/admission/tests.rs",
+          "line": 149
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-rules/tests/support/native_check_execution.rs",
+          "line": 247
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-rules/tests/support/native_check_execution.rs",
+          "line": 404
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-rules/tests/support/native_check_execution.rs",
+          "line": 252
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-rules/tests/support/native_check_execution.rs",
+          "line": 413
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/session/plan_codec.rs",
+          "line": 327
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/delta/dml/execution.rs",
+          "line": 113
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-rules/tests/support/row_key.rs",
+          "line": 44
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-rules/tests/support/row_key.rs",
+          "line": 44
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/session/candidate.rs",
+          "line": 19
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/delta/maintenance.rs",
+          "line": 263
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/delta/leased.rs",
+          "line": 156
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-rules/src/invariants/program/tests.rs",
+          "line": 229
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-rules/src/invariants/program/tests.rs",
+          "line": 231
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 86
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 250
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/delta/write.rs",
+          "line": 269
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/predicates/tests.rs",
+          "line": 38
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/delta/publish.rs",
+          "line": 236
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/quantities/tests.rs",
+          "line": 189
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/quantities/tests.rs",
+          "line": 221
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/session/cache/tests.rs",
+          "line": 30
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/nested_values/tests.rs",
+          "line": 31
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/delta/layout/tests.rs",
+          "line": 81
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/delta/layout/tests.rs",
+          "line": 171
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/layout/tests.rs",
+          "line": 76
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/layout/tests.rs",
+          "line": 169
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/source_spans/tests.rs",
+          "line": 10
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/delta/source_spans/tests.rs",
+          "line": 69
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/session/cache/logical.rs",
+          "line": 311
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/session/cache/logical.rs",
+          "line": 334
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/session/contract/tests.rs",
+          "line": 25
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-rules/src/strata/relational.rs",
+          "line": 413
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/session/cache.rs",
+          "line": 786
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/session/capture.rs",
+          "line": 54
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/session/round.rs",
+          "line": 140
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/session/round.rs",
+          "line": 194
+        },
+        {
+          "rule": "project-collect-over-stream",
+          "file": "crates/pse-catalog/src/session/admission/derive.rs",
+          "line": 285
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/session/contract.rs",
+          "line": 178
+        },
+        {
+          "rule": "project-execution-plan-no-statistics",
+          "file": "crates/pse-catalog/src/session/commands/deferred.rs",
+          "line": 145
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/session/capture/tables.rs",
+          "line": 20
+        },
+        {
+          "rule": "project-tableprovider-no-pushdown",
+          "file": "crates/pse-catalog/src/session/physical_input.rs",
+          "line": 52
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/provider/table/tests.rs",
+          "line": 56
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/provider/table/tests.rs",
+          "line": 96
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/provider/table/tests.rs",
+          "line": 132
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/provider/table/tests.rs",
+          "line": 170
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/provider/table/tests.rs",
+          "line": 197
+        },
+        {
+          "rule": "project-unbounded-session",
+          "file": "crates/pse-catalog/src/contract/row_checks.rs",
+          "line": 60
+        }
+      ],
+      "interpretation": "Discovery candidates, not defects; includes tests and false positives from builder chaining/current trait hooks."
+    },
+    "delta": {
+      "command": "ast-grep scan -c .codex/skills/deltalake/queries/sgconfig.yml --filter '^project-' --json=compact crates",
+      "candidate_count": 41,
+      "by_rule": {
+        "project-write-without-commit-properties": 21,
+        "project-write-without-schema-mode": 19,
+        "project-vacuum-default-retention": 1
+      },
+      "candidates": [
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/unified_delta_dml.rs",
+          "line": 62
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/unified_delta_dml.rs",
+          "line": 414
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/unified_delta_dml.rs",
+          "line": 423
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/tests/unified_delta_dml.rs",
+          "line": 62
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/composite_reference_checks.rs",
+          "line": 164
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/tests/composite_reference_checks.rs",
+          "line": 164
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/tests/native_value_contracts.rs",
+          "line": 213
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/tests/native_value_contracts.rs",
+          "line": 238
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/native_value_contracts.rs",
+          "line": 213
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/native_value_contracts.rs",
+          "line": 238
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/declared_row_checks.rs",
+          "line": 227
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/tests/declared_row_checks.rs",
+          "line": 227
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/unified_delta_contracts.rs",
+          "line": 1812
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/cache_service/delta_journeys.rs",
+          "line": 50
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/cache_service/delta_journeys.rs",
+          "line": 81
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/cache_service/delta_journeys.rs",
+          "line": 170
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/cache_service/delta_journeys.rs",
+          "line": 50
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/cache_service/delta_journeys.rs",
+          "line": 81
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/cache_service/delta_journeys.rs",
+          "line": 170
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/tests/tagged_delta_values.rs",
+          "line": 180
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/tests/tagged_delta_values.rs",
+          "line": 259
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/tagged_delta_values.rs",
+          "line": 180
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/tagged_delta_values.rs",
+          "line": 259
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/tests/coherent_math.rs",
+          "line": 173
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/tests/coherent_math.rs",
+          "line": 173
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 117
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 125
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 133
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 144
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 154
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 206
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 117
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 125
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 133
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 144
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/session/mutation/native.rs",
+          "line": 154
+        },
+        {
+          "rule": "project-write-without-commit-properties",
+          "file": "crates/pse-catalog/src/session/mutation/native/tests.rs",
+          "line": 164
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/delta/dml/execution.rs",
+          "line": 185
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/delta/publish.rs",
+          "line": 437
+        },
+        {
+          "rule": "project-vacuum-default-retention",
+          "file": "crates/pse-catalog/src/delta/maintenance.rs",
+          "line": 586
+        },
+        {
+          "rule": "project-write-without-schema-mode",
+          "file": "crates/pse-catalog/src/delta/write.rs",
+          "line": 489
+        }
+      ],
+      "interpretation": "Discovery candidates, not defects; includes tests and false positives from builder chaining/current trait hooks."
+    }
+  },
+  "inspected_source_grain": "Targeted functions/callers in these files; not exhaustive file or crate audits.",
+  "inspected_sources": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "7689f9f0800aa49cdd6d3910e0734a9abda3a5e353ee1e9bb46ea435a4e5efa1"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "12d2e0bcc454c1a91c7e20b1e3b60036e49f22f85a73ffb6d428a29cc7196b5f"
+    },
+    {
+      "path": "crates/pse-schema/src/compiled_contract.rs",
+      "sha256": "be68dcc504eb9e5c53e370b4ddab69f60baec5885faff1a7d639e4a724f7f79b"
+    },
+    {
+      "path": "crates/pse-schema/src/builder.rs",
+      "sha256": "c1f4f6949f4fcc20e12c5681e1fdbf316e6572596020400837761272c1355d95"
+    },
+    {
+      "path": "crates/pse-schema/src/model/cell.rs",
+      "sha256": "8b3113a8b0ac82f7c0ebaab5daf28000d760be443cee97f0ffb024db024d8c7b"
+    },
+    {
+      "path": "crates/pse-schema/src/model/relation.rs",
+      "sha256": "d729c5221b611c761f0d02d8615aada3c1e28eeb08eed78acfee30c7e5477016"
+    },
+    {
+      "path": "crates/pse-schema/src/model/algorithm.rs",
+      "sha256": "eeefe1f09ae54ed75cfc1f35566dd067c456b369cc57533b1ee05c56bcc7998d"
+    },
+    {
+      "path": "crates/pse-schema/src/model/provider.rs",
+      "sha256": "7debe9cb7ddde281cdbd92edb1c4fa6f4485c24b9aada2abbe3885aa113d908e"
+    },
+    {
+      "path": "crates/pse-schema/src/field_contract.rs",
+      "sha256": "c90112b565ef7ecfa212a354fa52e0729c11ccd78ab2260868a2da973d25a551"
+    },
+    {
+      "path": "crates/pse-schema/src/delta.rs",
+      "sha256": "0a8514f47ea1a4dc2408ef058f6a0af4578364916da44c6bc9c97d88fe03995c"
+    },
+    {
+      "path": "crates/pse-schema/src/catalog/enums_platform.rs",
+      "sha256": "54074459947fa3b2521e6fe55cc4902d9019d8b5dfcfa5a1fafff48692d613c7"
+    },
+    {
+      "path": "crates/pse-schema/src/math/operators.rs",
+      "sha256": "6880aafed05124f1b9cd7000df46469f630ef9225d4647d451aa533a1aec032d"
+    },
+    {
+      "path": "crates/pse-schema/src/codegen/rust/columnar.rs",
+      "sha256": "67bea21a4b5aabef7c91bac8e740dac320c18cb2a18cb0e80c578c3db857c20d"
+    },
+    {
+      "path": "crates/pse-relations/src/columnar.rs",
+      "sha256": "2e62ac3a9fc603e836d0bb5faa96392ac81605cb6f8b16fbd00d6e46bdd079fe"
+    },
+    {
+      "path": "crates/pse-relations/src/cells.rs",
+      "sha256": "b32387c9106e5bec917ff2584e4a91f0f708c13c9f275349e60013ad619d972c"
+    },
+    {
+      "path": "crates/pse-relations/src/validate/mod.rs",
+      "sha256": "27c347d530bdbc1b42cbb42342c4810ebbdef01ced96d4724aa286ae4388b98a"
+    },
+    {
+      "path": "crates/pse-relations/src/validate/values.rs",
+      "sha256": "1c7818bda8cc378f473c7e9d17c289623656f5e3975a7bbb41241eedec007419"
+    },
+    {
+      "path": "crates/pse-ids/src/contract.rs",
+      "sha256": "94d7583cc099c8bcc4df5506fd492b0b5417e42c1e47789b3bd1dcda9761d621"
+    },
+    {
+      "path": "crates/pse-ids/src/canon/stages.rs",
+      "sha256": "f2fc2ea1093268a9c5e52279876b9c745b04e9913eabfce1a8609a47eff3945b"
+    },
+    {
+      "path": "crates/pse-ids/src/owned_buffer.rs",
+      "sha256": "24ec1f477156c4c1dc445c340c709ebc626f7e1e82e308655ec333b5d20be037"
+    },
+    {
+      "path": "crates/pse-ids/src/validation_extent.rs",
+      "sha256": "3ff128045794707e8b7e9e6fce9f55b6e2c1438e9b3e9ac90995a3d69ec6fe40"
+    },
+    {
+      "path": "crates/pse-ids/src/resource.rs",
+      "sha256": "37774d0ce0efc9eae0c661fc5a35bd2ac5cccfebe673eefec0a2f4e6694958ea"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/contract.rs",
+      "sha256": "a100f5c2a568fa6ed3d6c35ff72b866904bcd723d8d5cdca6deb1a4f712e5a60"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/cache.rs",
+      "sha256": "14fc0a6c727ad7ca7a17c7ae78af13b99606c1af2b83fa5bf8ec1019ba264909"
+    },
+    {
+      "path": "crates/pse-catalog/src/artifact/consumption.rs",
+      "sha256": "ed8b1f81a0fc58d075d1a85479d19ead63cb44441c151e16013ab7a7e72d45d2"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/config.rs",
+      "sha256": "26156c41277b0c6fb6b42af893e5690319ebfa51fbb532b7ec7fd2666678814e"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/factory.rs",
+      "sha256": "6a51ea7ee5ab233c01d0c96c5e00c246f4a5cb0e0994a98938f8d814fbb693eb"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/native.rs",
+      "sha256": "40540ab802fbc98be74a9a3025ced27037ef98bef4ac95bf9339eb77e6216fd6"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/round.rs",
+      "sha256": "67c3a6e5143f54c9979483cd9add605dde2416de879928d09b148db14dddf5d3"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/materialized.rs",
+      "sha256": "438424964f61afe29f2212d55613c5a9b67bd4763ecbbb836b31200562441c8b"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/candidate.rs",
+      "sha256": "1849837a378df6df23eea3c4fdffd3653f3c494045f99f9d194817df7db5b23c"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/capture/values.rs",
+      "sha256": "3aa3e012e057cfffe8c5ea32324207a9320c990ba28a3a2c53f8892a5351399b"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/field_transfer.rs",
+      "sha256": "de9c3e43401e72ba2e9c85613f23bf79151d511fca8a05cac5453f8ae47a085f"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/scalar/structure.rs",
+      "sha256": "13e1cb9f52242dd0d5495a52524b9ad38b5f0e789ce13a649b57b07e949a0abd"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/scalar/element.rs",
+      "sha256": "9b76bd4dfd71903ffdf738c8523fa98fbe3a9afe8b5a31b8522a1984776ab26a"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/scalar/list_concat.rs",
+      "sha256": "510225455ad053e48af367ff05c29d05cb44cfcd754ee4fdcf354724f0a27f09"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/scalar/encode.rs",
+      "sha256": "5dbebaff9b71126b4283ffb7f2c80f7c2a3342599430d818343e43056e798f41"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/aggregate/selection.rs",
+      "sha256": "682041019bd4ea76c49effbcab6bbef443f379dd445945b6639bf763800de610"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/plan_codec.rs",
+      "sha256": "e09b82ba64d86584834e39cba8e3a64c4ceb3657bce47557fbb0fc969ccfe181"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/admission/derive.rs",
+      "sha256": "46c42ed4ee3e1bdfcd34a30c0ee2711c92121eccbd3c6ed443d3ecde4c3b8e11"
+    },
+    {
+      "path": "crates/pse-catalog/src/session/cache/admission.rs",
+      "sha256": "a1ba899f288f244f86f0720ddbdc1ad22de87594d3a43ee7cfb76535497ed020"
+    },
+    {
+      "path": "crates/pse-catalog/src/failure.rs",
+      "sha256": "07fc19c5089e91f132c57a1cb294733dd2006c13f15e94071446c11df3e01550"
+    },
+    {
+      "path": "crates/pse-catalog/src/error.rs",
+      "sha256": "63d2724ba67955363d2a81766b718f6219fd317541dd28936b2eda15a35e83c9"
+    },
+    {
+      "path": "crates/pse-catalog/src/cache_service/mod.rs",
+      "sha256": "f80aa970847992333347006246f95e3eb0024d51b4b94dd43287d9440621f562"
+    },
+    {
+      "path": "crates/pse-catalog/src/cache_service/flight.rs",
+      "sha256": "6f6d2e1c9630091762eddd28db3167e1842cddba76fb3c8fafb82b7dcd761179"
+    },
+    {
+      "path": "crates/pse-catalog/src/delta/contract.rs",
+      "sha256": "4312362832219f1d5caba10fc11445df954901717b4cb717b011edba59716c16"
+    },
+    {
+      "path": "crates/pse-catalog/src/delta/predicates.rs",
+      "sha256": "480e970c123ac6741fa5f6afb94e5df5648b72266bce1bd481484d0f505b30c7"
+    },
+    {
+      "path": "crates/pse-catalog/src/delta/nested_check.rs",
+      "sha256": "0459d43fcb6ab2568749ac50c5b875f3139971afb8a08e723bd4cb7f9b3de45d"
+    },
+    {
+      "path": "crates/pse-catalog/src/delta/layout.rs",
+      "sha256": "dd1463b0a3de338b56dcca9d2c507b6987990d42ab0e0d153bcb108227f32ceb"
+    },
+    {
+      "path": "crates/pse-catalog/src/delta/admission.rs",
+      "sha256": "e84df679689b0eb67f2adc6444758a2755a7b445ee477cf6f2c1189789ecd311"
+    },
+    {
+      "path": "crates/pse-catalog/src/delta/dml/execution.rs",
+      "sha256": "22c16ba38a888dafa053a2286f14284ce1680ec6c7202af0f054d90f01f078cd"
+    },
+    {
+      "path": "crates/pse-catalog/src/delta/maintenance.rs",
+      "sha256": "58d3d12ee0450ca4089962ae9127e295f588f6adb893b736877b4daa4d805646"
+    },
+    {
+      "path": "crates/pse-catalog/src/delta/leased.rs",
+      "sha256": "35b039e4f5dd9264f239ebea36b059f552621b3ffd9bd6aa5032ccb41667ee2f"
+    },
+    {
+      "path": "crates/pse-compiler/src/native/layout.rs",
+      "sha256": "0147e99934bad98aee2cae94ebc2802498dfc8f24a388bce65a969d6ce306ba4"
+    },
+    {
+      "path": "crates/pse-compiler/src/passes/p6/framing.rs",
+      "sha256": "695a781770cf63798a5dff9680014077ca05e293a20a89a4bfb272778c88baa3"
+    },
+    {
+      "path": "crates/pse-compiler/src/passes/p6/framing/dependencies.rs",
+      "sha256": "e2165fd5b06ee1fbb6b54bde9172f7c160f350cbef1c91b958b55e797ca32671"
+    },
+    {
+      "path": "crates/pse-compiler/src/passes/p7/inventory.rs",
+      "sha256": "195b225e3471995d7ef51ab2356d124accd56397a305f6af62bf38889ce28689"
+    },
+    {
+      "path": "crates/pse-compiler/src/passes/p7/inventory/source_index.rs",
+      "sha256": "41d80bd7df9c1ab9d9864b3489052df2c9cca373fee62d0218357ff412b4a5d4"
+    },
+    {
+      "path": "crates/pse-compiler/src/passes/p7/evidence.rs",
+      "sha256": "dbde1d2fea7831546f9074314639ed3f800b757f580c75abfd99786bea912d90"
+    },
+    {
+      "path": "crates/pse-compiler/src/passes/p8/expansion/axes.rs",
+      "sha256": "a91b857f3ea833ad816fc4512f3adb4db3106f53f6f1fc4ebbfe7ff649928f19"
+    },
+    {
+      "path": "crates/pse-compiler/src/passes/p10/contracts.rs",
+      "sha256": "5d845d2ac2d1aeaf2403c30394981b1a5b2913bf9320d5499b6b0d7a2b7f56cc"
+    },
+    {
+      "path": "crates/pse-compiler/src/passes/p4/predicates/scalar.rs",
+      "sha256": "5238f36772d513c866e4103a94bbe974e7a85e6ed67272931cb569833ceb3b45"
+    },
+    {
+      "path": "crates/pse-mathir/src/topo.rs",
+      "sha256": "91022eba8ebde123a709ecd403491dd0884a18d4de24e55cd9f3bb86714e0290"
+    },
+    {
+      "path": "crates/pse-mathir/src/walk.rs",
+      "sha256": "0305b4a5bb28f99eec1196c7db407b79287b8c1edeb38449ae9db5eea1bb342f"
+    },
+    {
+      "path": "crates/pse-mathir/src/fold.rs",
+      "sha256": "3085a1e130de22b14fe53fc76c093d0a6043e2705a2179d3ce676fb926779b7b"
+    },
+    {
+      "path": "crates/pse-mathir/src/canonicalize.rs",
+      "sha256": "679451f41b9d783755a6306c336cb6ee26c3c54680e1b74f478b4e3292633d71"
+    },
+    {
+      "path": "crates/pse-numerics/src/scalar_math.rs",
+      "sha256": "09580e0e888081bdf78709434f84e5dacdb8bb2ac99747199a6123b99ce4bd19"
+    },
+    {
+      "path": "crates/pse-numerics/src/differentiate.rs",
+      "sha256": "3d8be4535f432991534204ade16022f7432c705aaf2ad2665955f051560c39c9"
+    },
+    {
+      "path": "crates/pse-numerics/src/expressions.rs",
+      "sha256": "bcc6e8d963c58120c5ad1907ed176a45ce07564763f1fdb6680d82a4c1b0b1a6"
+    },
+    {
+      "path": "crates/pse-quantity/src/unit.rs",
+      "sha256": "25f58014c2afd13a3500426239ecb4139f4d1c7c27ac59725d720de121aec196"
+    },
+    {
+      "path": "crates/pse-rules/src/plan/mod.rs",
+      "sha256": "823afbbb98f46a4861e4f7e7e4b1b81d0b0cc1fe7233cda0dc75859db2261ca2"
+    },
+    {
+      "path": "crates/pse-runtime/src/reserve.rs",
+      "sha256": "fa3f8d9f52a149c10d76c438192da36522476164a7a7c768a4aab397e53de6a1"
+    },
+    {
+      "path": "crates/pse-runtime/src/lib.rs",
+      "sha256": "c362e2c9c94bc122ee6a52974bb1002d9ca09785044d5080375688698520e4c6"
+    },
+    {
+      "path": "crates/pse-runtime/src/session_factory.rs",
+      "sha256": "58f62a1cc3d9ec58b576302b57a6a1c462830b320444e99b3dfd1a1fea926520"
+    },
+    {
+      "path": "crates/pse-diagnostics/src/lib.rs",
+      "sha256": "2c44ac92545c6f9c965ab7d149f9f23e5e399552c257d8ca45e589e3bde1fe66"
+    },
+    {
+      "path": "crates/pse-diagnostics/Cargo.toml",
+      "sha256": "6208ada068ea404238d875392a3137fdca846ea3c1a20c99dbf265a529303c08"
+    },
+    {
+      "path": "crates/pse-py/src/inspection/settings.rs",
+      "sha256": "d6213170cc6038a6c4b74ea64b4fb18afef05b596559bfca3fe417104ec35b34"
+    },
+    {
+      "path": "crates/pse-py/src/inspection/handles.rs",
+      "sha256": "dd203fefc9870a6828a98ad99e85b3520cabe7f6972a0d6cd32aaba1a3c32f2a"
+    },
+    {
+      "path": "python/pse/_transfer.py",
+      "sha256": "88c5ab6a54948c56d749e1b27e82e09c5c593282167a14f4208840ac7bbd705b"
+    },
+    {
+      "path": "python/pse/contracts/values.py",
+      "sha256": "583b0404d87a05849d6d4a4365a07a8c813cee2c26ddb30aae8eec99240fff2f"
+    },
+    {
+      "path": "vendor/delta-rs/crates/core/src/delta_datafusion/data_validation.rs",
+      "sha256": "767d76d869bf2b62fe003246508ac7abb736d613037a9a3f7385273fbefe7776"
+    },
+    {
+      "path": "vendor/delta-rs/crates/core/src/kernel/transaction/mod.rs",
+      "sha256": "6448c8b791c79f0c6ff9659ebc0eeb840499f9f8532979629b5d78bbd8190675"
+    }
+  ],
+  "probes": {
+    "P1": {
+      "evidence": "Tested characterization, not a workspace test",
+      "command": "cargo +1.98.1 run --offline --quiet --manifest-path <scratch>/Cargo.toml --target-dir <scratch>/target",
+      "reproduce": "Create an isolated scratch directory, write the Cargo.toml, Cargo.lock and src/main.rs strings below, then execute the command from the repository environment. No workspace manifests are changed.",
+      "cargo_toml": "[package]\nname = \"native-consolidation-probe\"\nversion = \"0.0.0\"\nedition = \"2024\"\n[workspace]\n[dependencies]\narrow-array = { version = \"=59.3.0\", features = [\"pool\"] }\narrow-buffer = { version = \"=59.3.0\", features = [\"pool\"] }\narrow-data = { version = \"=59.3.0\", features = [\"force_validate\"] }\n",
+      "cargo_lock": "# This file is automatically @generated by Cargo.\n# It is not intended for manual editing.\nversion = 4\n\n[[package]]\nname = \"ahash\"\nversion = \"0.8.12\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75\"\ndependencies = [\n \"cfg-if\",\n \"const-random\",\n \"getrandom 0.3.4\",\n \"once_cell\",\n \"version_check\",\n \"zerocopy\",\n]\n\n[[package]]\nname = \"android_system_properties\"\nversion = \"0.1.6\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"ae221649c9976a6f6c56ae1facf410f3ddb33cc661c4b7b61020a912d4237fbc\"\ndependencies = [\n \"libc\",\n]\n\n[[package]]\nname = \"arrow-array\"\nversion = \"59.3.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"1e5f6adeffdf587d7a31db5d2266189624b526730cd3627f9ff9fedae97ad584\"\ndependencies = [\n \"ahash\",\n \"arrow-buffer\",\n \"arrow-data\",\n \"arrow-schema\",\n \"chrono\",\n \"half\",\n \"hashbrown\",\n \"num-complex\",\n \"num-integer\",\n \"num-traits\",\n]\n\n[[package]]\nname = \"arrow-buffer\"\nversion = \"59.3.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"097d193003ce7995d5d087089069ec2a6e0187faf5a6f8c9f38af2645d987182\"\ndependencies = [\n \"bytes\",\n \"half\",\n \"num-bigint\",\n \"num-traits\",\n]\n\n[[package]]\nname = \"arrow-data\"\nversion = \"59.3.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"9ba2f832eaeca24b8f26143dba750e42ee4ab51cf7d65e701ca9607cfda9f358\"\ndependencies = [\n \"arrow-buffer\",\n \"arrow-schema\",\n \"half\",\n \"num-integer\",\n \"num-traits\",\n]\n\n[[package]]\nname = \"arrow-schema\"\nversion = \"59.3.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"10fab8d4563491417ba801fab29d205104d20d4bdf37bda6cd1cf425cff598cd\"\n\n[[package]]\nname = \"autocfg\"\nversion = \"1.5.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53\"\n\n[[package]]\nname = \"bumpalo\"\nversion = \"3.20.3\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649\"\n\n[[package]]\nname = \"bytes\"\nversion = \"1.12.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04\"\n\n[[package]]\nname = \"cc\"\nversion = \"1.4.6\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"a3eb0f42d6c360dc3f8a821f6bf2fdea7f72bfd36b3076eb0e6d1e9e0752fff4\"\ndependencies = [\n \"find-msvc-tools\",\n \"shlex\",\n]\n\n[[package]]\nname = \"cfg-if\"\nversion = \"1.0.5\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600\"\n\n[[package]]\nname = \"chrono\"\nversion = \"0.4.45\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327\"\ndependencies = [\n \"iana-time-zone\",\n \"num-traits\",\n \"windows-link\",\n]\n\n[[package]]\nname = \"const-random\"\nversion = \"0.1.18\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"87e00182fe74b066627d63b85fd550ac2998d4b0bd86bfed477a0ae4c7c71359\"\ndependencies = [\n \"const-random-macro\",\n]\n\n[[package]]\nname = \"const-random-macro\"\nversion = \"0.1.16\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"f9d839f2a20b0aee515dc581a6172f2321f96cab76c1a38a4c584a194955390e\"\ndependencies = [\n \"getrandom 0.2.17\",\n \"once_cell\",\n \"tiny-keccak\",\n]\n\n[[package]]\nname = \"core-foundation-sys\"\nversion = \"0.8.7\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b\"\n\n[[package]]\nname = \"crunchy\"\nversion = \"0.2.4\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5\"\n\n[[package]]\nname = \"find-msvc-tools\"\nversion = \"0.1.12\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"3e0f1c7c3a72c66fd80abe965175f7523475c0489a87d3ff9d6e8c87d87a9d2d\"\n\n[[package]]\nname = \"futures-core\"\nversion = \"0.3.34\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e\"\n\n[[package]]\nname = \"futures-task\"\nversion = \"0.3.34\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"cd417de3d1d015fc3bfd2b1ea46dfc7bab72ef86f1cc7cc9c78e728b34a6d1fd\"\n\n[[package]]\nname = \"futures-util\"\nversion = \"0.3.34\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc\"\ndependencies = [\n \"futures-core\",\n \"futures-task\",\n \"pin-project-lite\",\n \"slab\",\n]\n\n[[package]]\nname = \"getrandom\"\nversion = \"0.2.17\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"ff2abc00be7fca6ebc474524697ae276ad847ad0a6b3faa4bcb027e9a4614ad0\"\ndependencies = [\n \"cfg-if\",\n \"libc\",\n \"wasi\",\n]\n\n[[package]]\nname = \"getrandom\"\nversion = \"0.3.4\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd\"\ndependencies = [\n \"cfg-if\",\n \"libc\",\n \"r-efi\",\n \"wasip2\",\n]\n\n[[package]]\nname = \"half\"\nversion = \"2.7.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"6ea2d84b969582b4b1864a92dc5d27cd2b77b622a8d79306834f1be5ba20d84b\"\ndependencies = [\n \"cfg-if\",\n \"crunchy\",\n \"num-traits\",\n \"zerocopy\",\n]\n\n[[package]]\nname = \"hashbrown\"\nversion = \"0.17.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a\"\n\n[[package]]\nname = \"iana-time-zone\"\nversion = \"0.1.65\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470\"\ndependencies = [\n \"android_system_properties\",\n \"core-foundation-sys\",\n \"iana-time-zone-haiku\",\n \"js-sys\",\n \"log\",\n \"wasm-bindgen\",\n \"windows-core\",\n]\n\n[[package]]\nname = \"iana-time-zone-haiku\"\nversion = \"0.1.2\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f\"\ndependencies = [\n \"cc\",\n]\n\n[[package]]\nname = \"js-sys\"\nversion = \"0.3.105\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"ce57d20d1ea864ce2ac172ab472d409214f4fd359f0b2a2775abdf522e2af99e\"\ndependencies = [\n \"cfg-if\",\n \"futures-util\",\n \"wasm-bindgen\",\n]\n\n[[package]]\nname = \"libc\"\nversion = \"0.2.189\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2\"\n\n[[package]]\nname = \"libm\"\nversion = \"0.2.16\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981\"\n\n[[package]]\nname = \"log\"\nversion = \"0.4.34\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6\"\n\n[[package]]\nname = \"native-consolidation-probe\"\nversion = \"0.0.0\"\ndependencies = [\n \"arrow-array\",\n \"arrow-buffer\",\n \"arrow-data\",\n]\n\n[[package]]\nname = \"num-bigint\"\nversion = \"0.5.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"93e7820bc0a80a0238e650327316f929ba18d5be054b647490a3a6a339f3e7c0\"\ndependencies = [\n \"num-integer\",\n \"num-traits\",\n]\n\n[[package]]\nname = \"num-complex\"\nversion = \"0.4.6\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"73f88a1307638156682bada9d7604135552957b7818057dcef22705b4d509495\"\ndependencies = [\n \"num-traits\",\n]\n\n[[package]]\nname = \"num-integer\"\nversion = \"0.1.47\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"7ce2d95d4b3734dc35aa2f45e1aa22cd416814592a4f9d9205e11affd5b8e10b\"\ndependencies = [\n \"num-traits\",\n]\n\n[[package]]\nname = \"num-traits\"\nversion = \"0.2.19\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841\"\ndependencies = [\n \"autocfg\",\n \"libm\",\n]\n\n[[package]]\nname = \"once_cell\"\nversion = \"1.21.4\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50\"\n\n[[package]]\nname = \"pin-project-lite\"\nversion = \"0.2.17\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd\"\n\n[[package]]\nname = \"proc-macro2\"\nversion = \"1.0.107\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9\"\ndependencies = [\n \"unicode-ident\",\n]\n\n[[package]]\nname = \"quote\"\nversion = \"1.0.47\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001\"\ndependencies = [\n \"proc-macro2\",\n]\n\n[[package]]\nname = \"r-efi\"\nversion = \"5.3.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f\"\n\n[[package]]\nname = \"rustversion\"\nversion = \"1.0.23\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f\"\n\n[[package]]\nname = \"shlex\"\nversion = \"2.0.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba\"\n\n[[package]]\nname = \"slab\"\nversion = \"0.4.12\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5\"\n\n[[package]]\nname = \"syn\"\nversion = \"2.0.119\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"872831b642d1a07999a962a351ed35b955ea2cfc8f3862091e2a240a84f17297\"\ndependencies = [\n \"proc-macro2\",\n \"quote\",\n \"unicode-ident\",\n]\n\n[[package]]\nname = \"syn\"\nversion = \"3.0.6\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee\"\ndependencies = [\n \"proc-macro2\",\n \"quote\",\n \"unicode-ident\",\n]\n\n[[package]]\nname = \"tiny-keccak\"\nversion = \"2.0.2\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237\"\ndependencies = [\n \"crunchy\",\n]\n\n[[package]]\nname = \"unicode-ident\"\nversion = \"1.0.26\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954\"\n\n[[package]]\nname = \"version_check\"\nversion = \"0.9.5\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a\"\n\n[[package]]\nname = \"wasi\"\nversion = \"0.11.1+wasi-snapshot-preview1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b\"\n\n[[package]]\nname = \"wasip2\"\nversion = \"1.0.4+wasi-0.2.12\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"b67efb37e106e55ce722a510d6b5f9c17f083e5fc79afc2badeb12cc313d9487\"\ndependencies = [\n \"wit-bindgen\",\n]\n\n[[package]]\nname = \"wasm-bindgen\"\nversion = \"0.2.128\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"aecb87a33d3b0c5e3b7aa46336eaf486cffafbd281b195e4c8b80d50df2351bf\"\ndependencies = [\n \"cfg-if\",\n \"once_cell\",\n \"rustversion\",\n \"wasm-bindgen-macro\",\n \"wasm-bindgen-shared\",\n]\n\n[[package]]\nname = \"wasm-bindgen-macro\"\nversion = \"0.2.128\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"a690d511e3c1a8b3a55e33511e3c2c00c78415cd23650f32b808627f5696b9ed\"\ndependencies = [\n \"quote\",\n \"wasm-bindgen-macro-support\",\n]\n\n[[package]]\nname = \"wasm-bindgen-macro-support\"\nversion = \"0.2.128\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"411e4887f0071ef2d2164a9d5fdf2d20efbef78fccd3a78b0c10a1dc5295e48a\"\ndependencies = [\n \"bumpalo\",\n \"proc-macro2\",\n \"quote\",\n \"syn 3.0.6\",\n \"wasm-bindgen-shared\",\n]\n\n[[package]]\nname = \"wasm-bindgen-shared\"\nversion = \"0.2.128\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"81941cd78d0c92026c33e5e01312845a4cb1e9af3407f9134b100dd03144103e\"\ndependencies = [\n \"unicode-ident\",\n]\n\n[[package]]\nname = \"windows-core\"\nversion = \"0.62.2\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"b8e83a14d34d0623b51dce9581199302a221863196a1dde71a7663a4c2be9deb\"\ndependencies = [\n \"windows-implement\",\n \"windows-interface\",\n \"windows-link\",\n \"windows-result\",\n \"windows-strings\",\n]\n\n[[package]]\nname = \"windows-implement\"\nversion = \"0.60.2\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"053e2e040ab57b9dc951b72c264860db7eb3b0200ba345b4e4c3b14f67855ddf\"\ndependencies = [\n \"proc-macro2\",\n \"quote\",\n \"syn 2.0.119\",\n]\n\n[[package]]\nname = \"windows-interface\"\nversion = \"0.59.3\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"3f316c4a2570ba26bbec722032c4099d8c8bc095efccdc15688708623367e358\"\ndependencies = [\n \"proc-macro2\",\n \"quote\",\n \"syn 2.0.119\",\n]\n\n[[package]]\nname = \"windows-link\"\nversion = \"0.2.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5\"\n\n[[package]]\nname = \"windows-result\"\nversion = \"0.4.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"7781fa89eaf60850ac3d2da7af8e5242a5ea78d1a11c49bf2910bb5a73853eb5\"\ndependencies = [\n \"windows-link\",\n]\n\n[[package]]\nname = \"windows-strings\"\nversion = \"0.5.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"7837d08f69c77cf6b07689544538e017c1bfcf57e34b4c0ff58e6c2cd3b37091\"\ndependencies = [\n \"windows-link\",\n]\n\n[[package]]\nname = \"wit-bindgen\"\nversion = \"0.57.1\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e\"\n\n[[package]]\nname = \"zerocopy\"\nversion = \"0.8.57\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"d35102a9f36d089ccae9e4c6802bc118be4487b80aaffc0ab4e0cf5ce92d2873\"\ndependencies = [\n \"zerocopy-derive\",\n]\n\n[[package]]\nname = \"zerocopy-derive\"\nversion = \"0.8.57\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"146c01f5ab44258da43cf276c74a2763db2ff3969c9c652c3f2de07041d0b2bc\"\ndependencies = [\n \"proc-macro2\",\n \"quote\",\n \"syn 2.0.119\",\n]\n",
+      "rust_source": "use arrow_array::{Array, Int32Array, ListArray, types::Int32Type};\nuse arrow_buffer::TrackingMemoryPool;\nfn main() {\n    let array = Int32Array::from_iter_values(0..1000);\n    let slice = array.slice(0, 1);\n    let raw_slice = array.to_data().slice(0, 1);\n    println!(\"arraydata_slice buffer_len={} slice_bytes={}\", raw_slice.buffers()[0].len(), raw_slice.get_slice_memory_size().unwrap());\n    drop(raw_slice);\n    let data = slice.to_data();\n    println!(\"primitive_slice len={} buffer_len={} slice_bytes={}\", data.len(), data.buffers()[0].len(), data.get_slice_memory_size().unwrap());\n    let lists = ListArray::from_iter_primitive::<Int32Type, _, _>(vec![Some(vec![Some(1)]), Some(vec![Some(2);1000])]);\n    let one = lists.slice(0, 1);\n    println!(\"list_slice len={} visible_values={} slice_bytes={}\", one.len(), one.value(0).len(), one.to_data().get_slice_memory_size().unwrap());\n    let first = TrackingMemoryPool::default();\n    let second = TrackingMemoryPool::default();\n    array.claim(&first);\n    println!(\"initial_claim first={} second={}\", first.allocated(), second.allocated());\n    slice.claim(&second);\n    println!(\"claim_same_allocation_other_pool first={} second={}\", first.allocated(), second.allocated());\n    drop(array);\n    drop(data);\n    println!(\"only_slice_alive first={} second={}\", first.allocated(), second.allocated());\n    drop(slice);\n    println!(\"all_owners_dropped first={} second={}\", first.allocated(), second.allocated());\n    std::panic::set_hook(Box::new(|_| {}));\n    let a = std::hint::black_box(i64::MIN);\n    let b = std::hint::black_box(-1_i64);\n    let old = std::panic::catch_unwind(|| b != 0 && a % b == 0);\n    println!(\"p4_division_guard_panics={} checked_remainder={:?}\", old.is_err(), a.checked_rem(b));\n}\n",
+      "stdout": "arraydata_slice buffer_len=4000 slice_bytes=4\nprimitive_slice len=1 buffer_len=4 slice_bytes=4\nlist_slice len=1 visible_values=1 slice_bytes=4012\ninitial_claim first=4000 second=0\nclaim_same_allocation_other_pool first=0 second=4000\nonly_slice_alive first=0 second=4000\nall_owners_dropped first=0 second=0\np4_division_guard_panics=true checked_remainder=None\n",
+      "exit_code": 0,
+      "initial_attempt": "Compilation first rejected arrow_buffer::pool::TrackingMemoryPool because pool is private; public root re-export used in final source.",
+      "limits": "Does not exercise the workspace memory transfer path or execute the full P4 compiler pass. The panic is a caught reproduction of the exact guard expression, not a repaired defect."
+    },
+    "P2": {
+      "evidence": "Tested current Python transfer function",
+      "command": ".venv/bin/python <scratch>/transfer-probe.py",
+      "reproduction_source": "import importlib.util, json, sys\nimport pyarrow as pa\nspec = importlib.util.spec_from_file_location(\"pse_transfer_review_probe\", \"python/pse/_transfer.py\")\nmodule = importlib.util.module_from_spec(spec)\nsys.modules[spec.name] = module\nspec.loader.exec_module(module)\ndef map_schema(value):\n    return pa.schema([pa.field(\"m\", pa.map_(pa.int32(), pa.field(\"value\", pa.int64(), metadata={b\"meaning\": value})))])\ndef struct_schema(value):\n    return pa.schema([pa.field(\"s\", pa.struct([pa.field(\"v\", pa.int64(), metadata={b\"meaning\": value})]))])\ndef observations(left, right):\n    return [[list(item.path), item.state] for item in module.compare_schemas(left, right)]\na, b = map_schema(b\"a\"), map_schema(b\"b\")\nprint(json.dumps({\n    \"pyarrow_version\": pa.__version__,\n    \"map_source_field_equals_metadata\": a.field(0).equals(b.field(0), check_metadata=True),\n    \"map_type_child_count\": a.field(0).type.num_fields,\n    \"current_map_transfer\": observations(a, b),\n    \"struct_control\": observations(struct_schema(b\"a\"), struct_schema(b\"b\")),\n}))\n",
+      "observed": {
+        "pyarrow_version": "25.0.1",
+        "map_source_field_equals_metadata": false,
+        "map_type_child_count": 1,
+        "current_map_transfer": [
+          [
+            [
+              "m"
+            ],
+            "retained"
+          ]
+        ],
+        "struct_control": [
+          [
+            [
+              "s"
+            ],
+            "retained"
+          ],
+          [
+            [
+              "s",
+              "v"
+            ],
+            "mismatch"
+          ]
+        ]
+      },
+      "exit_code": 0,
+      "limits": "Schema observation only; no full publication, FFI or installed extension acceptance.",
+      "reproduction_check": {
+        "exit_code": 0,
+        "recorded_result_matched": true
+      }
+    }
+  },
+  "validation": {
+    "doctor": {
+      "command": "just doctor",
+      "mode": "startup",
+      "baseline_failures": 0,
+      "observed_failures": 1,
+      "failure": "Environment outdated; no environment repair performed for documentation-only review."
+    },
+    "docs": {
+      "command": "just docs",
+      "mode": "mdbook build",
+      "baseline_failures": 0,
+      "observed_failures": 0,
+      "exit_code": 0,
+      "warnings": [
+        "search index is very large (16904127 bytes)"
+      ],
+      "scope": "Book generation only; not runtime or proposal acceptance."
+    },
+    "diff_check": {
+      "command": "git diff --check",
+      "mode": "working tree whitespace",
+      "baseline_failures": 0,
+      "observed_failures": 0,
+      "exit_code": 0,
+      "scope": "Tracked diff; untracked review content also checked separately for trailing whitespace."
+    },
+    "reference_checks": {
+      "command": ".venv/bin/python - (review-local document/evidence checks)",
+      "mode": "static review checks",
+      "baseline_failures": 0,
+      "observed_failures": 0,
+      "errors": [],
+      "required_sections": 11,
+      "initial_findings": 17,
+      "independent_findings": 12,
+      "local_links_checked": 2,
+      "explicit_source_locations_checked": 22,
+      "inspected_source_hashes_checked": 82,
+      "preexisting_files_preserved": 3,
+      "book_entries": 1,
+      "scope": "Review structure, local links, explicit repository source line bounds, recorded source hashes, preserved preexisting files and portable paths; not semantic or runtime certification.",
+      "rendered_review_checked": true,
+      "untracked_deliverables_whitespace_failures": 0,
+      "recorded_upstream_sources": 10
+    },
+    "workspace_tests": "not_run",
+    "integration_tests": "not_run"
+  },
+  "not_attacked": [
+    "Crash recovery and concurrent maintenance",
+    "Full compiler pipeline/incremental equality",
+    "Numerical/parity correctness",
+    "All generated relation codec cases",
+    "Canonical hash equivalence under proposed refactor",
+    "End-to-end performance and memory peaks"
+  ],
+  "not_claimed": [
+    "Proposal implemented",
+    "Code reduction measured",
+    "Performance improvement measured",
+    "All 60 principles passed",
+    "Native claims enforce fallible limits",
+    "SetTransaction automatically deduplicates retries"
+  ],
+  "inspected_upstream_sources": [
+    {
+      "path": "<cargo-registry>/arrow-buffer-59.3.0/src/bytes.rs",
+      "sha256": "df8f62f0870cb0bb09d4baa67fc6231c8acce12f478afd948e606d95cde46160"
+    },
+    {
+      "path": "<cargo-registry>/arrow-buffer-59.3.0/src/pool.rs",
+      "sha256": "8a6a396005c6cd9c2f4970de004bb3a982eb4782373d9862eda0af3c038f996b"
+    },
+    {
+      "path": "<cargo-registry>/arrow-array-59.3.0/src/record_batch.rs",
+      "sha256": "375cf2a786d4a819f43caacb7252bb6ab4d963ecf5c954cbf812149a9368ec7f"
+    },
+    {
+      "path": "<cargo-registry>/arrow-data-59.3.0/src/data.rs",
+      "sha256": "456e411ac7f3610fdf50ac1b1173f960fe62ac1338d18a81cba561d622b1024b"
+    },
+    {
+      "path": "<cargo-registry>/datafusion-execution-55.1.0/src/memory_pool/arrow.rs",
+      "sha256": "eadc063f12178d502debdbdcc9fa00e92003e775c819a302dbdc0e06b43ee9d1"
+    },
+    {
+      "path": "<cargo-registry>/datafusion-physical-plan-55.1.0/src/work_table.rs",
+      "sha256": "efedf7c9fe34f8eb63b194f3e199f028b4d5e80de716287d775928cba2fcb562"
+    },
+    {
+      "path": "<cargo-registry>/datafusion-expr-55.1.0/src/udaf.rs",
+      "sha256": "91f1f5cbaf5fd87afd156f8cb889127ba3962bc8e7d39e718ef4c11ee1a1e640"
+    },
+    {
+      "path": "<cargo-registry>/datafusion-expr-55.1.0/src/logical_plan/extension.rs",
+      "sha256": "5a175c1546e1ec2a339073dc6b7884d0221e5f87e32676e2b2ae6df400e1a679"
+    },
+    {
+      "path": "<cargo-registry>/datafusion-functions-aggregate-55.1.0/src/min_max.rs",
+      "sha256": "bbbf292c12d6462cc90b0acd4474e975b0a66084840287c6274ad80926da68cd"
+    },
+    {
+      "path": "<cargo-registry>/datafusion-common-55.1.0/src/error.rs",
+      "sha256": "8cf2547dbc79a0dc4a86d55be768d89de741056db15f4c78c2ab4a994cc95f8f"
+    }
+  ],
+  "review_sha256": "98ca6b6a6a52fafecc5eff254c38e649a5226197be75fc8e0adaeeafc4553f47"
+}

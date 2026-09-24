@@ -11,14 +11,14 @@ use std::collections::HashMap;
 const EXTENSION: &str = "pse.domain.extension";
 const PARAMETER: &str = "pse.domain.parameter";
 const ROLE: &str = "pse.domain.role";
-const DOC: &str = "pse.domain.doc";
+/// Prose metadata excluded from execution identity, retained in transfer observations.
+pub(crate) const DOC: &str = pse_columnar::native_field::DOCUMENTATION;
 const QUANTITY: &str = "pse.domain.quantity";
 const FK_RELATION: &str = "pse.domain.fk.relation";
 const FK_COLUMN: &str = "pse.domain.fk.column";
 
-/// Frozen row-key framing contract, including the qualified native row format.
-/// A changed Arrow row format requires a new contract, never silent reuse.
-pub const ROW_KEY_ENCODING: &str = "pse:row-key:arrow-row-59.3:v1";
+/// Versioned semantic row-key framing, independent of native sorting buffers.
+pub const ROW_KEY_ENCODING: &str = pse_columnar::row_token::ENCODING;
 
 /// Co-located source association column for specialized native algorithms.
 pub const SOURCE_SUPPORT_COLUMN: &str = "algorithm_support";
@@ -304,7 +304,8 @@ impl FieldContract {
     pub fn enum_name(&self) -> Option<&str> {
         Self::enum_name_of(self.field())
     }
-    pub(crate) fn enum_name_of(field: &Field) -> Option<&str> {
+    /// Declared enum meaning, independent of its physical storage.
+    pub fn enum_name_of(field: &Field) -> Option<&str> {
         let metadata = field.metadata();
         if metadata.get(EXTENSION).map(String::as_str) == Some("pse.enum") {
             return metadata.get(PARAMETER).map(String::as_str);
@@ -504,24 +505,9 @@ impl FieldContract {
 /// Borrow explicitly declared native children in native order. Schema inspection
 /// and validation do not need to copy the children's names or metadata maps.
 pub fn child_fields(data_type: &DataType) -> Vec<&Field> {
-    use DataType::{
-        Dictionary, FixedSizeList, LargeList, LargeListView, List, ListView, Map, RunEndEncoded,
-        Struct, Union,
-    };
-    match data_type {
-        List(field)
-        | LargeList(field)
-        | ListView(field)
-        | LargeListView(field)
-        | FixedSizeList(field, _)
-        | Map(field, _) => vec![field.as_ref()],
-        Struct(fields) => fields.iter().map(AsRef::as_ref).collect(),
-        Union(fields, _) => fields.iter().map(|(_, field)| field.as_ref()).collect(),
-        Dictionary(_, value) => child_fields(value),
-        RunEndEncoded(runs, values) => vec![runs.as_ref(), values.as_ref()],
-        _ => vec![],
-    }
+    pse_columnar::native_field::children(data_type)
 }
+
 impl std::fmt::Display for FieldContract {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.extension() {
@@ -563,9 +549,6 @@ pub fn render_field(field: &Field) -> Result<String, crate::SchemaError> {
 }
 
 fn canonical_json(value: &impl serde::Serialize) -> Result<String, crate::SchemaError> {
-    let mut value = serde_json::to_value(value)
-        .map_err(|error| crate::checks::invalid("Arrow declaration", error.to_string()))?;
-    value.sort_all_objects();
-    serde_json::to_string(&value)
+    pse_columnar::native_field::canonical_json(value)
         .map_err(|error| crate::checks::invalid("Arrow declaration", error.to_string()))
 }

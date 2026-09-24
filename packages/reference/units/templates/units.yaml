@@ -1489,8 +1489,6 @@
       "filter": null,
       "expression": "properties_out.pressure == properties_in.pressure",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": "65f8aa15ec3b4bacaefe2bce9fa1b74d",
       "idaes_name": null,
       "doc": "Explicit algebraic balance condition with actual child/state bindings."
@@ -1503,8 +1501,6 @@
       "filter": null,
       "expression": "properties_out.pressure == properties_in.pressure + deltaP",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": "0ee06f311cf94c2c9bf5b0965471d612",
       "idaes_name": null,
       "doc": "Explicit algebraic balance condition with actual child/state bindings."
@@ -1517,8 +1513,6 @@
       "filter": null,
       "expression": "properties_out.temperature == properties_in.temperature",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": "070dc3e2e01a4ede86b6d679f63cc684",
       "idaes_name": null,
       "doc": "Explicit algebraic balance condition with actual child/state bindings."
@@ -1531,8 +1525,6 @@
       "filter": null,
       "expression": "source.temperature == target.temperature",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": null,
       "idaes_name": null,
       "doc": "Explicit algebraic balance condition with actual child/state bindings."
@@ -1545,8 +1537,6 @@
       "filter": null,
       "expression": "source.pressure == target.pressure",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": null,
       "idaes_name": null,
       "doc": "Explicit algebraic balance condition with actual child/state bindings."
@@ -1559,8 +1549,6 @@
       "filter": null,
       "expression": "source.flow_mol == target.flow_mol",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": null,
       "idaes_name": null,
       "doc": "Explicit algebraic balance condition with actual child/state bindings."
@@ -1575,8 +1563,6 @@
       "filter": null,
       "expression": "source.mole_frac_comp[j] == target.mole_frac_comp[j]",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": null,
       "idaes_name": null,
       "doc": "Explicit algebraic balance condition with actual child/state bindings."
@@ -1591,8 +1577,6 @@
       "filter": null,
       "expression": "inlets[n].pressure == broadcast(mixed_state.pressure, n)",
       "sense": "eq",
-      "family_hint": null,
-      "role_hint": null,
       "guard_id": "e6684211f6b24c03a7a23b56b8aee54e",
       "idaes_name": null,
       "doc": "Explicit algebraic balance condition with actual child/state bindings."

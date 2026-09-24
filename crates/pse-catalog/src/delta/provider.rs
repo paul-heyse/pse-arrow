@@ -12,6 +12,46 @@ use datafusion::{
 use deltalake::DeltaTableBuilder;
 use std::sync::Arc;
 
+/// A selected decoded view keeps its declared root metadata after the native
+/// view's internal optimization. Fields still have to match exactly.
+pub(crate) fn selected_view(view: ViewTable) -> Arc<dyn datafusion::catalog::TableProvider> {
+    Arc::new(DecodedView(view))
+}
+
+#[derive(Debug)]
+struct DecodedView(ViewTable);
+
+#[async_trait::async_trait]
+impl datafusion::catalog::TableProvider for DecodedView {
+    fn schema(&self) -> datafusion::arrow::datatypes::SchemaRef {
+        self.0.schema()
+    }
+    fn table_type(&self) -> datafusion::logical_expr::TableType {
+        self.0.table_type()
+    }
+    fn supports_filters_pushdown(
+        &self,
+        filters: &[&datafusion::logical_expr::Expr],
+    ) -> Result<Vec<datafusion::logical_expr::TableProviderFilterPushDown>> {
+        self.0.supports_filters_pushdown(filters)
+    }
+    async fn scan(
+        &self,
+        state: &dyn datafusion::catalog::Session,
+        projection: Option<&Vec<usize>>,
+        filters: &[datafusion::logical_expr::Expr],
+        limit: Option<usize>,
+    ) -> Result<Arc<dyn datafusion::physical_plan::ExecutionPlan>> {
+        let input = self.0.scan(state, projection, filters, limit).await?;
+        let schema = self.schema();
+        let projected = projection.map_or_else(
+            || Ok(Arc::clone(&schema)),
+            |columns| schema.project(columns).map(Arc::new),
+        )?;
+        super::layout::declared_output(input, &projected)
+    }
+}
+
 /// Open an exact Delta version as a native semantic view. Native views reject writes;
 /// mutations use the explicit validating command route. The scan owns its snapshot,
 /// log store and caller runtime through the view's real logical input.
@@ -23,8 +63,8 @@ pub async fn open_view(
     layout: &DurableLayout,
     state: Arc<SessionState>,
 ) -> Result<ViewTable> {
-    let state = crate::cache_service::bind_state(&location, &state)?;
-    let lease = super::lease::read(&location, &pse_ids::CancellationToken::new()).await?;
+    let lease = super::lease::read(&location, &pse_columnar::CancellationToken::new()).await?;
+    let state = bind_cache_state(&location, &state, lease.as_deref())?;
     let version = delta_version(version)?;
     let opened = open_native(
         location,
@@ -45,7 +85,7 @@ pub async fn open_declared_view(
     contract: &super::contract::DeclaredCheck,
     state: Arc<SessionState>,
 ) -> Result<ViewTable> {
-    let lease = super::lease::read(&location, &pse_ids::CancellationToken::new()).await?;
+    let lease = super::lease::read(&location, &pse_columnar::CancellationToken::new()).await?;
     declared_view(location, version, contract, state, lease).await
 }
 
@@ -67,7 +107,7 @@ async fn declared_view(
     state: Arc<SessionState>,
     lease: Option<Arc<super::lease::ReadLease>>,
 ) -> Result<ViewTable> {
-    let state = crate::cache_service::bind_state(&location, &state)?;
+    let state = bind_cache_state(&location, &state, lease.as_deref())?;
     let opened = open_native(
         location,
         Some(delta_version(version)?),
@@ -83,6 +123,25 @@ pub(crate) struct Opened {
     pub(crate) table: deltalake::DeltaTable,
     pub(crate) owner: Option<Arc<crate::cache_service::snapshot::RetainedTable>>,
 }
+
+/// File caches share the verified local retention generation. Remote and
+/// maintenance paths without that reader evidence bypass these cache families.
+pub(crate) fn bind_cache_state(
+    location: &url::Url,
+    state: &Arc<SessionState>,
+    lease: Option<&super::lease::ReadLease>,
+) -> Result<Arc<SessionState>> {
+    if let Some(native) = state
+        .config()
+        .get_extension::<pse_engine::cache_service::NativeCacheService>()
+    {
+        let generation = lease.map(|lease| format!("{:?}", lease.generation));
+        native.bind_state_with_generation(location, state, generation.as_deref())
+    } else {
+        pse_engine::cache_service::bind_state(location, state)
+    }
+}
+#[tracing::instrument(name = "pse.delta.open", skip_all, fields(requested_version = ?version), err)]
 pub(crate) async fn open_native(
     location: url::Url,
     version: Option<u64>,
@@ -91,7 +150,7 @@ pub(crate) async fn open_native(
 ) -> Result<Opened> {
     if let Some(service) = state
         .config()
-        .get_extension::<crate::cache_service::NativeCacheService>()
+        .get_extension::<crate::cache_service::DeltaCacheService>()
     {
         let owner = service
             .open_snapshot(location, version, requirement, Arc::clone(state))
@@ -146,7 +205,7 @@ pub fn table_builder(location: url::Url, state: &SessionState) -> Result<DeltaTa
         .get_store(&location)?;
     let policy = state
         .config()
-        .get_extension::<crate::cache_service::NativeCacheService>();
+        .get_extension::<crate::cache_service::DeltaCacheService>();
     Ok(DeltaTableBuilder::from_url(location.clone())
         .map_err(external)?
         .with_storage_backend(store, location)
@@ -161,11 +220,11 @@ pub fn table_builder(location: url::Url, state: &SessionState) -> Result<DeltaTa
 pub(crate) async fn committed(table: &deltalake::DeltaTable, state: &SessionState) {
     let Some(service) = state
         .config()
-        .get_extension::<crate::cache_service::NativeCacheService>()
+        .get_extension::<crate::cache_service::DeltaCacheService>()
     else {
         return;
     };
-    if let Err(error) = service.remember_committed(table, state).await {
+    if let Err(error) = service.remember_committed(table, state) {
         crate::cache_service::metrics::record(state, |metrics| {
             &metrics.committed_snapshot_refusals
         });
@@ -200,7 +259,7 @@ pub(crate) async fn committed(table: &deltalake::DeltaTable, state: &SessionStat
 }
 
 fn external(error: deltalake::DeltaTableError) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
+    error.into()
 }
 
 /// The unsigned native Delta protocol is an external boundary, not PSE storage.

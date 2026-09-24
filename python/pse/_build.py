@@ -18,15 +18,41 @@ import hashlib
 
 import msgspec
 
-from pse import _native
+from pse import _native, contracts
 
 # The same native import gateway carries the immutable inspection capabilities.
+semantic_id_from_hex = _native.semantic_id_from_hex
+semantic_id_to_hex = _native.semantic_id_to_hex
+content_hash_from_prefixed = _native.content_hash_from_prefixed
+content_hash_to_prefixed = _native.content_hash_to_prefixed
+
 EngineSettings = _native.EngineSettings
 CacheSettings = _native.CacheSettings
 CacheReport = _native.CacheReport
+ResourceReport = _native.ResourceReport
+ResourceConsumer = _native.ResourceConsumer
+TableName = _native.TableName
 InspectionError = _native.InspectionError
+DiagnosticReport = _native.DiagnosticReport
+DiagnosticCause = _native.DiagnosticCause
+DiagnosticContext = _native.DiagnosticContext
+DiagnosticAnnotation = _native.DiagnosticAnnotation
+DiagnosticSpan = _native.DiagnosticSpan
+DiagnosticNote = _native.DiagnosticNote
 _NativePublication = _native.Publication
 _NativeTableStream = _native.TableStream
+_NativePhysicalContext = _native.NativePhysicalContext
+_NativeRuntime = _native.NativeRuntime
+_NativeModelRevision = _native.NativeModelRevision
+_NativePreparedCase = _native.NativePreparedCase
+_NativePreparedOperation = _native.NativePreparedOperation
+SimulationSettings = _native.SimulationSettings
+_NativeRunHandle = _native.NativeRunHandle
+_NativeRunResult = _native.NativeRunResult
+_NativePublicationAttempt = _native.NativePublicationAttempt
+SolveSettings = _native.SolveSettings
+ProgressEvent = _native.ProgressEvent
+SolverCapability = _native.SolverCapability
 
 
 def _open_publication(
@@ -90,3 +116,16 @@ def _sha256(data: bytes | str) -> str:
     if isinstance(data, str):
         data = data.encode()
     return hashlib.sha256(data).hexdigest() if data else ""
+
+
+def _check_native_compatibility(package_version: str) -> None:
+    """Check the compiled version and generated declaration identity without a scan."""
+    if package_version != native_version():
+        message = "pse package and native extension versions differ; run just py-sync"
+        raise ImportError(message)
+    if _native.registry_fingerprint() != contracts.REGISTRY_FINGERPRINT:
+        message = (
+            "pse generated contracts and native registry differ; "
+            "regenerate and run just py-sync"
+        )
+        raise ImportError(message)

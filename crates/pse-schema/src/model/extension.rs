@@ -270,7 +270,7 @@ pub enum ExtensionUse<'a> {
     IndexTuple,
     /// `pse.ordinal_ref`, naming the relation whose ordinals it references.
     OrdinalRef {
-        /// The qualified relation name, for example `compiled.math_expr_nodes`.
+        /// The qualified relation name, for example `authored.entities`.
         target: &'a str,
     },
     /// `pse.source_span`.

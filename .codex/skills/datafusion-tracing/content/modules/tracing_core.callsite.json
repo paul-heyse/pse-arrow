@@ -1,0 +1,107 @@
+[
+  {
+    "id": "1740ba2098821878828cbb38",
+    "path": "tracing_core::callsite",
+    "name": "callsite",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "module",
+    "signature": "mod callsite",
+    "docs": "Callsites represent the source locations from which spans or events\noriginate.\n\n# What Are Callsites?\n\nEvery span or event in `tracing` is associated with a [`Callsite`]. A\ncallsite is a small `static` value that is responsible for the following:\n\n* Storing the span or event's [`Metadata`],\n* Uniquely [identifying](Identifier) the span or event definition,\n* Caching the subscriber's [`Interest`][^1] in that span or event, to avoid\n  re-evaluating filters.\n\n# Registering Callsites\n\nWhen a span or event is recorded for the first time, its callsite\n[`register`]s itself with the global callsite registry. Registering a\ncallsite calls the [`Subscriber::register_callsite`][`register_callsite`]\nmethod with that callsite's [`Metadata`] on every currently active\nsubscriber. This serves two primary purposes: informing subscribers of the\ncallsite's existence, and performing static filtering.\n\n## Callsite Existence\n\nIf a [`Subscriber`] implementation wishes to allocate storage for each\nunique span/event location in the program, or pre-compute some value\nthat will be used to record that span or event in the future, it can\ndo so in its [`register_callsite`] method.\n\n## Performing Static Filtering\n\nThe [`register_callsite`] method returns an [`Interest`] value,\nwhich indicates that the subscriber either [always] wishes to record\nthat span or event, [sometimes] wishes to record it based on a\ndynamic filter evaluation, or [never] wishes to record it.\n\nWhen registering a new callsite, the [`Interest`]s returned by every\ncurrently active subscriber are combined, and the result is stored at\neach callsite. This way, when the span or event occurs in the\nfuture, the cached [`Interest`] value can be checked efficiently\nto determine if the span or event should be recorded, without\nneeding to perform expensive filtering (i.e. calling the\n[`Subscriber::enabled`] method every time a span or event occurs).\n\n### Rebuilding Cached Interest\n\nWhen a new [`Dispatch`] is created (i.e. a new subscriber becomes\nactive), any previously cached [`Interest`] values are re-evaluated\nfor all callsites in the program. This way, if the new subscriber\nwill enable a callsite that was not previously enabled, the\n[`Interest`] in that callsite is updated. Similarly, when a\nsubscriber is dropped, the interest cache is also re-evaluated, so\nthat any callsites enabled only by that subscriber are disabled.\n\nIn addition, the [`rebuild_interest_cache`] function in this module can be\nused to manually invalidate all cached interest and re-register those\ncallsites. This function is useful in situations where a subscriber's\ninterest can change, but it does so relatively infrequently. The subscriber\nmay wish for its interest to be cached most of the time, and return\n[`Interest::always`][always] or [`Interest::never`][never] in its\n[`register_callsite`] method, so that its [`Subscriber::enabled`] method\ndoesn't need to be evaluated every time a span or event is recorded.\nHowever, when the configuration changes, the subscriber can call\n[`rebuild_interest_cache`] to re-evaluate the entire interest cache with its\nnew configuration. This is a relatively costly operation, but if the\nconfiguration changes infrequently, it may be more efficient than calling\n[`Subscriber::enabled`] frequently.\n\n# Implementing Callsites\n\nIn most cases, instrumenting code using `tracing` should *not* require\nimplementing the [`Callsite`] trait directly. When using the [`tracing`\ncrate's macros][macros] or the [`#[instrument]` attribute][instrument], a\n`Callsite` is automatically generated.\n\nHowever, code which provides alternative forms of `tracing` instrumentation\nmay need to interact with the callsite system directly. If\ninstrumentation-side code needs to produce a `Callsite` to emit spans or\nevents, the [`DefaultCallsite`] struct provided in this module is a\nready-made `Callsite` implementation that is suitable for most uses. When\npossible, the use of `DefaultCallsite` should be preferred over implementing\n[`Callsite`] for user types, as `DefaultCallsite` may benefit from\nadditional performance optimizations.\n\n[^1]: Returned by the [`Subscriber::register_callsite`][`register_callsite`]\n    method.\n\n[`Metadata`]: crate::metadata::Metadata\n[`Interest`]: crate::subscriber::Interest\n[`Subscriber`]: crate::subscriber::Subscriber\n[`register_callsite`]: crate::subscriber::Subscriber::register_callsite\n[`Subscriber::enabled`]: crate::subscriber::Subscriber::enabled\n[always]: crate::subscriber::Interest::always\n[sometimes]: crate::subscriber::Interest::sometimes\n[never]: crate::subscriber::Interest::never\n[`Dispatch`]: crate::dispatcher::Dispatch\n[macros]: https://docs.rs/tracing/latest/tracing/#macros\n[instrument]: https://docs.rs/tracing/latest/tracing/attr.instrument.html",
+    "span": {
+      "filename": "src/callsite.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        618,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          16,
+          14,
+          21,
+          115,
+          92
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::subscriber::Interest": 10,
+      "`rebuild_interest_cache`": 115,
+      "`register`": 92,
+      "crate::subscriber::Subscriber": 112,
+      "crate::subscriber::Interest::always": 117,
+      "crate::subscriber::Interest::sometimes": 113,
+      "crate::dispatcher::Dispatch": 120,
+      "crate::subscriber::Subscriber::enabled": 119,
+      "`DefaultCallsite`": 21,
+      "`Callsite`": 16,
+      "crate::metadata::Metadata": 13,
+      "Identifier": 14,
+      "crate::subscriber::Interest::never": 118,
+      "crate::subscriber::Subscriber::register_callsite": 116
+    },
+    "link_paths": {
+      "crate::subscriber::Interest": "tracing_core::subscriber::Interest",
+      "`rebuild_interest_cache`": "tracing_core::callsite::rebuild_interest_cache",
+      "`register`": "tracing_core::callsite::register",
+      "crate::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "crate::subscriber::Interest::always": "tracing_core::subscriber::Interest::always",
+      "crate::subscriber::Interest::sometimes": "tracing_core::subscriber::Interest::sometimes",
+      "crate::dispatcher::Dispatch": "tracing_core::dispatcher::Dispatch",
+      "crate::subscriber::Subscriber::enabled": "tracing_core::subscriber::Subscriber::enabled",
+      "`DefaultCallsite`": "tracing_core::callsite::DefaultCallsite",
+      "`Callsite`": "tracing_core::callsite::Callsite",
+      "crate::metadata::Metadata": "tracing_core::metadata::Metadata",
+      "Identifier": "tracing_core::callsite::Identifier",
+      "crate::subscriber::Interest::never": "tracing_core::subscriber::Interest::never",
+      "crate::subscriber::Subscriber::register_callsite": "tracing_core::subscriber::Subscriber::register_callsite"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "11",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_core.callsite.md",
+    "record_file": "modules/tracing_core.callsite.json",
+    "anchor": "op-1740ba2098821878828cbb38",
+    "aliases": [],
+    "resolved_doc_links": {
+      "crate::subscriber::Interest": "../operations/tracing_core.subscriber.Interest.md#op-6a8f81daa049c40c19442579",
+      "`rebuild_interest_cache`": "../operations/tracing_core.callsite.rebuild_interest_cache.md#op-514604dfb2bc1df5b1a3e933",
+      "`register`": "../operations/tracing_core.callsite.register.md#op-e372a6d4be6dbbb70cf0c6ee",
+      "crate::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "crate::subscriber::Interest::always": "../operations/tracing_core.subscriber.Interest.md#op-639d56d212d8cbe7e6adf31f",
+      "crate::subscriber::Interest::sometimes": "../operations/tracing_core.subscriber.Interest.md#op-70a63c4ee71956d505bbc48d",
+      "crate::dispatcher::Dispatch": "../operations/tracing_core.dispatcher.Dispatch.md#op-bdcb8c4598cc406ba313069c",
+      "crate::subscriber::Subscriber::enabled": "../operations/tracing_core.subscriber.Subscriber.md#op-df007f57ed0cab78f4b9e43b",
+      "`DefaultCallsite`": "../operations/tracing_core.callsite.DefaultCallsite.md#op-58b6356d7f4118a36fb5badb",
+      "`Callsite`": "../operations/tracing_core.callsite.Callsite.md#op-f2f04985f5653f1f8f822082",
+      "crate::metadata::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "Identifier": "../operations/tracing_core.callsite.Identifier.md#op-cef1410a3f296584b90d483e",
+      "crate::subscriber::Interest::never": "../operations/tracing_core.subscriber.Interest.md#op-5f92faeb5615c3cbdac0637d",
+      "crate::subscriber::Subscriber::register_callsite": "../operations/tracing_core.subscriber.Subscriber.md#op-19b9abf22f078e184d986225"
+    }
+  }
+]

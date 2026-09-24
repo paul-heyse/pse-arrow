@@ -26,6 +26,10 @@ functionality and the unified target govern this design-phase hard pivot.
 
 ## Scope
 
+ADR-0074 and Plan 11 govern the integrated lifetime, evidence-preservation and
+implementation-testing amendments. This proposed record retains its historical
+evidence; its prior per-boundary or whole-stage mechanisms do not restrict that target.
+
 Amend the cited blueprint sections. DataFusion providers, native plans, functions
 and physical extensions govern all product data operations. Delta owns durable
 relations and per-table transactions. Model, case, problem and run are typed

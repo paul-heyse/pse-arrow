@@ -8,11 +8,9 @@
 //! A complete source descriptor advertises binding and deliberately has no implementation.
 
 use super::demand_source::{id, source};
-use pse_authoring::{
-    ParseBudget,
-    document::{DocumentBundle, load_package_texts},
-};
+use pse_authoring::ParseBudget;
 use pse_relations::generated::reference;
+use pse_runtime::authoring_driver::document::{DocumentBundle, load_package_texts};
 use pse_schema::Registry;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;

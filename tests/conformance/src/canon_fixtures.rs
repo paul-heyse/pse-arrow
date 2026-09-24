@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Actual registry contracts with equivalent Arrow storage representations.
+//! Primitive canonicalization across Arrow representations, including nonfinite bit patterns.
+//! Schema agreement is required; domain validity is tested at relation admission separately.
 #![allow(
     dead_code,
     clippy::expect_used,
@@ -18,12 +19,11 @@ use datafusion::arrow::{
     compute::cast,
     datatypes::{DataType, Int32Type},
 };
-use pse_ids::CanonicalContract;
+use pse_columnar::CanonicalContract;
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{
-        Authority, Cell, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl,
-        SnapshotClass,
+        Authority, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl, SnapshotClass,
     },
 };
 use std::sync::Arc;
@@ -34,22 +34,29 @@ pub(crate) fn fixture(alternate: bool) -> (Arc<Registry>, CanonicalContract, Rec
     let spec = reg.relation("authored.values").expect("relation");
     let rows = vec![
         vec![
-            Cell::U64(3),
-            Cell::F64(-0.0),
-            Cell::Enum("a"),
-            Cell::List(vec![Cell::U64(3)]),
-            Cell::Struct(vec![Cell::U64(3)]),
+            serde_json::json!(["u64", 3]),
+            serde_json::json!(["f64", format!("{:016x}", f64::to_bits(-0.0))]),
+            serde_json::json!(["enum", "a"]),
+            serde_json::json!(["list", vec![serde_json::json!(["u64", 3])]]),
+            serde_json::json!(["struct", vec![serde_json::json!(["u64", 3])]]),
         ],
-        vec![Cell::U64(1), Cell::Null, Cell::Null, Cell::Null, Cell::Null],
         vec![
-            Cell::U64(2),
-            Cell::F64(f64::NAN),
-            Cell::Enum("b"),
-            Cell::List(vec![Cell::U64(5)]),
-            Cell::Struct(vec![Cell::U64(5)]),
+            serde_json::json!(["u64", 1]),
+            serde_json::json!(["null", null]),
+            serde_json::json!(["null", null]),
+            serde_json::json!(["null", null]),
+            serde_json::json!(["null", null]),
+        ],
+        vec![
+            serde_json::json!(["u64", 2]),
+            serde_json::json!(["f64", format!("{:016x}", (f64::NAN).to_bits())]),
+            serde_json::json!(["enum", "b"]),
+            serde_json::json!(["list", vec![serde_json::json!(["u64", 5])]]),
+            serde_json::json!(["struct", vec![serde_json::json!(["u64", 5])]]),
         ],
     ];
-    let source = pse_relations::cells::batch_from_cells(&reg, spec, &rows).expect("typed rows");
+    let source = pse_relations::testing::untrusted_batch_from_literals(&reg, spec, &rows)
+        .expect("typed rows");
     let contract = pse_relations::canonical::contract(&reg, spec).expect("contract");
     let fields = source.schema();
     let mask = Some(NullBuffer::from(vec![true, false, true]));
@@ -65,24 +72,7 @@ pub(crate) fn fixture(alternate: bool) -> (Arc<Registry>, CanonicalContract, Rec
         ]),
         mask.clone(),
     ));
-    let dictionary: ArrayRef = Arc::new(
-        DictionaryArray::<Int32Type>::try_new(
-            Int32Array::from(if alternate {
-                vec![Some(1), None, Some(0)]
-            } else {
-                vec![Some(0), None, Some(1)]
-            }),
-            Arc::new(StringArray::from(if alternate {
-                vec!["b", "a", "unused"]
-            } else {
-                vec!["a", "b"]
-            })),
-        )
-        .expect("dictionary"),
-    );
-    // Arrow decodes external dictionary encoding before exact admission to the
-    // canonical Utf8 enum declaration; dictionary storage is not a PSE enum form.
-    let choice = cast(dictionary.as_ref(), &DataType::Utf8).expect("native dictionary decode");
+    let choice = decoded_choices(alternate);
     let DataType::List(child) = fields.field(3).data_type() else {
         panic!("list");
     };
@@ -123,20 +113,44 @@ pub(crate) fn fixture(alternate: bool) -> (Arc<Registry>, CanonicalContract, Rec
         vec![source.column(0).clone(), float, choice, list, structure],
     )
     .expect("physical fixture");
-    pse_relations::validate::validate_batch(&reg, spec, &batch).expect("actual value admission");
+    pse_relations::validate::validate_schema(&reg, spec, batch.schema().as_ref())
+        .expect("canonical input schema");
     (reg, contract, batch)
+}
+
+fn decoded_choices(alternate: bool) -> ArrayRef {
+    let dictionary = DictionaryArray::<Int32Type>::try_new(
+        Int32Array::from(if alternate {
+            vec![Some(1), None, Some(0)]
+        } else {
+            vec![Some(0), None, Some(1)]
+        }),
+        Arc::new(StringArray::from(if alternate {
+            vec!["b", "a", "unused"]
+        } else {
+            vec!["a", "b"]
+        })),
+    )
+    .expect("dictionary");
+    // Arrow decodes external dictionary encoding before exact admission to the
+    // canonical Utf8 enum declaration; dictionary storage is not a PSE enum form.
+    cast(&dictionary, &DataType::Utf8).expect("native dictionary decode")
 }
 
 /// Keep complete preimages and sorted batches so tests compare evidence, not hashes alone.
 pub(crate) fn canonical(
     contract: &CanonicalContract,
     batches: &[RecordBatch],
-) -> pse_ids::CanonicalOutput {
-    pse_ids::canonicalize(
+) -> pse_columnar::CanonicalOutput {
+    pse_columnar::canonicalize(
         contract,
         batches,
-        pse_ids::FixedBudget::new(64 << 20).as_ref(),
-        pse_ids::CanonicalizeOptions {
+        &{
+            let pool: Arc<dyn pse_columnar::MemoryPool> =
+                Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+            pool
+        },
+        pse_columnar::CanonicalizeOptions {
             keep_preimage: true,
             keep_sorted: true,
             ..Default::default()

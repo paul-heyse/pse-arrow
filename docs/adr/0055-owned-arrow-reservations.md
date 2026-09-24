@@ -24,6 +24,10 @@ A guard on a snapshot or query report releases too early when a RecordBatch/Arra
 
 ## Scope
 
+ADR-0074 and Plan 11 govern the integrated lifetime, evidence-preservation and
+implementation-testing amendments. This proposed record retains its historical
+evidence; its prior per-boundary or whole-stage mechanisms do not restrict that target.
+
 **Current construction target:** ADR-0067 and blueprint revision 37 replace this
 record's former local replay, row-copy and phase-limited execution mechanisms.
 Plan 05 owns implementation; the domain/identity/lifetime requirements retained

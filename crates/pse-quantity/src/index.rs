@@ -15,7 +15,7 @@
 //! [`BoundIndexId`] beside its [`DomainId`]: §8.3's "same index identities" is an identity
 //! comparison, not a shape comparison.
 
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 use crate::enums::DomainKind;
 use crate::ids::{BoundIndexId, DomainId};
@@ -23,7 +23,7 @@ use crate::ids::{BoundIndexId, DomainId};
 /// One binder an expression is free in (blueprint §6.9 `bound_index_id`).
 ///
 /// Ordering is lexicographic on the fields in declaration order, so `bound_index` is the
-/// primary key and a [`BTreeSet`] of these iterates in binder-identity order. A
+/// primary key and a [`BTreeMap`] of these iterates in binder-identity order. A
 /// well-formed set holds at most one entry per `bound_index`; [`IndexSet::insert`] reports
 /// a second entry for the same binder rather than overwriting it, because two domains for
 /// one binder is a compiler bug, not a merge.
@@ -50,7 +50,7 @@ impl BoundIndexRef {
 
 /// The set of binders an expression is free in (blueprint §8.3 "index identities").
 ///
-/// Backed by a [`BTreeSet`], so iteration order is binder-identity order and never
+/// Backed by a [`BTreeMap`], so iteration order is binder-identity order and never
 /// insertion order or hash order: the set reaches derivations and stage keys, and §5.3's
 /// closing rule forbids a hash-container order from deciding what those contain.
 ///
@@ -69,7 +69,7 @@ impl BoundIndexRef {
 /// assert_eq!(set.len(), 1);
 /// ```
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct IndexSet(BTreeSet<BoundIndexRef>);
+pub struct IndexSet(BTreeMap<BoundIndexId, BoundIndexRef>);
 
 /// Two different domains were bound to one binder identity.
 ///
@@ -86,7 +86,7 @@ pub struct BinderConflict {
 impl IndexSet {
     /// The empty index set: a scalar.
     pub const fn new() -> Self {
-        Self(BTreeSet::new())
+        Self(BTreeMap::new())
     }
 
     /// Adds a binder.
@@ -108,17 +108,18 @@ impl IndexSet {
                 offered: entry,
             });
         }
-        Ok(self.0.insert(entry))
+        self.0.insert(entry.bound_index, entry);
+        Ok(true)
     }
 
     /// The entry for a binder identity, if the set binds it.
     pub fn get(&self, bound_index: BoundIndexId) -> Option<&BoundIndexRef> {
-        self.0.iter().find(|entry| entry.bound_index == bound_index)
+        self.0.get(&bound_index)
     }
 
     /// Is this exact entry in the set?
     pub fn contains(&self, entry: &BoundIndexRef) -> bool {
-        self.0.contains(entry)
+        self.0.get(&entry.bound_index) == Some(entry)
     }
 
     /// Is this binder identity in the set, whatever domain it ranges over?
@@ -134,7 +135,7 @@ impl IndexSet {
     /// case §8.3 refuses rather than merges.
     pub fn union(&self, other: &Self) -> Result<Self, BinderConflict> {
         let mut out = self.clone();
-        for entry in &other.0 {
+        for entry in other.0.values() {
             out.insert(*entry)?;
         }
         Ok(out)
@@ -149,20 +150,20 @@ impl IndexSet {
         Self(
             self.0
                 .iter()
-                .filter(|entry| !other.contains_index(entry.bound_index))
-                .copied()
+                .filter(|(key, _)| !other.contains_index(**key))
+                .map(|(key, value)| (*key, *value))
                 .collect(),
         )
     }
 
     /// Is every binder of this set bound by `other` to the same domain?
     pub fn is_subset(&self, other: &Self) -> bool {
-        self.0.is_subset(&other.0)
+        self.iter().all(|entry| other.contains(entry))
     }
 
     /// The binders, in binder-identity order.
-    pub fn iter(&self) -> std::collections::btree_set::Iter<'_, BoundIndexRef> {
-        self.0.iter()
+    pub fn iter(&self) -> std::collections::btree_map::Values<'_, BoundIndexId, BoundIndexRef> {
+        self.0.values()
     }
 
     /// How many binders the set holds.
@@ -194,7 +195,7 @@ impl IndexSet {
 
 impl<'a> IntoIterator for &'a IndexSet {
     type Item = &'a BoundIndexRef;
-    type IntoIter = std::collections::btree_set::Iter<'a, BoundIndexRef>;
+    type IntoIter = std::collections::btree_map::Values<'a, BoundIndexId, BoundIndexRef>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

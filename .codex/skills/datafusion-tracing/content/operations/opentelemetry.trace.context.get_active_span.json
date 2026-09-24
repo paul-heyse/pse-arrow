@@ -1,0 +1,150 @@
+[
+  {
+    "id": "99c7c9f3027b0f6e1eceb0da",
+    "path": "opentelemetry::trace::context::get_active_span",
+    "name": "get_active_span",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn get_active_span<F, T>(f: F) -> T where F: FnOnce(SpanRef<'_>) -> T",
+    "docs": "Executes a closure with a reference to this thread's current span.\n\n# Examples\n\n```\nuse opentelemetry::{global, trace::{Span, Tracer}, KeyValue};\nuse opentelemetry::trace::get_active_span;\n\nfn my_function() {\n    // start an active span in one function\n    global::tracer(\"my-component\").in_span(\"span-name\", |_cx| {\n        // anything happening in functions we call can still access the active span...\n        my_other_function();\n    })\n}\n\nfn my_other_function() {\n    // call methods on the current span from\n    get_active_span(|span| {\n        span.add_event(\"An event!\", vec![KeyValue::new(\"happened\", true)]);\n    })\n}\n```",
+    "span": {
+      "filename": "src/trace/context.rs",
+      "begin": [
+        386,
+        1
+      ],
+      "end": [
+        391,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "f",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "T"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "F"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "FnOnce",
+                        "id": 441,
+                        "args": {
+                          "parenthesized": {
+                            "inputs": [
+                              {
+                                "resolved_path": {
+                                  "path": "SpanRef",
+                                  "id": 475,
+                                  "args": {
+                                    "angle_bracketed": {
+                                      "args": [
+                                        {
+                                          "lifetime": "'_"
+                                        }
+                                      ],
+                                      "constraints": []
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "output": {
+                              "generic": "T"
+                            }
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "441": "core::ops::function::FnOnce",
+      "475": "opentelemetry::trace::context::SpanRef"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1483",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.context.get_active_span.md",
+    "record_file": "operations/opentelemetry.trace.context.get_active_span.json",
+    "anchor": "op-99c7c9f3027b0f6e1eceb0da",
+    "aliases": [
+      "opentelemetry::trace::get_active_span"
+    ],
+    "resolved_doc_links": {}
+  }
+]

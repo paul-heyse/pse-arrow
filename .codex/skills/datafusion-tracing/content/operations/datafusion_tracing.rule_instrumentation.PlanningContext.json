@@ -1,0 +1,424 @@
+[
+  {
+    "id": "b43a04c2e8950ebe10c9290d",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningContext",
+    "name": "PlanningContext",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct",
+    "signature": "struct PlanningContext",
+    "docs": "Context for tracking the active planning phase span.\n\nStores the current phase, the entered span guard, and state needed for\ncomputing plan diffs and tracking which rules modified the plan.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        102,
+        1
+      ],
+      "end": [
+        112,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              399,
+              400,
+              402,
+              403
+            ],
+            "has_stripped_fields": false
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          405,
+          406,
+          407,
+          408,
+          409,
+          410,
+          411,
+          412,
+          413,
+          414,
+          415,
+          416,
+          417,
+          418,
+          419,
+          420,
+          421,
+          422,
+          423,
+          424
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "404",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.json",
+    "anchor": "op-b43a04c2e8950ebe10c9290d",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a29d0211b064905186f476db",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningContext::_entered",
+    "name": "_entered",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningContext",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "_entered: tracing::span::EnteredSpan",
+    "docs": "The entered span guard - keeps the span open until this context is dropped.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        106,
+        5
+      ],
+      "end": [
+        106,
+        41
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "tracing::span::EnteredSpan",
+          "id": 401,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "401": "tracing::span::EnteredSpan"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "400",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.json",
+    "anchor": "op-a29d0211b064905186f476db",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9e88e94c7e5dec656a641ce0",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningContext::effective_rules",
+    "name": "effective_rules",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningContext",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "effective_rules: Vec<String>",
+    "docs": "List of rule names that modified the plan during this phase.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        111,
+        5
+      ],
+      "end": [
+        111,
+        33
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Vec",
+          "id": 124,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "String",
+                      "id": 120,
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "124": "alloc::vec::Vec",
+      "120": "alloc::string::String"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "403",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.json",
+    "anchor": "op-9e88e94c7e5dec656a641ce0",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "77f6ed10baa4c32787fa9aee",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningContext::phase",
+    "name": "phase",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningContext",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "phase: PlanningPhase",
+    "docs": "The current planning phase.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        104,
+        5
+      ],
+      "end": [
+        104,
+        25
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "PlanningPhase",
+          "id": 343,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "343": "datafusion_tracing::rule_instrumentation::PlanningPhase"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "399",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.json",
+    "anchor": "op-77f6ed10baa4c32787fa9aee",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fc6d2cbaed03300db2789bf2",
+    "path": "datafusion_tracing::rule_instrumentation::PlanningContext::plan_before",
+    "name": "plan_before",
+    "owner": "datafusion_tracing::rule_instrumentation::PlanningContext",
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "struct_field",
+    "signature": "plan_before: Option<String>",
+    "docs": "The plan state at the start of the phase (for computing diff).\nOnly captured if plan_diff option is enabled and span is active.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        109,
+        5
+      ],
+      "end": [
+        109,
+        32
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 118,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "String",
+                      "id": 120,
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "118": "core::option::Option",
+      "120": "alloc::string::String"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "402",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.PlanningContext.json",
+    "anchor": "op-fc6d2cbaed03300db2789bf2",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

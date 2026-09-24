@@ -65,7 +65,7 @@ fn every_extern_c_callback_catches_unwind() {
     let root = common::workspace_root();
     let mut problems: Vec<String> = Vec::new();
 
-    for crate_name in ["pse-backend-native", "pse-kernels-ext"] {
+    for crate_name in ["pse-backend-native"] {
         let dir = root.join("crates").join(crate_name).join("src");
         for path in common::rust_sources(&dir) {
             if common::is_generated(&path) {

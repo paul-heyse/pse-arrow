@@ -1,0 +1,58 @@
+[
+  {
+    "id": "091e622b1290349db710abb4",
+    "path": "opentelemetry::propagation::composite",
+    "name": "composite",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod composite",
+    "docs": "# Composite Propagator\n\nA utility over multiple `Propagator`s to group multiple Propagators from different cross-cutting\nconcerns in order to leverage them as a single entity.\n\nEach composite Propagator will implement a specific Propagator type, such as TextMapPropagator,\nas different Propagator types will likely operate on different data types.",
+    "span": {
+      "filename": "src/propagation/composite.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        286,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          1360
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1388",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.propagation.composite.md",
+    "record_file": "modules/opentelemetry.propagation.composite.json",
+    "anchor": "op-091e622b1290349db710abb4",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

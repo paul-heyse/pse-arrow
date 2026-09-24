@@ -1,0 +1,61 @@
+[
+  {
+    "id": "cb59e3b800e4bf2ad2acc6dd",
+    "path": "tracing::instrument",
+    "name": "instrument",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "module",
+    "signature": "mod instrument",
+    "docs": "Attach a span to a `std::future::Future`.",
+    "span": {
+      "filename": "src/instrument.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        429,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          56,
+          63,
+          59,
+          54
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "182",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing.instrument.md",
+    "record_file": "modules/tracing.instrument.json",
+    "anchor": "op-cb59e3b800e4bf2ad2acc6dd",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

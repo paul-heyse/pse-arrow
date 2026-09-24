@@ -14,11 +14,6 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_authored_continuous_domains(builder);
     declare_normalized_domain_products(builder);
     declare_inferred_valid_index_tuples(builder);
-    declare_compiled_meshes(builder);
-    declare_compiled_mesh_nodes(builder);
-    declare_compiled_stencils(builder);
-    declare_compiled_quadrature_rules(builder);
-    declare_node_kind_vocabulary(builder);
 }
 
 fn declare_authored_domains(builder: &mut RegistryBuilder) {
@@ -124,83 +119,3 @@ fn declare_inferred_valid_index_tuples(builder: &mut RegistryBuilder) {
     );
 }
 
-fn declare_compiled_meshes(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Compiled,
-        "meshes",
-        S::Derived,
-        &["mesh_id"],
-        vec![
-            column("mesh_id", T::id()),
-            column("domain_id", T::id()),
-            column("policy_id", T::id()),
-            column("node_count", T::nonnegative(i64::from(u32::MAX))),
-            column("nodes", T::list(T::native(arrow_schema::DataType::Float64))),
-        ],
-        "blueprint §6.3 domain: meshes.",
-    );
-}
-
-fn declare_compiled_mesh_nodes(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Compiled,
-        "mesh_nodes",
-        S::Derived,
-        &["node_id"],
-        vec![
-            column("node_id", T::id()),
-            column("mesh_id", T::id()).with_fk("compiled.meshes", "mesh_id"),
-            column("ordinal", T::nonnegative(i64::from(u32::MAX))),
-            column("coordinate", T::native(arrow_schema::DataType::Float64)),
-            column("kind", T::enumeration("NodeKind")),
-        ],
-        "blueprint §6.3 domain: mesh_nodes.",
-    );
-}
-
-fn declare_compiled_stencils(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Compiled,
-        "stencils",
-        S::Derived,
-        &["stencil_id"],
-        vec![
-            column("stencil_id", T::id()),
-            column("mesh_id", T::id()).with_fk("compiled.meshes", "mesh_id"),
-            column("derivative_order", T::nonnegative(i64::from(u8::MAX))),
-            column("scheme", T::enumeration("DiscretizationScheme")),
-            column("node_id", T::id()),
-            column("neighbor_node_id", T::id()),
-            column("weight", T::native(arrow_schema::DataType::Float64)),
-        ],
-        "blueprint §6.3 domain: stencils.",
-    );
-}
-
-fn declare_compiled_quadrature_rules(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Compiled,
-        "quadrature_rules",
-        S::Derived,
-        &["rule_id"],
-        vec![
-            column("rule_id", T::id()),
-            column("mesh_id", T::id()).with_fk("compiled.meshes", "mesh_id"),
-            column("node_id", T::id()),
-            column("weight", T::native(arrow_schema::DataType::Float64)),
-        ],
-        "blueprint §6.3 domain: quadrature_rules.",
-    );
-}
-
-fn declare_node_kind_vocabulary(builder: &mut RegistryBuilder) {
-    super::declarations::enumeration(
-        builder,
-        "NodeKind",
-        ["element_boundary", "collocation", "interior"],
-    );
-}

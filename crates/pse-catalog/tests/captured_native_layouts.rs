@@ -3,9 +3,6 @@
 
 //! Native Arrow containers preserve PSE child predicates and visible-value masks.
 
-#[path = "../../../tests/support/session_factory.rs"]
-mod session_factory;
-
 use datafusion::{
     arrow::{
         array::{
@@ -18,8 +15,8 @@ use datafusion::{
     common::TableReference,
     datasource::MemTable,
 };
-use pse_catalog::session::SnapshotSession;
-use pse_ids::{CancellationToken, FixedBudget};
+use pse_columnar::CancellationToken;
+use pse_engine::session::EngineSession;
 use std::{collections::BTreeMap, sync::Arc};
 
 #[expect(clippy::unwrap_used, reason = "fixed declared span storage fixture")]
@@ -27,7 +24,7 @@ use std::{collections::BTreeMap, sync::Arc};
     clippy::panic,
     reason = "test assertion checks the declared extension layout"
 )]
-fn fixture() -> (SnapshotSession, Arc<Field>, ArrayRef) {
+fn fixture() -> (EngineSession, Arc<Field>, ArrayRef) {
     use pse_schema::model::{ExtensionUse, FieldContract};
     let registry = Arc::new(pse_schema::RegistryBuilder::new().build().unwrap());
     let field = Arc::new(
@@ -59,26 +56,28 @@ fn fixture() -> (SnapshotSession, Arc<Field>, ArrayRef) {
         )
         .unwrap(),
     );
-    let session = session_factory::factory(FixedBudget::new(64 << 20))
+    let session = pse_testkit::NativeFixture::new((64 << 20).try_into().unwrap())
+        .unwrap()
+        .into_factory()
         .candidate(BTreeMap::new(), registry, &CancellationToken::new())
         .unwrap();
     (session, field, values)
 }
 
 async fn capture(
-    session: &SnapshotSession,
+    session: &EngineSession,
     field: Field,
     array: ArrayRef,
-) -> Result<(), pse_catalog::CatalogError> {
+) -> Result<(), pse_engine::EngineError> {
     let schema = Arc::new(Schema::new(vec![field]));
     let batch = RecordBatch::try_new(Arc::clone(&schema), vec![array]).map_err(|error| {
-        pse_catalog::CatalogError::Infrastructure {
+        pse_engine::EngineError::Infrastructure {
             op: "capture fixture".into(),
             source: Box::new(error),
         }
     })?;
     let provider = MemTable::try_new(schema, vec![vec![batch]]).map_err(|error| {
-        pse_catalog::CatalogError::Infrastructure {
+        pse_engine::EngineError::Infrastructure {
             op: "capture fixture provider".into(),
             source: Box::new(error),
         }
@@ -109,10 +108,9 @@ async fn large_list_validates_visible_pse_children_and_ignores_null_parents() {
     );
     let field = Field::new("spans", visible.data_type().clone(), true);
     let error = capture(&session, field.clone(), visible).await.unwrap_err();
-    assert!(
-        format!("{error:?}")
-            .contains("source span requires bounded nonnegative offsets and start <= end"),
-        "{error:?}"
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
     );
     let masked: ArrayRef = Arc::new(
         LargeListArray::try_new(

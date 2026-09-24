@@ -5,14 +5,21 @@
 mod cache_report;
 mod cache_settings;
 pub(crate) use cache_report::CacheReport;
-mod errors;
+pub(crate) mod errors;
 mod handles;
-mod runtime;
+pub(crate) mod inputs;
+mod reports;
+pub(crate) mod runtime;
+pub(crate) use reports::{ResourceConsumer, ResourceReport, TableName};
 mod settings;
 mod stream;
+mod tuple;
 
 pub(crate) use cache_settings::CacheSettings;
-pub(crate) use errors::InspectionError;
+pub(crate) use errors::{
+    DiagnosticAnnotation, DiagnosticCause, DiagnosticContext, DiagnosticNote, DiagnosticReport,
+    DiagnosticSpan, InspectionError,
+};
 pub(crate) use handles::{Publication, open_publication};
 pub(crate) use settings::EngineSettings;
 pub(crate) use stream::TableStream;

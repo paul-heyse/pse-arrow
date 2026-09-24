@@ -1,0 +1,119 @@
+[
+  {
+    "id": "860b44a9d0353bc997e5d841",
+    "path": "opentelemetry::trace",
+    "name": "trace",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod trace",
+    "docs": "API for tracing applications and libraries.\n\nThe `trace` module includes types for tracking the progression of a single\nrequest while it is handled by services that make up an application. A trace\nis a tree of [`Span`]s which are objects that represent the work being done\nby individual services or components involved in a request as it flows\nthrough a system. This module implements the OpenTelemetry [trace\nspecification].\n\n[trace specification]: https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/api.md\n\n## Getting Started\n\nIn application code:\n\n```\nuse opentelemetry::trace::{Tracer, noop::NoopTracerProvider};\nuse opentelemetry::global;\n\nfn init_tracer() {\n    // Swap this no-op provider for your tracing service of choice (jaeger, zipkin, etc)\n    let provider = NoopTracerProvider::new();\n\n    // Configure the global `TracerProvider` singleton when your app starts\n    // (there is a no-op default if this is not set by your application)\n    let _ = global::set_tracer_provider(provider);\n}\n\nfn do_something_tracked() {\n    // Then you can get a named tracer instance anywhere in your codebase.\n    let tracer = global::tracer(\"my-component\");\n\n    tracer.in_span(\"doing_work\", |cx| {\n        // Traced app logic here...\n    });\n}\n\n// in main or other app start\ninit_tracer();\ndo_something_tracked();\n```\n\nIn library code:\n\n```\nuse opentelemetry::{global, trace::{Span, Tracer, TracerProvider}};\nuse opentelemetry::InstrumentationScope;\nuse std::sync::Arc;\n\nfn my_library_function() {\n    // Use the global tracer provider to get access to the user-specified\n    // tracer configuration\n    let tracer_provider = global::tracer_provider();\n\n    // Get a tracer for this library\n    let scope = InstrumentationScope::builder(\"my_name\")\n        .with_version(env!(\"CARGO_PKG_VERSION\"))\n        .with_schema_url(\"https://opentelemetry.io/schemas/1.17.0\")\n        .build();\n\n    let tracer = tracer_provider.tracer_with_scope(scope);\n\n    // Create spans\n    let mut span = tracer.start(\"doing_work\");\n\n    // Do work...\n\n    // End the span\n    span.end();\n}\n```\n\n## Overview\n\nThe tracing API consists of a three main traits:\n\n* [`TracerProvider`]s are the entry point of the API. They provide access to\n  `Tracer`s.\n* [`Tracer`]s are types responsible for creating `Span`s.\n* [`Span`]s provide the API to trace an operation.\n\n## Working with Async Runtimes\n\nExporting spans often involves sending data over a network or performing\nother I/O tasks. OpenTelemetry allows you to schedule these tasks using\nwhichever runtime you are already using such as [Tokio].\nWhen using an async runtime it's best to use the batch span processor\nwhere the spans will be sent in batches as opposed to being sent once ended,\nwhich often ends up being more efficient.\n\n[Tokio]: https://tokio.rs\n\n## Managing Active Spans\n\nSpans can be marked as \"active\" for a given [`Context`], and all newly\ncreated spans will automatically be children of the currently active span.\n\nThe active span for a given thread can be managed via [`get_active_span`]\nand [`mark_span_as_active`].\n\n[`Context`]: crate::Context\n\n```\nuse opentelemetry::{global, trace::{self, Span, Status, Tracer, TracerProvider}};\n\nfn may_error(rand: f32) {\n    if rand < 0.5 {\n        // Get the currently active span to record additional attributes,\n        // status, etc.\n        trace::get_active_span(|span| {\n            span.set_status(Status::error(\"value too small\"));\n        });\n    }\n}\n\n// Get a tracer\nlet tracer = global::tracer(\"my_tracer\");\n\n// Create a span\nlet span = tracer.start(\"parent_span\");\n\n// Mark the span as active\nlet active = trace::mark_span_as_active(span);\n\n// Any span created here will be a child of `parent_span`...\n\n// Drop the guard and the span will no longer be active\ndrop(active)\n```\n\nAdditionally [`Tracer::in_span`] can be used as shorthand to simplify\nmanaging the parent context.\n\n```\nuse opentelemetry::{global, trace::Tracer};\n\n// Get a tracer\nlet tracer = global::tracer(\"my_tracer\");\n\n// Use `in_span` to create a new span and mark it as the parent, dropping it\n// at the end of the block.\ntracer.in_span(\"parent_span\", |cx| {\n    // spans created here will be children of `parent_span`\n});\n```\n\n#### Async active spans\n\nAsync spans can be propagated with [`TraceContextExt`] and [`FutureExt`].\n\n```\nuse opentelemetry::{Context, global, trace::{FutureExt, TraceContextExt, Tracer}};\n\nasync fn some_work() { }\n# async fn in_an_async_context() {\n\n// Get a tracer\nlet tracer = global::tracer(\"my_tracer\");\n\n// Start a span\nlet span = tracer.start(\"my_span\");\n\n// Perform some async work with this span as the currently active parent.\nsome_work().with_context(Context::current_with_span(span)).await;\n# }\n```",
+    "span": {
+      "filename": "src/trace/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        274,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"trace\")]"
+      },
+      {
+        "other": "#[<cfg_attr>(docsrs, doc(cfg(feature = \"trace\")))]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"trace\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          1609,
+          1905,
+          1906,
+          1907,
+          1908,
+          1909,
+          1910,
+          1911,
+          1912,
+          1913,
+          1914,
+          1915,
+          1916,
+          1917,
+          1918,
+          1919,
+          1920,
+          1921,
+          1922,
+          1923,
+          1799,
+          1454
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`TracerProvider`": 141,
+      "`Tracer`": 108,
+      "crate::Context": 121,
+      "`Tracer::in_span`": 1790,
+      "`get_active_span`": 1483,
+      "`TraceContextExt`": 479,
+      "`mark_span_as_active`": 1482,
+      "`Span`": 34,
+      "`FutureExt`": 60
+    },
+    "link_paths": {
+      "`TracerProvider`": "opentelemetry::trace::tracer_provider::TracerProvider",
+      "`Tracer`": "opentelemetry::trace::tracer::Tracer",
+      "crate::Context": "opentelemetry::context::Context",
+      "`Tracer::in_span`": null,
+      "`get_active_span`": "opentelemetry::trace::context::get_active_span",
+      "`TraceContextExt`": "opentelemetry::trace::context::TraceContextExt",
+      "`mark_span_as_active`": "opentelemetry::trace::context::mark_span_as_active",
+      "`Span`": "opentelemetry::trace::span::Span",
+      "`FutureExt`": "opentelemetry::context::future_ext::FutureExt"
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1987",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.trace.md",
+    "record_file": "modules/opentelemetry.trace.json",
+    "anchor": "op-860b44a9d0353bc997e5d841",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`TracerProvider`": "../operations/opentelemetry.trace.tracer_provider.TracerProvider.md#op-3d14c743f48c20c76241bcf3",
+      "`Tracer`": "../operations/opentelemetry.trace.tracer.Tracer.md#op-a87fa61076cf2b7384423932",
+      "crate::Context": "../operations/opentelemetry.context.Context.md#op-ca59114006a0744de26919a1",
+      "`Tracer::in_span`": "../operations/opentelemetry.trace.tracer.Tracer.md#op-bdb2045ac638a69960430837",
+      "`get_active_span`": "../operations/opentelemetry.trace.context.get_active_span.md#op-99c7c9f3027b0f6e1eceb0da",
+      "`TraceContextExt`": "../operations/opentelemetry.trace.context.TraceContextExt.md#op-dc23835cc5d2a3b3f83ec729",
+      "`mark_span_as_active`": "../operations/opentelemetry.trace.context.mark_span_as_active.md#op-da8fd29a0da93e7e5eb4d6d6",
+      "`Span`": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8",
+      "`FutureExt`": "../operations/opentelemetry.context.future_ext.FutureExt.md#op-0b23d57a653ef8543662473d"
+    }
+  }
+]

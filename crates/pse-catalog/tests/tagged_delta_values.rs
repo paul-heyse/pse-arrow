@@ -7,8 +7,7 @@
     clippy::panic,
     reason = "independent contract assertions"
 )]
-#[path = "support/native_execution.rs"]
-mod native_execution;
+use pse_testkit::execution as native_execution;
 
 use datafusion::{
     arrow::{
@@ -24,10 +23,8 @@ use deltalake::{
     kernel::{engine::arrow_conversion::TryIntoArrow, transaction::CommitProperties},
     protocol::SaveMode,
 };
-use pse_catalog::{
-    delta::{contract::DeclaredCheck, write::DeltaWrite},
-    session::planner::UnifiedPlanner,
-};
+use pse_catalog::delta::{contract::DeclaredCheck, write::DeltaWrite};
+use pse_engine::session::planner::UnifiedPlanner;
 use pse_schema::{RegistryBuilder, model::*};
 use std::sync::Arc;
 
@@ -112,7 +109,7 @@ fn batch(
 #[tokio::test]
 async fn cold_native_checks_enforce_alternatives_and_parent_masks() {
     let (registry, contract) = contract();
-    assert!(!contract.properties()["delta.constraints.pse_contract"].contains("pse_nested"));
+    assert!(!contract.properties()["delta.constraints.pse_contract"].contains("pse_field_"));
     let root = tempfile::tempdir().unwrap();
     let location = url::Url::from_directory_path(root.path()).unwrap();
     let context = native_context();
@@ -330,7 +327,9 @@ fn collection_batch(schema: SchemaRef, values: Option<&[i64]>) -> RecordBatch {
 fn native_context() -> SessionContext {
     SessionContext::new_with_state(
         SessionStateBuilder::new_with_default_features()
-            .with_query_planner(Arc::new(UnifiedPlanner::default()))
+            .with_query_planner(Arc::new(UnifiedPlanner::new(
+                pse_catalog::assembly::planners(),
+            )))
             .build(),
     )
 }

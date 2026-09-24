@@ -1,0 +1,17 @@
+{
+  "invariant": "runtime.fit_parameters:unique:pk",
+  "rows": {
+    "runtime.fit_parameters": [
+      {
+        "at_bound": "[\"bool\",true]",
+        "fixed": "[\"bool\",true]",
+        "parameter_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scale": "[\"f64\",\"3ff0000000000000\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "value": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

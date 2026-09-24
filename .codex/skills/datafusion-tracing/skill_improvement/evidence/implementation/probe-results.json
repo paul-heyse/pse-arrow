@@ -1,0 +1,92 @@
+{
+  "state": "passed",
+  "started_at": "2026-09-19T02:14:59.663892+00:00",
+  "sources": {
+    "build/fixtures/probe-crate/Cargo.lock": "813e3e600c53243992580466181655e0de78785e7e16ff87c5c09d2b64aa2a2c",
+    "build/fixtures/probe-crate/Cargo.toml": "7292acd6b7f74d1776ab68007d0033536d83795f45b75c454c1f1fcf1f9fd29c",
+    "build/fixtures/probe-crate/src/harness.rs": "a1822ae51e87271ea5fa1ceae35d6e43acd9ed5f651b7763b883c2c15ffb3dc3",
+    "build/fixtures/probe-crate/src/main.rs": "52bf6f334e64357b8bdc99dc2e9bae0df1559e4ebd4df04239f7113671ff6b4c",
+    "build/fixtures/probe-crate/tests/contracts.rs": "93c8621ac5672f9989f9b93461e2f351fc6a099a0c3428381aabea4ce323c39e",
+    "scripts/run_probes.py": "92c888104a9138a92de2ad54b76fba94239479574bcdcf64d3ba939d4d13a0b7"
+  },
+  "passed_tests": [
+    "batch_flush_exports_completed_spans_and_shutdown_is_observed",
+    "early_drop_partial_partition_and_repeated_execution",
+    "explicit_target_and_filter_control",
+    "independent_execution_groups_do_not_mix_previews",
+    "later_rewrite_changes_observed_node_coverage",
+    "local_layer_and_otel_sampling_are_independent",
+    "metrics_and_custom_fields_have_separate_controls",
+    "partition_preview_cap_and_live_stream_lifetime",
+    "phase_selection_and_rule_parentage",
+    "preview_default_custom_disabled_and_error",
+    "spawned_future_propagates_parent_and_dispatch",
+    "storage_wrapper_result_error_and_lazy_lifetime"
+  ],
+  "commands": [
+    {
+      "command": [
+        "rustc",
+        "+1.98.1",
+        "--version",
+        "--verbose"
+      ],
+      "exit_code": 0,
+      "log": "probe-compiler.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "+1.98.1",
+        "test",
+        "--release",
+        "--locked",
+        "--test",
+        "contracts",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "log": "contract-probes.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "+1.98.1",
+        "metadata",
+        "--locked",
+        "--format-version",
+        "1"
+      ],
+      "exit_code": 0,
+      "log": "probe-metadata.log"
+    }
+  ],
+  "scope": "Public consumer contracts; SDK export is local, not OTLP receipt.",
+  "captures": {
+    "skill_improvement/evidence/implementation/captures/async-parent-dispatch.json": "1e3c6d68852bd3262c5890dad26e281eeab35c03e82e46829e70729e4d665d8c",
+    "skill_improvement/evidence/implementation/captures/batch-flush-shutdown.json": "37196e49612c312ac019a420a568f90ab89adba0e0dee5d46fd26dc5b8edb5e5",
+    "skill_improvement/evidence/implementation/captures/early-drop-repeat.json": "7146ffb77c32c18cedcdaa43b9a55525f6250b3ec9b3921ddc208eaaebc6a5cb",
+    "skill_improvement/evidence/implementation/captures/independent-executions.json": "3649127664ff30b40b06c084ec3a547f0a7917d19d69401353d1bf50d798d010",
+    "skill_improvement/evidence/implementation/captures/instrument-last.json": "f575d4aab48075314556dedcb29c5e9c8193091551cd60c8732303937e9baa6d",
+    "skill_improvement/evidence/implementation/captures/metrics-fields-off.json": "32315de93711162b8f31404f58abb09c5803d4a60fe5b2e665dfebdb171613ce",
+    "skill_improvement/evidence/implementation/captures/metrics-fields-on.json": "d835b868028346fd63008edc7bcf5d8137b166320398e5832039733b1abc7f3f",
+    "skill_improvement/evidence/implementation/captures/partition-preview-at-eof.json": "8549616b2dc3f6ba40ee178a62add103b516d1e758e5885b112bd2a078ac4d66",
+    "skill_improvement/evidence/implementation/captures/partition-preview-lifetime.json": "8549616b2dc3f6ba40ee178a62add103b516d1e758e5885b112bd2a078ac4d66",
+    "skill_improvement/evidence/implementation/captures/phase-only.json": "f8a94341740da0296bc3134a4fae8e6ee0df8a9828b930a0a46b44fa4fb15cb4",
+    "skill_improvement/evidence/implementation/captures/physical-only.json": "cf57d352ee66e92cc855fe37cc45c709425ea72268b142f9b501ae980a29a31e",
+    "skill_improvement/evidence/implementation/captures/preview-custom.json": "379701c9905e3cbc6e3d1eef46b7fa81920a1ebb5879e7a9046de6f7ab6c29b0",
+    "skill_improvement/evidence/implementation/captures/preview-default.json": "0a7bb1c12011f4d2600c21a451aafead027125614f6f103c15e4743f407e115d",
+    "skill_improvement/evidence/implementation/captures/preview-disabled.json": "3e3428a6fb324bde3789088b8e61630d2b3af30ec27aca392deefce7a05d6c6c",
+    "skill_improvement/evidence/implementation/captures/preview-error.json": "4e54f1ab0fce598dfcb3ac5b50154c5e05b03186a863ea936f93330e381e4afd",
+    "skill_improvement/evidence/implementation/captures/rewrite-last.json": "32315de93711162b8f31404f58abb09c5803d4a60fe5b2e665dfebdb171613ce",
+    "skill_improvement/evidence/implementation/captures/rules-full.json": "9e9f35b7321a617603bcbd012b98b8c27629fb4a1cd1a93ff72568d3dd637d1c",
+    "skill_improvement/evidence/implementation/captures/sdk-off.json": "f307da590b4569122329a392f2fbe7caebb2069eeda61aed1f5f2ed96de37b71",
+    "skill_improvement/evidence/implementation/captures/sdk-on.json": "f307da590b4569122329a392f2fbe7caebb2069eeda61aed1f5f2ed96de37b71",
+    "skill_improvement/evidence/implementation/captures/store-lifetimes.json": "30b243292754d567cec0dd0eb0da9ad7c065565c30e387bc98c76309a6dbfff6",
+    "skill_improvement/evidence/implementation/captures/target-1.json": "97028844d3ad585848731c1bfcd15d361fb75757cb0734b1ba5d5939b2eeec5e",
+    "skill_improvement/evidence/implementation/captures/target-2.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "skill_improvement/evidence/implementation/captures/target-3.json": "32315de93711162b8f31404f58abb09c5803d4a60fe5b2e665dfebdb171613ce"
+  },
+  "finished_at": "2026-09-19T02:15:15.270004+00:00"
+}

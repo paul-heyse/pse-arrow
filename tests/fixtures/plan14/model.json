@@ -1,0 +1,2135 @@
+{
+  "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+  "name": "Native physical acceptance",
+  "domains": [
+    {
+      "name": "inlets",
+      "domain_id": "7b72c196502e592eb57e4e7d496b74db",
+      "members": [
+        "8930f6ca2828524db52a43e6c56ab80e",
+        "a91a9754743b5960bb29eee8b45a15c3"
+      ],
+      "kind": "port_set"
+    }
+  ],
+  "groups": [
+    {
+      "name": "feeds",
+      "quantity_id": "01028e71b867561487928b278eabdb70",
+      "axes": [
+        "inlets"
+      ],
+      "slots": [
+        {
+          "members": [
+            "8930f6ca2828524db52a43e6c56ab80e"
+          ],
+          "slot": 5
+        },
+        {
+          "members": [
+            "a91a9754743b5960bb29eee8b45a15c3"
+          ],
+          "slot": 7
+        }
+      ]
+    }
+  ],
+  "definitions": [
+    {
+      "definition_id": "22ab41346f5b58f4883f0bc5058b2f1c",
+      "sources": [
+        "pressure(temperature,density,methane,ethane)"
+      ],
+      "formals": [
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "density",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "recycle",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "methane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ethane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "fraction",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "feed_aux",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "inlet_h",
+          "quantity_id": "ce74927939e45768b340b5f46b7170c6"
+        },
+        {
+          "path": "duty",
+          "quantity_id": "64f4fe01ca985368a6933eec87362dd9"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [
+        "pressure"
+      ],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "5def8966397354b39f61e7cf4779e551",
+      "sources": [
+        "recycle * inlet_h",
+        "duty",
+        "recycle * enthalpy(temperature,density,methane,ethane)"
+      ],
+      "formals": [
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "density",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "recycle",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "methane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ethane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "fraction",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "feed_aux",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "inlet_h",
+          "quantity_id": "ce74927939e45768b340b5f46b7170c6"
+        },
+        {
+          "path": "duty",
+          "quantity_id": "64f4fe01ca985368a6933eec87362dd9"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [
+        "enthalpy"
+      ],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "bd99df1a4ecf5daf89330960e636e6c9",
+      "sources": [
+        "fraction * recycle",
+        "sum(i in inlets | feeds[i])",
+        "recycle"
+      ],
+      "formals": [
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "density",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "recycle",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "methane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ethane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "fraction",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "feed_aux",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "inlet_h",
+          "quantity_id": "ce74927939e45768b340b5f46b7170c6"
+        },
+        {
+          "path": "duty",
+          "quantity_id": "64f4fe01ca985368a6933eec87362dd9"
+        }
+      ],
+      "domains": [
+        "inlets"
+      ],
+      "groups": [
+        "feeds"
+      ],
+      "providers": [],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "b7cc918544d557909cbd390978d371c9",
+      "sources": [
+        "pressure(temperature,density,methane,ethane)"
+      ],
+      "formals": [
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "density",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "methane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ethane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [
+        "pressure"
+      ],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "169e85caf0dc5ce399ad75c1a256e9a9",
+      "sources": [
+        "temperature"
+      ],
+      "formals": [
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "density",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "methane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ethane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "80ef35d7475f5bd586711325f2d361d0",
+      "sources": [
+        "enthalpy(temperature,density,methane,ethane)"
+      ],
+      "formals": [
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "density",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "methane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ethane",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [
+        "enthalpy"
+      ],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "731ace147eac5604a21bffa4114e6e8f",
+      "sources": [
+        "split * feed",
+        "product"
+      ],
+      "formals": [
+        {
+          "path": "product",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "feed",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "split",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "cc1fc4406687591aaa5fb9f1fd6428a6",
+      "sources": [
+        "split * feed",
+        "product"
+      ],
+      "formals": [
+        {
+          "path": "product",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "feed",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "split",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "d88ec033ba8b553798f8699b77fb54a3",
+      "sources": [
+        "split * feed",
+        "product"
+      ],
+      "formals": [
+        {
+          "path": "product",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "feed",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "split",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "d844c481a079502f9ec633bb629b42f1",
+      "sources": [
+        "pressure(temperature,rl,xm,xe)"
+      ],
+      "formals": [
+        {
+          "path": "rl",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "rv",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "xm",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "xe",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ym",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ye",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "beta",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "one",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_m",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_e",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [
+        "pressure"
+      ],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "7537d1bb648e56f989d384beda446ef7",
+      "sources": [
+        "pressure(temperature,rv,ym,ye)"
+      ],
+      "formals": [
+        {
+          "path": "rl",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "rv",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "xm",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "xe",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ym",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ye",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "beta",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "one",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_m",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_e",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [
+        "pressure"
+      ],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "5c2791aa0f4d5bbfa5472c780546e58b",
+      "sources": [
+        "log(xm) + phi_m(temperature,rl,xm,xe) - log(ym) - phi_m(temperature,rv,ym,ye)"
+      ],
+      "formals": [
+        {
+          "path": "rl",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "rv",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "xm",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "xe",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ym",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ye",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "beta",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "one",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_m",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_e",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [
+        "phi_m"
+      ],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "2c232b469e2853bc881cdac9813818c5",
+      "sources": [
+        "log(xe) + phi_e(temperature,rl,xm,xe) - log(ye) - phi_e(temperature,rv,ym,ye)"
+      ],
+      "formals": [
+        {
+          "path": "rl",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "rv",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "xm",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "xe",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ym",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ye",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "beta",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "one",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_m",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_e",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [
+        "phi_e"
+      ],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "5ebcb5d1917455b689e0b6490e715fa6",
+      "sources": [
+        "log(one-xm-xe) + phi_p(temperature,rl,xm,xe) - log(one-ym-ye) - phi_p(temperature,rv,ym,ye)"
+      ],
+      "formals": [
+        {
+          "path": "rl",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "rv",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "xm",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "xe",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ym",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ye",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "beta",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "one",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_m",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_e",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [
+        "phi_p"
+      ],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "8805e68880e75365a453299e9b413554",
+      "sources": [
+        "(1-beta)*xm",
+        "beta*ym",
+        "feed_m"
+      ],
+      "formals": [
+        {
+          "path": "rl",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "rv",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "xm",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "xe",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ym",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ye",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "beta",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "one",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_m",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_e",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [],
+      "units": [],
+      "literals": []
+    },
+    {
+      "definition_id": "2b68ba026283594fa953feb586600a91",
+      "sources": [
+        "(1-beta)*xe",
+        "beta*ye",
+        "feed_e"
+      ],
+      "formals": [
+        {
+          "path": "rl",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "rv",
+          "quantity_id": "b49a0967029d5fb2b2346dd05f138d81"
+        },
+        {
+          "path": "xm",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "xe",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ym",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "ye",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "beta",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
+        },
+        {
+          "path": "temperature",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89"
+        },
+        {
+          "path": "one",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_m",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        },
+        {
+          "path": "feed_e",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [],
+      "units": [],
+      "literals": []
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "c2b89539011b51c8b07d34e65c3914b1",
+      "name": "heater-recycle",
+      "variables": [
+        {
+          "port": {
+            "symbol_id": "bae85672f83a58b5a05f690be7f2541f",
+            "quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+            "unit_id": "75bf158544c45d10aaee354d18883907"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 1.85,
+          "upper": 226.85
+        },
+        {
+          "port": {
+            "symbol_id": "d0e8b0ecc6fa52d0be8b94534d3597af",
+            "quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+            "unit_id": "48361f7abcfc516daa55a7b273772fc2"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 1,
+          "upper": 2000
+        },
+        {
+          "port": {
+            "symbol_id": "b67b6c0b24ba564bbc84a639bf444f9e",
+            "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+            "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 0,
+          "upper": 100
+        }
+      ],
+      "parameters": [
+        {
+          "symbol_id": "2fbefef5f82650dea75709382f3051e0",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+          "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+        },
+        {
+          "symbol_id": "8ddc7c7161a75d9b98290ad542e1690e",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+          "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+        },
+        {
+          "symbol_id": "ddba476a039d55888e3668eb551ad0a4",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+          "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+        },
+        {
+          "symbol_id": "915e384637e550889f3d83cbf4c93428",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+          "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+        },
+        {
+          "symbol_id": "8353eb7e132b5e62b31df1104a6fa127",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+          "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+        },
+        {
+          "symbol_id": "dcdc5e627ebb54f18bb49105e50d0887",
+          "quantity_id": "ce74927939e45768b340b5f46b7170c6",
+          "unit_id": "a439e00281dc56de9fb8a24308a4be84"
+        },
+        {
+          "symbol_id": "9988ddad361e5ba88f8daaeb8e83e3d3",
+          "quantity_id": "64f4fe01ca985368a6933eec87362dd9",
+          "unit_id": "8f416e34b5c55e62ba0f00a541572ed1"
+        }
+      ],
+      "instances": [
+        {
+          "instance_id": "329a219bbd0e5beab6694319128a0e28",
+          "definition_id": "22ab41346f5b58f4883f0bc5058b2f1c",
+          "slots": [
+            {
+              "source_id": "bae85672f83a58b5a05f690be7f2541f",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "d0e8b0ecc6fa52d0be8b94534d3597af",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "b67b6c0b24ba564bbc84a639bf444f9e",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "2fbefef5f82650dea75709382f3051e0",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8ddc7c7161a75d9b98290ad542e1690e",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "ddba476a039d55888e3668eb551ad0a4",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "915e384637e550889f3d83cbf4c93428",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "8353eb7e132b5e62b31df1104a6fa127",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "dcdc5e627ebb54f18bb49105e50d0887",
+              "formal_quantity_id": "ce74927939e45768b340b5f46b7170c6",
+              "formal_unit_id": "a439e00281dc56de9fb8a24308a4be84"
+            },
+            {
+              "source_id": "9988ddad361e5ba88f8daaeb8e83e3d3",
+              "formal_quantity_id": "64f4fe01ca985368a6933eec87362dd9",
+              "formal_unit_id": "8f416e34b5c55e62ba0f00a541572ed1"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "4b20828c99455110948184191e5ec1b6",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "b726134ae60753c4a3cc8e902c85633a",
+          "definition_id": "5def8966397354b39f61e7cf4779e551",
+          "slots": [
+            {
+              "source_id": "bae85672f83a58b5a05f690be7f2541f",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "d0e8b0ecc6fa52d0be8b94534d3597af",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "b67b6c0b24ba564bbc84a639bf444f9e",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "2fbefef5f82650dea75709382f3051e0",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8ddc7c7161a75d9b98290ad542e1690e",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "ddba476a039d55888e3668eb551ad0a4",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "915e384637e550889f3d83cbf4c93428",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "8353eb7e132b5e62b31df1104a6fa127",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "dcdc5e627ebb54f18bb49105e50d0887",
+              "formal_quantity_id": "ce74927939e45768b340b5f46b7170c6",
+              "formal_unit_id": "a439e00281dc56de9fb8a24308a4be84"
+            },
+            {
+              "source_id": "9988ddad361e5ba88f8daaeb8e83e3d3",
+              "formal_quantity_id": "64f4fe01ca985368a6933eec87362dd9",
+              "formal_unit_id": "8f416e34b5c55e62ba0f00a541572ed1"
+            }
+          ],
+          "contributions": []
+        },
+        {
+          "instance_id": "a22789b39b7c5859b15ed2b09d632f87",
+          "definition_id": "bd99df1a4ecf5daf89330960e636e6c9",
+          "slots": [
+            {
+              "source_id": "bae85672f83a58b5a05f690be7f2541f",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "d0e8b0ecc6fa52d0be8b94534d3597af",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "b67b6c0b24ba564bbc84a639bf444f9e",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "2fbefef5f82650dea75709382f3051e0",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8ddc7c7161a75d9b98290ad542e1690e",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "ddba476a039d55888e3668eb551ad0a4",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "915e384637e550889f3d83cbf4c93428",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "8353eb7e132b5e62b31df1104a6fa127",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "dcdc5e627ebb54f18bb49105e50d0887",
+              "formal_quantity_id": "ce74927939e45768b340b5f46b7170c6",
+              "formal_unit_id": "a439e00281dc56de9fb8a24308a4be84"
+            },
+            {
+              "source_id": "9988ddad361e5ba88f8daaeb8e83e3d3",
+              "formal_quantity_id": "64f4fe01ca985368a6933eec87362dd9",
+              "formal_unit_id": "8f416e34b5c55e62ba0f00a541572ed1"
+            }
+          ],
+          "contributions": []
+        }
+      ],
+      "rows": [
+        {
+          "row_id": "4b20828c99455110948184191e5ec1b6",
+          "quantity_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
+          "lower": 100000.0000000127,
+          "upper": 100000.0000000127
+        }
+      ],
+      "objective": null,
+      "values": [
+        {
+          "symbol_id": "bae85672f83a58b5a05f690be7f2541f",
+          "value": 40.0
+        },
+        {
+          "symbol_id": "d0e8b0ecc6fa52d0be8b94534d3597af",
+          "value": 80.0
+        },
+        {
+          "symbol_id": "b67b6c0b24ba564bbc84a639bf444f9e",
+          "value": 1.0
+        },
+        {
+          "symbol_id": "2fbefef5f82650dea75709382f3051e0",
+          "value": 0.2
+        },
+        {
+          "symbol_id": "8ddc7c7161a75d9b98290ad542e1690e",
+          "value": 0.3
+        },
+        {
+          "symbol_id": "ddba476a039d55888e3668eb551ad0a4",
+          "value": 0.4
+        },
+        {
+          "symbol_id": "915e384637e550889f3d83cbf4c93428",
+          "value": 0.8
+        },
+        {
+          "symbol_id": "8353eb7e132b5e62b31df1104a6fa127",
+          "value": 0.6
+        },
+        {
+          "symbol_id": "dcdc5e627ebb54f18bb49105e50d0887",
+          "value": 0.0
+        },
+        {
+          "symbol_id": "9988ddad361e5ba88f8daaeb8e83e3d3",
+          "value": 16204.445642740735
+        }
+      ]
+    },
+    {
+      "case_id": "89840bf1f5ca540ebe060b166316e54d",
+      "name": "heater-optimization",
+      "variables": [
+        {
+          "port": {
+            "symbol_id": "a34079641c3e504893ee1f486e709470",
+            "quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+            "unit_id": "75bf158544c45d10aaee354d18883907"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 1.85,
+          "upper": 226.85
+        },
+        {
+          "port": {
+            "symbol_id": "b89e561459df5133b485fd1535bee0a4",
+            "quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+            "unit_id": "48361f7abcfc516daa55a7b273772fc2"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 1,
+          "upper": 2000
+        }
+      ],
+      "parameters": [
+        {
+          "symbol_id": "c52032ceb207567ab99e18d3eeaa5a75",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+          "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+        },
+        {
+          "symbol_id": "3ae5387fd461553fa31377a6334f83d1",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+          "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+        }
+      ],
+      "instances": [
+        {
+          "instance_id": "ee61ec4b5855550cb443526916a4e75c",
+          "definition_id": "b7cc918544d557909cbd390978d371c9",
+          "slots": [
+            {
+              "source_id": "a34079641c3e504893ee1f486e709470",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "b89e561459df5133b485fd1535bee0a4",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "c52032ceb207567ab99e18d3eeaa5a75",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3ae5387fd461553fa31377a6334f83d1",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "21a6a475fa275ef788ab6c4d78d4cf51",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "c18413e74dab5594bf96707c9e7e1c5f",
+          "definition_id": "169e85caf0dc5ce399ad75c1a256e9a9",
+          "slots": [
+            {
+              "source_id": "a34079641c3e504893ee1f486e709470",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "b89e561459df5133b485fd1535bee0a4",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "c52032ceb207567ab99e18d3eeaa5a75",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3ae5387fd461553fa31377a6334f83d1",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "cdbe9528662756dfa4121a70dbc1a115",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "63d0f12f19f15759a7f159e15c8656d5",
+          "definition_id": "80ef35d7475f5bd586711325f2d361d0",
+          "slots": [
+            {
+              "source_id": "a34079641c3e504893ee1f486e709470",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "b89e561459df5133b485fd1535bee0a4",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "c52032ceb207567ab99e18d3eeaa5a75",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3ae5387fd461553fa31377a6334f83d1",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": null,
+              "scale": 1.0
+            }
+          ]
+        }
+      ],
+      "rows": [
+        {
+          "row_id": "21a6a475fa275ef788ab6c4d78d4cf51",
+          "quantity_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
+          "lower": 100000.0000000127,
+          "upper": 100000.0000000127
+        },
+        {
+          "row_id": "cdbe9528662756dfa4121a70dbc1a115",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+          "lower": 350.0,
+          "upper": null
+        }
+      ],
+      "objective": {
+        "quantity_id": "ce74927939e45768b340b5f46b7170c6",
+        "sense": "minimize"
+      },
+      "values": [
+        {
+          "symbol_id": "a34079641c3e504893ee1f486e709470",
+          "value": 90.0
+        },
+        {
+          "symbol_id": "b89e561459df5133b485fd1535bee0a4",
+          "value": 40.0
+        },
+        {
+          "symbol_id": "c52032ceb207567ab99e18d3eeaa5a75",
+          "value": 0.2
+        },
+        {
+          "symbol_id": "3ae5387fd461553fa31377a6334f83d1",
+          "value": 0.3
+        }
+      ]
+    },
+    {
+      "case_id": "b36c0918fa4059978f8e62827ef7aef6",
+      "name": "separator-0",
+      "variables": [
+        {
+          "port": {
+            "symbol_id": "ddd8e3fd5864524080b041ce48b31741",
+            "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+            "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 0,
+          "upper": 10
+        }
+      ],
+      "parameters": [
+        {
+          "symbol_id": "80a11e5800c05e6587cc7666fb962213",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+          "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+        },
+        {
+          "symbol_id": "8c254c7ba24e5e6389b69a4011cbb429",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+          "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+        }
+      ],
+      "instances": [
+        {
+          "instance_id": "233417bae07b5ad2bf9261f880754846",
+          "definition_id": "731ace147eac5604a21bffa4114e6e8f",
+          "slots": [
+            {
+              "source_id": "ddd8e3fd5864524080b041ce48b31741",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "80a11e5800c05e6587cc7666fb962213",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "8c254c7ba24e5e6389b69a4011cbb429",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            }
+          ],
+          "contributions": []
+        }
+      ],
+      "rows": [],
+      "objective": null,
+      "values": [
+        {
+          "symbol_id": "ddd8e3fd5864524080b041ce48b31741",
+          "value": 0.1
+        },
+        {
+          "symbol_id": "80a11e5800c05e6587cc7666fb962213",
+          "value": 1.0
+        },
+        {
+          "symbol_id": "8c254c7ba24e5e6389b69a4011cbb429",
+          "value": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "be066b9a4571560585cdfb41c2d7717f",
+      "name": "separator-1",
+      "variables": [
+        {
+          "port": {
+            "symbol_id": "28df89a0b9395762b32cba651eceb3e1",
+            "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+            "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 0,
+          "upper": 10
+        }
+      ],
+      "parameters": [
+        {
+          "symbol_id": "ff2f0a0bc90c5185a89d590b310a7972",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+          "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+        },
+        {
+          "symbol_id": "b74c5b9856aa526eafd64fb392a961e9",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+          "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+        }
+      ],
+      "instances": [
+        {
+          "instance_id": "31569f19d3b6510cb5c667db94f2735d",
+          "definition_id": "cc1fc4406687591aaa5fb9f1fd6428a6",
+          "slots": [
+            {
+              "source_id": "28df89a0b9395762b32cba651eceb3e1",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "ff2f0a0bc90c5185a89d590b310a7972",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "b74c5b9856aa526eafd64fb392a961e9",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            }
+          ],
+          "contributions": []
+        }
+      ],
+      "rows": [],
+      "objective": null,
+      "values": [
+        {
+          "symbol_id": "28df89a0b9395762b32cba651eceb3e1",
+          "value": 0.1
+        },
+        {
+          "symbol_id": "ff2f0a0bc90c5185a89d590b310a7972",
+          "value": 1.5
+        },
+        {
+          "symbol_id": "b74c5b9856aa526eafd64fb392a961e9",
+          "value": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "b8efbf5c3f23510394a2067e66a15be5",
+      "name": "separator-2",
+      "variables": [
+        {
+          "port": {
+            "symbol_id": "3bc039af14b75745b2613aedee6f0b65",
+            "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+            "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 0,
+          "upper": 10
+        }
+      ],
+      "parameters": [
+        {
+          "symbol_id": "78ecceee5a11554e98d437e1a43f03ab",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+          "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+        },
+        {
+          "symbol_id": "ca8437da180156c0bcd6b52cd063aea5",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+          "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+        }
+      ],
+      "instances": [
+        {
+          "instance_id": "860465af3b995cbb900ece113924fc6c",
+          "definition_id": "d88ec033ba8b553798f8699b77fb54a3",
+          "slots": [
+            {
+              "source_id": "3bc039af14b75745b2613aedee6f0b65",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "78ecceee5a11554e98d437e1a43f03ab",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "ca8437da180156c0bcd6b52cd063aea5",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            }
+          ],
+          "contributions": []
+        }
+      ],
+      "rows": [],
+      "objective": null,
+      "values": [
+        {
+          "symbol_id": "3bc039af14b75745b2613aedee6f0b65",
+          "value": 0.1
+        },
+        {
+          "symbol_id": "78ecceee5a11554e98d437e1a43f03ab",
+          "value": 2.5
+        },
+        {
+          "symbol_id": "ca8437da180156c0bcd6b52cd063aea5",
+          "value": 0.4
+        }
+      ]
+    },
+    {
+      "case_id": "b01a16aa80fd5a26a026b12f0354ea7e",
+      "name": "flash",
+      "variables": [
+        {
+          "port": {
+            "symbol_id": "4743de8c3bda560599075cb35fce3570",
+            "quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+            "unit_id": "48361f7abcfc516daa55a7b273772fc2"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 6000,
+          "upper": 25000
+        },
+        {
+          "port": {
+            "symbol_id": "f16ab3ebd72259118517af62ecc67bc9",
+            "quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+            "unit_id": "48361f7abcfc516daa55a7b273772fc2"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 1,
+          "upper": 5999
+        },
+        {
+          "port": {
+            "symbol_id": "e95c63e0e76f5aeab89a63190edc087c",
+            "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+            "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 0.001,
+          "upper": 0.999
+        },
+        {
+          "port": {
+            "symbol_id": "8148f55e8e285f4b9f6379fa2109f4d7",
+            "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+            "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 0.001,
+          "upper": 0.999
+        },
+        {
+          "port": {
+            "symbol_id": "b2ac570f7f845bd79c7897593d48a77d",
+            "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+            "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 0.001,
+          "upper": 0.999
+        },
+        {
+          "port": {
+            "symbol_id": "3383700e599752df99b4de1d05a4aa1f",
+            "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+            "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 0.001,
+          "upper": 0.999
+        },
+        {
+          "port": {
+            "symbol_id": "d75504186b18588d9d014c8ea0bfbec7",
+            "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+            "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": 0.001,
+          "upper": 0.999
+        }
+      ],
+      "parameters": [
+        {
+          "symbol_id": "3bbe5c3cbf1a5ed68380316bf111e237",
+          "quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+          "unit_id": "75bf158544c45d10aaee354d18883907"
+        },
+        {
+          "symbol_id": "1a66d07abab65a2ca4ba71d9a4a9e00c",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+          "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+        },
+        {
+          "symbol_id": "c5be88fd57e45f5a8c2d14064625461c",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+          "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+        },
+        {
+          "symbol_id": "a46a396513b354cca088badbd56a0bc5",
+          "quantity_id": "eedd3e2221975c328e208490c64fdab2",
+          "unit_id": "8a2458cd40bd57128b052055c1dfad89"
+        }
+      ],
+      "instances": [
+        {
+          "instance_id": "e1443d96d2615551bb18ecb194dc4455",
+          "definition_id": "d844c481a079502f9ec633bb629b42f1",
+          "slots": [
+            {
+              "source_id": "4743de8c3bda560599075cb35fce3570",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "f16ab3ebd72259118517af62ecc67bc9",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "e95c63e0e76f5aeab89a63190edc087c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8148f55e8e285f4b9f6379fa2109f4d7",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "b2ac570f7f845bd79c7897593d48a77d",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3383700e599752df99b4de1d05a4aa1f",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "d75504186b18588d9d014c8ea0bfbec7",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "3bbe5c3cbf1a5ed68380316bf111e237",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "1a66d07abab65a2ca4ba71d9a4a9e00c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "c5be88fd57e45f5a8c2d14064625461c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "a46a396513b354cca088badbd56a0bc5",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "a813df2b2a3253f19cef5a8a630eedf0",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "f028dc3eddef57f6862f157c514756d0",
+          "definition_id": "7537d1bb648e56f989d384beda446ef7",
+          "slots": [
+            {
+              "source_id": "4743de8c3bda560599075cb35fce3570",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "f16ab3ebd72259118517af62ecc67bc9",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "e95c63e0e76f5aeab89a63190edc087c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8148f55e8e285f4b9f6379fa2109f4d7",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "b2ac570f7f845bd79c7897593d48a77d",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3383700e599752df99b4de1d05a4aa1f",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "d75504186b18588d9d014c8ea0bfbec7",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "3bbe5c3cbf1a5ed68380316bf111e237",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "1a66d07abab65a2ca4ba71d9a4a9e00c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "c5be88fd57e45f5a8c2d14064625461c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "a46a396513b354cca088badbd56a0bc5",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "c6323ce67cef59f4bf3d2b5c048ef6a0",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "421894b15e155add8c3c1bbeab9ca42f",
+          "definition_id": "5c2791aa0f4d5bbfa5472c780546e58b",
+          "slots": [
+            {
+              "source_id": "4743de8c3bda560599075cb35fce3570",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "f16ab3ebd72259118517af62ecc67bc9",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "e95c63e0e76f5aeab89a63190edc087c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8148f55e8e285f4b9f6379fa2109f4d7",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "b2ac570f7f845bd79c7897593d48a77d",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3383700e599752df99b4de1d05a4aa1f",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "d75504186b18588d9d014c8ea0bfbec7",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "3bbe5c3cbf1a5ed68380316bf111e237",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "1a66d07abab65a2ca4ba71d9a4a9e00c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "c5be88fd57e45f5a8c2d14064625461c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "a46a396513b354cca088badbd56a0bc5",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "40965f113c285d3184d4996e8b2730bb",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "fd5ebfa2c9c95b5f86a53a89f0268544",
+          "definition_id": "2c232b469e2853bc881cdac9813818c5",
+          "slots": [
+            {
+              "source_id": "4743de8c3bda560599075cb35fce3570",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "f16ab3ebd72259118517af62ecc67bc9",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "e95c63e0e76f5aeab89a63190edc087c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8148f55e8e285f4b9f6379fa2109f4d7",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "b2ac570f7f845bd79c7897593d48a77d",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3383700e599752df99b4de1d05a4aa1f",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "d75504186b18588d9d014c8ea0bfbec7",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "3bbe5c3cbf1a5ed68380316bf111e237",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "1a66d07abab65a2ca4ba71d9a4a9e00c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "c5be88fd57e45f5a8c2d14064625461c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "a46a396513b354cca088badbd56a0bc5",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "766781f2e75a54dba7420c5a3fe75073",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "03b0081133fa52d4b20f0df4d8bb86cd",
+          "definition_id": "5ebcb5d1917455b689e0b6490e715fa6",
+          "slots": [
+            {
+              "source_id": "4743de8c3bda560599075cb35fce3570",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "f16ab3ebd72259118517af62ecc67bc9",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "e95c63e0e76f5aeab89a63190edc087c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8148f55e8e285f4b9f6379fa2109f4d7",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "b2ac570f7f845bd79c7897593d48a77d",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3383700e599752df99b4de1d05a4aa1f",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "d75504186b18588d9d014c8ea0bfbec7",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "3bbe5c3cbf1a5ed68380316bf111e237",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "1a66d07abab65a2ca4ba71d9a4a9e00c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "c5be88fd57e45f5a8c2d14064625461c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "a46a396513b354cca088badbd56a0bc5",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "787b298dbf78528a94ec271bfa04ae24",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "567c7a54c6b555aab42d0eb45c6da5e5",
+          "definition_id": "8805e68880e75365a453299e9b413554",
+          "slots": [
+            {
+              "source_id": "4743de8c3bda560599075cb35fce3570",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "f16ab3ebd72259118517af62ecc67bc9",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "e95c63e0e76f5aeab89a63190edc087c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8148f55e8e285f4b9f6379fa2109f4d7",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "b2ac570f7f845bd79c7897593d48a77d",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3383700e599752df99b4de1d05a4aa1f",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "d75504186b18588d9d014c8ea0bfbec7",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "3bbe5c3cbf1a5ed68380316bf111e237",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "1a66d07abab65a2ca4ba71d9a4a9e00c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "c5be88fd57e45f5a8c2d14064625461c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "a46a396513b354cca088badbd56a0bc5",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": []
+        },
+        {
+          "instance_id": "97ada9f5599c5bd6a002176e7afecd90",
+          "definition_id": "2b68ba026283594fa953feb586600a91",
+          "slots": [
+            {
+              "source_id": "4743de8c3bda560599075cb35fce3570",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "f16ab3ebd72259118517af62ecc67bc9",
+              "formal_quantity_id": "b49a0967029d5fb2b2346dd05f138d81",
+              "formal_unit_id": "48361f7abcfc516daa55a7b273772fc2"
+            },
+            {
+              "source_id": "e95c63e0e76f5aeab89a63190edc087c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "8148f55e8e285f4b9f6379fa2109f4d7",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "b2ac570f7f845bd79c7897593d48a77d",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "3383700e599752df99b4de1d05a4aa1f",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "d75504186b18588d9d014c8ea0bfbec7",
+              "formal_quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+              "formal_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+            },
+            {
+              "source_id": "3bbe5c3cbf1a5ed68380316bf111e237",
+              "formal_quantity_id": "b6a7acd0895c5c5698078779ab623f89",
+              "formal_unit_id": "e6bb11da1c5d5b17bbc3c73c3b05648e"
+            },
+            {
+              "source_id": "1a66d07abab65a2ca4ba71d9a4a9e00c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "c5be88fd57e45f5a8c2d14064625461c",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            },
+            {
+              "source_id": "a46a396513b354cca088badbd56a0bc5",
+              "formal_quantity_id": "eedd3e2221975c328e208490c64fdab2",
+              "formal_unit_id": "8a2458cd40bd57128b052055c1dfad89"
+            }
+          ],
+          "contributions": []
+        }
+      ],
+      "rows": [
+        {
+          "row_id": "a813df2b2a3253f19cef5a8a630eedf0",
+          "quantity_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
+          "lower": 2000000.0,
+          "upper": 2000000.0
+        },
+        {
+          "row_id": "c6323ce67cef59f4bf3d2b5c048ef6a0",
+          "quantity_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
+          "lower": 2000000.0,
+          "upper": 2000000.0
+        },
+        {
+          "row_id": "40965f113c285d3184d4996e8b2730bb",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+          "lower": 0,
+          "upper": 0
+        },
+        {
+          "row_id": "766781f2e75a54dba7420c5a3fe75073",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+          "lower": 0,
+          "upper": 0
+        },
+        {
+          "row_id": "787b298dbf78528a94ec271bfa04ae24",
+          "quantity_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+          "lower": 0,
+          "upper": 0
+        }
+      ],
+      "objective": null,
+      "values": [
+        {
+          "symbol_id": "4743de8c3bda560599075cb35fce3570",
+          "value": 12665.906800563454
+        },
+        {
+          "symbol_id": "f16ab3ebd72259118517af62ecc67bc9",
+          "value": 932.1477276246001
+        },
+        {
+          "symbol_id": "e95c63e0e76f5aeab89a63190edc087c",
+          "value": 0.06534955112022972
+        },
+        {
+          "symbol_id": "8148f55e8e285f4b9f6379fa2109f4d7",
+          "value": 0.2652052165519646
+        },
+        {
+          "symbol_id": "b2ac570f7f845bd79c7897593d48a77d",
+          "value": 0.388786362107927
+        },
+        {
+          "symbol_id": "3383700e599752df99b4de1d05a4aa1f",
+          "value": 0.34575190285035146
+        },
+        {
+          "symbol_id": "d75504186b18588d9d014c8ea0bfbec7",
+          "value": 0.4
+        },
+        {
+          "symbol_id": "3bbe5c3cbf1a5ed68380316bf111e237",
+          "value": 6.850000000000023
+        },
+        {
+          "symbol_id": "1a66d07abab65a2ca4ba71d9a4a9e00c",
+          "value": 1.0
+        },
+        {
+          "symbol_id": "c5be88fd57e45f5a8c2d14064625461c",
+          "value": 0.2
+        },
+        {
+          "symbol_id": "a46a396513b354cca088badbd56a0bc5",
+          "value": 0.3
+        }
+      ]
+    }
+  ]
+}

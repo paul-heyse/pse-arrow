@@ -1,0 +1,60 @@
+[
+  {
+    "id": "5280d25f91448418b835dd47",
+    "path": "opentelemetry::trace::span_context::TraceStateError::List::0",
+    "name": "0",
+    "owner": "opentelemetry::trace::span_context::TraceStateError::List",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "0: String",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/span_context.rs",
+      "begin": [
+        237,
+        10
+      ],
+      "end": [
+        237,
+        16
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "String",
+          "id": 222,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "222": "alloc::string::String"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1737",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace.span_context.TraceStateError.List.md",
+    "record_file": "operations/opentelemetry.trace.span_context.TraceStateError.List.json",
+    "anchor": "op-5280d25f91448418b835dd47",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

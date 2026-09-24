@@ -13,7 +13,7 @@
 //! - [`error`] — [`RelationError`] with its §23.2 codes.
 //! - [`ext`] — the eleven `pse.*` `ExtensionType` implementations and their metadata codec.
 //! - [`validate`] — the recursive field, schema and batch validators.
-//! - [`cells`] — `Cell` rows to and from `RecordBatch`es.
+//! - [`columnar`] — native borrowed views and generated array builders.
 //! - [`registry_relations`] — the registry materialized as batches.
 //!
 //! `generated` is added by packet A-6 together with the first generated tree; it is
@@ -21,12 +21,14 @@
 //! directory would make `codegen --check` pass over nothing.
 
 pub mod canonical;
-pub mod cells;
 pub mod columnar;
 pub mod error;
 pub mod ext;
+pub mod identity;
+
 pub mod registry_relations;
-pub mod typed;
+#[cfg(any(test, feature = "test-support"))]
+pub mod testing;
 pub mod validate;
 /// Typed contracts generated from the authoritative registry.
 #[rustfmt::skip]
@@ -43,3 +45,5 @@ pub use crate::error::RelationError;
 /// own `arrow` dependency to name a `RecordBatch` is exactly how the second major gets in.
 pub use arrow_array::RecordBatch;
 pub use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
+
+mod native;

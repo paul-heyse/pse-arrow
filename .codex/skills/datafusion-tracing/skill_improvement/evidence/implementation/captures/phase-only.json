@@ -1,0 +1,100 @@
+[
+  {
+    "kind": "open",
+    "id": 1,
+    "parent": null,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "analyze_logical_plan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 1,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "analyze_logical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 2251799813685249,
+    "parent": null,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_logical_plan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 2251799813685249,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "datafusion.optimizer.max_passes": "3",
+      "datafusion.optimizer.pass": "1",
+      "otel.name": "optimize_logical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 4503599627370497,
+    "parent": null,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_logical_plan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 4503599627370497,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "datafusion.optimizer.max_passes": "3",
+      "datafusion.optimizer.pass": "2",
+      "otel.name": "optimize_logical_plan"
+    }
+  },
+  {
+    "kind": "open",
+    "id": 6755399441055745,
+    "parent": null,
+    "name": "create_physical_plan",
+    "target": "datafusion_tracing::planner",
+    "fields": {}
+  },
+  {
+    "kind": "open",
+    "id": 2,
+    "parent": 6755399441055745,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_physical_plan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 2,
+    "name": "Phase",
+    "target": "contracts",
+    "fields": {
+      "otel.name": "optimize_physical_plan"
+    }
+  },
+  {
+    "kind": "close",
+    "id": 6755399441055745,
+    "name": "create_physical_plan",
+    "target": "datafusion_tracing::planner",
+    "fields": {
+      "logical_plan": "SubqueryAlias: t [a:Int64]\n  Projection: column1 AS a [a:Int64]\n    Values: (Int64(1)), (Int64(2)), (Int64(3)) [column1:Int64]",
+      "physical_plan": "ProjectionExec: expr=[column1@0 as a]\n  DataSourceExec: partitions=1, partition_sizes=[1]\n"
+    }
+  }
+]

@@ -1,0 +1,143 @@
+[
+  {
+    "id": "7f8793caaa642a6fdcf5c97d",
+    "path": "tracing_subscriber::fmt",
+    "name": "fmt",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "module",
+    "signature": "mod fmt",
+    "docs": "A `Subscriber` for formatting and logging `tracing` data.\n\n# Overview\n\n[`tracing`] is a framework for instrumenting Rust programs with context-aware,\nstructured, event-based diagnostic information. This crate provides an\nimplementation of the [`Subscriber`] trait that records `tracing`'s `Event`s\nand `Span`s by formatting them as text and logging them to stdout.\n\n# Usage\n\nFirst, add this to your `Cargo.toml` file:\n\n```toml\n[dependencies]\ntracing-subscriber = \"0.3\"\n```\n\n*Compiler support: [requires `rustc` 1.65+][msrv]*\n\n[msrv]: super#supported-rust-versions\n\nAdd the following to your executable to initialize the default subscriber:\n```rust\nuse tracing_subscriber;\n\ntracing_subscriber::fmt::init();\n```\n\n## Filtering Events with Environment Variables\n\nThe default subscriber installed by `init` enables you to filter events\nat runtime using environment variables (using the [`EnvFilter`]).\n\nThe filter syntax is a superset of the [`env_logger`] syntax.\n\nFor example:\n- Setting `RUST_LOG=debug` enables all `Span`s and `Event`s\n  set to the log level `DEBUG` or higher\n- Setting `RUST_LOG=my_crate=trace` enables `Span`s and `Event`s\n  in `my_crate` at all log levels\n\n**Note**: This should **not** be called by libraries. Libraries should use\n[`tracing`] to publish `tracing` `Event`s.\n\n# Configuration\n\nYou can configure a subscriber instead of using the defaults with\nthe following functions:\n\n### Subscriber\n\nThe [`FmtSubscriber`] formats and records `tracing` events as line-oriented logs.\nYou can create one by calling:\n\n```rust\nlet subscriber = tracing_subscriber::fmt()\n    // ... add configuration\n    .finish();\n```\n\nYou can find the configuration methods for [`FmtSubscriber`] in\n[`SubscriberBuilder`].\n\n## Formatters\n\nThe output format used by the layer and subscriber in this module is\nrepresented by implementing the [`FormatEvent`] trait, and can be\ncustomized. This module provides a number of formatter implementations:\n\n* [`format::Full`]: The default formatter. This emits human-readable,\n  single-line logs for each event that occurs, with the current span context\n  displayed before the formatted representation of the event. See\n  [here](format::Full#example-output) for sample output.\n\n* [`format::Compact`]: A variant of the default formatter, optimized for\n  short line lengths. Fields from the current span context are appended to\n  the fields of the formatted event. See\n  [here](format::Compact#example-output) for sample output.\n\n* [`format::Pretty`]: Emits excessively pretty, multi-line logs, optimized\n  for human readability. This is primarily intended to be used in local\n  development and debugging, or for command-line applications, where\n  automated analysis and compact storage of logs is less of a priority than\n  readability and visual appeal. See [here](format::Pretty#example-output)\n  for sample output.\n\n* [`format::Json`]: Outputs newline-delimited JSON logs. This is intended\n  for production use with systems where structured logs are consumed as JSON\n  by analysis and viewing tools. The JSON output is not optimized for human\n  readability. See [here](format::Json#example-output) for sample output.\n\n### Customizing Formatters\n\nThe formatting of log lines for spans and events is controlled by two\ntraits, [`FormatEvent`] and [`FormatFields`]. The [`FormatEvent`] trait\ndetermines the overall formatting of the log line, such as what information\nfrom the event's metadata and span context is included and in what order.\nThe [`FormatFields`] trait determines how fields &mdash; both the event's\nfields and fields on spans &mdash; are formatted.\n\nThe [`fmt::format`] module provides several types which implement these traits,\nmany of which expose additional configuration options to customize their\noutput. The [`format::Format`] type implements common configuration used by\nall the formatters provided in this crate, and can be used as a builder to\nset specific formatting settings. For example:\n\n```\nuse tracing_subscriber::fmt;\n\n// Configure a custom event formatter\nlet format = fmt::format()\n   .with_level(false) // don't include levels in formatted output\n   .with_target(false) // don't include targets\n   .with_thread_ids(true) // include the thread ID of the current thread\n   .with_thread_names(true) // include the name of the current thread\n   .compact(); // use the `Compact` formatting style.\n\n// Create a `fmt` subscriber that uses our custom event format, and set it\n// as the default.\ntracing_subscriber::fmt()\n    .event_format(format)\n    .init();\n```\n\nHowever, if a specific output format is needed, other crates can\nalso implement [`FormatEvent`] and [`FormatFields`]. See those traits'\ndocumentation for details on how to implement them.\n\n## Filters\n\nIf you want to filter the `tracing` `Events` based on environment\nvariables, you can use the [`EnvFilter`] as follows:\n\n```rust\nuse tracing_subscriber::EnvFilter;\n\nlet filter = EnvFilter::from_default_env();\n```\n\nAs mentioned above, the [`EnvFilter`] allows `Span`s and `Event`s to\nbe filtered at runtime by setting the `RUST_LOG` environment variable.\n\nYou can find the other available [`filter`]s in the documentation.\n\n### Using Your Subscriber\n\nFinally, once you have configured your `Subscriber`, you need to\nconfigure your executable to use it.\n\nA subscriber can be installed globally using:\n```rust\nuse tracing;\nuse tracing_subscriber::FmtSubscriber;\n\nlet subscriber = FmtSubscriber::new();\n\ntracing::subscriber::set_global_default(subscriber)\n    .map_err(|_err| eprintln!(\"Unable to set global default subscriber\"));\n// Note this will only fail if you try to set the global default\n// subscriber multiple times\n```\n\n### Composing Layers\n\nComposing an [`EnvFilter`] `Layer` and a [format `Layer`][super::fmt::Layer]:\n\n```rust\nuse tracing_subscriber::{fmt, EnvFilter};\nuse tracing_subscriber::prelude::*;\n\nlet fmt_layer = fmt::layer()\n    .with_target(false);\nlet filter_layer = EnvFilter::try_from_default_env()\n    .or_else(|_| EnvFilter::try_new(\"info\"))\n    .unwrap();\n\ntracing_subscriber::registry()\n    .with(filter_layer)\n    .with(fmt_layer)\n    .init();\n```\n\n[`EnvFilter`]: super::filter::EnvFilter\n[`env_logger`]: https://docs.rs/env_logger/\n[`filter`]: super::filter\n[`FmtSubscriber`]: Subscriber\n[`Subscriber`]:\n    https://docs.rs/tracing/latest/tracing/trait.Subscriber.html\n[`tracing`]: https://crates.io/crates/tracing\n[`fmt::format`]: mod@crate::fmt::format",
+    "span": {
+      "filename": "src/fmt/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        1388,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"fmt\"), span: src/lib.rs:231:12: 231:27 (#0) }, NameValue { name: \"feature\", value: Some(\"std\"), span: src/lib.rs:231:29: 231:44 (#0) }], src/lib.rs:231:11: 231:45 (#0))])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(all(feature = \"fmt\", feature = \"std\")))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          1892,
+          1673,
+          2924,
+          2925,
+          2926,
+          2927,
+          2928,
+          2929,
+          2930,
+          2931,
+          2932,
+          2933,
+          1151,
+          1150,
+          2938,
+          3039,
+          3040,
+          3041,
+          3042
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "format::Pretty#example-output": 1690,
+      "`format::Json`": 1692,
+      "super::filter": 373,
+      "`FormatFields`": 1441,
+      "format::Full#example-output": 1649,
+      "`format::Format`": 1648,
+      "`SubscriberBuilder`": 2938,
+      "`FormatEvent`": 1442,
+      "format::Json#example-output": 1692,
+      "`format::Full`": 1649,
+      "super::fmt::Layer": 1147,
+      "format::Compact#example-output": 1688,
+      "`format::Pretty`": 1690,
+      "super::filter::EnvFilter": 377,
+      "super#supported-rust-versions": 1522,
+      "mod@crate::fmt::format": 1892,
+      "`format::Compact`": 1688,
+      "Subscriber": 1151
+    },
+    "link_paths": {
+      "format::Pretty#example-output": "tracing_subscriber::fmt::format::pretty::Pretty",
+      "`format::Json`": "tracing_subscriber::fmt::format::json::Json",
+      "super::filter": "tracing_subscriber::filter",
+      "`FormatFields`": "tracing_subscriber::fmt::format::FormatFields",
+      "format::Full#example-output": "tracing_subscriber::fmt::format::Full",
+      "`format::Format`": "tracing_subscriber::fmt::format::Format",
+      "`SubscriberBuilder`": "tracing_subscriber::fmt::SubscriberBuilder",
+      "`FormatEvent`": "tracing_subscriber::fmt::format::FormatEvent",
+      "format::Json#example-output": "tracing_subscriber::fmt::format::json::Json",
+      "`format::Full`": "tracing_subscriber::fmt::format::Full",
+      "super::fmt::Layer": "tracing_subscriber::fmt::fmt_layer::Layer",
+      "format::Compact#example-output": "tracing_subscriber::fmt::format::Compact",
+      "`format::Pretty`": "tracing_subscriber::fmt::format::pretty::Pretty",
+      "super::filter::EnvFilter": "tracing_subscriber::filter::env::EnvFilter",
+      "super#supported-rust-versions": "tracing_subscriber",
+      "mod@crate::fmt::format": "tracing_subscriber::fmt::format",
+      "`format::Compact`": "tracing_subscriber::fmt::format::Compact",
+      "Subscriber": "tracing_subscriber::fmt::Subscriber"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "3043",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_subscriber.fmt.md",
+    "record_file": "modules/tracing_subscriber.fmt.json",
+    "anchor": "op-7f8793caaa642a6fdcf5c97d",
+    "aliases": [],
+    "resolved_doc_links": {
+      "format::Pretty#example-output": "../operations/tracing_subscriber.fmt.format.pretty.Pretty.md#op-9ae7afec101d61be119e29f4",
+      "`format::Json`": "../operations/tracing_subscriber.fmt.format.json.Json.md#op-8e1265e43c2726c9a4be086c",
+      "super::filter": "../modules/tracing_subscriber.filter.md#op-15b346151e4aca3cb883c21c",
+      "`FormatFields`": "../operations/tracing_subscriber.fmt.format.FormatFields.md#op-9bc846bbdc7bd7bc3e4045c0",
+      "format::Full#example-output": "../operations/tracing_subscriber.fmt.format.Full.md#op-b6feb895c3a5317d8f8397fd",
+      "`format::Format`": "../operations/tracing_subscriber.fmt.format.Format.md#op-758341dc152c0b1f07c0c605",
+      "`SubscriberBuilder`": "../operations/tracing_subscriber.fmt.SubscriberBuilder.md#op-38fcd8fc52ca33acc34d54e9",
+      "`FormatEvent`": "../operations/tracing_subscriber.fmt.format.FormatEvent.md#op-f71c6d57702e5d6dfe4a8abb",
+      "format::Json#example-output": "../operations/tracing_subscriber.fmt.format.json.Json.md#op-8e1265e43c2726c9a4be086c",
+      "`format::Full`": "../operations/tracing_subscriber.fmt.format.Full.md#op-b6feb895c3a5317d8f8397fd",
+      "super::fmt::Layer": "../operations/tracing_subscriber.fmt.fmt_layer.Layer.md#op-fa1a59e4f05bcd8ea89adaa4",
+      "format::Compact#example-output": "../operations/tracing_subscriber.fmt.format.Compact.md#op-b150ae7b416c1fdd163391ea",
+      "`format::Pretty`": "../operations/tracing_subscriber.fmt.format.pretty.Pretty.md#op-9ae7afec101d61be119e29f4",
+      "super::filter::EnvFilter": "../operations/tracing_subscriber.filter.env.EnvFilter.md#op-f18b1a3b867d9bc485e30055",
+      "super#supported-rust-versions": "../modules/tracing_subscriber.md#op-142f5fbb810835359ad5d716",
+      "mod@crate::fmt::format": "../modules/tracing_subscriber.fmt.format.md#op-a04fc10e64efcca800d0eaec",
+      "`format::Compact`": "../operations/tracing_subscriber.fmt.format.Compact.md#op-b150ae7b416c1fdd163391ea",
+      "Subscriber": "../operations/tracing_subscriber.fmt.Subscriber.md#op-7360e26773e1081257bf258e"
+    }
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "reader": {
+    "state": "passed",
+    "sha256": "2bfba47bcd4aff360b30ad62a2415e133287c41a40a1c4ddbd7d81020a90bffe",
+    "bytes": 4232364,
+    "method": "Two independently written deterministic gzip/tar outputs from the same selected files were byte-identical."
+  },
+  "research": {
+    "state": "passed",
+    "sha256": "0734aef3c1aa60d4d2d7cf75a3322ebb6f4ae0358deca35f2166310122821160",
+    "bytes": 4751653,
+    "method": "Two independently written deterministic gzip/tar outputs from the same selected files were byte-identical."
+  }
+}

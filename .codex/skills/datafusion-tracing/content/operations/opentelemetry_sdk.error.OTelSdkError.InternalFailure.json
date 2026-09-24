@@ -1,0 +1,60 @@
+[
+  {
+    "id": "a4ac30c6e8eb624686be4aae",
+    "path": "opentelemetry_sdk::error::OTelSdkError::InternalFailure::0",
+    "name": "0",
+    "owner": "opentelemetry_sdk::error::OTelSdkError::InternalFailure",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "0: String",
+    "docs": "",
+    "span": {
+      "filename": "src/error.rs",
+      "begin": [
+        41,
+        21
+      ],
+      "end": [
+        41,
+        27
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "String",
+          "id": 739,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "739": "alloc::string::String"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3233",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.error.OTelSdkError.InternalFailure.md",
+    "record_file": "operations/opentelemetry_sdk.error.OTelSdkError.InternalFailure.json",
+    "anchor": "op-a4ac30c6e8eb624686be4aae",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

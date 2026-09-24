@@ -59,11 +59,11 @@ impl fmt::Display for SourceSpan {
     }
 }
 
-impl TryFrom<pse_relations::generated::extension_values::SourceSpan> for SourceSpan {
+impl TryFrom<pse_model::generated::extension_values::SourceSpan> for SourceSpan {
     type Error = crate::AuthoringError;
 
     fn try_from(
-        value: pse_relations::generated::extension_values::SourceSpan,
+        value: pse_model::generated::extension_values::SourceSpan,
     ) -> Result<Self, Self::Error> {
         let invalid = || crate::AuthoringError::Contract {
             at: None,

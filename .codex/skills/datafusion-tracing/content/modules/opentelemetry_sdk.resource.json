@@ -1,0 +1,79 @@
+[
+  {
+    "id": "25bc270cb7b54207239e8276",
+    "path": "opentelemetry_sdk::resource",
+    "name": "resource",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod resource",
+    "docs": "Representations of entities producing telemetry.\n\nA [Resource] is an immutable representation of the entity producing\ntelemetry as attributes. For example, a process producing telemetry that is\nrunning in a container on Kubernetes has a Pod name, it is in a namespace\nand possibly is part of a Deployment which also has a name. All three of\nthese attributes can be included in the `Resource`. Note that there are\ncertain [\"standard attributes\"] that have prescribed meanings.\n\n[\"standard attributes\"]: https://github.com/open-telemetry/opentelemetry-specification/blob/v1.9.0/specification/resource/semantic_conventions/README.md\n\n# Resource detectors\n\n[`ResourceDetector`]s are used to detect resource from runtime or\nenvironmental variables. The following are provided by default with this\nSDK.\n\n- [`EnvResourceDetector`] - detect resource from environmental variables.\n- [`TelemetryResourceDetector`] - detect telemetry SDK's information.\n\nThe OS and Process resource detectors are packaged separately in the\n[`opentelemetry-resource-detector` crate](https://github.com/open-telemetry/opentelemetry-rust-contrib/tree/main/opentelemetry-resource-detectors).",
+    "span": {
+      "filename": "src/resource/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        552,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          2040,
+          2041,
+          2042,
+          81,
+          2051,
+          1986,
+          2044
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`EnvResourceDetector`": 1960,
+      "`ResourceDetector`": 1986,
+      "Resource": 81,
+      "`TelemetryResourceDetector`": 2014
+    },
+    "link_paths": {
+      "`EnvResourceDetector`": "opentelemetry_sdk::resource::env::EnvResourceDetector",
+      "`ResourceDetector`": "opentelemetry_sdk::resource::ResourceDetector",
+      "Resource": "opentelemetry_sdk::resource::Resource",
+      "`TelemetryResourceDetector`": "opentelemetry_sdk::resource::telemetry::TelemetryResourceDetector"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2149",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry_sdk.resource.md",
+    "record_file": "modules/opentelemetry_sdk.resource.json",
+    "anchor": "op-25bc270cb7b54207239e8276",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`EnvResourceDetector`": "../operations/opentelemetry_sdk.resource.env.EnvResourceDetector.md#op-ba004408ea4c1fba764aa989",
+      "`ResourceDetector`": "../operations/opentelemetry_sdk.resource.ResourceDetector.md#op-b0082125b9054a261f267f3c",
+      "Resource": "../operations/opentelemetry_sdk.resource.Resource.md#op-6665d2e0897d180bf11ccb3b",
+      "`TelemetryResourceDetector`": "../operations/opentelemetry_sdk.resource.telemetry.TelemetryResourceDetector.md#op-a1229b78527252090864a606"
+    }
+  }
+]

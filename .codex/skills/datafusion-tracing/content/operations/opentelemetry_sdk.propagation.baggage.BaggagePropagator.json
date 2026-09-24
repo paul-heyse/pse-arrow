@@ -1,0 +1,899 @@
+[
+  {
+    "id": "db60cf5de7dcdd5c19369728",
+    "path": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+    "name": "BaggagePropagator",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct BaggagePropagator",
+    "docs": "Propagates name-value pairs in [W3C Baggage] format.\n\nBaggage is used to annotate telemetry, adding context and\ninformation to metrics, traces, and logs. It is an abstract data type\nrepresented by a set of name-value pairs describing user-defined properties.\nEach name in a [`Baggage`] is associated with exactly one value.\n`Baggage`s are serialized according to the editor's draft of\nthe [W3C Baggage] specification.\n\n# Examples\n\n```\nuse opentelemetry::{baggage::{Baggage, BaggageExt}, propagation::TextMapPropagator};\nuse opentelemetry_sdk::propagation::BaggagePropagator;\nuse std::collections::HashMap;\n\n// Example baggage value passed in externally via http headers\nlet mut headers = HashMap::new();\nheaders.insert(\"baggage\".to_string(), \"user_id=1\".to_string());\n\nlet propagator = BaggagePropagator::new();\n// can extract from any type that impls `Extractor`, usually an HTTP header map\nlet cx = propagator.extract(&headers);\n\n// Iterate over extracted name-value pairs\nfor (name, value) in cx.baggage() {\n    // ...\n}\n\n// Add new baggage\nlet mut baggage = Baggage::new();\nlet _ = baggage.insert(\"server_id\", \"42\");\n\nlet cx_with_additions = cx.with_baggage(baggage);\n\n// Inject baggage into http request\npropagator.inject_context(&cx_with_additions, &mut headers);\n\nlet header_value = headers.get(\"baggage\").expect(\"header is injected\");\nassert!(!header_value.contains(\"user_id=1\"), \"still contains previous name-value\");\nassert!(header_value.contains(\"server_id=42\"), \"does not contain new name-value pair\");\n```\n\n[W3C Baggage]: https://w3c.github.io/baggage\n[`Baggage`]: opentelemetry::baggage::Baggage",
+    "span": {
+      "filename": "src/propagation/baggage.rs",
+      "begin": [
+        67,
+        1
+      ],
+      "end": [
+        69,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          1886,
+          1887,
+          1888,
+          1889,
+          1890,
+          1891,
+          1892,
+          1893,
+          1894,
+          1895,
+          1896,
+          1897,
+          1898,
+          1899,
+          1900,
+          1901,
+          1902,
+          1903,
+          1904,
+          1905,
+          1907,
+          1909,
+          1917
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "opentelemetry::baggage::Baggage": 1883
+    },
+    "link_paths": {
+      "opentelemetry::baggage::Baggage": "opentelemetry::baggage::Baggage"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1884",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.json",
+    "anchor": "op-db60cf5de7dcdd5c19369728",
+    "aliases": [
+      "opentelemetry_sdk::propagation::BaggagePropagator"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::baggage::Baggage": "../operations/opentelemetry.baggage.Baggage.md#op-2c88c4516fa3cd4da1db039e"
+    }
+  },
+  {
+    "id": "4a971dd485348864d29bb908",
+    "path": "opentelemetry_sdk::propagation::baggage::BaggagePropagator::default",
+    "name": "default",
+    "owner": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> BaggagePropagator",
+    "docs": "",
+    "span": {
+      "filename": "src/propagation/baggage.rs",
+      "begin": [
+        66,
+        17
+      ],
+      "end": [
+        66,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "BaggagePropagator",
+              "id": 1884,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1884": "opentelemetry_sdk::propagation::baggage::BaggagePropagator"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BaggagePropagator",
+          "id": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/baggage.rs",
+        "begin": [
+          66,
+          17
+        ],
+        "end": [
+          66,
+          24
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1908",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.json",
+    "anchor": "op-4a971dd485348864d29bb908",
+    "aliases": [
+      "opentelemetry_sdk::propagation::BaggagePropagator::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b10317ef82959a479bba9f1f",
+    "path": "opentelemetry_sdk::propagation::baggage::BaggagePropagator::extract_with_context",
+    "name": "extract_with_context",
+    "owner": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn extract_with_context(&self, cx: &Context, extractor: &dyn Extractor) -> Context",
+    "docs": "Extracts a `Context` with baggage values from a `Extractor`.",
+    "span": {
+      "filename": "src/propagation/baggage.rs",
+      "begin": [
+        102,
+        5
+      ],
+      "end": [
+        158,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 1911,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "extractor",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Extractor",
+                            "id": 1914,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Context",
+              "id": 1911,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1911": "opentelemetry::context::Context",
+      "1914": "opentelemetry::propagation::Extractor"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BaggagePropagator",
+          "id": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "TextMapPropagator",
+        "id": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+        "args": null
+      },
+      "trait_path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/baggage.rs",
+        "begin": [
+          78,
+          1
+        ],
+        "end": [
+          163,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1913",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.json",
+    "anchor": "op-b10317ef82959a479bba9f1f",
+    "aliases": [
+      "opentelemetry_sdk::propagation::BaggagePropagator::extract_with_context"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a0341f699a0d7c7b1ac99afc",
+    "path": "opentelemetry_sdk::propagation::baggage::BaggagePropagator::fields",
+    "name": "fields",
+    "owner": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fields(&self) -> FieldIter<'_>",
+    "docs": "",
+    "span": {
+      "filename": "src/propagation/baggage.rs",
+      "begin": [
+        160,
+        5
+      ],
+      "end": [
+        162,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "FieldIter",
+              "id": 1916,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1916": "opentelemetry::propagation::text_map_propagator::FieldIter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BaggagePropagator",
+          "id": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "TextMapPropagator",
+        "id": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+        "args": null
+      },
+      "trait_path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/baggage.rs",
+        "begin": [
+          78,
+          1
+        ],
+        "end": [
+          163,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1915",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.json",
+    "anchor": "op-a0341f699a0d7c7b1ac99afc",
+    "aliases": [
+      "opentelemetry_sdk::propagation::BaggagePropagator::fields"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2f45b8513c6530766adb6478",
+    "path": "opentelemetry_sdk::propagation::baggage::BaggagePropagator::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/propagation/baggage.rs",
+      "begin": [
+        66,
+        10
+      ],
+      "end": [
+        66,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BaggagePropagator",
+          "id": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/baggage.rs",
+        "begin": [
+          66,
+          10
+        ],
+        "end": [
+          66,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1906",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.json",
+    "anchor": "op-2f45b8513c6530766adb6478",
+    "aliases": [
+      "opentelemetry_sdk::propagation::BaggagePropagator::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d3b3773335d23165e6497922",
+    "path": "opentelemetry_sdk::propagation::baggage::BaggagePropagator::inject_context",
+    "name": "inject_context",
+    "owner": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn inject_context(&self, cx: &Context, injector: &mut dyn Injector)",
+    "docs": "Encodes the values of the `Context` and injects them into the provided `Injector`.",
+    "span": {
+      "filename": "src/propagation/baggage.rs",
+      "begin": [
+        80,
+        5
+      ],
+      "end": [
+        99,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 1911,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "injector",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "Injector",
+                            "id": 1912,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1911": "opentelemetry::context::Context",
+      "1912": "opentelemetry::propagation::Injector"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BaggagePropagator",
+          "id": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "TextMapPropagator",
+        "id": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+        "args": null
+      },
+      "trait_path": "opentelemetry::propagation::text_map_propagator::TextMapPropagator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/baggage.rs",
+        "begin": [
+          78,
+          1
+        ],
+        "end": [
+          163,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1910",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.json",
+    "anchor": "op-d3b3773335d23165e6497922",
+    "aliases": [
+      "opentelemetry_sdk::propagation::BaggagePropagator::inject_context"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dc02301180ead5f58e534b60",
+    "path": "opentelemetry_sdk::propagation::baggage::BaggagePropagator::new",
+    "name": "new",
+    "owner": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn new() -> Self",
+    "docs": "Construct a new baggage propagator.",
+    "span": {
+      "filename": "src/propagation/baggage.rs",
+      "begin": [
+        73,
+        5
+      ],
+      "end": [
+        75,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BaggagePropagator",
+          "id": "opentelemetry_sdk::propagation::baggage::BaggagePropagator",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/propagation/baggage.rs",
+        "begin": [
+          71,
+          1
+        ],
+        "end": [
+          76,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1885",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.md",
+    "record_file": "operations/opentelemetry_sdk.propagation.baggage.BaggagePropagator.json",
+    "anchor": "op-dc02301180ead5f58e534b60",
+    "aliases": [
+      "opentelemetry_sdk::propagation::BaggagePropagator::new"
+    ],
+    "resolved_doc_links": {}
+  }
+]

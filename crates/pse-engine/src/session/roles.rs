@@ -1,0 +1,321 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+
+//! Explicit source roles preserve distinct immutable instances of one relation.
+use super::engine_session::engine;
+use super::{EngineFactory, EngineSession, materialized::ImmutableTable};
+use crate::{
+    EngineError,
+    provider::binding::{BindingKey, TableBinding},
+};
+use datafusion::{
+    arrow::array::RecordBatch,
+    catalog::TableProvider,
+    common::TableReference,
+    datasource::provider_as_source,
+    logical_expr::{LogicalPlan, LogicalPlanBuilder, TableSource},
+};
+use pse_columnar::CancellationToken;
+use pse_schema::{Registry, model::RelationKey};
+use std::{collections::BTreeMap, sync::Arc};
+
+impl EngineFactory {
+    /// Bind every input port to its own immutable provider. An unambiguous relation
+    /// also gets a relation-qualified alias to that same provider; repeated schemas
+    /// remain accessible only through their named roles.
+    /// # Errors
+    /// A role/declaration mismatch, cancellation or resource failure.
+    pub fn candidate_checked_ports(
+        &self,
+        rows: BTreeMap<String, pse_relations::columnar::FieldCheckedBatch>,
+        registry: Arc<Registry>,
+        cancel: &CancellationToken,
+    ) -> Result<EngineSession, EngineError> {
+        self.candidate_checked_roles(rows, registry, cancel)?
+            .with_unique_relation_aliases(cancel)
+    }
+
+    /// Bind generated or previously admitted fields without repeating value scans.
+    /// # Errors
+    /// A role/declaration mismatch, cancellation or resource failure.
+    pub fn candidate_checked_roles(
+        &self,
+        rows: BTreeMap<String, pse_relations::columnar::FieldCheckedBatch>,
+        registry: Arc<Registry>,
+        cancel: &CancellationToken,
+    ) -> Result<EngineSession, EngineError> {
+        self.candidate(BTreeMap::new(), registry, cancel)?
+            .with_checked_role_inputs(rows, cancel)
+    }
+    /// Bind physical candidates by role. PK/FK obligations remain unestablished,
+    /// so diagnostics see duplicates and missing references in the actual data.
+    /// # Errors
+    /// Invalid physical values/fields, source roles, cancellation or configuration.
+    pub fn candidate_roles(
+        &self,
+        rows: BTreeMap<String, (RelationKey, RecordBatch)>,
+        registry: Arc<Registry>,
+        cancel: &CancellationToken,
+    ) -> Result<EngineSession, EngineError> {
+        self.candidate(BTreeMap::new(), registry, cancel)?
+            .with_role_inputs(rows, cancel)
+    }
+}
+
+impl EngineSession {
+    /// Bind one complete finite argument inventory using this exact execution
+    /// environment. Prior input/computation roles cannot leak into the new scope.
+    /// # Errors
+    /// Invalid roles, field contracts, cancellation or resource refusal.
+    pub fn argument_scope(
+        &self,
+        rows: BTreeMap<String, pse_relations::columnar::FieldCheckedBatch>,
+        cancel: &CancellationToken,
+    ) -> Result<Self, EngineError> {
+        let mut result = self.clone();
+        result.bindings = self.bindings.resolutions_only();
+        result
+            .with_checked_role_inputs(rows, cancel)?
+            .with_unique_relation_aliases(cancel)
+    }
+
+    pub(super) fn with_unique_relation_aliases(
+        mut self,
+        cancel: &CancellationToken,
+    ) -> Result<Self, EngineError> {
+        let mut unique = BTreeMap::new();
+        for (slot, binding) in self.bindings.iter() {
+            if !matches!(slot, BindingKey::Input(_)) {
+                continue;
+            }
+            cancel.checkpoint()?;
+            let key = binding
+                .relation
+                .ok_or_else(|| invalid("input relation absent"))?;
+            unique
+                .entry((key.namespace, key.name))
+                .and_modify(|provider| *provider = None)
+                .or_insert_with(|| Some((key, binding.as_ref().clone())));
+        }
+        for (key, mut binding) in unique.into_values().flatten() {
+            binding.reference = TableReference::full("workspace", key.namespace.as_str(), key.name);
+            self.bindings
+                .insert(BindingKey::Relation(key), binding)
+                .map_err(engine)?;
+        }
+        Ok(self)
+    }
+
+    /// Add generated fields by their declared relation while retaining immutable owners.
+    /// No established local value predicate is repeated at this binding boundary.
+    /// # Errors
+    /// Attempted replacement, declaration mismatch, cancellation or resources.
+    pub fn with_checked_workspace(
+        &self,
+        rows: BTreeMap<RelationKey, pse_relations::columnar::FieldCheckedBatch>,
+        cancel: &CancellationToken,
+    ) -> Result<Self, EngineError> {
+        let mut result = self.clone();
+        for (key, input) in rows {
+            cancel.checkpoint()?;
+            if result.bindings.relation(key).is_some() {
+                return Err(invalid("a workspace cannot replace a pinned provider"));
+            }
+            let spec = result
+                .registry
+                .relation_by_key(key)
+                .ok_or_else(|| invalid("workspace declaration is absent"))?;
+            input.check_declaration(&result.registry, spec)?;
+            let input = input.retained(&result.pool, cancel)?;
+            let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(input.clone()));
+            result
+                .bindings
+                .insert(
+                    BindingKey::Relation(key),
+                    TableBinding::new(
+                        TableReference::full("workspace", key.namespace.as_str(), key.name),
+                        table,
+                        Some(key),
+                        Some(input),
+                    ),
+                )
+                .map_err(engine)?;
+        }
+        Ok(result)
+    }
+    /// Add independent checked inputs, including several roles for one relation.
+    /// Values and Arrow owners are retained; keys/FKs remain unestablished.
+    /// # Errors
+    /// Empty/replaced role, mismatched declaration, cancellation or resources.
+    pub fn with_checked_role_inputs(
+        &self,
+        rows: BTreeMap<String, pse_relations::columnar::FieldCheckedBatch>,
+        cancel: &CancellationToken,
+    ) -> Result<Self, EngineError> {
+        let mut result = self.clone();
+        for (role, input) in rows {
+            cancel.checkpoint()?;
+            if role.is_empty() || result.bindings.input(&role).is_some() {
+                return Err(invalid(&format!(
+                    "input role {role:?} is empty or already bound"
+                )));
+            }
+            let spec = result
+                .registry
+                .relation_by_id(input.relation_id())
+                .ok_or_else(|| invalid("role input declaration is absent"))?;
+            input.check_declaration(&result.registry, spec)?;
+            let key = spec.key;
+            let input = input.retained(&result.pool, cancel)?;
+            let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(input.clone()));
+            result
+                .bindings
+                .insert(
+                    BindingKey::Input(role.clone()),
+                    TableBinding::new(
+                        TableReference::full("roles", "inputs", role),
+                        table,
+                        Some(key),
+                        Some(input),
+                    ),
+                )
+                .map_err(engine)?;
+        }
+        Ok(result)
+    }
+    /// Add immutable candidates under explicit, non-replacing role names.
+    /// # Errors
+    /// Duplicate/empty role, undeclared schema, raw candidate admission or resources.
+    pub fn with_role_inputs(
+        &self,
+        rows: BTreeMap<String, (RelationKey, RecordBatch)>,
+        cancel: &CancellationToken,
+    ) -> Result<Self, EngineError> {
+        let mut result = self.clone();
+        for (role, (key, batch)) in rows {
+            cancel.checkpoint()?;
+            if role.is_empty() || result.bindings.input(&role).is_some() {
+                return Err(invalid(&format!(
+                    "input role {role:?} is empty or already bound"
+                )));
+            }
+            let spec = result
+                .registry
+                .relation_by_key(key)
+                .ok_or_else(|| invalid("role input declaration is absent"))?;
+            let batch = pse_columnar::owned_buffer::copy_batch(&batch, &result.pool, cancel)?;
+            let input =
+                pse_relations::columnar::FieldCheckedBatch::admit(&result.registry, spec, batch)?;
+            let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(input.clone()));
+            result
+                .bindings
+                .insert(
+                    BindingKey::Input(role.clone()),
+                    TableBinding::new(
+                        TableReference::full("roles", "inputs", role),
+                        table,
+                        Some(key),
+                        Some(input),
+                    ),
+                )
+                .map_err(engine)?;
+        }
+        Ok(result)
+    }
+    /// Actual immutable provider for a named input role.
+    /// # Errors
+    /// The role is absent from the frozen input inventory.
+    pub fn role_source(&self, role: &str) -> Result<Arc<dyn TableSource>, EngineError> {
+        self.bindings
+            .input(role)
+            .map(|binding| provider_as_source(Arc::clone(&binding.provider)))
+            .ok_or_else(|| invalid(&format!("input role {role:?} is absent")))
+    }
+    /// Native scan retaining the actual role provider and its complete declared schema.
+    /// # Errors
+    /// Absent role or native schema binding failure.
+    pub fn scan_role(&self, role: &str) -> Result<LogicalPlan, EngineError> {
+        let binding = self
+            .bindings
+            .input(role)
+            .ok_or_else(|| invalid(&format!("input role {role:?} is absent")))?;
+        LogicalPlanBuilder::scan(binding.reference.clone(), self.role_source(role)?, None)
+            .and_then(LogicalPlanBuilder::build)
+            .map_err(engine)
+    }
+    /// Complete named role inventory; an empty relation still has a binding.
+    pub fn input_roles(&self) -> impl Iterator<Item = (&str, RelationKey)> + '_ {
+        self.bindings
+            .iter()
+            .filter_map(|(slot, binding)| match slot {
+                BindingKey::Input(role) => binding.relation.map(|key| (role.as_str(), key)),
+                _ => None,
+            })
+    }
+}
+fn invalid(reason: &str) -> EngineError {
+    EngineError::Admission {
+        path: "session.input_roles".to_owned(),
+        reason: reason.to_owned(),
+    }
+}
+
+impl EngineSession {
+    /// Bind generated restricted argument views without retaining a whole-relation
+    /// access path. Schema annotations certify fields only, never keys or membership.
+    /// # Errors
+    /// Duplicate role, foreign field, incompatible declaration, cancellation or memory.
+    pub fn with_projected_argument_roles(
+        &self,
+        rows: BTreeMap<String, (RelationKey, RecordBatch)>,
+        cancel: &CancellationToken,
+    ) -> Result<Self, EngineError> {
+        let mut session = self.clone();
+        for (role, (key, batch)) in rows {
+            cancel.checkpoint()?;
+            if role.is_empty() || session.bindings.input(&role).is_some() {
+                return Err(invalid("restricted argument role already bound"));
+            }
+            let spec = session
+                .registry
+                .relation_by_key(key)
+                .ok_or_else(|| invalid("argument declaration absent"))?;
+            let schema = pse_schema::arrow::relation_schema(&session.registry, spec)
+                .map_err(|error| invalid(&error.to_string()))?;
+            for field in batch.schema().fields() {
+                if schema.field_with_name(field.name()).ok() != Some(field.as_ref()) {
+                    return Err(invalid(
+                        "projected argument field differs from its declaration",
+                    ));
+                }
+            }
+            let batch =
+                pse_columnar::owned_buffer::OwnedRecordBatch::export(batch, &session.pool, cancel)?
+                    .into_batch();
+            let provider: Arc<dyn TableProvider> = Arc::new(
+                datafusion::datasource::MemTable::try_new(batch.schema(), vec![vec![batch]])
+                    .map_err(engine)?,
+            );
+            let binding = TableBinding::new(
+                TableReference::full("roles", "inputs", role.clone()),
+                provider,
+                Some(key),
+                None,
+            );
+            session
+                .bindings
+                .insert(BindingKey::Input(role), binding.clone())
+                .map_err(engine)?;
+            if session.bindings.relation(key).is_none() {
+                let mut alias = binding;
+                alias.reference =
+                    TableReference::full("workspace", key.namespace.as_str(), key.name);
+                session
+                    .bindings
+                    .insert(BindingKey::Relation(key), alias)
+                    .map_err(engine)?;
+            }
+        }
+        Ok(session)
+    }
+}

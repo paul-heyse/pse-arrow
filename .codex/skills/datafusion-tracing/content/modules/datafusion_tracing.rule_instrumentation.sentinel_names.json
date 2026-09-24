@@ -1,0 +1,74 @@
+[
+  {
+    "id": "215128f6ac5006deddd9a917",
+    "path": "datafusion_tracing::rule_instrumentation::sentinel_names",
+    "name": "sentinel_names",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "module",
+    "signature": "mod sentinel_names",
+    "docs": "Internal sentinel rule names used to identify tracing infrastructure rules.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        44,
+        1
+      ],
+      "end": [
+        44,
+        19
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          323,
+          324,
+          325
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "326",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/datafusion_tracing.rule_instrumentation.sentinel_names.md",
+    "record_file": "modules/datafusion_tracing.rule_instrumentation.sentinel_names.json",
+    "anchor": "op-215128f6ac5006deddd9a917",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

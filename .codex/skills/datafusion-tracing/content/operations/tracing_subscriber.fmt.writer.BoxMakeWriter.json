@@ -1,0 +1,885 @@
+[
+  {
+    "id": "5360e67ef72fa1f760a6246b",
+    "path": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+    "name": "BoxMakeWriter",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct BoxMakeWriter",
+    "docs": "A writer that erases the specific [`io::Write`] and [`MakeWriter`] types being used.\n\nThis is useful in cases where the concrete type of the writer cannot be known\nuntil runtime.\n\n# Examples\n\nA function that returns a [`Subscriber`] that will write to either stdout or stderr:\n\n```rust\n# use tracing::Subscriber;\n# use tracing_subscriber::fmt::writer::BoxMakeWriter;\n\nfn dynamic_writer(use_stderr: bool) -> impl Subscriber {\n    let writer = if use_stderr {\n        BoxMakeWriter::new(std::io::stderr)\n    } else {\n        BoxMakeWriter::new(std::io::stdout)\n    };\n\n    tracing_subscriber::fmt().with_writer(writer).finish()\n}\n```\n\n[`Subscriber`]: tracing::Subscriber\n[`io::Write`]: std::io::Write",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        548,
+        1
+      ],
+      "end": [
+        551,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          2670,
+          2671,
+          2672,
+          2673,
+          2674,
+          2675,
+          2676,
+          2677,
+          2678,
+          2679,
+          2680,
+          2681,
+          2682,
+          2683,
+          2684,
+          2685,
+          2686,
+          2687,
+          2689,
+          2595
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "std::io::Write": 87,
+      "`MakeWriter`": 1443,
+      "tracing::Subscriber": 317
+    },
+    "link_paths": {
+      "std::io::Write": "std::io::Write",
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter",
+      "tracing::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2596",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.json",
+    "anchor": "op-5360e67ef72fa1f760a6246b",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a",
+      "tracing::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "f20ef7c94ce075bb12ed7374",
+    "path": "tracing_subscriber::fmt::writer::BoxMakeWriter::Writer",
+    "name": "Writer",
+    "owner": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "assoc_type",
+    "signature": "Writer",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        774,
+        5
+      ],
+      "end": [
+        774,
+        39
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_type": {
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "bounds": [],
+        "type": {
+          "resolved_path": {
+            "path": "Box",
+            "id": 827,
+            "args": {
+              "angle_bracketed": {
+                "args": [
+                  {
+                    "type": {
+                      "dyn_trait": {
+                        "traits": [
+                          {
+                            "trait": {
+                              "path": "Write",
+                              "id": 87,
+                              "args": null
+                            },
+                            "generic_params": []
+                          }
+                        ],
+                        "lifetime": "'a"
+                      }
+                    }
+                  }
+                ],
+                "constraints": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "827": "alloc::boxed::Box",
+      "87": "std::io::Write"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BoxMakeWriter",
+          "id": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MakeWriter",
+        "id": "tracing_subscriber::fmt::writer::MakeWriter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::writer::MakeWriter",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          773,
+          1
+        ],
+        "end": [
+          785,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2592",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.json",
+    "anchor": "op-f20ef7c94ce075bb12ed7374",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bbf00821636fd7bd1173910c",
+    "path": "tracing_subscriber::fmt::writer::BoxMakeWriter::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        766,
+        5
+      ],
+      "end": [
+        770,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BoxMakeWriter",
+          "id": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          765,
+          1
+        ],
+        "end": [
+          771,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2688",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.json",
+    "anchor": "op-bbf00821636fd7bd1173910c",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "43fe4f3ae996501d83fb4225",
+    "path": "tracing_subscriber::fmt::writer::BoxMakeWriter::make_writer",
+    "name": "make_writer",
+    "owner": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn make_writer(&'a self) -> Self::Writer",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        777,
+        5
+      ],
+      "end": [
+        779,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Writer",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1443,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BoxMakeWriter",
+          "id": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MakeWriter",
+        "id": "tracing_subscriber::fmt::writer::MakeWriter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::writer::MakeWriter",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          773,
+          1
+        ],
+        "end": [
+          785,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2593",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.json",
+    "anchor": "op-43fe4f3ae996501d83fb4225",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "13d350f1822da00118b97ef3",
+    "path": "tracing_subscriber::fmt::writer::BoxMakeWriter::make_writer_for",
+    "name": "make_writer_for",
+    "owner": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn make_writer_for(&'a self, meta: &Metadata<'_>) -> Self::Writer",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        782,
+        5
+      ],
+      "end": [
+        784,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'a",
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "meta",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "qualified_path": {
+              "name": "Writer",
+              "args": null,
+              "self_type": {
+                "generic": "Self"
+              },
+              "trait": {
+                "path": "",
+                "id": 1443,
+                "args": null
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BoxMakeWriter",
+          "id": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "MakeWriter",
+        "id": "tracing_subscriber::fmt::writer::MakeWriter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'a"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::writer::MakeWriter",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          773,
+          1
+        ],
+        "end": [
+          785,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2594",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.json",
+    "anchor": "op-13d350f1822da00118b97ef3",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7022d8b95503dcec829e43ac",
+    "path": "tracing_subscriber::fmt::writer::BoxMakeWriter::new",
+    "name": "new",
+    "owner": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn new<M>(make_writer: M) -> Self where M: for<'a> MakeWriter<'a> + Send + Sync + 'static",
+    "docs": "Constructs a `BoxMakeWriter` wrapping a type implementing [`MakeWriter`].\n",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        754,
+        5
+      ],
+      "end": [
+        762,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "make_writer",
+              {
+                "generic": "M"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "M",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "M"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "MakeWriter",
+                        "id": 1443,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'a"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'a",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 6,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sync",
+                        "id": 8,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter",
+      "6": "core::marker::Send",
+      "8": "core::marker::Sync"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "BoxMakeWriter",
+          "id": "tracing_subscriber::fmt::writer::BoxMakeWriter",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/writer.rs",
+        "begin": [
+          751,
+          1
+        ],
+        "end": [
+          763,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`MakeWriter`": 1443
+    },
+    "link_paths": {
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2669",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.BoxMakeWriter.json",
+    "anchor": "op-7022d8b95503dcec829e43ac",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a"
+    }
+  }
+]

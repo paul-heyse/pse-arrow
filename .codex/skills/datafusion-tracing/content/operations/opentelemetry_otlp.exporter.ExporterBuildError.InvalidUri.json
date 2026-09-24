@@ -1,0 +1,118 @@
+[
+  {
+    "id": "84c4be57dd77f6306c10f684",
+    "path": "opentelemetry_otlp::exporter::ExporterBuildError::InvalidUri::0",
+    "name": "0",
+    "owner": "opentelemetry_otlp::exporter::ExporterBuildError::InvalidUri",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "0: String",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        128,
+        16
+      ],
+      "end": [
+        128,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "String",
+          "id": 36,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "36": "alloc::string::String"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "275",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.ExporterBuildError.InvalidUri.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.ExporterBuildError.InvalidUri.json",
+    "anchor": "op-84c4be57dd77f6306c10f684",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "302c6dbabe408282872dc05f",
+    "path": "opentelemetry_otlp::exporter::ExporterBuildError::InvalidUri::1",
+    "name": "1",
+    "owner": "opentelemetry_otlp::exporter::ExporterBuildError::InvalidUri",
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "1: String",
+    "docs": "",
+    "span": {
+      "filename": "src/exporter/mod.rs",
+      "begin": [
+        128,
+        24
+      ],
+      "end": [
+        128,
+        30
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "String",
+          "id": 36,
+          "args": null
+        }
+      }
+    },
+    "type_references": {
+      "36": "alloc::string::String"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "276",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.exporter.ExporterBuildError.InvalidUri.md",
+    "record_file": "operations/opentelemetry_otlp.exporter.ExporterBuildError.InvalidUri.json",
+    "anchor": "op-302c6dbabe408282872dc05f",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

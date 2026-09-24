@@ -7,7 +7,7 @@ use crate::{BaseDimension, DimensionVector, QuantityError, Unit, UnitId, UnitSet
 use std::collections::BTreeMap;
 
 /// A package's ordered choice of base units.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnitSet {
     /// Registry identity.
     pub id: UnitSetId,

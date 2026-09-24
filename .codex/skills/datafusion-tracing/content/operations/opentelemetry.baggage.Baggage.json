@@ -1,0 +1,2770 @@
+[
+  {
+    "id": "2c88c4516fa3cd4da1db039e",
+    "path": "opentelemetry::baggage::Baggage",
+    "name": "Baggage",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct Baggage",
+    "docs": "A set of name/value pairs describing user-defined properties.\n\n### Baggage Names\n\n* ASCII strings according to the token format, defined in [RFC2616, Section 2.2]\n\n### Baggage Values\n\n* URL encoded UTF-8 strings.\n\n### Baggage Value Metadata\n\nAdditional metadata can be added to values in the form of a property set,\nrepresented as semi-colon `;` delimited list of names and/or name/value pairs,\ne.g. `;k1=v1;k2;k3=v3`.\n\n### Limits\n\n* Maximum number of name/value pairs: `64`.\n* Maximum total length of all name/value pairs: `8192`.\n\n<https://www.w3.org/TR/baggage/#limits>",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        67,
+        1
+      ],
+      "end": [
+        70,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          206,
+          207,
+          208,
+          209,
+          210,
+          211,
+          212,
+          213,
+          214,
+          215,
+          216,
+          217,
+          218,
+          219,
+          220,
+          223,
+          226,
+          227,
+          229,
+          231,
+          237,
+          239,
+          242,
+          245,
+          247,
+          249
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "189",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-2c88c4516fa3cd4da1db039e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c6fcc8ee3d8808ba6ca2ea80",
+    "path": "opentelemetry::baggage::Baggage::default",
+    "name": "default",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn default() -> Baggage",
+    "docs": "",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        66,
+        17
+      ],
+      "end": [
+        66,
+        24
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "Baggage",
+              "id": 189,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "189": "opentelemetry::baggage::Baggage"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          66,
+          17
+        ],
+        "end": [
+          66,
+          24
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "230",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-c6fcc8ee3d8808ba6ca2ea80",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3ce1ddeac1ee2a85389b8dac",
+    "path": "opentelemetry::baggage::Baggage::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        66,
+        10
+      ],
+      "end": [
+        66,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          66,
+          10
+        ],
+        "end": [
+          66,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "228",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-3ce1ddeac1ee2a85389b8dac",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f763d4e4b6b80d6bf785584e",
+    "path": "opentelemetry::baggage::Baggage::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        319,
+        5
+      ],
+      "end": [
+        332,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "std::fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Display",
+        "id": "core::fmt::Display",
+        "args": null
+      },
+      "trait_path": "core::fmt::Display",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          318,
+          1
+        ],
+        "end": [
+          333,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "248",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-f763d4e4b6b80d6bf785584e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dc8d8296e71870311d1f69a1",
+    "path": "opentelemetry::baggage::Baggage::from",
+    "name": "from",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(value: I) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        298,
+        5
+      ],
+      "end": [
+        300,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "value",
+              {
+                "generic": "I"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "I"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [
+          {
+            "name": "I",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "I"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "IntoIterator",
+                      "id": "core::iter::traits::collect::IntoIterator",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Item",
+                  "args": null,
+                  "self_type": {
+                    "generic": "I"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "core::iter::traits::collect::IntoIterator",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Into",
+                      "id": "core::convert::Into",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "resolved_path": {
+                                  "path": "KeyValueMetadata",
+                                  "id": "opentelemetry::baggage::KeyValueMetadata",
+                                  "args": null
+                                }
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          293,
+          1
+        ],
+        "end": [
+          301,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "246",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-dc8d8296e71870311d1f69a1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "79640dc19d7dbcb61ff9b51e",
+    "path": "opentelemetry::baggage::Baggage::from_iter",
+    "name": "from_iter",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from_iter<I: IntoIterator<Item = (Key, (StringValue, BaggageMetadata))>>(iter: I) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        264,
+        5
+      ],
+      "end": [
+        270,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "iter",
+              {
+                "generic": "I"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "I",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "IntoIterator",
+                          "id": 236,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [],
+                              "constraints": [
+                                {
+                                  "name": "Item",
+                                  "args": null,
+                                  "binding": {
+                                    "equality": {
+                                      "type": {
+                                        "tuple": [
+                                          {
+                                            "resolved_path": {
+                                              "path": "Key",
+                                              "id": 199,
+                                              "args": null
+                                            }
+                                          },
+                                          {
+                                            "tuple": [
+                                              {
+                                                "resolved_path": {
+                                                  "path": "StringValue",
+                                                  "id": 193,
+                                                  "args": null
+                                                }
+                                              },
+                                              {
+                                                "resolved_path": {
+                                                  "path": "BaggageMetadata",
+                                                  "id": 196,
+                                                  "args": null
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "236": "core::iter::traits::collect::IntoIterator",
+      "199": "opentelemetry::common::Key",
+      "193": "opentelemetry::common::StringValue",
+      "196": "opentelemetry::baggage::BaggageMetadata"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FromIterator",
+        "id": "core::iter::traits::collect::FromIterator",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "tuple": [
+                    {
+                      "resolved_path": {
+                        "path": "Key",
+                        "id": "opentelemetry::common::Key",
+                        "args": null
+                      }
+                    },
+                    {
+                      "tuple": [
+                        {
+                          "resolved_path": {
+                            "path": "StringValue",
+                            "id": "opentelemetry::common::StringValue",
+                            "args": null
+                          }
+                        },
+                        {
+                          "resolved_path": {
+                            "path": "BaggageMetadata",
+                            "id": "opentelemetry::baggage::BaggageMetadata",
+                            "args": null
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::iter::traits::collect::FromIterator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          263,
+          1
+        ],
+        "end": [
+          271,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "238",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-79640dc19d7dbcb61ff9b51e",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b99acb69572f4f010b964180",
+    "path": "opentelemetry::baggage::Baggage::from_iter",
+    "name": "from_iter",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from_iter<I: IntoIterator<Item = KeyValueMetadata>>(iter: I) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        284,
+        5
+      ],
+      "end": [
+        290,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "iter",
+              {
+                "generic": "I"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "I",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "IntoIterator",
+                          "id": 236,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [],
+                              "constraints": [
+                                {
+                                  "name": "Item",
+                                  "args": null,
+                                  "binding": {
+                                    "equality": {
+                                      "type": {
+                                        "resolved_path": {
+                                          "path": "KeyValueMetadata",
+                                          "id": 244,
+                                          "args": null
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "236": "core::iter::traits::collect::IntoIterator",
+      "244": "opentelemetry::baggage::KeyValueMetadata"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FromIterator",
+        "id": "core::iter::traits::collect::FromIterator",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "KeyValueMetadata",
+                    "id": "opentelemetry::baggage::KeyValueMetadata",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::iter::traits::collect::FromIterator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          283,
+          1
+        ],
+        "end": [
+          291,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "243",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-b99acb69572f4f010b964180",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "ce208a0205aaff80bb2a85d1",
+    "path": "opentelemetry::baggage::Baggage::from_iter",
+    "name": "from_iter",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from_iter<I: IntoIterator<Item = KeyValue>>(iter: I) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        274,
+        5
+      ],
+      "end": [
+        280,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "iter",
+              {
+                "generic": "I"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "I",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "IntoIterator",
+                          "id": 236,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [],
+                              "constraints": [
+                                {
+                                  "name": "Item",
+                                  "args": null,
+                                  "binding": {
+                                    "equality": {
+                                      "type": {
+                                        "resolved_path": {
+                                          "path": "KeyValue",
+                                          "id": 22,
+                                          "args": null
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "236": "core::iter::traits::collect::IntoIterator",
+      "22": "opentelemetry::common::KeyValue"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "FromIterator",
+        "id": "core::iter::traits::collect::FromIterator",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "resolved_path": {
+                    "path": "KeyValue",
+                    "id": "opentelemetry::common::KeyValue",
+                    "args": null
+                  }
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::iter::traits::collect::FromIterator",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          273,
+          1
+        ],
+        "end": [
+          281,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "241",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-ce208a0205aaff80bb2a85d1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7e7599106ddcdd6c45a0d603",
+    "path": "opentelemetry::baggage::Baggage::get",
+    "name": "get",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn get<K: AsRef<str>>(&self, key: K) -> Option<&StringValue>",
+    "docs": "Returns a reference to the value associated with a given name\n\n# Examples\n\n```\nuse opentelemetry::{baggage::Baggage, StringValue};\n\nlet mut baggage = Baggage::new();\nlet _ = baggage.insert(\"my-name\", \"my-value\");\n\nassert_eq!(baggage.get(\"my-name\"), Some(&StringValue::from(\"my-value\")))\n```",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        93,
+        5
+      ],
+      "end": [
+        95,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "key",
+              {
+                "generic": "K"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 192,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": null,
+                          "is_mutable": false,
+                          "type": {
+                            "resolved_path": {
+                              "path": "StringValue",
+                              "id": 193,
+                              "args": null
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "K",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "AsRef",
+                          "id": 194,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "str"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "193": "opentelemetry::common::StringValue",
+      "194": "core::convert::AsRef"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          72,
+          1
+        ],
+        "end": [
+          235,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "191",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-7e7599106ddcdd6c45a0d603",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7fcfff82e24f03cd16638295",
+    "path": "opentelemetry::baggage::Baggage::get_with_metadata",
+    "name": "get_with_metadata",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn get_with_metadata<K: AsRef<str>>(&self, key: K) -> Option<&(StringValue, BaggageMetadata)>",
+    "docs": "Returns a reference to the value and metadata associated with a given name\n\n# Examples\n```\nuse opentelemetry::{baggage::{Baggage, BaggageMetadata}, StringValue};\n\nlet mut baggage = Baggage::new();\nlet _ = baggage.insert(\"my-name\", \"my-value\");\n\n// By default, the metadata is empty\nassert_eq!(baggage.get_with_metadata(\"my-name\"), Some(&(StringValue::from(\"my-value\"), BaggageMetadata::from(\"\"))))\n```",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        109,
+        5
+      ],
+      "end": [
+        114,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "key",
+              {
+                "generic": "K"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 192,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": null,
+                          "is_mutable": false,
+                          "type": {
+                            "tuple": [
+                              {
+                                "resolved_path": {
+                                  "path": "StringValue",
+                                  "id": 193,
+                                  "args": null
+                                }
+                              },
+                              {
+                                "resolved_path": {
+                                  "path": "BaggageMetadata",
+                                  "id": 196,
+                                  "args": null
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "K",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "AsRef",
+                          "id": 194,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "str"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "193": "opentelemetry::common::StringValue",
+      "196": "opentelemetry::baggage::BaggageMetadata",
+      "194": "core::convert::AsRef"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          72,
+          1
+        ],
+        "end": [
+          235,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "195",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-7fcfff82e24f03cd16638295",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "453dc255572fd1dae898b80a",
+    "path": "opentelemetry::baggage::Baggage::insert",
+    "name": "insert",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn insert<K, V>(&mut self, key: K, value: V) -> Option<StringValue> where K: Into<Key>, V: Into<StringValue>",
+    "docs": "Inserts a name/value pair into the baggage.\n\nIf the name was not present, [`None`] is returned. If the name was present,\nthe value is updated, and the old value is returned.\n\n# Examples\n\n```\nuse opentelemetry::{baggage::Baggage, StringValue};\n\nlet mut baggage = Baggage::new();\nlet _ = baggage.insert(\"my-name\", \"my-value\");\n\nassert_eq!(baggage.get(\"my-name\"), Some(&StringValue::from(\"my-value\")))\n```",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        131,
+        5
+      ],
+      "end": [
+        138,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "key",
+              {
+                "generic": "K"
+              }
+            ],
+            [
+              "value",
+              {
+                "generic": "V"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 192,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "StringValue",
+                          "id": 193,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "K",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "V",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "K"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Key",
+                                    "id": 199,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "V"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "StringValue",
+                                    "id": 193,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "193": "opentelemetry::common::StringValue",
+      "71": "core::convert::Into",
+      "199": "opentelemetry::common::Key"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          72,
+          1
+        ],
+        "end": [
+          235,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`None`": 197
+    },
+    "link_paths": {
+      "`None`": null
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "198",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-453dc255572fd1dae898b80a",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "45b73a2bdeeeb1ed7ddd3607",
+    "path": "opentelemetry::baggage::Baggage::insert_with_metadata",
+    "name": "insert_with_metadata",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn insert_with_metadata<K, V, S>(&mut self, key: K, value: V, metadata: S) -> Option<(StringValue, BaggageMetadata)> where K: Into<Key>, V: Into<StringValue>, S: Into<BaggageMetadata>",
+    "docs": "Inserts a name/value(+metadata) pair into the baggage.\n\nSame with `insert`, if the name was not present, [`None`] will be returned.\nIf the name is present, the old value and metadata will be returned.\n\nAlso checks for [limits](https://w3c.github.io/baggage/#limits).\n\n# Examples\n\n```\nuse opentelemetry::{baggage::{Baggage, BaggageMetadata}, StringValue};\n\nlet mut baggage = Baggage::new();\nlet _ = baggage.insert_with_metadata(\"my-name\", \"my-value\", \"test\");\n\nassert_eq!(baggage.get_with_metadata(\"my-name\"), Some(&(StringValue::from(\"my-value\"), BaggageMetadata::from(\"test\"))))\n```",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        157,
+        5
+      ],
+      "end": [
+        206,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "key",
+              {
+                "generic": "K"
+              }
+            ],
+            [
+              "value",
+              {
+                "generic": "V"
+              }
+            ],
+            [
+              "metadata",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 192,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "tuple": [
+                          {
+                            "resolved_path": {
+                              "path": "StringValue",
+                              "id": 193,
+                              "args": null
+                            }
+                          },
+                          {
+                            "resolved_path": {
+                              "path": "BaggageMetadata",
+                              "id": 196,
+                              "args": null
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "K",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "V",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "K"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "Key",
+                                    "id": 199,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "V"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "StringValue",
+                                    "id": 193,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 71,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "BaggageMetadata",
+                                    "id": 196,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "193": "opentelemetry::common::StringValue",
+      "196": "opentelemetry::baggage::BaggageMetadata",
+      "71": "core::convert::Into",
+      "199": "opentelemetry::common::Key"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          72,
+          1
+        ],
+        "end": [
+          235,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`None`": 197
+    },
+    "link_paths": {
+      "`None`": null
+    },
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "200",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-45b73a2bdeeeb1ed7ddd3607",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d9c45f3671c06945a5da8497",
+    "path": "opentelemetry::baggage::Baggage::is_empty",
+    "name": "is_empty",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn is_empty(&self) -> bool",
+    "docs": "Returns `true` if the baggage contains no items.",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        220,
+        5
+      ],
+      "end": [
+        222,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          72,
+          1
+        ],
+        "end": [
+          235,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "203",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-d9c45f3671c06945a5da8497",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "76c5d713de287087aaa36d80",
+    "path": "opentelemetry::baggage::Baggage::iter",
+    "name": "iter",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn iter(&self) -> Iter<'_>",
+    "docs": "Gets an iterator over the baggage items, in any order.",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        225,
+        5
+      ],
+      "end": [
+        227,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Iter",
+              "id": 205,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "lifetime": "'_"
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "205": "opentelemetry::baggage::Iter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          72,
+          1
+        ],
+        "end": [
+          235,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "204",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-76c5d713de287087aaa36d80",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "6cc9502a30432e0444b2ed10",
+    "path": "opentelemetry::baggage::Baggage::len",
+    "name": "len",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn len(&self) -> usize",
+    "docs": "Returns the number of attributes for this baggage",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        215,
+        5
+      ],
+      "end": [
+        217,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "usize"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          72,
+          1
+        ],
+        "end": [
+          235,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "202",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-6cc9502a30432e0444b2ed10",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "abab6c606502ed0bb34a463b",
+    "path": "opentelemetry::baggage::Baggage::new",
+    "name": "new",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn new() -> Self",
+    "docs": "Creates an empty `Baggage`.",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        74,
+        5
+      ],
+      "end": [
+        79,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          72,
+          1
+        ],
+        "end": [
+          235,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "190",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-abab6c606502ed0bb34a463b",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "94be5194bf132e69eae31550",
+    "path": "opentelemetry::baggage::Baggage::remove",
+    "name": "remove",
+    "owner": "opentelemetry::baggage::Baggage",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn remove<K: AsRef<str>>(&mut self, key: K) -> Option<(StringValue, BaggageMetadata)>",
+    "docs": "Removes a name from the baggage, returning the value\ncorresponding to the name if the pair was previously in the map.",
+    "span": {
+      "filename": "src/baggage.rs",
+      "begin": [
+        210,
+        5
+      ],
+      "end": [
+        212,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "key",
+              {
+                "generic": "K"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 192,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "tuple": [
+                          {
+                            "resolved_path": {
+                              "path": "StringValue",
+                              "id": 193,
+                              "args": null
+                            }
+                          },
+                          {
+                            "resolved_path": {
+                              "path": "BaggageMetadata",
+                              "id": 196,
+                              "args": null
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "K",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "AsRef",
+                          "id": 194,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "str"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "193": "opentelemetry::common::StringValue",
+      "196": "opentelemetry::baggage::BaggageMetadata",
+      "194": "core::convert::AsRef"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Baggage",
+          "id": "opentelemetry::baggage::Baggage",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/baggage.rs",
+        "begin": [
+          72,
+          1
+        ],
+        "end": [
+          235,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "201",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.baggage.Baggage.md",
+    "record_file": "operations/opentelemetry.baggage.Baggage.json",
+    "anchor": "op-94be5194bf132e69eae31550",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

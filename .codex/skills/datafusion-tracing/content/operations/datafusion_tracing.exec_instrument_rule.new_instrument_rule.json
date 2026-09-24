@@ -1,0 +1,395 @@
+[
+  {
+    "id": "38188c683271b2bf832520e8",
+    "path": "datafusion_tracing::exec_instrument_rule::new_instrument_rule",
+    "name": "new_instrument_rule",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn new_instrument_rule(span_create_fn: std::sync::Arc<dyn Fn() -> tracing::Span + Send + Sync>, options: options::InstrumentationOptions) -> std::sync::Arc<dyn PhysicalOptimizerRule + Send + Sync>",
+    "docs": "",
+    "span": {
+      "filename": "src/exec_instrument_rule.rs",
+      "begin": [
+        37,
+        1
+      ],
+      "end": [
+        51,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "span_create_fn",
+              {
+                "resolved_path": {
+                  "path": "std::sync::Arc",
+                  "id": 2,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "dyn_trait": {
+                              "traits": [
+                                {
+                                  "trait": {
+                                    "path": "Fn",
+                                    "id": 3,
+                                    "args": {
+                                      "parenthesized": {
+                                        "inputs": [],
+                                        "output": {
+                                          "resolved_path": {
+                                            "path": "tracing::Span",
+                                            "id": 4,
+                                            "args": null
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "generic_params": []
+                                },
+                                {
+                                  "trait": {
+                                    "path": "Send",
+                                    "id": 5,
+                                    "args": null
+                                  },
+                                  "generic_params": []
+                                },
+                                {
+                                  "trait": {
+                                    "path": "Sync",
+                                    "id": 6,
+                                    "args": null
+                                  },
+                                  "generic_params": []
+                                }
+                              ],
+                              "lifetime": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "options",
+              {
+                "resolved_path": {
+                  "path": "crate::options::InstrumentationOptions",
+                  "id": 7,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "std::sync::Arc",
+              "id": 2,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "dyn_trait": {
+                          "traits": [
+                            {
+                              "trait": {
+                                "path": "PhysicalOptimizerRule",
+                                "id": 8,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Send",
+                                "id": 5,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Sync",
+                                "id": 6,
+                                "args": null
+                              },
+                              "generic_params": []
+                            }
+                          ],
+                          "lifetime": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "2": "alloc::sync::Arc",
+      "3": "core::ops::function::Fn",
+      "4": "tracing::span::Span",
+      "5": "core::marker::Send",
+      "6": "core::marker::Sync",
+      "7": "datafusion_tracing::options::InstrumentationOptions",
+      "8": "datafusion_session::physical_optimizer::PhysicalOptimizerRule"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "doc-hidden",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.exec_instrument_rule.new_instrument_rule.md",
+    "record_file": "operations/datafusion_tracing.exec_instrument_rule.new_instrument_rule.json",
+    "anchor": "op-38188c683271b2bf832520e8",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9128fdf27e30948c7ad3e959",
+    "path": "datafusion_tracing::exec_instrument_rule::new_instrument_rule",
+    "name": "new_instrument_rule",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn new_instrument_rule(span_create_fn: std::sync::Arc<dyn Fn() -> tracing::Span + Send + Sync>, options: options::InstrumentationOptions) -> std::sync::Arc<dyn PhysicalOptimizerRule + Send + Sync>",
+    "docs": "",
+    "span": {
+      "filename": "src/exec_instrument_rule.rs",
+      "begin": [
+        37,
+        1
+      ],
+      "end": [
+        51,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "span_create_fn",
+              {
+                "resolved_path": {
+                  "path": "std::sync::Arc",
+                  "id": 2,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "dyn_trait": {
+                              "traits": [
+                                {
+                                  "trait": {
+                                    "path": "Fn",
+                                    "id": 3,
+                                    "args": {
+                                      "parenthesized": {
+                                        "inputs": [],
+                                        "output": {
+                                          "resolved_path": {
+                                            "path": "tracing::Span",
+                                            "id": 4,
+                                            "args": null
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "generic_params": []
+                                },
+                                {
+                                  "trait": {
+                                    "path": "Send",
+                                    "id": 5,
+                                    "args": null
+                                  },
+                                  "generic_params": []
+                                },
+                                {
+                                  "trait": {
+                                    "path": "Sync",
+                                    "id": 6,
+                                    "args": null
+                                  },
+                                  "generic_params": []
+                                }
+                              ],
+                              "lifetime": null
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "options",
+              {
+                "resolved_path": {
+                  "path": "crate::options::InstrumentationOptions",
+                  "id": 7,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "std::sync::Arc",
+              "id": 2,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "dyn_trait": {
+                          "traits": [
+                            {
+                              "trait": {
+                                "path": "PhysicalOptimizerRule",
+                                "id": 8,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Send",
+                                "id": 5,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Sync",
+                                "id": 6,
+                                "args": null
+                              },
+                              "generic_params": []
+                            }
+                          ],
+                          "lifetime": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "2": "alloc::sync::Arc",
+      "3": "core::ops::function::Fn",
+      "4": "tracing::span::Span",
+      "5": "core::marker::Send",
+      "6": "core::marker::Sync",
+      "7": "datafusion_tracing::options::InstrumentationOptions",
+      "8": "datafusion_session::physical_optimizer::PhysicalOptimizerRule"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "doc-hidden",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.exec_instrument_rule.new_instrument_rule.md",
+    "record_file": "operations/datafusion_tracing.exec_instrument_rule.new_instrument_rule.json",
+    "anchor": "op-9128fdf27e30948c7ad3e959",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -1,0 +1,3772 @@
+[
+  {
+    "id": "edf8024d45f27b1a256d34ab",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "name": "FmtContext",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct FmtContext<'a, S, N>",
+    "docs": "Provides the current span context to a formatter.",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1086,
+        1
+      ],
+      "end": [
+        1090,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            },
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "N",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          1776,
+          1777,
+          1778,
+          1779,
+          1780,
+          1781,
+          1782,
+          1783,
+          1784,
+          1785,
+          1786,
+          1787,
+          1788,
+          1789,
+          1790,
+          1791,
+          1792,
+          1794,
+          1796
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1653",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-edf8024d45f27b1a256d34ab",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cb81b22bdedd9293ec6d0904",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::current_span",
+    "name": "current_span",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn current_span(&self) -> Current",
+    "docs": "Returns the current span for this formatter.",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1185,
+        5
+      ],
+      "end": [
+        1187,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Current",
+              "id": 1093,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1093": "tracing_core::span::Current"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1771",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-cb81b22bdedd9293ec6d0904",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::current_span"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2aea7f1bdeff2346eb14665a",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::event_scope",
+    "name": "event_scope",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn event_scope(&self) -> Option<registry::Scope<'_, S>> where S: for<'lookup> registry::LookupSpan<'lookup>",
+    "docs": "Returns an iterator over the [stored data] for all the spans in the\nevent's span context, starting with its parent span and ending with the\nroot of the trace tree.\n\nThis is equivalent to calling the [`Context::event_scope`] method and\npassing the event currently being formatted.\n\n<div class=\"example-wrap\" style=\"display:inline-block\">\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: Compared to <a href=\"#method.scope\"><code>scope</code></a> this\nreturns the spans in reverse order (from leaf to root). Use\n<a href=\"../registry/struct.Scope.html#method.from_root\"><code>Scope::from_root</code></a>\nin case root-to-leaf ordering is desired.\n</pre></div>\n\n<div class=\"example-wrap\" style=\"display:inline-block\">\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: This requires the wrapped subscriber to implement the\n<a href=\"../registry/trait.LookupSpan.html\"><code>LookupSpan</code></a> trait.\nSee the documentation on <a href=\"./struct.Context.html\"><code>Context</code>'s\ndeclaration</a> for details.\n</pre></div>\n\n[stored data]: crate::registry::SpanRef",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1258,
+        5
+      ],
+      "end": [
+        1263,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "registry::Scope",
+                          "id": 1167,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "registry::LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "325": "core::option::Option",
+      "1167": "tracing_subscriber::registry::Scope",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::registry::SpanRef": 1136,
+      "`Context::event_scope`": 1254
+    },
+    "link_paths": {
+      "crate::registry::SpanRef": "tracing_subscriber::registry::SpanRef",
+      "`Context::event_scope`": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1774",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-2aea7f1bdeff2346eb14665a",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::event_scope"
+    ],
+    "resolved_doc_links": {
+      "crate::registry::SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653",
+      "`Context::event_scope`": "../operations/tracing_subscriber.layer.context.Context.md#op-f08e7c9a674253fafb02ad26"
+    }
+  },
+  {
+    "id": "e54a17b6971582138e3bad65",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::exists",
+    "name": "exists",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn exists(&self, id: &Id) -> bool where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns `true` if an active span exists for the given `Id`.",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1163,
+        5
+      ],
+      "end": [
+        1168,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1769",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-e54a17b6971582138e3bad65",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::exists"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "071d5b13e98cb914d4209740",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::field_format",
+    "name": "field_format",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn field_format(&self) -> &N",
+    "docs": "Returns the [field formatter] configured by the subscriber invoking\n`format_event`.\n\nThe event formatter may use the returned field formatter to format the\nfields of any events it records.\n\n[field formatter]: FormatFields",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1272,
+        5
+      ],
+      "end": [
+        1274,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "borrowed_ref": {
+              "lifetime": null,
+              "is_mutable": false,
+              "type": {
+                "generic": "N"
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {
+      "FormatFields": 1441
+    },
+    "link_paths": {
+      "FormatFields": "tracing_subscriber::fmt::format::FormatFields"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1775",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-071d5b13e98cb914d4209740",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::field_format"
+    ],
+    "resolved_doc_links": {
+      "FormatFields": "../operations/tracing_subscriber.fmt.format.FormatFields.md#op-9bc846bbdc7bd7bc3e4045c0"
+    }
+  },
+  {
+    "id": "f0e5967c871ffaf60440c995",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1093,
+        5
+      ],
+      "end": [
+        1095,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1092,
+          1
+        ],
+        "end": [
+          1096,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1793",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-f0e5967c871ffaf60440c995",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b964036ced210b91c1971f0b",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::format_fields",
+    "name": "format_fields",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn format_fields<R: RecordFields>(&self, writer: format::Writer<'writer>, fields: R) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1103,
+        5
+      ],
+      "end": [
+        1109,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "writer",
+              {
+                "resolved_path": {
+                  "path": "format::Writer",
+                  "id": 218,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'writer"
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "fields",
+              {
+                "generic": "R"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "R",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "RecordFields",
+                          "id": 233,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "218": "tracing_subscriber::fmt::format::Writer",
+      "66": "core::fmt::Result",
+      "233": "tracing_subscriber::field::RecordFields"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "FormatFields",
+        "id": "tracing_subscriber::fmt::format::FormatFields",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "lifetime": "'writer"
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::fmt::format::FormatFields",
+      "generics": {
+        "params": [
+          {
+            "name": "'writer",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1098,
+          1
+        ],
+        "end": [
+          1110,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1795",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-b964036ced210b91c1971f0b",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::format_fields"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c0bc588eb4569c47407e1419",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::lookup_current",
+    "name": "lookup_current",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn lookup_current(&self) -> Option<SpanRef<'_, S>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns [stored data] for the span that the wrapped subscriber considers\nto be the current.\n\nIf this returns `None`, then we are not currently within a span.\n\n[stored data]: crate::registry::SpanRef",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1177,
+        5
+      ],
+      "end": [
+        1182,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "SpanRef",
+                          "id": 1136,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "325": "core::option::Option",
+      "1136": "tracing_subscriber::registry::SpanRef",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::registry::SpanRef": 1136
+    },
+    "link_paths": {
+      "crate::registry::SpanRef": "tracing_subscriber::registry::SpanRef"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1770",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-c0bc588eb4569c47407e1419",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::lookup_current"
+    ],
+    "resolved_doc_links": {
+      "crate::registry::SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653"
+    }
+  },
+  {
+    "id": "e2f83b7707e99cc4b19c4347",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::metadata",
+    "name": "metadata",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn metadata(&self, id: &Id) -> Option<&'static Metadata<'static>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns metadata for the span with the given `id`, if it exists.\n\nIf this returns `None`, then no span exists for that ID (either it has\nclosed or the ID is invalid).",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1140,
+        5
+      ],
+      "end": [
+        1145,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": "'static",
+                          "is_mutable": false,
+                          "type": {
+                            "resolved_path": {
+                              "path": "Metadata",
+                              "id": 278,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "lifetime": "'static"
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "325": "core::option::Option",
+      "278": "tracing_core::metadata::Metadata",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1767",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-e2f83b7707e99cc4b19c4347",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::metadata"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d3d4f171dbda504f5db926df",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::parent_span",
+    "name": "parent_span",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn parent_span(&self) -> Option<SpanRef<'_, S>>",
+    "docs": "Returns [stored data] for the parent span of the event currently being\nformatted.\n\nIf the event has a contextual parent, this will return the current span. If\nthe event has an explicit parent span, this will return that span. If\nthe event does not have a parent span, this will return `None`.\n\n[stored data]: SpanRef",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1197,
+        5
+      ],
+      "end": [
+        1199,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "SpanRef",
+                          "id": 1136,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "325": "core::option::Option",
+      "1136": "tracing_subscriber::registry::SpanRef"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {
+      "SpanRef": 1136
+    },
+    "link_paths": {
+      "SpanRef": "tracing_subscriber::registry::SpanRef"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1772",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-d3d4f171dbda504f5db926df",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::parent_span"
+    ],
+    "resolved_doc_links": {
+      "SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653"
+    }
+  },
+  {
+    "id": "abaf2269ed1db8f2b6e34742",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::span",
+    "name": "span",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn span(&self, id: &Id) -> Option<SpanRef<'_, S>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns [stored data] for the span with the given `id`, if it exists.\n\nIf this returns `None`, then no span exists for that ID (either it has\nclosed or the ID is invalid).\n\n[stored data]: crate::registry::SpanRef",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1154,
+        5
+      ],
+      "end": [
+        1159,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "SpanRef",
+                          "id": 1136,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "325": "core::option::Option",
+      "1136": "tracing_subscriber::registry::SpanRef",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::registry::SpanRef": 1136
+    },
+    "link_paths": {
+      "crate::registry::SpanRef": "tracing_subscriber::registry::SpanRef"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1768",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-abaf2269ed1db8f2b6e34742",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::span"
+    ],
+    "resolved_doc_links": {
+      "crate::registry::SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653"
+    }
+  },
+  {
+    "id": "7463dda6ac9c5d6073e6280d",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::span_scope",
+    "name": "span_scope",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn span_scope(&self, id: &Id) -> Option<registry::Scope<'_, S>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns an iterator over the [stored data] for all the spans in the\ncurrent context, starting with the specified span and ending with the\nroot of the trace tree and ending with the current span.\n\nThis is equivalent to the [`Context::span_scope`] method.\n\n<div class=\"information\">\n    <div class=\"tooltip ignore\" style=\"\">ⓘ<span class=\"tooltiptext\">Note</span></div>\n</div>\n<div class=\"example-wrap\" style=\"display:inline-block\">\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: Compared to <a href=\"#method.scope\"><code>scope</code></a> this\nreturns the spans in reverse order (from leaf to root). Use\n<a href=\"../registry/struct.Scope.html#method.from_root\"><code>Scope::from_root</code></a>\nin case root-to-leaf ordering is desired.\n</pre></div>\n\n<div class=\"example-wrap\" style=\"display:inline-block\">\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: This requires the wrapped subscriber to implement the\n<a href=\"../registry/trait.LookupSpan.html\"><code>LookupSpan</code></a> trait.\nSee the documentation on <a href=\"./struct.Context.html\"><code>Context</code>'s\ndeclaration</a> for details.\n</pre></div>\n\n[stored data]: crate::registry::SpanRef",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1227,
+        5
+      ],
+      "end": [
+        1232,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "registry::Scope",
+                          "id": 1167,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "325": "core::option::Option",
+      "1167": "tracing_subscriber::registry::Scope",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::registry::SpanRef": 1136,
+      "`Context::span_scope`": 1253
+    },
+    "link_paths": {
+      "crate::registry::SpanRef": "tracing_subscriber::registry::SpanRef",
+      "`Context::span_scope`": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1773",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-7463dda6ac9c5d6073e6280d",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::span_scope"
+    ],
+    "resolved_doc_links": {
+      "crate::registry::SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653",
+      "`Context::span_scope`": "../operations/tracing_subscriber.layer.context.Context.md#op-c6d804051c33f80e2c60a97a"
+    }
+  },
+  {
+    "id": "dbce363634a4dba3843cfb0e",
+    "path": "tracing_subscriber::fmt::fmt_layer::FmtContext::visit_spans",
+    "name": "visit_spans",
+    "owner": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn visit_spans<E, F>(&self, f: F) -> Result<(), E> where F: FnMut(&SpanRef<'_, S>) -> Result<(), E>",
+    "docs": "Visits every span in the current context with a closure.\n\nThe provided closure will be called first with the current span,\nand then with that span's parent, and then that span's parent,\nand so on until a root span is reached.",
+    "span": {
+      "filename": "src/fmt/fmt_layer.rs",
+      "begin": [
+        1122,
+        5
+      ],
+      "end": [
+        1133,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 44,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "tuple": []
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "E"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "E",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "F"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "FnMut",
+                        "id": 1766,
+                        "args": {
+                          "parenthesized": {
+                            "inputs": [
+                              {
+                                "borrowed_ref": {
+                                  "lifetime": null,
+                                  "is_mutable": false,
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "SpanRef",
+                                      "id": 1136,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'_"
+                                            },
+                                            {
+                                              "type": {
+                                                "generic": "S"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "output": {
+                              "resolved_path": {
+                                "path": "Result",
+                                "id": 44,
+                                "args": {
+                                  "angle_bracketed": {
+                                    "args": [
+                                      {
+                                        "type": {
+                                          "tuple": []
+                                        }
+                                      },
+                                      {
+                                        "type": {
+                                          "generic": "E"
+                                        }
+                                      }
+                                    ],
+                                    "constraints": []
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "44": "core::result::Result",
+      "1766": "core::ops::function::FnMut",
+      "1136": "tracing_subscriber::registry::SpanRef"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FmtContext",
+          "id": "tracing_subscriber::fmt::fmt_layer::FmtContext",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "N"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "N",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'lookup"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'lookup",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "N"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "FormatFields",
+                      "id": "tracing_subscriber::fmt::format::FormatFields",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'writer"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'writer",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/fmt/fmt_layer.rs",
+        "begin": [
+          1112,
+          1
+        ],
+        "end": [
+          1275,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1765",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.md",
+    "record_file": "operations/tracing_subscriber.fmt.fmt_layer.FmtContext.json",
+    "anchor": "op-dbce363634a4dba3843cfb0e",
+    "aliases": [
+      "tracing_subscriber::fmt::FmtContext::visit_spans"
+    ],
+    "resolved_doc_links": {}
+  }
+]

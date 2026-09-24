@@ -41,3 +41,14 @@ impl QuantityType {
         registry.neutral_dimensionless() == Some(self.id)
     }
 }
+
+// Semantic equality preserves every declared IEEE bit, including signed zero.
+impl PartialEq for QuantityType {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.key == other.key
+            && self.canonical_unit == other.canonical_unit
+            && self.nominal_magnitude.map(f64::to_bits) == other.nominal_magnitude.map(f64::to_bits)
+    }
+}
+impl Eq for QuantityType {}

@@ -22,16 +22,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
 use serde::Deserialize;
 
-#[cfg(feature = "package-fixtures")]
 mod architecture_acceptance;
 mod codegen;
-#[cfg(feature = "package-fixtures")]
-mod engineering_inspection;
+mod dependency_ceilings;
 #[cfg(feature = "package-fixtures")]
 mod inspection_fixture;
 #[path = "../../scripts/workspace.rs"]
@@ -57,23 +55,22 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Verify the exact-source Plan 10 barrier without dispatching a campaign.
+    ArchitecturePreflight {
+        #[arg(long, default_value_t = 0)]
+        plan: u8,
+    },
+    /// Seal the completed implementation and deletion ledger at N17.
+    ArchitectureSeal {
+        #[arg(long, default_value_t = 0)]
+        plan: u8,
+    },
     /// Qualify existing native functions, Delta lifecycle, cold readers and target architecture.
-    #[cfg(feature = "package-fixtures")]
     ArchitectureAcceptance {
         /// New directory for final architecture command logs and measurements.
         output: PathBuf,
-        /// Continue at a named gate; earlier receipts must be assessed separately.
-        #[arg(long)]
-        start_at: Option<String>,
-    },
-    /// Compile fresh engineering sources, reopen P10 in Rust and inspect it in Python.
-    #[cfg(feature = "package-fixtures")]
-    EngineeringInspection {
-        /// New destination for the four current stores and measured observations.
-        output: PathBuf,
-        /// Select one bounded workflow; omission runs all four required workflows.
-        #[arg(long, value_parser = ["heater-ftpx", "heater-fctp", "mixer-ftpx", "mixer-fctp"])]
-        case: Option<String>,
+        #[command(flatten)]
+        options: architecture_acceptance::RunOptions,
     },
     /// Publish and reopen a fresh current store for inspection tests.
     #[cfg(feature = "package-fixtures")]
@@ -152,13 +149,14 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let root = workspace_root()?;
     match cli.command {
-        #[cfg(feature = "package-fixtures")]
-        Cmd::ArchitectureAcceptance { output, start_at } => {
-            architecture_acceptance::run(&root, &output, start_at.as_deref())
+        Cmd::ArchitecturePreflight { plan } => {
+            architecture_acceptance::selected(&root, plan, "preflight", None)
         }
-        #[cfg(feature = "package-fixtures")]
-        Cmd::EngineeringInspection { output, case } => {
-            engineering_inspection::run(&root, &output, case.as_deref())
+        Cmd::ArchitectureSeal { plan } => {
+            architecture_acceptance::selected(&root, plan, "seal", None)
+        }
+        Cmd::ArchitectureAcceptance { output, options } => {
+            architecture_acceptance::run(&root, &output, &options)
         }
         #[cfg(feature = "package-fixtures")]
         Cmd::InspectionFixture { output } => inspection_fixture::run(&output),
@@ -239,6 +237,8 @@ struct Family {
     #[serde(default, rename = "match")]
     match_kind: Option<String>,
     crates: Vec<String>,
+    #[serde(default)]
+    exclude: BTreeSet<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -283,7 +283,7 @@ fn family_check(root: &Path, evidence: &[PathBuf], families_only: bool) -> Resul
                 acc
             });
 
-    let mut failures: Vec<String> = Vec::new();
+    let mut failures = dependency_ceilings::check(&metadata)?;
     let mut in_family: BTreeSet<String> = BTreeSet::new();
 
     println!("family            declared   match   resolved   packages");
@@ -332,7 +332,7 @@ fn check_family(
     let mut versions: BTreeSet<String> = BTreeSet::new();
     let mut members: Vec<String> = Vec::new();
     for (pkg, pkg_versions) in resolved {
-        if matchers.iter().any(|re| re.is_match(pkg)) {
+        if !family.exclude.contains(pkg) && matchers.iter().any(|re| re.is_match(pkg)) {
             in_family.insert(pkg.clone());
             members.push(pkg.clone());
             versions.extend(pkg_versions.iter().cloned());
@@ -495,11 +495,13 @@ fn governance(root: &Path) -> Result<()> {
         .current_dir(root)
         .status()
         .context("running cargo nextest for pse-tests-governance")?;
-    if !status.success() {
-        bail!("pse-tests-governance failed");
-    }
-    codegen(root, true, None)?;
-    family_check(root, &default_evidence(), true)
+    let generated = codegen(root, true, None);
+    let families = family_check(root, &default_evidence(), true);
+    ensure!(
+        status.success() && generated.is_ok() && families.is_ok(),
+        "governance tests: {status}; generation: {generated:?}; families: {families:?}"
+    );
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

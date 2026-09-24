@@ -3,12 +3,14 @@
 
 //! Inspection consumes the same prepared native provider stream as other reads.
 
-use crate::{
-    CatalogError,
-    session::{OwnedComputationStream, SnapshotSession},
-};
+pub mod stream;
+
 use datafusion::arrow::{array::RecordBatch, datatypes::SchemaRef};
-use pse_ids::CancellationToken;
+use pse_columnar::CancellationToken;
+use pse_engine::{
+    EngineError,
+    session::{EngineSession, OwnedComputationStream},
+};
 use std::{num::NonZeroUsize, sync::Arc};
 
 /// Owned native inspection stream. Exhaustion/close releases unread work; returned
@@ -24,11 +26,11 @@ impl TableReader {
     /// # Errors
     /// Absent/ambiguous member, incompatible policy, planning, cancellation or resources.
     pub async fn new(
-        session: &SnapshotSession,
+        session: &EngineSession,
         reference: &datafusion::common::ResolvedTableReference,
         batch_size: NonZeroUsize,
         cancel: CancellationToken,
-    ) -> Result<Self, CatalogError> {
+    ) -> Result<Self, EngineError> {
         cancel.checkpoint()?;
         let plan = session.relation_plan(reference)?.plan().clone();
         let prepared = session.prepare(plan, &cancel)?;
@@ -55,7 +57,7 @@ impl TableReader {
     /// Poll one native batch, bounded by the selected row count.
     /// # Errors
     /// Cancellation, native execution, policy or resource failure; failures close the stream.
-    pub async fn next_batch(&mut self) -> Result<Option<RecordBatch>, CatalogError> {
+    pub async fn next_batch(&mut self) -> Result<Option<RecordBatch>, EngineError> {
         if let Err(error) = self.cancel.checkpoint() {
             self.stream = None;
             return Err(error.into());
@@ -70,7 +72,7 @@ impl TableReader {
                 result => {
                     self.stream = None;
                     return result.map(|batch| {
-                        batch.map(pse_ids::owned_buffer::OwnedRecordBatch::into_batch)
+                        batch.map(pse_columnar::owned_buffer::OwnedRecordBatch::into_batch)
                     });
                 }
             }
@@ -82,3 +84,6 @@ impl TableReader {
         self.stream = None;
     }
 }
+
+/// Compiled declaration identity for a cheap language-boundary compatibility check.
+pub use pse_relations::generated::REGISTRY_FINGERPRINT;

@@ -1,0 +1,108 @@
+[
+  {
+    "id": "63d3bed91aec05650eb447c7",
+    "path": "opentelemetry_sdk::trace",
+    "name": "trace",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod trace",
+    "docs": "# OpenTelemetry Trace SDK\n\nThe tracing SDK consist of a few main structs:\n\n* The [`SdkTracer`] struct which performs all tracing operations.\n* The [`Span`] struct with is a mutable object storing information about the\n  current operation execution.\n* The [`SdkTracerProvider`] struct which configures and produces [`SdkTracer`]s.",
+    "span": {
+      "filename": "src/trace/mod.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        580,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[<cfg>(feature = \"trace\")]"
+      },
+      {
+        "other": "#[<cfg_attr>(docsrs, doc(cfg(feature = \"trace\")))]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"trace\"))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          3096,
+          3198,
+          3199,
+          3200,
+          3201,
+          3202,
+          3203,
+          3204,
+          3205,
+          3206,
+          3207,
+          3208,
+          3209,
+          3210,
+          3211,
+          3212,
+          3213,
+          3214,
+          3215,
+          3216,
+          3217,
+          3218,
+          3219,
+          3220,
+          3221,
+          3222,
+          3223,
+          3224,
+          3225
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`SdkTracerProvider`": 2572,
+      "`SdkTracer`": 2571,
+      "`Span`": 2782
+    },
+    "link_paths": {
+      "`SdkTracerProvider`": "opentelemetry_sdk::trace::provider::SdkTracerProvider",
+      "`SdkTracer`": "opentelemetry_sdk::trace::tracer::SdkTracer",
+      "`Span`": "opentelemetry_sdk::trace::span::Span"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "3226",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry_sdk.trace.md",
+    "record_file": "modules/opentelemetry_sdk.trace.json",
+    "anchor": "op-63d3bed91aec05650eb447c7",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`SdkTracerProvider`": "../operations/opentelemetry_sdk.trace.provider.SdkTracerProvider.md#op-68f8d3c6d535fa6ce330056b",
+      "`SdkTracer`": "../operations/opentelemetry_sdk.trace.tracer.SdkTracer.md#op-994f3cb8ad5bc1ae17502b0e",
+      "`Span`": "../operations/opentelemetry_sdk.trace.span.Span.md#op-6728bb88b006c9a3c6d6b771"
+    }
+  }
+]

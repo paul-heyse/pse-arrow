@@ -3,12 +3,12 @@
 
 //! Native in-memory reachability query; no IO or durable maintenance.
 use super::*;
-use crate::session::SessionFactory;
 use datafusion::{
     common::ResolvedTableReference,
     execution::{runtime_env::RuntimeEnv, session_state::SessionStateBuilder},
 };
-use pse_ids::{FixedBudget, SemanticId};
+use pse_engine::session::EngineFactory;
+use pse_ids::SemanticId;
 use pse_relations::generated::enums::{PublicationKind, RetentionReason};
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -31,9 +31,9 @@ async fn publication_reachability_projects_typed_distinct_versions_and_empty_lis
         selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
     };
     let cancel = CancellationToken::new();
-    let factory = SessionFactory::from_builder(
+    let factory = EngineFactory::from_builder(
         Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(32 << 20),
+        Arc::new(pse_columnar::GreedyMemoryPool::new(32 << 20)),
         "retention-unit",
         SessionStateBuilder::new_with_default_features(),
     );
@@ -65,10 +65,9 @@ async fn publication_reachability_projects_typed_distinct_versions_and_empty_lis
                 table: source.table().into(),
             })
             .unwrap();
-        let retention = session.publication_retention(&input, &cancel).unwrap();
-        let retention = session
-            .combine_retention(&[retention.clone(), retention], &cancel)
-            .unwrap();
+        let retention = publication_retention(&session, &input, &cancel).unwrap();
+        let retention =
+            combine_retention(&session, &[retention.clone(), retention], &cancel).unwrap();
         let result = session
             .prepare(retention.plan().clone(), &cancel)
             .unwrap()
@@ -95,6 +94,78 @@ async fn publication_reachability_projects_typed_distinct_versions_and_empty_lis
                     reason: RetentionReason::Publication
                 }
             );
+        }
+    }
+}
+
+mod durability_unit {
+    use super::*;
+    use pse_relations::generated::runtime::release_checkpoints as checkpoint;
+    #[tokio::test]
+    async fn checkpoint_intervals_feed_existing_retention_without_losing_empty_inputs() {
+        let mut builder = pse_schema::RegistryBuilder::new();
+        pse_schema::catalog::declare_publications(&mut builder);
+        let registry = Arc::new(builder.build().unwrap());
+        let cancel = CancellationToken::new();
+        let factory = pse_testkit::NativeFixture::new((32 << 20).try_into().unwrap())
+            .unwrap()
+            .into_factory();
+        for intervals in [
+            vec![],
+            vec![checkpoint::RuntimeReleaseCheckpointsFieldIntervalsItem {
+                table_uri: "memory:///member/".into(),
+                from_version: 2,
+                through_version: 4,
+            }],
+        ] {
+            let count = intervals.len();
+            let mut rows = checkpoint::Builder::with_registry(&registry, 1).unwrap();
+            rows.push(checkpoint::Row {
+                consumer_id: SemanticId::NIL,
+                admission_id: SemanticId::from_bytes([1; 16]),
+                interpretation_version: 1,
+                base_release: pse_ids::ContentHash::from_bytes([1; 32]),
+                target_release: pse_ids::ContentHash::from_bytes([2; 32]),
+                base_members: vec![],
+                target_members: vec![],
+                intervals,
+            })
+            .unwrap();
+            let session = factory
+                .candidate_checked(
+                    BTreeMap::from([(checkpoint::RELATION_KEY, rows.finish().unwrap())]),
+                    registry.clone(),
+                    &cancel,
+                )
+                .unwrap();
+            let reference = session
+                .table_reference(&checkpoint::RELATION_KEY)
+                .unwrap()
+                .resolve("", "");
+            let source = session.relation_plan(&reference).unwrap();
+            let retained = checkpoint_retention(&session, &source, &cancel).unwrap();
+            let retained =
+                combine_retention(&session, &[retained.clone(), retained], &cancel).unwrap();
+            let result = session
+                .prepare(retained.plan().clone(), &cancel)
+                .unwrap()
+                .execute(&cancel)
+                .await
+                .unwrap();
+            let mut actual = vec![];
+            for batch in result.batches() {
+                let view = retained_versions::View::try_from_batch_with_registry(&registry, batch)
+                    .unwrap();
+                for row in 0..batch.num_rows() {
+                    actual.push(view.row(row).unwrap());
+                }
+            }
+            assert_eq!(actual.len(), count);
+            if count != 0 {
+                assert_eq!(actual[0].from_version, 2);
+                assert_eq!(actual[0].through_version, 4);
+                assert_eq!(actual[0].reason, RetentionReason::Changes);
+            }
         }
     }
 }

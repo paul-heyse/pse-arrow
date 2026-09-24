@@ -1,0 +1,2876 @@
+[
+  {
+    "id": "0acb651e530d235188552e7d",
+    "path": "tracing_subscriber::layer::context::Context",
+    "name": "Context",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct Context<'a, S>",
+    "docs": "Represents information about the current context provided to [`Layer`]s by the\nwrapped [`Subscriber`].\n\nTo access [stored data] keyed by a span ID, implementors of the `Layer`\ntrait should ensure that the `Subscriber` type parameter is *also* bound by the\n[`LookupSpan`]:\n\n```rust\nuse tracing::Subscriber;\nuse tracing_subscriber::{Layer, registry::LookupSpan};\n\npub struct MyLayer;\n\nimpl<S> Layer<S> for MyLayer\nwhere\n    S: Subscriber + for<'a> LookupSpan<'a>,\n{\n    // ...\n}\n```\n\n[`Layer`]: super::Layer\n[`Subscriber`]: tracing_core::Subscriber\n[stored data]: crate::registry::SpanRef\n[`LookupSpan`]: crate::registry::LookupSpan",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        33,
+        1
+      ],
+      "end": [
+        47,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            },
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          1255,
+          1256,
+          1257,
+          1258,
+          1259,
+          1260,
+          1261,
+          1262,
+          1263,
+          1264,
+          1265,
+          1266,
+          1267,
+          1268,
+          1269,
+          1270,
+          1271,
+          1272,
+          1273,
+          1275,
+          1277
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "super::Layer": 281,
+      "crate::registry::SpanRef": 1136,
+      "tracing_core::Subscriber": 317,
+      "crate::registry::LookupSpan": 790
+    },
+    "link_paths": {
+      "super::Layer": "tracing_subscriber::layer::Layer",
+      "crate::registry::SpanRef": "tracing_subscriber::registry::SpanRef",
+      "tracing_core::Subscriber": "tracing_core::subscriber::Subscriber",
+      "crate::registry::LookupSpan": "tracing_subscriber::registry::LookupSpan"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "313",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-0acb651e530d235188552e7d",
+    "aliases": [
+      "tracing_subscriber::layer::Context"
+    ],
+    "resolved_doc_links": {
+      "super::Layer": "../operations/tracing_subscriber.layer.Layer.md#op-4c1ba1a6be909c9a1b91bff8",
+      "crate::registry::SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653",
+      "tracing_core::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "crate::registry::LookupSpan": "../operations/tracing_subscriber.registry.LookupSpan.md#op-d0bf19fd7852e1b6f08511d9"
+    }
+  },
+  {
+    "id": "ef029797b53c3c0afaae7d34",
+    "path": "tracing_subscriber::layer::context::Context::clone",
+    "name": "clone",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        424,
+        5
+      ],
+      "end": [
+        432,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          422,
+          1
+        ],
+        "end": [
+          433,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1276",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-ef029797b53c3c0afaae7d34",
+    "aliases": [
+      "tracing_subscriber::layer::Context::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "16999205c06719a6d29c8335",
+    "path": "tracing_subscriber::layer::context::Context::current_span",
+    "name": "current_span",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn current_span(&self) -> span::Current",
+    "docs": "Returns the wrapped subscriber's view of the current span.",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        66,
+        5
+      ],
+      "end": [
+        72,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "span::Current",
+              "id": 1093,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1093": "tracing_core::span::Current"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1243",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-16999205c06719a6d29c8335",
+    "aliases": [
+      "tracing_subscriber::layer::Context::current_span"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "be7f9f4a1610d3061e22d817",
+    "path": "tracing_subscriber::layer::context::Context::enabled",
+    "name": "enabled",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn enabled(&self, metadata: &Metadata<'_>) -> bool",
+    "docs": "Returns whether the wrapped subscriber would enable the current span.",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        76,
+        5
+      ],
+      "end": [
+        84,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1244",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-be7f9f4a1610d3061e22d817",
+    "aliases": [
+      "tracing_subscriber::layer::Context::enabled"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c274004bdaeeac1a992cb490",
+    "path": "tracing_subscriber::layer::context::Context::event",
+    "name": "event",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn event(&self, event: &Event<'_>)",
+    "docs": "Records the provided `event` with the wrapped subscriber.\n\n# Notes\n\n- The subscriber is free to expect that the event's callsite has been\n  [registered][register], and may panic or fail to observe the event if this is\n  not the case. The `tracing` crate's macros ensure that all events are\n  registered, but if the event is constructed through other means, the\n  user is responsible for ensuring that [`register_callsite`][register]\n  has been called prior to calling this method.\n- This does _not_ call [`enabled`] on the inner subscriber. If the\n  caller wishes to apply the wrapped subscriber's filter before choosing\n  whether to record the event, it may first call [`Context::enabled`] to\n  check whether the event would be enabled. This allows `Layer`s to\n  elide constructing the event if it would not be recorded.\n\n[register]: tracing_core::subscriber::Subscriber::register_callsite()\n[`enabled`]: tracing_core::subscriber::Subscriber::enabled()\n[`Context::enabled`]: Context::enabled()",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        106,
+        5
+      ],
+      "end": [
+        110,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 246,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "246": "tracing_core::event::Event"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {
+      "Context::enabled()": 1244,
+      "tracing_core::subscriber::Subscriber::enabled()": 1246,
+      "tracing_core::subscriber::Subscriber::register_callsite()": 1245
+    },
+    "link_paths": {
+      "Context::enabled()": null,
+      "tracing_core::subscriber::Subscriber::enabled()": null,
+      "tracing_core::subscriber::Subscriber::register_callsite()": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1247",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-c274004bdaeeac1a992cb490",
+    "aliases": [
+      "tracing_subscriber::layer::Context::event"
+    ],
+    "resolved_doc_links": {
+      "Context::enabled()": "../operations/tracing_subscriber.layer.context.Context.md#op-be7f9f4a1610d3061e22d817"
+    }
+  },
+  {
+    "id": "f08e7c9a674253fafb02ad26",
+    "path": "tracing_subscriber::layer::context::Context::event_scope",
+    "name": "event_scope",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn event_scope(&self, event: &Event<'_>) -> Option<registry::Scope<'_, S>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns an iterator over the [stored data] for all the spans in the\ncurrent context, starting with the parent span of the specified event,\nand ending with the root of the trace tree and ending with the current span.\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: Compared to <a href=\"#method.scope\"><code>scope</code></a> this\nreturns the spans in reverse order (from leaf to root). Use\n<a href=\"../registry/struct.Scope.html#method.from_root\"><code>Scope::from_root</code></a>\nin case root-to-leaf ordering is desired.\n</pre>\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: This requires the wrapped subscriber to\n    implement the <a href=\"../registry/trait.LookupSpan.html\"><code>\n    LookupSpan</code></a> trait. See the documentation on\n    <a href=\"./struct.Context.html\"><code>Context</code>'s\n    declaration</a> for details.\n</pre>\n\n[stored data]: crate::registry::SpanRef",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        363,
+        5
+      ],
+      "end": [
+        368,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 246,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "registry::Scope",
+                          "id": 1167,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "246": "tracing_core::event::Event",
+      "325": "core::option::Option",
+      "1167": "tracing_subscriber::registry::Scope",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::registry::SpanRef": 1136
+    },
+    "link_paths": {
+      "crate::registry::SpanRef": "tracing_subscriber::registry::SpanRef"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1254",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-f08e7c9a674253fafb02ad26",
+    "aliases": [
+      "tracing_subscriber::layer::Context::event_scope"
+    ],
+    "resolved_doc_links": {
+      "crate::registry::SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653"
+    }
+  },
+  {
+    "id": "4f2ca7c8c5afeda79eab4db7",
+    "path": "tracing_subscriber::layer::context::Context::event_span",
+    "name": "event_span",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn event_span(&self, event: &Event<'_>) -> Option<SpanRef<'_, S>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns a [`SpanRef`] for the parent span of the given [`Event`], if\nit has a parent.\n\nIf the event has an explicitly overridden parent, this method returns\na reference to that span. If the event's parent is the current span,\nthis returns a reference to the current span, if there is one. If this\nreturns `None`, then either the event's parent was explicitly set to\n`None`, or the event's parent was defined contextually, but no span\nis currently entered.\n\nCompared to [`Context::current_span`] and [`Context::lookup_current`],\nthis respects overrides provided by the [`Event`].\n\nCompared to [`Event::parent`], this automatically falls back to the contextual\nspan, if required.\n\n```rust\nuse tracing::{Event, Subscriber};\nuse tracing_subscriber::{\n    layer::{Context, Layer},\n    prelude::*,\n    registry::LookupSpan,\n};\n\nstruct PrintingLayer;\nimpl<S> Layer<S> for PrintingLayer\nwhere\n    S: Subscriber + for<'lookup> LookupSpan<'lookup>,\n{\n    fn on_event(&self, event: &Event, ctx: Context<S>) {\n        let span = ctx.event_span(event);\n        println!(\"Event in span: {:?}\", span.map(|s| s.name()));\n    }\n}\n\ntracing::subscriber::with_default(tracing_subscriber::registry().with(PrintingLayer), || {\n    tracing::info!(\"no span\");\n    // Prints: Event in span: None\n\n    let span = tracing::info_span!(\"span\");\n    tracing::info!(parent: &span, \"explicitly specified\");\n    // Prints: Event in span: Some(\"span\")\n\n    let _guard = span.enter();\n    tracing::info!(\"contextual span\");\n    // Prints: Event in span: Some(\"span\")\n});\n```\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: This requires the wrapped subscriber to\n    implement the <a href=\"../registry/trait.LookupSpan.html\"><code>\n    LookupSpan</code></a> trait. See the documentation on\n    <a href=\"./struct.Context.html\"><code>Context</code>'s\n    declaration</a> for details.\n</pre>",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        169,
+        5
+      ],
+      "end": [
+        181,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 246,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "SpanRef",
+                          "id": 1136,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "246": "tracing_core::event::Event",
+      "325": "core::option::Option",
+      "1136": "tracing_subscriber::registry::SpanRef",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`Context::lookup_current`": 1248,
+      "`SpanRef`": 1136,
+      "`Context::current_span`": 1243,
+      "`Event`": 246,
+      "`Event::parent`": 1249
+    },
+    "link_paths": {
+      "`Context::lookup_current`": null,
+      "`SpanRef`": "tracing_subscriber::registry::SpanRef",
+      "`Context::current_span`": null,
+      "`Event`": "tracing_core::event::Event",
+      "`Event::parent`": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1250",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-4f2ca7c8c5afeda79eab4db7",
+    "aliases": [
+      "tracing_subscriber::layer::Context::event_span"
+    ],
+    "resolved_doc_links": {
+      "`Context::lookup_current`": "../operations/tracing_subscriber.layer.context.Context.md#op-279b784874fc32c9c94c32fc",
+      "`SpanRef`": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653",
+      "`Context::current_span`": "../operations/tracing_subscriber.layer.context.Context.md#op-16999205c06719a6d29c8335",
+      "`Event`": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039"
+    }
+  },
+  {
+    "id": "a0c31dc230cbb7691c7a0851",
+    "path": "tracing_subscriber::layer::context::Context::exists",
+    "name": "exists",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn exists(&self, id: &span::Id) -> bool where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns `true` if an active span exists for the given `Id`.\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: This requires the wrapped subscriber to\n    implement the <a href=\"../registry/trait.LookupSpan.html\"><code>\n    LookupSpan</code></a> trait. See the documentation on\n    <a href=\"./struct.Context.html\"><code>Context</code>'s\n    declaration</a> for details.\n</pre>",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        234,
+        5
+      ],
+      "end": [
+        239,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1252",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-a0c31dc230cbb7691c7a0851",
+    "aliases": [
+      "tracing_subscriber::layer::Context::exists"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "904f7708110bfc3519260748",
+    "path": "tracing_subscriber::layer::context::Context::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        32,
+        10
+      ],
+      "end": [
+        32,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          32,
+          10
+        ],
+        "end": [
+          32,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1274",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-904f7708110bfc3519260748",
+    "aliases": [
+      "tracing_subscriber::layer::Context::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "279b784874fc32c9c94c32fc",
+    "path": "tracing_subscriber::layer::context::Context::lookup_current",
+    "name": "lookup_current",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn lookup_current(&self) -> Option<registry::SpanRef<'_, S>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns [stored data] for the span that the wrapped subscriber considers\nto be the current.\n\nIf this returns `None`, then we are not currently within a span.\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: This requires the wrapped subscriber to\n    implement the <a href=\"../registry/trait.LookupSpan.html\"><code>\n    LookupSpan</code></a> trait. See the documentation on\n    <a href=\"./struct.Context.html\"><code>Context</code>'s\n    declaration</a> for details.\n</pre>\n\n[stored data]: crate::registry::SpanRef",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        256,
+        5
+      ],
+      "end": [
+        293,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "registry::SpanRef",
+                          "id": 1136,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "325": "core::option::Option",
+      "1136": "tracing_subscriber::registry::SpanRef",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::registry::SpanRef": 1136
+    },
+    "link_paths": {
+      "crate::registry::SpanRef": "tracing_subscriber::registry::SpanRef"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1248",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-279b784874fc32c9c94c32fc",
+    "aliases": [
+      "tracing_subscriber::layer::Context::lookup_current"
+    ],
+    "resolved_doc_links": {
+      "crate::registry::SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653"
+    }
+  },
+  {
+    "id": "4421ec50bcb2dfe38e513821",
+    "path": "tracing_subscriber::layer::context::Context::metadata",
+    "name": "metadata",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn metadata(&self, id: &span::Id) -> Option<&'static Metadata<'static>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns metadata for the span with the given `id`, if it exists.\n\nIf this returns `None`, then no span exists for that ID (either it has\nclosed or the ID is invalid).",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        188,
+        5
+      ],
+      "end": [
+        194,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "borrowed_ref": {
+                          "lifetime": "'static",
+                          "is_mutable": false,
+                          "type": {
+                            "resolved_path": {
+                              "path": "Metadata",
+                              "id": 278,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "lifetime": "'static"
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "325": "core::option::Option",
+      "278": "tracing_core::metadata::Metadata",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1251",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-4421ec50bcb2dfe38e513821",
+    "aliases": [
+      "tracing_subscriber::layer::Context::metadata"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c1d9008b2af47e4fcc66e76e",
+    "path": "tracing_subscriber::layer::context::Context::span",
+    "name": "span",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn span(&self, id: &span::Id) -> Option<registry::SpanRef<'_, S>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns [stored data] for the span with the given `id`, if it exists.\n\nIf this returns `None`, then no span exists for that ID (either it has\nclosed or the ID is invalid).\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: This requires the wrapped subscriber to\n    implement the <a href=\"../registry/trait.LookupSpan.html\"><code>\n    LookupSpan</code></a> trait. See the documentation on\n    <a href=\"./struct.Context.html\"><code>Context</code>'s\n    declaration</a> for details.\n</pre>\n\n[stored data]: crate::registry::SpanRef",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        211,
+        5
+      ],
+      "end": [
+        222,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "registry::SpanRef",
+                          "id": 1136,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "325": "core::option::Option",
+      "1136": "tracing_subscriber::registry::SpanRef",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::registry::SpanRef": 1136
+    },
+    "link_paths": {
+      "crate::registry::SpanRef": "tracing_subscriber::registry::SpanRef"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1140",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-c1d9008b2af47e4fcc66e76e",
+    "aliases": [
+      "tracing_subscriber::layer::Context::span"
+    ],
+    "resolved_doc_links": {
+      "crate::registry::SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653"
+    }
+  },
+  {
+    "id": "c6d804051c33f80e2c60a97a",
+    "path": "tracing_subscriber::layer::context::Context::span_scope",
+    "name": "span_scope",
+    "owner": "tracing_subscriber::layer::context::Context",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn span_scope(&self, id: &span::Id) -> Option<registry::Scope<'_, S>> where S: for<'lookup> LookupSpan<'lookup>",
+    "docs": "Returns an iterator over the [stored data] for all the spans in the\ncurrent context, starting with the specified span and ending with the\nroot of the trace tree.\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: This returns the spans in reverse order (from leaf to root). Use\n<a href=\"../registry/struct.Scope.html#method.from_root\"><code>Scope::from_root</code></a>\nin case root-to-leaf ordering is desired.\n</pre>\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: This requires the wrapped subscriber to\n    implement the <a href=\"../registry/trait.LookupSpan.html\"><code>\n    LookupSpan</code></a> trait. See the documentation on\n    <a href=\"./struct.Context.html\"><code>Context</code>'s\n    declaration</a> for details.\n</pre>\n\n[stored data]: crate::registry::SpanRef",
+    "span": {
+      "filename": "src/layer/context.rs",
+      "begin": [
+        336,
+        5
+      ],
+      "end": [
+        341,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "registry::Scope",
+                          "id": 1167,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "lifetime": "'_"
+                                },
+                                {
+                                  "type": {
+                                    "generic": "S"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "LookupSpan",
+                        "id": 790,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'lookup"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [
+                        {
+                          "name": "'lookup",
+                          "kind": {
+                            "lifetime": {
+                              "outlives": []
+                            }
+                          }
+                        }
+                      ],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "325": "core::option::Option",
+      "1167": "tracing_subscriber::registry::Scope",
+      "790": "tracing_subscriber::registry::LookupSpan"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "Context",
+          "id": "tracing_subscriber::layer::context::Context",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer/context.rs",
+        "begin": [
+          51,
+          1
+        ],
+        "end": [
+          409,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::registry::SpanRef": 1136
+    },
+    "link_paths": {
+      "crate::registry::SpanRef": "tracing_subscriber::registry::SpanRef"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1253",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.context.Context.md",
+    "record_file": "operations/tracing_subscriber.layer.context.Context.json",
+    "anchor": "op-c6d804051c33f80e2c60a97a",
+    "aliases": [
+      "tracing_subscriber::layer::Context::span_scope"
+    ],
+    "resolved_doc_links": {
+      "crate::registry::SpanRef": "../operations/tracing_subscriber.registry.SpanRef.md#op-c46893bde415baf0f5119653"
+    }
+  }
+]

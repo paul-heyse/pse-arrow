@@ -1,5 +1,7 @@
 # Data Model–Based Design Charter
 
+> **Superseded 2026-09-24** by the layered design standard: [core design principles](core/design-principles.md) (DP-01–DP-24, G1–G8), the [process-simulator profile](profiles/process-simulator/principles.md) and the [pse-arrow binding](binding/pse-arrow.md). Retained so earlier ADRs and reviews that cite `DM-nn`, charter §D and charter §H stay readable; principles §I maps every ID.
+
 **Version 1.0 · September 13, 2026**  
 **Purpose:** A technology-neutral design and review framework for systems that make explicit data models the source of structure, behavior, constraints, and execution intent.
 

@@ -2,12 +2,18 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Active admission of declared storage and visible logical values. Batch admission
-//! does not certify keys or foreign keys; publication additionally calls [`validate_bundle`].
+//! does not certify keys or foreign keys; publication additionally binds [`obligations::ObligationTemplates`].
 
-mod bundle;
+pub mod obligations;
+mod occurrences;
+pub mod planner;
+pub mod predicates;
+mod prepared;
+pub mod row_checks;
+pub use prepared::{
+    PreparedLocalContract, ValidationContext, ValidationReport, prepare_expression,
+};
 mod field;
-pub(crate) mod local_values;
-mod values;
 
 use arrow_array::{Array, RecordBatch};
 use arrow_schema::{Field, Schema};
@@ -17,7 +23,6 @@ use pse_schema::model::RelationSpec;
 
 use crate::RelationError;
 
-pub use bundle::validate_bundle;
 pub use field::validate_field;
 
 pub(super) fn finish(errors: Vec<RelationError>) -> Result<(), Vec<RelationError>> {
@@ -46,19 +51,24 @@ pub fn validate_schema(
 ) -> Result<(), Vec<RelationError>> {
     use pse_schema::arrow::KEY_CONTRACT_FINGERPRINT;
     let mut errors = Vec::new();
-    if reg.relation_by_id(spec.id) != Some(spec) {
-        errors.push(mismatch(
-            &spec.key.to_string(),
-            "descriptor does not equal its registry declaration",
-        ));
+    if let Err(error) = reg.contract(spec) {
+        errors.push(error.into());
+        return Err(errors);
     }
-    let expected = match pse_schema::arrow::relation_schema(reg, spec) {
+    let Some(spec) = reg.relation_by_id(spec.id) else {
+        errors.push(mismatch(&spec.key.to_string(), "relation is not declared"));
+        return Err(errors);
+    };
+    let expected = match pse_schema::arrow::relation_schema_ref(reg, spec) {
         Ok(schema) => schema,
         Err(error) => {
             errors.push(error.into());
             return Err(errors);
         }
     };
+    if std::ptr::eq(schema, expected.as_ref()) {
+        return Ok(());
+    }
     if let Some(actual) = schema
         .metadata()
         .get(KEY_CONTRACT_FINGERPRINT)
@@ -123,32 +133,12 @@ pub fn validate_batch(
     batch: &RecordBatch,
 ) -> Result<(), Vec<RelationError>> {
     validate_schema(reg, spec, &batch.schema())?;
-    let mut errors = Vec::new();
-    for array in batch.columns() {
-        if let Err(error) = array.to_data().validate_full() {
-            errors.push(error.into());
-        }
-    }
-    if !errors.is_empty() {
-        return Err(errors);
-    }
-    let schema = batch.schema();
-    for row in 0..batch.num_rows() {
-        let mut cells = Vec::with_capacity(batch.num_columns());
-        for (field, array) in schema.fields().iter().zip(batch.columns()) {
-            match crate::cells::cell_at(reg, field, array.as_ref(), row) {
-                Ok(cell) => {
-                    values::validate_cell(field, &cell, row, field.name(), &mut errors);
-                    cells.push(cell);
-                }
-                Err(error) => {
-                    errors.push(error);
-                    cells.push(pse_schema::model::Cell::Null);
-                }
-            }
-        }
-    }
-    finish(errors)
+    let context = ValidationContext::for_registry(reg).map_err(|error| vec![error])?;
+    context
+        .relation(reg, spec)
+        .and_then(|prepared| prepared.evaluate(batch, 256, &pse_columnar::CancellationToken::new()))
+        .and_then(ValidationReport::require_valid)
+        .map_err(|error| vec![error])
 }
 
 /// Validate a single declared field's storage and visible recursive logical values.
@@ -162,24 +152,19 @@ pub fn validate_column(
     field: &Field,
     array: &dyn Array,
 ) -> Result<(), Vec<RelationError>> {
-    validate_field(reg, field)?;
-    if field.data_type() != array.data_type() {
-        return Err(vec![RelationError::Storage {
-            field: field.name().to_owned(),
-            expected: field.data_type().to_string(),
-            actual: array.data_type().to_string(),
-        }]);
-    }
+    let context = ValidationContext::for_registry(reg).map_err(|error| vec![error])?;
+    let prepared = context.column(reg, field).map_err(|error| vec![error])?;
     array
         .to_data()
         .validate_full()
         .map_err(|error| vec![error.into()])?;
-    let mut errors = Vec::new();
-    for row in 0..array.len() {
-        match crate::cells::cell_at(reg, field, array, row) {
-            Ok(cell) => values::validate_cell(field, &cell, row, field.name(), &mut errors),
-            Err(error) => errors.push(error),
-        }
-    }
-    finish(errors)
+    let batch = RecordBatch::try_new(
+        std::sync::Arc::clone(prepared.schema()),
+        vec![arrow_array::make_array(array.to_data())],
+    )
+    .map_err(|error| vec![error.into()])?;
+    prepared
+        .evaluate(&batch, 256, &pse_columnar::CancellationToken::new())
+        .and_then(ValidationReport::require_valid)
+        .map_err(|error| vec![error])
 }

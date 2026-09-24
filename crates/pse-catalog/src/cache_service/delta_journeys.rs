@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! C12 integration only, despite living under --lib: actual Delta commits and replay.
-use super::{CacheBudget, NativeCacheService, snapshot::LoadRequirement};
+use super::{DeltaCacheBudget, DeltaCacheService, snapshot::LoadRequirement};
 use datafusion::{
     arrow::{
         array::{Int64Array, RecordBatch},
@@ -33,15 +33,21 @@ async fn exact_versions_load_classes_and_seeded_refresh_match_fresh_native_files
         .with_memory_pool(pool.clone())
         .build_arc()
         .unwrap();
-    let mut policy = CacheBudget::for_memory(128 << 20);
+    let mut policy = DeltaCacheBudget::for_memory(128 << 20);
     policy.crc_replay_max_commits = 16;
-    let service = NativeCacheService::new(policy, &pool).unwrap();
+    let service = DeltaCacheService::new(policy, &pool).unwrap();
     let state = Arc::new(
         SessionStateBuilder::new()
             .with_default_features()
             .with_runtime_env(runtime)
-            .with_config(SessionConfig::new().with_extension(service.clone()))
-            .with_query_planner(Arc::new(crate::session::planner::UnifiedPlanner::default()))
+            .with_config(
+                SessionConfig::new()
+                    .with_extension(service.native().clone())
+                    .with_extension(service.clone()),
+            )
+            .with_query_planner(Arc::new(pse_engine::session::planner::UnifiedPlanner::new(
+                crate::assembly::planners(),
+            )))
             .build(),
     );
     let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
@@ -101,20 +107,35 @@ async fn exact_versions_load_classes_and_seeded_refresh_match_fresh_native_files
         query.table.get_file_uris().unwrap().collect::<Vec<_>>(),
         original_files
     );
+    let loads = service.snapshots.loads();
+    let older = service
+        .open_snapshot(root.clone(), Some(0), LoadRequirement::Query, state.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        older.table.get_file_uris().unwrap().collect::<Vec<_>>(),
+        original_files
+    );
+    assert_eq!(
+        service.snapshots.loads(),
+        loads,
+        "an append must not invalidate an older pinned exact version"
+    );
     assert!(
         service
             .open_snapshot(root.clone(), Some(2), LoadRequirement::Query, state.clone())
             .await
             .is_err()
     );
-    service.invalidate();
+    service.native().invalidate();
     assert!(
         service
+            .native()
             .report()
             .iter()
             .any(|row| row.pinned_bytes.is_some_and(|value| value > 0))
     );
-    drop((query, metadata, next));
+    drop((query, metadata, next, older));
     assert_eq!(service.live_snapshot_bytes(), 0);
     // No CRC is required for a complete native metadata replay.
     let fresh = crate::delta::provider::table_builder(root.clone(), &state)
@@ -148,7 +169,9 @@ async fn native_kernel_crc_seed_advances_through_delta_writes_and_corruption_fal
     let context = datafusion::prelude::SessionContext::new_with_state(
         SessionStateBuilder::new()
             .with_default_features()
-            .with_query_planner(Arc::new(crate::session::planner::UnifiedPlanner::default()))
+            .with_query_planner(Arc::new(pse_engine::session::planner::UnifiedPlanner::new(
+                crate::assembly::planners(),
+            )))
             .build(),
     );
     let state = Arc::new(context.state());

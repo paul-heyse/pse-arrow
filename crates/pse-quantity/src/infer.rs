@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Complete quantity inference (blueprint §8.3).
+mod cache;
+pub use cache::InferenceCache;
+
 use crate::literal::{LiteralContext, resolve_literal};
 use crate::{
     BoundIndexRef, ConversionId, DimensionVector, DomainKind, IncompatibilityReason, IndexSet,
@@ -209,6 +212,12 @@ pub struct Inferred {
 /// Implementations must inspect operation/operand/registry scope and their validated fact
 /// source; matching a declared identity or an unscoped set of IDs is insufficient.
 pub trait InvariantChecker {
+    /// Whether all facts read by this checker remain immutable for its borrowed
+    /// lifetime. Mutable or observation-based implementations must keep the default.
+    fn immutable(&self) -> bool {
+        false
+    }
+
     /// Establish the named prerequisite for these operands or return an error.
     ///
     /// # Errors
@@ -226,6 +235,9 @@ pub trait InvariantChecker {
 #[derive(Debug)]
 pub struct NoInvariantFacts;
 impl InvariantChecker for NoInvariantFacts {
+    fn immutable(&self) -> bool {
+        true
+    }
     fn check(
         &self,
         _: InvariantId,

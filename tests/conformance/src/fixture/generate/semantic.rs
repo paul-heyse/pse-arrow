@@ -3,10 +3,7 @@
 
 //! Concrete domain examples independent of the relational rule implementation.
 use super::{Rows, id, put, row, set};
-use pse_schema::{
-    Registry,
-    model::{Cell, InvariantSpec},
-};
+use pse_schema::{Registry, model::InvariantSpec};
 
 pub(super) fn populate(
     registry: &Registry,
@@ -34,7 +31,7 @@ pub(super) fn populate(
         }
         "cardinality:member_ordinal" => {
             let mut second = row(registry, registry.relation(relation).unwrap(), 2);
-            second.insert("ordinal".to_owned(), Cell::I64(1));
+            second.insert("ordinal".to_owned(), serde_json::json!(["i64", 1]));
             valid.get_mut(relation).unwrap().push(second);
             *invalid = valid.clone();
             invalid.get_mut(relation).unwrap()[1].insert("domain_id".to_owned(), id(1));
@@ -46,7 +43,13 @@ pub(super) fn populate(
                 valid,
                 relation,
                 "member",
-                target_member("port", Cell::Struct(vec![id(1), Cell::text("value-1")])),
+                target_member(
+                    "port",
+                    serde_json::json!([
+                        "struct",
+                        vec![id(1), serde_json::json!(["text", "value-1"])]
+                    ]),
+                ),
             );
             *invalid = valid.clone();
             set(
@@ -55,7 +58,10 @@ pub(super) fn populate(
                 "member",
                 target_member(
                     "port",
-                    Cell::Struct(vec![id(1), Cell::text("missing port")]),
+                    serde_json::json!([
+                        "struct",
+                        vec![id(1), serde_json::json!(["text", "missing port"])]
+                    ]),
                 ),
             );
         }
@@ -100,15 +106,16 @@ fn parents(relation: &str, valid: &mut Rows, invalid: &mut Rows) {
         "authored.cases" => "parent_case_id",
         _ => panic!("uncovered parent relation {relation}"),
     };
-    set(valid, relation, parent, Cell::Null);
+    set(valid, relation, parent, serde_json::json!(["null", null]));
     *invalid = valid.clone();
     set(invalid, relation, parent, id(1));
 }
 
-fn target_member(kind: &'static str, payload: Cell) -> Cell {
+fn target_member(kind: &'static str, payload: serde_json::Value) -> serde_json::Value {
     let mut payload = Some(payload);
-    Cell::Struct(
-        std::iter::once(Cell::Enum(kind))
+    serde_json::json!([
+        "struct",
+        std::iter::once(serde_json::json!(["enum", kind]))
             .chain(
                 ["symbol", "group", "equation", "port"]
                     .into_iter()
@@ -116,12 +123,12 @@ fn target_member(kind: &'static str, payload: Cell) -> Cell {
                         if name == kind {
                             payload.take().expect("one complete target arm")
                         } else {
-                            Cell::Null
+                            serde_json::json!(["null", null])
                         }
                     }),
             )
-            .collect(),
-    )
+            .collect::<Vec<serde_json::Value>>()
+    ])
 }
 fn target_owner(
     registry: &Registry,
@@ -140,7 +147,10 @@ fn target_owner(
         valid,
         relation,
         "member",
-        target_member(kind, Cell::Struct(vec![id(1), Cell::Null])),
+        target_member(
+            kind,
+            serde_json::json!(["struct", vec![id(1), serde_json::json!(["null", null])]]),
+        ),
     );
     put(registry, valid, "authored.instances", 1);
     put(registry, valid, declarations, 1);
@@ -162,16 +172,18 @@ fn entity(registry: &Registry, invariant: &InvariantSpec, valid: &mut Rows, inva
         valid,
         "authored.entities",
         "kind",
-        Cell::Enum(section.entity_kind.unwrap()),
+        serde_json::json!(["enum", section.entity_kind.unwrap()]),
     );
     let name = section.name_column.map_or_else(
-        || Cell::text("value-1"),
+        || serde_json::json!(["text", "value-1"]),
         |column| valid[&invariant.relation][0][column].clone(),
     );
     set(valid, "authored.entities", "name", name);
-    let parent = section.naming_scope_column.map_or(Cell::Null, |column| {
-        valid[&invariant.relation][0][column].clone()
-    });
+    let parent = section
+        .naming_scope_column
+        .map_or(serde_json::json!(["null", null]), |column| {
+            valid[&invariant.relation][0][column].clone()
+        });
     set(valid, "authored.entities", "parent_entity_id", parent);
     *invalid = valid.clone();
     if invariant.name == "closure:entity_registered" {
@@ -181,7 +193,7 @@ fn entity(registry: &Registry, invariant: &InvariantSpec, valid: &mut Rows, inva
             invalid,
             "authored.entities",
             "name",
-            Cell::text("different name"),
+            serde_json::json!(["text", "different name"]),
         );
     } else {
         set(invalid, "authored.entities", "parent_entity_id", id(2));
@@ -196,9 +208,19 @@ fn material(
     invalid: &mut Rows,
 ) {
     put(registry, valid, target, 1);
-    set(valid, &invariant.relation, list, Cell::List(vec![id(1)]));
+    set(
+        valid,
+        &invariant.relation,
+        list,
+        serde_json::json!(["list", vec![id(1)]]),
+    );
     *invalid = valid.clone();
-    set(invalid, &invariant.relation, list, Cell::List(vec![id(2)]));
+    set(
+        invalid,
+        &invariant.relation,
+        list,
+        serde_json::json!(["list", vec![id(2)]]),
+    );
 }
 fn packages(registry: &Registry, valid: &mut Rows, invalid: &mut Rows) {
     let relation = "authored.packages";
@@ -208,17 +230,26 @@ fn packages(registry: &Registry, valid: &mut Rows, invalid: &mut Rows) {
         valid,
         relation,
         "dependencies",
-        Cell::List(vec![Cell::Struct(vec![id(2), Cell::text("value-2")])]),
+        serde_json::json!([
+            "list",
+            vec![serde_json::json!([
+                "struct",
+                vec![id(2), serde_json::json!(["text", "value-2"])]
+            ])]
+        ]),
     );
     *invalid = valid.clone();
     set(
         invalid,
         relation,
         "dependencies",
-        Cell::List(vec![Cell::Struct(vec![
-            id(2),
-            Cell::text("missing version"),
-        ])]),
+        serde_json::json!([
+            "list",
+            vec![serde_json::json!([
+                "struct",
+                vec![id(2), serde_json::json!(["text", "missing version"]),]
+            ])]
+        ]),
     );
 }
 fn stoichiometry(registry: &Registry, valid: &mut Rows, invalid: &mut Rows) {
@@ -228,19 +259,31 @@ fn stoichiometry(registry: &Registry, valid: &mut Rows, invalid: &mut Rows) {
         valid,
         "authored.phases",
         "phase_type",
-        Cell::Enum(pse_material::PhaseType::Liquid.as_str()),
+        serde_json::json!(["enum", pse_material::PhaseType::Liquid.as_str()]),
     );
     set(
         valid,
         "authored.species",
         "valid_phase_types",
-        Cell::List(vec![Cell::Enum(pse_material::PhaseType::Liquid.as_str())]),
+        serde_json::json!([
+            "list",
+            vec![serde_json::json!([
+                "enum",
+                pse_material::PhaseType::Liquid.as_str()
+            ])]
+        ]),
     );
     *invalid = valid.clone();
     set(
         invalid,
         "authored.species",
         "valid_phase_types",
-        Cell::List(vec![Cell::Enum(pse_material::PhaseType::Vapor.as_str())]),
+        serde_json::json!([
+            "list",
+            vec![serde_json::json!([
+                "enum",
+                pse_material::PhaseType::Vapor.as_str()
+            ])]
+        ]),
     );
 }

@@ -1,0 +1,2126 @@
+[
+  {
+    "id": "ce33325f0c1ff1722bb1fec4",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "name": "InstrumentBuilder",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct InstrumentBuilder<'a, T>",
+    "docs": "Configuration for building a sync instrument.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        140,
+        1
+      ],
+      "end": [
+        154,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "non_exhaustive"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [
+              1195,
+              1196,
+              1197,
+              1198
+            ],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            },
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          1203,
+          1205,
+          1207,
+          1209,
+          1211,
+          1213,
+          1215,
+          1217,
+          1218,
+          1219,
+          1220,
+          1221,
+          1222,
+          1223,
+          1224,
+          1225,
+          1226,
+          1227,
+          1228,
+          1229,
+          1230,
+          1231,
+          1232,
+          1233,
+          1235
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1200",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-ce33325f0c1ff1722bb1fec4",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "00fe164f5367e1c5c61d7bc9",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Counter<u64>",
+    "docs": "Validates the instrument configuration and creates a new `Counter<u64>`.\nIn case of invalid configuration, a no-op instrument is returned\nand an error is logged using internal logging.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        200,
+        1
+      ],
+      "end": [
+        200,
+        45
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Counter",
+              "id": 968,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "968": "opentelemetry::metrics::instruments::counter::Counter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "super::Counter",
+                      "id": "opentelemetry::metrics::instruments::counter::Counter",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "u64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          200,
+          1
+        ],
+        "end": [
+          200,
+          45
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1204",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-00fe164f5367e1c5c61d7bc9",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "27b1440d55c521696586d37f",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Gauge<f64>",
+    "docs": "Validates the instrument configuration and creates a new `Gauge<f64>`.\nIn case of invalid configuration, a no-op instrument is returned\nand an error is logged using internal logging.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        203,
+        1
+      ],
+      "end": [
+        203,
+        41
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Gauge",
+              "id": 1023,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1023": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "gauge::Gauge",
+                      "id": "opentelemetry::metrics::instruments::gauge::Gauge",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "f64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          203,
+          1
+        ],
+        "end": [
+          203,
+          41
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1210",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-27b1440d55c521696586d37f",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "766361bd472cac47626f7343",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Gauge<u64>",
+    "docs": "Validates the instrument configuration and creates a new `Gauge<u64>`.\nIn case of invalid configuration, a no-op instrument is returned\nand an error is logged using internal logging.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        202,
+        1
+      ],
+      "end": [
+        202,
+        41
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Gauge",
+              "id": 1023,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "u64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1023": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "gauge::Gauge",
+                      "id": "opentelemetry::metrics::instruments::gauge::Gauge",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "u64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          202,
+          1
+        ],
+        "end": [
+          202,
+          41
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1208",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-766361bd472cac47626f7343",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7db80c3a3a425fd5172bef1b",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Counter<f64>",
+    "docs": "Validates the instrument configuration and creates a new `Counter<f64>`.\nIn case of invalid configuration, a no-op instrument is returned\nand an error is logged using internal logging.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        201,
+        1
+      ],
+      "end": [
+        201,
+        45
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Counter",
+              "id": 968,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "968": "opentelemetry::metrics::instruments::counter::Counter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "super::Counter",
+                      "id": "opentelemetry::metrics::instruments::counter::Counter",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "f64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          201,
+          1
+        ],
+        "end": [
+          201,
+          45
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1206",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-7db80c3a3a425fd5172bef1b",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "87300be35654d8f9954228c0",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> Gauge<i64>",
+    "docs": "Validates the instrument configuration and creates a new `Gauge<i64>`.\nIn case of invalid configuration, a no-op instrument is returned\nand an error is logged using internal logging.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        204,
+        1
+      ],
+      "end": [
+        204,
+        41
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Gauge",
+              "id": 1023,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "i64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1023": "opentelemetry::metrics::instruments::gauge::Gauge"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "gauge::Gauge",
+                      "id": "opentelemetry::metrics::instruments::gauge::Gauge",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "i64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          204,
+          1
+        ],
+        "end": [
+          204,
+          41
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1212",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-87300be35654d8f9954228c0",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d3e16bac426e8528fed89c13",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> UpDownCounter<f64>",
+    "docs": "Validates the instrument configuration and creates a new `UpDownCounter<f64>`.\nIn case of invalid configuration, a no-op instrument is returned\nand an error is logged using internal logging.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        206,
+        1
+      ],
+      "end": [
+        206,
+        59
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "UpDownCounter",
+              "id": 1105,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "f64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1105": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "super::UpDownCounter",
+                      "id": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "f64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          206,
+          1
+        ],
+        "end": [
+          206,
+          59
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1216",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-d3e16bac426e8528fed89c13",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fd30372d3d457acd1e5399e6",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> UpDownCounter<i64>",
+    "docs": "Validates the instrument configuration and creates a new `UpDownCounter<i64>`.\nIn case of invalid configuration, a no-op instrument is returned\nand an error is logged using internal logging.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        205,
+        1
+      ],
+      "end": [
+        205,
+        59
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "UpDownCounter",
+              "id": 1105,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "primitive": "i64"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1105": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "super::UpDownCounter",
+                      "id": "opentelemetry::metrics::instruments::up_down_counter::UpDownCounter",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "primitive": "i64"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          205,
+          1
+        ],
+        "end": [
+          205,
+          59
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1214",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-fd30372d3d457acd1e5399e6",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::build"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b0d376adbc1307365592cd05",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::description",
+    "name": "description",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "description: Option<std::borrow::Cow<'static, str>>",
+    "docs": "Description of the instrument.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        148,
+        5
+      ],
+      "end": [
+        148,
+        47
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 192,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::borrow::Cow",
+                      "id": 19,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            },
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1197",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-b0d376adbc1307365592cd05",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::description"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "335f0deed7b6afc47a97b3e3",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        209,
+        5
+      ],
+      "end": [
+        216,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'_"
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          208,
+          1
+        ],
+        "end": [
+          217,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1234",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-335f0deed7b6afc47a97b3e3",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b5540d062c2aead2d045dfe1",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::instrument_provider",
+    "name": "instrument_provider",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "instrument_provider: &'a dyn InstrumentProvider",
+    "docs": "Instrument provider is used to create the instrument.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        142,
+        5
+      ],
+      "end": [
+        142,
+        56
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "borrowed_ref": {
+          "lifetime": "'a",
+          "is_mutable": false,
+          "type": {
+            "dyn_trait": {
+              "traits": [
+                {
+                  "trait": {
+                    "path": "InstrumentProvider",
+                    "id": 1162,
+                    "args": null
+                  },
+                  "generic_params": []
+                }
+              ],
+              "lifetime": null
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "1162": "opentelemetry::metrics::InstrumentProvider"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1195",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-b5540d062c2aead2d045dfe1",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::instrument_provider"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b8c49393dfe59623685effba",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::name",
+    "name": "name",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "name: std::borrow::Cow<'static, str>",
+    "docs": "Name of the instrument.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        145,
+        5
+      ],
+      "end": [
+        145,
+        32
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "std::borrow::Cow",
+          "id": 19,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'static"
+                },
+                {
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1196",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-b8c49393dfe59623685effba",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::name"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "9a5bb4ac1ed1c6293bfc505b",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::unit",
+    "name": "unit",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "unit: Option<std::borrow::Cow<'static, str>>",
+    "docs": "Unit of the instrument.",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        151,
+        5
+      ],
+      "end": [
+        151,
+        40
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Option",
+          "id": 192,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::borrow::Cow",
+                      "id": 19,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            },
+                            {
+                              "type": {
+                                "primitive": "str"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "192": "core::option::Option",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1198",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-9a5bb4ac1ed1c6293bfc505b",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::unit"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "c58a6ec07223ef4fabea0fed",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::with_description",
+    "name": "with_description",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_description<S: Into<Cow<'static, str>>>(self, description: S) -> Self",
+    "docs": "Set the description for this instrument",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        169,
+        5
+      ],
+      "end": [
+        172,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "description",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          156,
+          1
+        ],
+        "end": [
+          185,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1201",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-c58a6ec07223ef4fabea0fed",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::with_description"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "71a3b5a0e527ce79432ed589",
+    "path": "opentelemetry::metrics::instruments::InstrumentBuilder::with_unit",
+    "name": "with_unit",
+    "owner": "opentelemetry::metrics::instruments::InstrumentBuilder",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_unit<S: Into<Cow<'static, str>>>(self, unit: S) -> Self",
+    "docs": "Set the unit for this instrument.\n\nUnit is case sensitive(`kb` is not the same as `kB`).\n\nUnit must be:\n- ASCII string\n- No longer than 63 characters",
+    "span": {
+      "filename": "src/metrics/instruments/mod.rs",
+      "begin": [
+        181,
+        5
+      ],
+      "end": [
+        184,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "unit",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 71,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Cow",
+                                      "id": 19,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            },
+                                            {
+                                              "type": {
+                                                "primitive": "str"
+                                              }
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "71": "core::convert::Into",
+      "19": "alloc::borrow::Cow"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "InstrumentBuilder",
+          "id": "opentelemetry::metrics::instruments::InstrumentBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "lifetime": "'a"
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "'a",
+            "kind": {
+              "lifetime": {
+                "outlives": []
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/instruments/mod.rs",
+        "begin": [
+          156,
+          1
+        ],
+        "end": [
+          185,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1202",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.md",
+    "record_file": "operations/opentelemetry.metrics.instruments.InstrumentBuilder.json",
+    "anchor": "op-71a3b5a0e527ce79432ed589",
+    "aliases": [
+      "opentelemetry::metrics::InstrumentBuilder::with_unit"
+    ],
+    "resolved_doc_links": {}
+  }
+]

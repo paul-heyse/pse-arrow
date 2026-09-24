@@ -1,0 +1,5955 @@
+[
+  {
+    "id": "62abbc216c2acb69ef65794a",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "name": "OpenTelemetryLayer",
+    "owner": null,
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "struct",
+    "signature": "struct OpenTelemetryLayer<S, T>",
+    "docs": "An [OpenTelemetry] propagation layer for use in a project that uses\n[tracing].\n\n[OpenTelemetry]: https://opentelemetry.io\n[tracing]: https://github.com/tokio-rs/tracing",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        39,
+        1
+      ],
+      "end": [
+        50,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "T",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          99,
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108,
+          109,
+          110,
+          111,
+          112,
+          113,
+          114,
+          115,
+          117,
+          131
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "84",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-62abbc216c2acb69ef65794a",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "da344d315e4ff5ea149551a3",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::default",
+    "name": "default",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn default() -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        56,
+        5
+      ],
+      "end": [
+        58,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "resolved_path": {
+                      "path": "noop::NoopTracer",
+                      "id": "opentelemetry::trace::noop::NoopTracer",
+                      "args": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Default",
+        "id": "core::default::Default",
+        "args": null
+      },
+      "trait_path": "core::default::Default",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          52,
+          1
+        ],
+        "end": [
+          59,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "116",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-da344d315e4ff5ea149551a3",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::default"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5bc18c54f5d26a31b2e964c1",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::new",
+    "name": "new",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn new(tracer: T) -> Self",
+    "docs": "Set the [`Tracer`] that this layer will use to produce and track\nOpenTelemetry [`Span`]s.\n\n[`Tracer`]: opentelemetry::trace::Tracer\n[`Span`]: opentelemetry::trace::Span\n\n# Examples\n\n```no_run\nuse tracing_opentelemetry::OpenTelemetryLayer;\nuse tracing_subscriber::layer::SubscriberExt;\nuse opentelemetry::trace::TracerProvider as _;\nuse tracing_subscriber::Registry;\n\n// Create an OTLP pipeline exporter for a `trace_demo` service.\n\nlet otlp_exporter = opentelemetry_otlp::SpanExporter::builder()\n    .with_tonic()\n    .build()\n    .unwrap();\n\nlet tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()\n    .with_simple_exporter(otlp_exporter)\n    .build()\n    .tracer(\"trace_demo\");\n\n// Create a layer with the configured tracer\nlet otel_layer = OpenTelemetryLayer::new(tracer);\n\n// Use the tracing subscriber `Registry`, or any other subscriber\n// that impls `LookupSpan`\nlet subscriber = Registry::default().with(otel_layer);\n# drop(subscriber);\n```",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        610,
+        5
+      ],
+      "end": [
+        631,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "tracer",
+              {
+                "generic": "T"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {
+      "opentelemetry::trace::Tracer": 85,
+      "opentelemetry::trace::Span": 86
+    },
+    "link_paths": {
+      "opentelemetry::trace::Tracer": "opentelemetry::trace::tracer::Tracer",
+      "opentelemetry::trace::Span": "opentelemetry::trace::span::Span"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "87",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-5bc18c54f5d26a31b2e964c1",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::new"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::trace::Tracer": "../operations/opentelemetry.trace.tracer.Tracer.md#op-a87fa61076cf2b7384423932",
+      "opentelemetry::trace::Span": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8"
+    }
+  },
+  {
+    "id": "0575a2c31c3a70f17aa7364e",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::on_close",
+    "name": "on_close",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_close(&self, id: span::Id, ctx: Context<'_, S>)",
+    "docs": "Exports an OpenTelemetry [`Span`] on close.\n\n[`Span`]: opentelemetry::trace::Span",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        1334,
+        5
+      ],
+      "end": [
+        1382,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "resolved_path": {
+                  "path": "span::Id",
+                  "id": 61,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          1011,
+          1
+        ],
+        "end": [
+          1395,
+          2
+        ]
+      }
+    },
+    "links": {
+      "opentelemetry::trace::Span": 86
+    },
+    "link_paths": {
+      "opentelemetry::trace::Span": "opentelemetry::trace::span::Span"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "130",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-0575a2c31c3a70f17aa7364e",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::on_close"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::trace::Span": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8"
+    }
+  },
+  {
+    "id": "47fa0d9381b995e031378a1a",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::on_enter",
+    "name": "on_enter",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_enter(&self, id: &span::Id, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        1086,
+        5
+      ],
+      "end": [
+        1115,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          1011,
+          1
+        ],
+        "end": [
+          1395,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "122",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-47fa0d9381b995e031378a1a",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::on_enter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b2d4d13813d110125bd8a282",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::on_event",
+    "name": "on_event",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_event(&self, event: &Event<'_>, ctx: Context<'_, S>)",
+    "docs": "Records OpenTelemetry [`Event`] data on event.\n\nNote: an [`ERROR`]-level event will also set the OpenTelemetry span status code to\n[`Error`], signaling that an error has occurred.\n\n[`Event`]: opentelemetry::trace::Event\n[`ERROR`]: tracing::Level::ERROR\n[`Error`]: opentelemetry::trace::StatusCode::Error",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        1207,
+        5
+      ],
+      "end": [
+        1329,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 66,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "66": "tracing_core::event::Event",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          1011,
+          1
+        ],
+        "end": [
+          1395,
+          2
+        ]
+      }
+    },
+    "links": {
+      "opentelemetry::trace::Event": 127,
+      "tracing::Level::ERROR": 128
+    },
+    "link_paths": {
+      "opentelemetry::trace::Event": "opentelemetry::trace::Event",
+      "tracing::Level::ERROR": null
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "129",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-b2d4d13813d110125bd8a282",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::on_event"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::trace::Event": "../operations/opentelemetry.trace.Event.md#op-007a3678b3f9b5071d006231"
+    }
+  },
+  {
+    "id": "b5aa82fb36783ba0c4bbbf3b",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::on_exit",
+    "name": "on_exit",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_exit(&self, id: &span::Id, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        1117,
+        5
+      ],
+      "end": [
+        1140,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          1011,
+          1
+        ],
+        "end": [
+          1395,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "123",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-b5aa82fb36783ba0c4bbbf3b",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::on_exit"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1dcd2eb16be2c9fd90003339",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::on_follows_from",
+    "name": "on_follows_from",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_follows_from(&self, id: &Id, follows: &Id, ctx: Context<'_, S>)",
+    "docs": "",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        1167,
+        5
+      ],
+      "end": [
+        1197,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "follows",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          1011,
+          1
+        ],
+        "end": [
+          1395,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "126",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-1dcd2eb16be2c9fd90003339",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::on_follows_from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0b4fd4255b595b24bd6ce00a",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::on_new_span",
+    "name": "on_new_span",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_new_span(&self, attrs: &Attributes<'_>, id: &span::Id, ctx: Context<'_, S>)",
+    "docs": "Creates an [OpenTelemetry `Span`] for the corresponding [tracing `Span`].\n\n[OpenTelemetry `Span`]: opentelemetry::trace::Span\n[tracing `Span`]: tracing::Span",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        1021,
+        5
+      ],
+      "end": [
+        1084,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "attrs",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Attributes",
+                      "id": 60,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "60": "tracing_core::span::Attributes",
+      "61": "tracing_core::span::Id",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          1011,
+          1
+        ],
+        "end": [
+          1395,
+          2
+        ]
+      }
+    },
+    "links": {
+      "tracing::Span": 120,
+      "opentelemetry::trace::Span": 86
+    },
+    "link_paths": {
+      "tracing::Span": "tracing::span::Span",
+      "opentelemetry::trace::Span": "opentelemetry::trace::span::Span"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "121",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-0b4fd4255b595b24bd6ce00a",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::on_new_span"
+    ],
+    "resolved_doc_links": {
+      "tracing::Span": "../operations/tracing.span.Span.md#op-1283b08586edf8ae3649f1c6",
+      "opentelemetry::trace::Span": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8"
+    }
+  },
+  {
+    "id": "258799a24358c6bc8652e675",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::on_record",
+    "name": "on_record",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>)",
+    "docs": "Record OpenTelemetry [`attributes`] for the given values.\n\n[`attributes`]: opentelemetry::trace::SpanBuilder::attributes",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        1145,
+        5
+      ],
+      "end": [
+        1165,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Id",
+                      "id": 61,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "values",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Record",
+                      "id": 63,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 58,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "61": "tracing_core::span::Id",
+      "63": "tracing_core::span::Record",
+      "58": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          1011,
+          1
+        ],
+        "end": [
+          1395,
+          2
+        ]
+      }
+    },
+    "links": {
+      "opentelemetry::trace::SpanBuilder::attributes": 124
+    },
+    "link_paths": {
+      "opentelemetry::trace::SpanBuilder::attributes": null
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "125",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-258799a24358c6bc8652e675",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::on_record"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8a3b6a7907f3e785aaddc2a5",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_context_activation",
+    "name": "with_context_activation",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_context_activation(self, context_activation: bool) -> Self",
+    "docs": "Sets whether or not an OpenTelemetry Context should be activated on span entry.\n\nWhen enabled, entering a span will activate its OpenTelemetry context, making it\navailable to other OpenTelemetry instrumentation. This allows for proper context\npropagation across different instrumentation libraries.\n\nBy default, context activation is enabled.",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        842,
+        5
+      ],
+      "end": [
+        847,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "context_activation",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "98",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-8a3b6a7907f3e785aaddc2a5",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_context_activation"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "0c2ba26c3c6fd6467cd0ef1b",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_error_events_to_exceptions",
+    "name": "with_error_events_to_exceptions",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_error_events_to_exceptions(self, error_events_to_exceptions: bool) -> Self",
+    "docs": "Sets whether or not a subset of events following the described schema are mapped to\nevents following the [OpenTelemetry semantic conventions for\nexceptions][conv].\n\n* Only events without a message field (unnamed events) and at least one field with the name error\n  are considered for mapping.\n\nBy default, these events are mapped.\n\n[conv]: https://github.com/open-telemetry/semantic-conventions/tree/main/docs/exceptions/",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        738,
+        5
+      ],
+      "end": [
+        746,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "error_events_to_exceptions",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "89",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-0c2ba26c3c6fd6467cd0ef1b",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_error_events_to_exceptions"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "fbc04dfa06c8c51beae50b95",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_error_events_to_status",
+    "name": "with_error_events_to_status",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_error_events_to_status(self, error_events_to_status: bool) -> Self",
+    "docs": "Sets whether or not an event considered for exception mapping (see [`OpenTelemetryLayer::with_error_records_to_exceptions`])\nshould be propagated to the span status error description.\n\nBy default, these events do set the span status error description.",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        718,
+        5
+      ],
+      "end": [
+        726,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "error_events_to_status",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`OpenTelemetryLayer::with_error_records_to_exceptions`": 91
+    },
+    "link_paths": {
+      "`OpenTelemetryLayer::with_error_records_to_exceptions`": null
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "92",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-fbc04dfa06c8c51beae50b95",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_error_events_to_status"
+    ],
+    "resolved_doc_links": {
+      "`OpenTelemetryLayer::with_error_records_to_exceptions`": "../operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md#op-ca6c5370c59519820ae47282"
+    }
+  },
+  {
+    "id": "615e2df403965b6b79ca1c68",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_error_fields_to_exceptions",
+    "name": "with_error_fields_to_exceptions",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_error_fields_to_exceptions(self, error_fields_to_exceptions: bool) -> Self",
+    "docs": "Sets whether or not span and event metadata should include OpenTelemetry\nexception fields such as `exception.message` and `exception.backtrace`\nwhen an `Error` value is recorded. If multiple error values are recorded\non the same span/event, only the most recently recorded error value will\nshow up under these fields.\n\nThese attributes follow the [OpenTelemetry semantic conventions for\nexceptions][conv].\n\nBy default, these attributes are recorded.\nNote that this only works for `(dyn Error + 'static)`.\nSee [Implementations on Foreign Types of tracing::Value][impls] or [`OpenTelemetryLayer::with_error_events_to_exceptions`]\n\n[conv]: https://github.com/open-telemetry/semantic-conventions/tree/main/docs/exceptions/\n[impls]: https://docs.rs/tracing/0.1.37/tracing/trait.Value.html#foreign-impls",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        704,
+        5
+      ],
+      "end": [
+        712,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "error_fields_to_exceptions",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`OpenTelemetryLayer::with_error_events_to_exceptions`": 89
+    },
+    "link_paths": {
+      "`OpenTelemetryLayer::with_error_events_to_exceptions`": null
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "90",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-615e2df403965b6b79ca1c68",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_error_fields_to_exceptions"
+    ],
+    "resolved_doc_links": {
+      "`OpenTelemetryLayer::with_error_events_to_exceptions`": "../operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md#op-0c2ba26c3c6fd6467cd0ef1b"
+    }
+  },
+  {
+    "id": "ca6c5370c59519820ae47282",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_error_records_to_exceptions",
+    "name": "with_error_records_to_exceptions",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_error_records_to_exceptions(self, error_records_to_exceptions: bool) -> Self",
+    "docs": "Sets whether or not reporting an `Error` value on an event will\npropagate the OpenTelemetry exception fields such as `exception.message`\nand `exception.backtrace` to the corresponding span. You do not need to\nenable `with_exception_fields` in order to enable this. If multiple\nerror values are recorded on the same span/event, only the most recently\nrecorded error value will show up under these fields.\n\nThese attributes follow the [OpenTelemetry semantic conventions for\nexceptions][conv].\n\nBy default, these attributes are propagated to the span. Note that this only works for `(dyn Error + 'static)`.\nSee [Implementations on Foreign Types of tracing::Value][impls] or [`OpenTelemetryLayer::with_error_events_to_exceptions`]\n\n[conv]: https://github.com/open-telemetry/semantic-conventions/tree/main/docs/exceptions/\n[impls]: https://docs.rs/tracing/0.1.37/tracing/trait.Value.html#foreign-impls",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        763,
+        5
+      ],
+      "end": [
+        771,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "error_records_to_exceptions",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`OpenTelemetryLayer::with_error_events_to_exceptions`": 89
+    },
+    "link_paths": {
+      "`OpenTelemetryLayer::with_error_events_to_exceptions`": null
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "91",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-ca6c5370c59519820ae47282",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_error_records_to_exceptions"
+    ],
+    "resolved_doc_links": {
+      "`OpenTelemetryLayer::with_error_events_to_exceptions`": "../operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md#op-0c2ba26c3c6fd6467cd0ef1b"
+    }
+  },
+  {
+    "id": "238d234aa76553dfc8254309",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_level",
+    "name": "with_level",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_level(self, level: bool) -> Self",
+    "docs": "Sets whether or not span metadata should include the `tracing` verbosity level information as a `level` field.\n\nThe level is always added to events, and based on [`OpenTelemetryLayer::with_error_events_to_status`]\nerror-level events will mark the span status as an error.\n\nBy default, level information is disabled.",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        818,
+        5
+      ],
+      "end": [
+        823,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "level",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {
+      "`OpenTelemetryLayer::with_error_events_to_status`": 92
+    },
+    "link_paths": {
+      "`OpenTelemetryLayer::with_error_events_to_status`": null
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "96",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-238d234aa76553dfc8254309",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_level"
+    ],
+    "resolved_doc_links": {
+      "`OpenTelemetryLayer::with_error_events_to_status`": "../operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md#op-fbc04dfa06c8c51beae50b95"
+    }
+  },
+  {
+    "id": "84906cb881af06a6334b01ce",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_location",
+    "name": "with_location",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_location(self, location: bool) -> Self",
+    "docs": "Sets whether or not span and event metadata should include OpenTelemetry\nattributes with location information, such as the file, module and line number.\n\nThese attributes follow the [OpenTelemetry semantic conventions for\nsource locations][conv].\n\nBy default, locations are enabled.\n\n[conv]: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/general/attributes.md#source-code-attributes/",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        782,
+        5
+      ],
+      "end": [
+        784,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "location",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "93",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-84906cb881af06a6334b01ce",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_location"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5b33505acf106f606b7d5668",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_target",
+    "name": "with_target",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_target(self, target: bool) -> Self",
+    "docs": "Sets whether or not span metadata should include an attribute with `target` from `tracing` spans.\n\nBy default, the target attribute is enabled..",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        828,
+        5
+      ],
+      "end": [
+        833,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "target",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "97",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-5b33505acf106f606b7d5668",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_target"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b4a2cb55b89cc5378fed1296",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_threads",
+    "name": "with_threads",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_threads(self, threads: bool) -> Self",
+    "docs": "Sets whether or not spans record additional attributes for the thread\nname and thread ID of the thread they were created on, following the\n[OpenTelemetry semantic conventions for threads][conv].\n\nBy default, thread attributes are enabled.\n\n[conv]: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/general/attributes.md#general-thread-attributes/",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        805,
+        5
+      ],
+      "end": [
+        810,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "threads",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "95",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-b4a2cb55b89cc5378fed1296",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_threads"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f5aea571cac813a197e53b4b",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_tracer",
+    "name": "with_tracer",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_tracer<Tracer>(self, tracer: Tracer) -> OpenTelemetryLayer<S, Tracer> where Tracer: otel::Tracer + 'static, Tracer::Span: Send + Sync",
+    "docs": "Set the [`Tracer`] that this layer will use to produce and track\nOpenTelemetry [`Span`]s.\n\n[`Tracer`]: opentelemetry::trace::Tracer\n[`Span`]: opentelemetry::trace::Span\n\n# Examples\n\n```no_run\nuse tracing_subscriber::layer::SubscriberExt;\nuse tracing_subscriber::Registry;\nuse opentelemetry::trace::TracerProvider;\n\n// Create an OTLP pipeline exporter for a `trace_demo` service.\n\nlet otlp_exporter = opentelemetry_otlp::SpanExporter::builder()\n    .with_tonic()\n    .build()\n    .unwrap();\n\nlet tracer = opentelemetry_sdk::trace::SdkTracerProvider::builder()\n    .with_simple_exporter(otlp_exporter)\n    .build()\n    .tracer(\"trace_demo\");\n\n// Create a layer with the configured tracer\nlet otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);\n\n// Use the tracing subscriber `Registry`, or any other subscriber\n// that impls `LookupSpan`\nlet subscriber = Registry::default().with(otel_layer);\n# drop(subscriber);\n```",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        666,
+        5
+      ],
+      "end": [
+        687,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "tracer",
+              {
+                "generic": "Tracer"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OpenTelemetryLayer",
+              "id": 84,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "Tracer"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "Tracer",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Tracer"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "otel::Tracer",
+                        "id": 85,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "qualified_path": {
+                    "name": "Span",
+                    "args": null,
+                    "self_type": {
+                      "generic": "Tracer"
+                    },
+                    "trait": {
+                      "path": "",
+                      "id": 85,
+                      "args": null
+                    }
+                  }
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 9,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sync",
+                        "id": 11,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "84": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+      "85": "opentelemetry::trace::tracer::Tracer",
+      "9": "core::marker::Send",
+      "11": "core::marker::Sync"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {
+      "opentelemetry::trace::Tracer": 85,
+      "opentelemetry::trace::Span": 86
+    },
+    "link_paths": {
+      "opentelemetry::trace::Tracer": "opentelemetry::trace::tracer::Tracer",
+      "opentelemetry::trace::Span": "opentelemetry::trace::span::Span"
+    },
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "88",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-f5aea571cac813a197e53b4b",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_tracer"
+    ],
+    "resolved_doc_links": {
+      "opentelemetry::trace::Tracer": "../operations/opentelemetry.trace.tracer.Tracer.md#op-a87fa61076cf2b7384423932",
+      "opentelemetry::trace::Span": "../operations/opentelemetry.trace.span.Span.md#op-7e58380e085740d966fa45c8"
+    }
+  },
+  {
+    "id": "b98e4bc4a8f42e1fc6a0f60b",
+    "path": "tracing_opentelemetry::layer::OpenTelemetryLayer::with_tracked_inactivity",
+    "name": "with_tracked_inactivity",
+    "owner": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+    "crate": "tracing-opentelemetry",
+    "version": "0.32.0",
+    "kind": "function",
+    "signature": "fn with_tracked_inactivity(self, tracked_inactivity: bool) -> Self",
+    "docs": "Sets whether or not spans metadata should include the _busy time_\n(total time for which it was entered), and _idle time_ (total time\nthe span existed but was not entered).\n\nBy default, inactivity tracking is enabled.",
+    "span": {
+      "filename": "src/layer.rs",
+      "begin": [
+        791,
+        5
+      ],
+      "end": [
+        796,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "tracked_inactivity",
+              {
+                "primitive": "bool"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "OpenTelemetryLayer",
+          "id": "tracing_opentelemetry::layer::OpenTelemetryLayer",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "T",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "LookupSpan",
+                      "id": "tracing_subscriber::registry::LookupSpan",
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'span"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    },
+                    "generic_params": [
+                      {
+                        "name": "'span",
+                        "kind": {
+                          "lifetime": {
+                            "outlives": []
+                          }
+                        }
+                      }
+                    ],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "T"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "otel::Tracer",
+                      "id": "opentelemetry::trace::tracer::Tracer",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "qualified_path": {
+                  "name": "Span",
+                  "args": null,
+                  "self_type": {
+                    "generic": "T"
+                  },
+                  "trait": {
+                    "path": "",
+                    "id": "opentelemetry::trace::tracer::Tracer",
+                    "args": null
+                  }
+                }
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Send",
+                      "id": "core::marker::Send",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Sync",
+                      "id": "core::marker::Sync",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/layer.rs",
+        "begin": [
+          570,
+          1
+        ],
+        "end": [
+          990,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "87d24c11e5ef2ce2b73861570458a468a74456e6e89d1cdd6729911ad3f1e5cc",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "94",
+      "origin": "https://docs.rs/crate/tracing-opentelemetry/0.32.0/json",
+      "compressed_sha256": "7ac8edf114851618d81512f62c97403e626299191f1fdbddbd6000bc8fcb1dbf",
+      "local_file": "build/acquired/rustdoc/tracing-opentelemetry@0.32.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.md",
+    "record_file": "operations/tracing_opentelemetry.layer.OpenTelemetryLayer.json",
+    "anchor": "op-b98e4bc4a8f42e1fc6a0f60b",
+    "aliases": [
+      "tracing_opentelemetry::OpenTelemetryLayer::with_tracked_inactivity"
+    ],
+    "resolved_doc_links": {}
+  }
+]

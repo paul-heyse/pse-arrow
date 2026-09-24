@@ -18,7 +18,7 @@ import msgspec
 import pytest
 from pyomo.environ import SolverFactory
 
-from pse import HostCapabilities, probe_host
+from pse.parity.host import HostCapabilities, probe_host
 
 #: The parity reference; moving it is an ADR.
 EXPECTED_IDAES_VERSION = "2.12.0"

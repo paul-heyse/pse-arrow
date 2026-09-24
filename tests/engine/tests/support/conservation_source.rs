@@ -9,11 +9,9 @@
 #[path = "conservation_source/declarations.rs"]
 mod declarations;
 
-use pse_authoring::{
-    ParseBudget,
-    document::{DocumentBundle, load_package, load_package_texts},
-};
+use pse_authoring::ParseBudget;
 use pse_ids::SemanticId;
+use pse_runtime::authoring_driver::document::{DocumentBundle, load_package, load_package_texts};
 use pse_schema::Registry;
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::PathBuf};

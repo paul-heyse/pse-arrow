@@ -6,6 +6,7 @@ use super::{RegistryBuilder, T, enumeration};
 use crate::model::TaggedAlternative;
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
+    enumeration(builder, "ContributionSubjectKind", ["total", "energy", "momentum", "species", "element", "phase_species"]);
     enumeration(builder, "PhysicalCoordinateKind", ["fixed", "axis"]);
     enumeration(builder, "ContributionSign", ["positive", "negative"]);
     enumeration(
@@ -69,23 +70,4 @@ pub(in super::super) fn subject(law: bool) -> T {
         ],
     ));
     alternative("ContributionSubjectKind", arms)
-}
-/// Included signed term with optional conversion, or an explicit exclusion reason.
-pub(in super::super) fn participation() -> T {
-    alternative(
-        "ParticipationDecision",
-        vec![
-            arm(
-                "included",
-                vec![
-                    T::enumeration("ContributionSign").with_name("sign"),
-                    T::id().with_name("conversion_id").optional(),
-                ],
-            ),
-            arm(
-                "excluded",
-                vec![T::enumeration("ParticipationExclusionReason").with_name("reason")],
-            ),
-        ],
-    )
 }

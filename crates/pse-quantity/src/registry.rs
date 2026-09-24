@@ -85,7 +85,7 @@ impl QuantityRegistryBuilder {
                 ));
             }
         };
-        let registry = QuantityRegistry {
+        let mut registry = QuantityRegistry {
             units: index(self.units, |x| x.id, "unit")?,
             kinds: index(self.kinds, |x| x.id, "quantity_kind")?,
             bases: index(self.bases, |x| x.id, "basis")?,
@@ -103,13 +103,37 @@ impl QuantityRegistryBuilder {
             .collect(),
             unit_sets: index(self.unit_sets, |x| x.id, "unit_set")?,
             neutral,
+            by_key: BTreeMap::new(),
+            by_symbol: BTreeMap::new(),
+            by_opcode: BTreeMap::new(),
+            by_conversion: BTreeMap::new(),
         };
         registry.validate()?;
+        registry.by_key = registry
+            .quantity_types
+            .values()
+            .map(|v| (v.key.clone(), v.id))
+            .collect();
+        registry.by_symbol = registry
+            .units
+            .values()
+            .map(|v| (v.symbol.clone(), v.id))
+            .collect();
+        for v in registry.operations.values() {
+            registry.by_opcode.entry(v.opcode).or_default().push(v.id);
+        }
+        for v in registry.conversions.values() {
+            registry
+                .by_conversion
+                .entry((v.from, v.to))
+                .or_default()
+                .push(v.id);
+        }
         Ok(registry)
     }
 }
 /// An immutable collection of admitted physical declarations.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QuantityRegistry {
     units: BTreeMap<UnitId, Unit>,
     kinds: BTreeMap<QuantityKindId, QuantityKind>,
@@ -121,6 +145,10 @@ pub struct QuantityRegistry {
     reduction_domains: BTreeMap<OperationId, DomainKind>,
     unit_sets: BTreeMap<UnitSetId, UnitSet>,
     neutral: Option<QuantityTypeId>,
+    by_key: BTreeMap<QuantityTypeKey, QuantityTypeId>,
+    by_symbol: BTreeMap<String, UnitId>,
+    by_opcode: BTreeMap<Opcode, Vec<OperationId>>,
+    by_conversion: BTreeMap<(QuantityTypeId, QuantityTypeId), Vec<ConversionId>>,
 }
 macro_rules! lookup {
     ($method:ident, $field:ident, $id:ty, $ty:ty) => {
@@ -137,6 +165,70 @@ macro_rules! lookup {
     };
 }
 impl QuantityRegistry {
+    /// Conservative owned collection and string extent, excluding allocator overhead.
+    /// Saturation makes an overflow exceed every finite admission allowance.
+    pub fn allocation_extent(&self) -> usize {
+        let mut bytes = [
+            self.units.len(),
+            self.kinds.len(),
+            self.bases.len(),
+            self.reference_states.len(),
+            self.quantity_types.len(),
+            self.conversions.len(),
+            self.operations.len(),
+            self.reduction_domains.len(),
+            self.unit_sets.len(),
+            self.by_key.len(),
+            self.by_symbol.len(),
+            self.by_opcode.len(),
+            self.by_conversion.len(),
+        ]
+        .into_iter()
+        .fold(size_of::<Self>(), |n, count| {
+            n.saturating_add(count.saturating_mul(512))
+        });
+        for unit in self.units.values() {
+            bytes = bytes.saturating_add(unit.symbol.capacity());
+        }
+        for symbol in self.by_symbol.keys() {
+            bytes = bytes.saturating_add(symbol.capacity());
+        }
+        for quantity in self.quantity_types.values() {
+            bytes = bytes.saturating_add(quantity.key.shape.capacity().saturating_mul(32));
+        }
+        for key in self.by_key.keys() {
+            bytes = bytes.saturating_add(key.shape.capacity().saturating_mul(32));
+        }
+        for conversion in self.conversions.values() {
+            bytes = bytes.saturating_add(
+                conversion
+                    .required_parameters
+                    .capacity()
+                    .saturating_mul(size_of::<String>()),
+            );
+            for name in &conversion.required_parameters {
+                bytes = bytes.saturating_add(name.capacity());
+            }
+        }
+        for operation in self.operations.values() {
+            bytes = bytes
+                .saturating_add(operation.input_kinds.capacity().saturating_mul(32))
+                .saturating_add(operation.input_conversions.capacity().saturating_mul(64))
+                .saturating_add(
+                    operation
+                        .precondition_invariants
+                        .capacity()
+                        .saturating_mul(32),
+                );
+        }
+        for indices in self.by_opcode.values() {
+            bytes = bytes.saturating_add(indices.capacity().saturating_mul(32));
+        }
+        for indices in self.by_conversion.values() {
+            bytes = bytes.saturating_add(indices.capacity().saturating_mul(32));
+        }
+        bytes
+    }
     /// Copy admitted declarations into a builder for an explicitly extended package.
     /// The original registry remains immutable; `build` revalidates every declaration and
     /// catches duplicate identities/keys in the extended candidate.
@@ -183,7 +275,7 @@ impl QuantityRegistry {
     lookup!(unit_set, unit_sets, UnitSetId, UnitSet);
     /// Lookup by the unique resolved unit symbol.
     pub fn unit_by_symbol(&self, symbol: &str) -> Option<&Unit> {
-        self.units.values().find(|x| x.symbol == symbol)
+        self.by_symbol.get(symbol).and_then(|id| self.units.get(id))
     }
     /// All quantity types in stable identity order.
     pub fn quantity_types(&self) -> impl Iterator<Item = &QuantityType> {
@@ -222,21 +314,21 @@ impl QuantityRegistry {
     /// # Errors
     /// Rejects an unregistered key.
     pub fn resolve_key(&self, key: &QuantityTypeKey) -> Result<QuantityTypeId, QuantityError> {
-        self.quantity_types
-            .values()
-            .find(|x| x.key == *key)
-            .map(|x| x.id)
-            .ok_or_else(|| {
-                error(
-                    "quantity_type.registered_key",
-                    key.kind.as_id(),
-                    "no type has the requested complete key",
-                )
-            })
+        self.by_key.get(key).copied().ok_or_else(|| {
+            error(
+                "quantity_type.registered_key",
+                key.kind.as_id(),
+                "no type has the requested complete key",
+            )
+        })
     }
     /// Candidate operation declarations in stable identity order; inference must match them.
     pub fn operations_for(&self, opcode: Opcode) -> impl Iterator<Item = &QuantityOperation> {
-        self.operations.values().filter(move |x| x.opcode == opcode)
+        self.by_opcode
+            .get(&opcode)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| self.operations.get(id))
     }
     /// Explicit directed conversions; a reverse conversion is never inferred.
     pub fn conversions_between(
@@ -244,9 +336,11 @@ impl QuantityRegistry {
         from: QuantityTypeId,
         to: QuantityTypeId,
     ) -> impl Iterator<Item = &ConversionRule> {
-        self.conversions
-            .values()
-            .filter(move |x| x.from == from && x.to == to)
+        self.by_conversion
+            .get(&(from, to))
+            .into_iter()
+            .flatten()
+            .filter_map(|id| self.conversions.get(id))
     }
     /// The explicitly designated neutral scalar, if the package provides one.
     pub fn neutral_dimensionless(&self) -> Option<QuantityTypeId> {

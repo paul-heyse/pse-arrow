@@ -1,0 +1,119 @@
+[
+  {
+    "id": "7428fec10cb7b2f98ae92ea4",
+    "path": "tracing_core::dispatcher::set_default",
+    "name": "set_default",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn set_default(dispatcher: &Dispatch) -> DefaultGuard",
+    "docs": "Sets the dispatch as the default dispatch for the duration of the lifetime\nof the returned DefaultGuard\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n    <strong>Note</strong>: This function required the Rust standard library.\n    <code>no_std</code> users should use <a href=\"fn.set_global_default.html\">\n    <code>set_global_default</code></a> instead.\n</pre>\n\n[`set_global_default`]: set_global_default",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        276,
+        1
+      ],
+      "end": [
+        281,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: src/dispatcher.rs:273:7: 273:22 (#0) }])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace([NameValue { name: \"docsrs\", value: None, span: src/dispatcher.rs:274:12: 274:18 (#0) }])]"
+      },
+      {
+        "other": "#[doc(cfg(feature = \"std\"))]"
+      },
+      {
+        "must_use": {
+          "reason": "Dropping the guard unregisters the dispatcher."
+        }
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "dispatcher",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Dispatch",
+                      "id": 120,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "DefaultGuard",
+              "id": 208,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "120": "tracing_core::dispatcher::Dispatch",
+      "208": "tracing_core::dispatcher::DefaultGuard"
+    },
+    "impl_context": null,
+    "links": {
+      "set_global_default": 231
+    },
+    "link_paths": {
+      "set_global_default": "tracing_core::dispatcher::set_global_default"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "232",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.dispatcher.set_default.md",
+    "record_file": "operations/tracing_core.dispatcher.set_default.json",
+    "anchor": "op-7428fec10cb7b2f98ae92ea4",
+    "aliases": [
+      "tracing::dispatcher::set_default"
+    ],
+    "resolved_doc_links": {
+      "set_global_default": "../operations/tracing_core.dispatcher.set_global_default.md#op-d78540acfa7df1f4405da536"
+    }
+  }
+]

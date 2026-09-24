@@ -8,11 +8,11 @@
     reason = "a governance test reports by panicking with the offending path; the workspace panic policy governs library code"
 )]
 
-//! No `[patch]`/`[replace]` in the root manifest, and `.cargo/config.toml` stays minimal.
+//! No `[patch]`/`[replace]` in the root manifest; Cargo uses mold only for x86_64 Linux.
 //!
 //! A `[patch]` table makes the committed `Cargo.lock` a lie about what was built, and a
-//! `target-cpu` or `rustflags` key makes a developer machine and CI produce different
-//! floating-point results: `-C target-cpu=native` lets LLVM contract `a*b + c` into one
+//! `target-cpu` makes a developer machine and CI produce different floating-point
+//! results: `-C target-cpu=native` lets LLVM contract `a*b + c` into one
 //! FMA, so a parity tolerance can pass in one place and fail in the other (blueprint §3.1,
 //! .cargo/config.toml).
 //!
@@ -56,7 +56,7 @@ fn root_manifest_has_no_patch_or_replace() {
 }
 
 #[test]
-fn cargo_config_stays_minimal() {
+fn cargo_config_uses_mold_without_cpu_overrides() {
     let path = common::workspace_root().join(".cargo/config.toml");
     let config = common::parse_toml(&path);
 
@@ -64,13 +64,35 @@ fn cargo_config_stays_minimal() {
     let mut strings = Vec::new();
     walk(&config, &mut keys, &mut strings);
 
-    for banned in ["linker", "rustflags", "paths", "patch", "replace"] {
+    for banned in ["paths", "patch", "replace"] {
         assert!(
             !keys.contains(banned),
-            ".cargo/config.toml defines `{banned}`. It is deliberately minimal: a linker or \
-             rustflags override belongs in ~/.cargo/config.toml, never in the repository."
+            ".cargo/config.toml defines forbidden `{banned}`."
         );
     }
+
+    let target = config
+        .get("target")
+        .and_then(Value::as_table)
+        .expect(".cargo/config.toml must define target settings");
+    assert_eq!(
+        target.len(),
+        1,
+        "only the x86_64 Linux target may override the linker"
+    );
+    let linux = target
+        .get("x86_64-unknown-linux-gnu")
+        .and_then(Value::as_table)
+        .expect("x86_64 Linux must configure mold");
+    assert_eq!(linux.len(), 2, "only linker and rustflags are allowed");
+    assert_eq!(linux.get("linker").and_then(Value::as_str), Some("clang"));
+    assert_eq!(
+        linux
+            .get("rustflags")
+            .and_then(Value::as_array)
+            .map(|flags| flags.iter().filter_map(Value::as_str).collect::<Vec<_>>()),
+        Some(vec!["-C", "link-arg=-fuse-ld=mold"])
+    );
 
     for text in &strings {
         assert!(

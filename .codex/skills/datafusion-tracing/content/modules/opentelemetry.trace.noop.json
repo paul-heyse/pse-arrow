@@ -1,0 +1,61 @@
+[
+  {
+    "id": "634df68398c6beaa306559af",
+    "path": "opentelemetry::trace::noop",
+    "name": "noop",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "module",
+    "signature": "mod noop",
+    "docs": "No-op trace implementation\n\nThis implementation is returned as the global tracer if no `Tracer`\nhas been set. It is also useful for testing purposes as it is intended\nto have minimal resource utilization and runtime impact.",
+    "span": {
+      "filename": "src/trace/noop.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        214,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          1486,
+          1519,
+          1515,
+          1398
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1609",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/opentelemetry.trace.noop.md",
+    "record_file": "modules/opentelemetry.trace.noop.json",
+    "anchor": "op-634df68398c6beaa306559af",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

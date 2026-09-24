@@ -6,20 +6,16 @@
 use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc};
 
 use anyhow::{Context, Result, ensure};
-use pse_authoring::{
-    ParseBudget,
-    document::{OwnedDocumentSet, load_package},
-};
-use pse_catalog::session::{
-    ExecutionSettings, SnapshotSession, ThreadBudget, native_engine_profile,
-};
-use pse_compiler::quantity_relations::PhysicalInventory;
-use pse_ids::CancellationToken;
+use pse_authoring::ParseBudget;
+use pse_codegen::codegen::GeneratedTree;
+use pse_columnar::CancellationToken;
+use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget, native_engine_profile};
 use pse_relations::{columnar::FieldCheckedBatch, generated::authored};
+use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package};
+use pse_runtime::physical::PhysicalInventory;
 use pse_runtime::{ResourceBudget, SharedRuntime};
 use pse_schema::{
     Registry,
-    codegen::GeneratedTree,
     model::{Namespace, RelationKey, SnapshotClass},
 };
 use serde::Deserialize;
@@ -37,12 +33,12 @@ struct Projection {
 
 pub(super) fn append(root: &Path, registry: &Registry, tree: &mut GeneratedTree) -> Result<()> {
     let physical = load(root, registry)?;
-    pse_schema::codegen::rust::physical::append_quantity_fixture(
+    pse_codegen::codegen::rust::physical::append_quantity_fixture(
         tree,
         physical.quantities(),
         physical.preconditions(),
     )?;
-    pse_schema::codegen::rust::physical::append_element_fixture(tree, physical.elements())?;
+    pse_codegen::codegen::rust::physical::append_element_fixture(tree, physical.elements())?;
     Ok(())
 }
 
@@ -80,7 +76,7 @@ fn load(root: &Path, registry: &Registry) -> Result<Physical> {
 /// Build-tool ownership only: original source bytes, checked columns and their one engine.
 /// The semantic inventory is constructed solely by the production native adapter.
 struct Sources {
-    session: SnapshotSession,
+    session: EngineSession,
     _documents: OwnedDocumentSet,
     _checked: BTreeMap<RelationKey, FieldCheckedBatch>,
     _runtime: Arc<SharedRuntime>,
@@ -93,6 +89,7 @@ impl Sources {
     )]
     async fn load(root: &Path, packages: &[String], declaration: &Registry) -> Result<Self> {
         let registry = Arc::new(pse_schema::catalog::assemble()?);
+        pse_engine::validation::bind_defaults(&registry)?;
         let spill = tempfile::tempdir()?;
         let one = NonZeroUsize::new(1).context("positive thread count")?;
         let runtime = SharedRuntime::build(ResourceBudget {
@@ -105,11 +102,12 @@ impl Sources {
                 target_partitions: one,
             },
             execution: ExecutionSettings::default(),
-            cache: pse_runtime::CacheBudget::for_memory(32usize << 30),
+            cache: pse_runtime::DeltaCacheBudget::for_memory(32usize << 30),
+            math: Default::default(),
             hashing_may_use_pool: false,
         })?;
         let cancel = CancellationToken::new();
-        let reserver = runtime.reserver();
+        let pool = runtime.pool();
         let mut bundles = Vec::new();
         for path in packages {
             ensure!(
@@ -122,10 +120,10 @@ impl Sources {
                 ParseBudget::default(),
             )?);
         }
-        let documents = pse_authoring::document::load_bundles_owned(
+        let documents = pse_runtime::authoring_driver::document::load_bundles_owned(
             &bundles,
             declaration,
-            reserver.as_ref(),
+            &pool,
             &cancel,
         )?;
         let mut checked = BTreeMap::new();
@@ -142,13 +140,8 @@ impl Sources {
                 .filter_map(|bundle| bundle.batches.get(&spec.id))
                 .cloned()
                 .collect::<Vec<_>>();
-            let batch = FieldCheckedBatch::concat_reserved(
-                &registry,
-                spec,
-                &parts,
-                reserver.as_ref(),
-                &cancel,
-            )?;
+            let batch =
+                FieldCheckedBatch::concat_reserved(&registry, spec, &parts, &pool, &cancel)?;
             checked.insert(spec.key, batch);
         }
         // Registry self-description comes from the registry generator, not authored defaults.
@@ -158,8 +151,7 @@ impl Sources {
                 .context("registry source declaration")?;
             checked.insert(
                 key,
-                FieldCheckedBatch::admit(&registry, spec, batch)?
-                    .retained(reserver.as_ref(), &cancel)?,
+                FieldCheckedBatch::admit(&registry, spec, batch)?.retained(&pool, &cancel)?,
             );
         }
         let session = runtime
@@ -168,7 +160,7 @@ impl Sources {
         let packages = checked
             .get(&authored::packages::spec(session.registry())?.key)
             .context("package headers absent")?;
-        pse_authoring::p0::resolve(packages, &session, &cancel).await?;
+        pse_runtime::authoring_driver::p0::resolve(packages, &session, &cancel)?;
         let rows = checked
             .iter()
             .map(|(key, batch)| (*key, batch.batch().clone()))

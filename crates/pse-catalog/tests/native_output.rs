@@ -13,14 +13,14 @@ use datafusion::arrow::array::{
     FixedSizeBinaryArray, Float64Array, RecordBatch, StringArray, UInt64Array,
 };
 use datafusion::common::ScalarValue;
-use datafusion::execution::runtime_env::RuntimeEnv;
 use datafusion::logical_expr::{Expr, LogicalPlanBuilder, col};
-use pse_catalog::session::{
-    ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile,
+use pse_columnar::CancellationToken;
+use pse_engine::session::{
+    ExecutionSettings, ThreadBudget,
     output::{checked_literal, declare_relation_output, declare_relation_projection},
     scalar,
 };
-use pse_ids::{CancellationToken, FixedBudget, SemanticId};
+use pse_ids::SemanticId;
 use pse_schema::{
     RegistryBuilder,
     model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass},
@@ -97,25 +97,21 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
                 .unwrap(),
             ),
             Arc::new(StringArray::from(vec!["quoted\"\n", "second"])),
-            Arc::new(Float64Array::from(vec![
-                -0.0,
-                f64::from_bits(0x7ff8_0000_0000_002a),
-            ])),
+            Arc::new(Float64Array::from(vec![-0.0, 2.0])),
         ],
     )
     .unwrap();
     let key = source.key;
     let threads = NonZeroUsize::new(1).unwrap();
-    let budget = FixedBudget::new(256 << 20);
-    let factory = SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
+    let budget: Arc<dyn pse_columnar::MemoryPool> =
+        Arc::new(pse_columnar::GreedyMemoryPool::new(256 << 20));
+    let factory = pse_testkit::factory(
         budget.clone(),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: threads,
             target_partitions: threads,
         },
-        native_engine_profile(),
     )
     .unwrap();
     let cancel = CancellationToken::default();
@@ -150,12 +146,21 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
         source_values,
         "metadata transport retains the original values allocation"
     );
-    let encoded = scalar::key(source.id, vec![("id", col("id")), ("label", col("label"))]);
+    let encoded =
+        pse_relations::identity::key(source.id, vec![("id", col("id")), ("label", col("label"))]);
     let plan = LogicalPlanBuilder::from(scan.clone())
         .project(vec![
             scalar::named_id(col("namespace"), encoded.clone()).alias("label_id"),
             encoded.alias("key"),
-            scalar::literal(col("value")).alias("literal"),
+            scalar::literal(
+                datafusion::logical_expr::when(
+                    col("id").eq(datafusion::logical_expr::lit(2_u64)),
+                    datafusion::logical_expr::lit(f64::from_bits(0x7ff8_0000_0000_002a)),
+                )
+                .otherwise(col("value"))
+                .unwrap(),
+            )
+            .alias("literal"),
         ])
         .unwrap()
         .build()
@@ -268,7 +273,7 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
         &registry,
         source,
         vec![
-            scalar::key(source.id, vec![("id", col("id"))]).alias("actual_key"),
+            pse_relations::identity::key(source.id, vec![("id", col("id"))]).alias("actual_key"),
             col("label").alias("selected_override"),
         ],
     )
@@ -334,7 +339,7 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
             assert!(matches!(actual_ids.value(index), 2 | u64::MAX));
             assert_eq!(labels.value(index), overrides.value(index));
         }
-        let retained = checked.retained(budget.as_ref(), &cancel).unwrap();
+        let retained = checked.retained(&budget, &cancel).unwrap();
         assert_eq!(retained.batch().num_rows(), batch.num_rows());
         assert_eq!(
             budget.reserved(),
@@ -346,7 +351,7 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
 
 #[test]
 fn explicit_literal_and_output_declarations_refuse_unproved_semantic_meaning() {
-    let registry = pse_schema::registry().unwrap();
+    let registry = pse_engine::validation::registry().unwrap();
     let units = registry.relation("reference.units").unwrap();
     let id = units.column("unit_id").unwrap();
     assert!(checked_literal(registry, id, ScalarValue::UInt64(Some(9))).is_err());
@@ -402,8 +407,8 @@ fn explicit_literal_and_output_declarations_refuse_unproved_semantic_meaning() {
 #[test]
 fn conditional_identity_keeps_meaning_and_only_common_relation_annotations() {
     use datafusion::logical_expr::{ExprSchemable, lit};
-    use pse_catalog::session::output::same_field_case;
-    let registry = pse_schema::registry().unwrap();
+    use pse_engine::session::output::same_field_case;
+    let registry = pse_engine::validation::registry().unwrap();
     let schema = datafusion::common::DFSchema::empty();
     let key = checked_literal(
         registry,
@@ -459,7 +464,7 @@ async fn conditional_enum_literals_keep_the_declared_string_domain_and_values() 
         .build()
         .unwrap();
     let condition = Expr::Column(input.schema().columns()[0].clone());
-    let expression = pse_catalog::session::output::same_field_cases(
+    let expression = pse_engine::session::output::same_field_cases(
         input.schema(),
         vec![
             (lit(false), value("unknown")),
@@ -475,15 +480,13 @@ async fn conditional_enum_literals_keep_the_declared_string_domain_and_values() 
         .build()
         .unwrap();
     let one = NonZeroUsize::new(1).unwrap();
-    let factory = SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(128 << 20),
+    let factory = pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: one,
             target_partitions: one,
         },
-        native_engine_profile(),
     )
     .unwrap();
     let cancel = CancellationToken::new();

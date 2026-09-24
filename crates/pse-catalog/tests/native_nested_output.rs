@@ -9,7 +9,7 @@
 //! Native container meaning follows actual primitive children, never opaque storage.
 
 use datafusion::arrow::datatypes::{DataType, Field};
-use pse_catalog::session::output::check_field_output;
+use pse_engine::session::output::check_field_output;
 use pse_schema::model::FieldContract;
 use std::sync::Arc;
 
@@ -64,16 +64,13 @@ use datafusion::{
         buffer::OffsetBuffer,
     },
     common::{ScalarValue, config::ConfigOptions},
-    execution::runtime_env::RuntimeEnv,
     logical_expr::{ColumnarValue, LogicalPlanBuilder, ScalarFunctionArgs, lit},
 };
-use pse_catalog::session::{
-    ExecutionSettings, SessionFactory, SnapshotSession, ThreadBudget, native_engine_profile,
-};
-use pse_ids::{CancellationToken, FixedBudget};
+use pse_columnar::CancellationToken;
+use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget};
 use std::collections::BTreeMap;
 
-fn session() -> SnapshotSession {
+fn session() -> EngineSession {
     use pse_schema::model::{Authority, Namespace, RelationDecl, SnapshotClass};
     let mut registry = pse_schema::RegistryBuilder::new();
     registry.declare_relation(
@@ -115,21 +112,19 @@ fn session() -> SnapshotSession {
         ]),
     );
     let registry = Arc::new(registry.build().unwrap());
-    SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
+    pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
             target_partitions: 2.try_into().unwrap(),
         },
-        native_engine_profile(),
     )
     .unwrap()
     .candidate_checked(BTreeMap::new(), registry, &CancellationToken::new())
     .unwrap()
 }
-fn declared_list(session: &SnapshotSession) -> Field {
+fn declared_list(session: &EngineSession) -> Field {
     pse_schema::arrow::field_for(
         session.registry(),
         &FieldContract::payload(
@@ -151,7 +146,7 @@ fn list(field: Arc<Field>) -> Arc<ListArray> {
     ))
 }
 fn invoke(
-    session: &SnapshotSession,
+    session: &EngineSession,
     value: ColumnarValue,
     expected: Field,
     rows: usize,
@@ -172,7 +167,7 @@ fn invoke(
 #[tokio::test]
 async fn native_array_selection_retains_child_fields_and_index_null_behavior() {
     use datafusion::functions_nested::expr_fn::array_element;
-    use pse_catalog::session::output::checked_literal;
+    use pse_engine::session::output::checked_literal;
     let session = session();
     let field = declared_list(&session);
     let DataType::List(child) = field.data_type() else {
@@ -275,7 +270,7 @@ async fn native_array_selection_retains_child_fields_and_index_null_behavior() {
 async fn empty_identity_collection_keeps_its_child_field_after_folding() {
     let session = session();
     let field = declared_list(&session);
-    let empty = pse_catalog::session::scalar::id_list(vec![]);
+    let empty = pse_engine::session::scalar::id_list(vec![]);
     let concat = session
         .scalar_function("pse_array_concat")
         .unwrap()
@@ -322,7 +317,7 @@ async fn nested_scalar_materialization_is_visible_after_constant_folding() {
         panic!("declared list");
     };
     let scalar = ScalarValue::List(list(Arc::clone(child)));
-    let literal = pse_catalog::session::output::checked_literal(
+    let literal = pse_engine::session::output::checked_literal(
         session.registry(),
         &FieldContract::payload(
             "ids",
@@ -457,14 +452,8 @@ async fn native_collection_preserves_fields_through_ordered_distinct_and_grouped
             .await
             .unwrap_or_else(|error| {
                 panic!(
-                    "{mode}: {error}; {}",
-                    session
-                        .execution_observations()
-                        .unwrap()
-                        .last()
-                        .unwrap()
-                        .physical_plan()
-                        .unwrap_or("no physical plan")
+                    "{mode}: {error}; observations: {:?}",
+                    session.execution_observations()
                 )
             });
         let mut group_count = 0;

@@ -97,12 +97,9 @@ fn walk_expr(expr: &Expr, visitor: &mut dyn FnMut(&Expr)) {
             walk_expr(lhs, visitor);
             walk_expr(rhs, visitor);
         }
-        ExprKind::Call { args, named, .. } => {
+        ExprKind::Call { args, .. } => {
             for arg in args {
                 walk_expr(arg, visitor);
-            }
-            for arg in named {
-                walk_expr(&arg.value, visitor);
             }
         }
         ExprKind::Kernel { args, .. } => {
@@ -174,12 +171,9 @@ fn strip_expr(expr: &mut Expr) {
             strip_expr(lhs);
             strip_expr(rhs);
         }
-        ExprKind::Call { args, named, .. } => {
+        ExprKind::Call { args, .. } => {
             for arg in args {
                 strip_expr(arg);
-            }
-            for arg in named {
-                strip_expr(&mut arg.value);
             }
         }
         ExprKind::Kernel { args, .. } => {
@@ -259,12 +253,9 @@ fn paths_expr<'a>(expr: &'a Expr, paths: &mut Vec<&'a Path>) {
             paths_expr(lhs, paths);
             paths_expr(rhs, paths);
         }
-        ExprKind::Call { args, named, .. } => {
+        ExprKind::Call { args, .. } => {
             for arg in args {
                 paths_expr(arg, paths);
-            }
-            for arg in named {
-                paths_expr(&arg.value, paths);
             }
         }
         ExprKind::Kernel { args, .. } => {

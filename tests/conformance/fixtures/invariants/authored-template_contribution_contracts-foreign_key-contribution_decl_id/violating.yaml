@@ -6,7 +6,7 @@
         "contribution_decl_id": "[\"id\",\"02020202020202020202020202020202\"]",
         "indexed_by": "[\"list\",[]]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "subject": "[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"struct\",[[\"text\",\"axis\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]]],[\"null\",null]]]",
+        "subject": "[\"struct\",[[\"enum\",\"element\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"struct\",[[\"enum\",\"axis\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]]],[\"null\",null]]]",
         "transfer": "[\"struct\",[[\"text\",\"value-1\"],[\"i64\",1]]]"
       }
     ],

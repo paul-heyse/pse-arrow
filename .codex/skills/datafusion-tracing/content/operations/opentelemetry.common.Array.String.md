@@ -1,0 +1,17 @@
+# `opentelemetry::common::Array::String`
+
+Full upstream contracts; raw type trees and source locators in [structured records](opentelemetry.common.Array.String.json).
+
+<a id="op-89d6dfa13daa4d0f17356ce0"></a>
+## 0
+
+`struct_field` · `opentelemetry::common::Array::String::0` · opentelemetry 0.31.0
+Reachability: `supported`.  Capture: hosted.
+
+```rust
+0: Vec<StringValue>
+```
+
+Source: `src/common.rs:165`. [Exact documentation build](https://docs.rs/crate/opentelemetry/0.31.0/json).
+
+No upstream documentation on this item; consult its owner/trait contract.

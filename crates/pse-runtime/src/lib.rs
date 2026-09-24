@@ -17,7 +17,7 @@
 //!
 //! DataFusion's pool governs query operators. Platform allocations — canonicalization
 //! copies, binding buffers, result ingestion — are invisible to it, so they reserve
-//! through [`pse_ids::MemoryReserver`] *before* allocating. What neither covers is the
+//! through [`pse_columnar::MemoryPool`] *before* allocating. What neither covers is the
 //! global allocator, a solver process and any Arrow array built outside a reservation;
 //! §14.3 says so, and the peak reporting keeps the accounted peak and the process peak as
 //! two numbers for exactly that reason.
@@ -33,13 +33,24 @@ pub mod cancel;
 pub mod env;
 pub mod error;
 pub mod peak;
-pub mod reserve;
 pub mod session_factory;
+pub mod settings;
 
-pub use crate::budget::{CacheBudget, ResourceBudget};
+pub use crate::budget::{DeltaCacheBudget, ResourceBudget};
 pub use crate::error::RuntimeError;
 
 pub use crate::cancel::CancelSource;
 pub use crate::env::SharedRuntime;
 pub use crate::peak::ResourceReport;
-pub use crate::reserve::PoolReserver;
+
+/// Effectful authoring adapters around pure parser and generated document values.
+pub mod authoring_driver;
+/// Physical declarations admitted once from actual typed source rows.
+pub mod physical;
+#[rustfmt::skip]
+mod generated;
+
+/// Finite authored definitions into library-owned mathematical bodies.
+pub mod math;
+/// Typed native modeling, completion-owned jobs, physical results and explicit publication.
+pub mod workflow;

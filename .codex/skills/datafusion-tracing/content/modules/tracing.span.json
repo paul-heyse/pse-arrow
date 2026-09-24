@@ -1,0 +1,131 @@
+[
+  {
+    "id": "43afab263f564d04279776cf",
+    "path": "tracing::span",
+    "name": "span",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "module",
+    "signature": "mod span",
+    "docs": " Spans represent periods of time in which a program was executing in a\n particular context.\n\n A span consists of [fields], user-defined key-value pairs of arbitrary data\n that describe the context the span represents, and a set of fixed attributes\n that describe all `tracing` spans and events. Attributes describing spans\n include:\n\n - An [`Id`] assigned by the subscriber that uniquely identifies it in relation\n   to other spans.\n - The span's [parent] in the trace tree.\n - [Metadata] that describes static characteristics of all spans\n   originating from that callsite, such as its name, source code location,\n   [verbosity level], and the names of its fields.\n\n # Creating Spans\n\n Spans are created using the [`span!`] macro. This macro is invoked with the\n following arguments, in order:\n\n - The [`target`] and/or [`parent`][parent] attributes, if the user wishes to\n   override their default values.\n - The span's [verbosity level]\n - A string literal providing the span's name.\n - Finally, zero or more arbitrary key/value fields.\n\n [`target`]: super::Metadata::target\n\n For example:\n ```rust\n use tracing::{span, Level};\n\n /// Construct a new span at the `INFO` level named \"my_span\", with a single\n /// field named answer , with the value `42`.\n let my_span = span!(Level::INFO, \"my_span\", answer = 42);\n ```\n\n The documentation for the [`span!`] macro provides additional examples of\n the various options that exist when creating spans.\n\n The [`trace_span!`], [`debug_span!`], [`info_span!`], [`warn_span!`], and\n [`error_span!`] exist as shorthand for constructing spans at various\n verbosity levels.\n\n ## Recording Span Creation\n\n The [`Attributes`] type contains data associated with a span, and is\n provided to the [`Subscriber`] when a new span is created. It contains\n the span's metadata, the ID of [the span's parent][parent] if one was\n explicitly set, and any fields whose values were recorded when the span was\n constructed. The subscriber, which is responsible for recording `tracing`\n data, can then store or record these values.\n\n # The Span Lifecycle\n\n ## Entering a Span\n\n A thread of execution is said to _enter_ a span when it begins executing,\n and _exit_ the span when it switches to another context. Spans may be\n entered through the [`enter`], [`entered`], and [`in_scope`] methods.\n\n The [`enter`] method enters a span, returning a [guard] that exits the span\n when dropped\n ```\n # use tracing::{span, Level};\n let my_var: u64 = 5;\n let my_span = span!(Level::TRACE, \"my_span\", my_var);\n\n // `my_span` exists but has not been entered.\n\n // Enter `my_span`...\n let _enter = my_span.enter();\n\n // Perform some work inside of the context of `my_span`...\n // Dropping the `_enter` guard will exit the span.\n```\n\n <div class=\"example-wrap\" style=\"display:inline-block\"><pre class=\"compile_fail\" style=\"white-space:normal;font:inherit;\">\n     <strong>Warning</strong>: In asynchronous code that uses async/await syntax,\n     <code>Span::enter</code> may produce incorrect traces if the returned drop\n     guard is held across an await point. See\n     <a href=\"struct.Span.html#in-asynchronous-code\">the method documentation</a>\n     for details.\n </pre></div>\n\n The [`entered`] method is analogous to [`enter`], but moves the span into\n the returned guard, rather than borrowing it. This allows creating and\n entering a span in a single expression:\n\n ```\n # use tracing::{span, Level};\n // Create a span and enter it, returning a guard:\n let span = span!(Level::INFO, \"my_span\").entered();\n\n // We are now inside the span! Like `enter()`, the guard returned by\n // `entered()` will exit the span when it is dropped...\n\n // ...but, it can also be exited explicitly, returning the `Span`\n // struct:\n let span = span.exit();\n ```\n\n Finally, [`in_scope`] takes a closure or function pointer and executes it\n inside the span:\n\n ```\n # use tracing::{span, Level};\n let my_var: u64 = 5;\n let my_span = span!(Level::TRACE, \"my_span\", my_var = &my_var);\n\n my_span.in_scope(|| {\n     // perform some work in the context of `my_span`...\n });\n\n // Perform some work outside of the context of `my_span`...\n\n my_span.in_scope(|| {\n     // Perform some more work in the context of `my_span`.\n });\n ```\n\n <pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n     <strong>Note</strong>: Since entering a span takes <code>&self</code>, and\n     <code>Span</code>s are <code>Clone</code>, <code>Send</code>, and\n     <code>Sync</code>, it is entirely valid for multiple threads to enter the\n     same span concurrently.\n </pre>\n\n ## Span Relationships\n\n Spans form a tree structure — unless it is a root span, all spans have a\n _parent_, and may have one or more _children_. When a new span is created,\n the current span becomes the new span's parent. The total execution time of\n a span consists of the time spent in that span and in the entire subtree\n represented by its children. Thus, a parent span always lasts for at least\n as long as the longest-executing span in its subtree.\n\n ```\n # use tracing::{Level, span};\n // this span is considered the \"root\" of a new trace tree:\n span!(Level::INFO, \"root\").in_scope(|| {\n     // since we are now inside \"root\", this span is considered a child\n     // of \"root\":\n     span!(Level::DEBUG, \"outer_child\").in_scope(|| {\n         // this span is a child of \"outer_child\", which is in turn a\n         // child of \"root\":\n         span!(Level::TRACE, \"inner_child\").in_scope(|| {\n             // and so on...\n         });\n     });\n     // another span created here would also be a child of \"root\".\n });\n```\n\n In addition, the parent of a span may be explicitly specified in\n the `span!` macro. For example:\n\n ```rust\n # use tracing::{Level, span};\n // Create, but do not enter, a span called \"foo\".\n let foo = span!(Level::INFO, \"foo\");\n\n // Create and enter a span called \"bar\".\n let bar = span!(Level::INFO, \"bar\");\n let _enter = bar.enter();\n\n // Although we have currently entered \"bar\", \"baz\"'s parent span\n // will be \"foo\".\n let baz = span!(parent: &foo, Level::INFO, \"baz\");\n ```\n\n A child span should typically be considered _part_ of its parent. For\n example, if a subscriber is recording the length of time spent in various\n spans, it should generally include the time spent in a span's children as\n part of that span's duration.\n\n In addition to having zero or one parent, a span may also _follow from_ any\n number of other spans. This indicates a causal relationship between the span\n and the spans that it follows from, but a follower is *not* typically\n considered part of the duration of the span it follows. Unlike the parent, a\n span may record that it follows from another span after it is created, using\n the [`follows_from`] method.\n\n As an example, consider a listener task in a server. As the listener accepts\n incoming connections, it spawns new tasks that handle those connections. We\n might want to have a span representing the listener, and instrument each\n spawned handler task with its own span. We would want our instrumentation to\n record that the handler tasks were spawned as a result of the listener task.\n However, we might not consider the handler tasks to be _part_ of the time\n spent in the listener task, so we would not consider those spans children of\n the listener span. Instead, we would record that the handler tasks follow\n from the listener, recording the causal relationship but treating the spans\n as separate durations.\n\n ## Closing Spans\n\n Execution may enter and exit a span multiple times before that span is\n _closed_. Consider, for example, a future which has an associated\n span and enters that span every time it is polled:\n ```rust\n # use std::future::Future;\n # use std::task::{Context, Poll};\n # use std::pin::Pin;\n struct MyFuture {\n    // data\n    span: tracing::Span,\n }\n\n impl Future for MyFuture {\n     type Output = ();\n\n     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {\n         let _enter = self.span.enter();\n         // Do actual future work...\n # Poll::Ready(())\n     }\n }\n ```\n\n If this future was spawned on an executor, it might yield one or more times\n before `poll` returns [`Poll::Ready`]. If the future were to yield, then\n the executor would move on to poll the next future, which may _also_ enter\n an associated span or series of spans. Therefore, it is valid for a span to\n be entered repeatedly before it completes. Only the time when that span or\n one of its children was the current span is considered to be time spent in\n that span. A span which is not executing and has not yet been closed is said\n to be _idle_.\n\n Because spans may be entered and exited multiple times before they close,\n [`Subscriber`]s have separate trait methods which are called to notify them\n of span exits and when span handles are dropped. When execution exits a\n span, [`exit`] will always be called with that span's ID to notify the\n subscriber that the span has been exited. When span handles are dropped, the\n [`drop_span`] method is called with that span's ID. The subscriber may use\n this to determine whether or not the span will be entered again.\n\n If there is only a single handle with the capacity to exit a span, dropping\n that handle \"closes\" the span, since the capacity to enter it no longer\n exists. For example:\n ```\n # use tracing::{Level, span};\n {\n     span!(Level::TRACE, \"my_span\").in_scope(|| {\n         // perform some work in the context of `my_span`...\n     }); // --> Subscriber::exit(my_span)\n\n     // The handle to `my_span` only lives inside of this block; when it is\n     // dropped, the subscriber will be informed via `drop_span`.\n\n } // --> Subscriber::drop_span(my_span)\n ```\n\n However, if multiple handles exist, the span can still be re-entered even if\n one or more is dropped. For determining when _all_ handles to a span have\n been dropped, `Subscriber`s have a [`clone_span`] method, which is called\n every time a span handle is cloned. Combined with `drop_span`, this may be\n used to track the number of handles to a given span — if `drop_span` has\n been called one more time than the number of calls to `clone_span` for a\n given ID, then no more handles to the span with that ID exist. The\n subscriber may then treat it as closed.\n\n # When to use spans\n\n As a rule of thumb, spans should be used to represent discrete units of work\n (e.g., a given request's lifetime in a server) or periods of time spent in a\n given context (e.g., time spent interacting with an instance of an external\n system, such as a database).\n\n Which scopes in a program correspond to new spans depend somewhat on user\n intent. For example, consider the case of a loop in a program. Should we\n construct one span and perform the entire loop inside of that span, like:\n\n ```rust\n # use tracing::{Level, span};\n # let n = 1;\n let span = span!(Level::TRACE, \"my_loop\");\n let _enter = span.enter();\n for i in 0..n {\n     # let _ = i;\n     // ...\n }\n ```\n Or, should we create a new span for each iteration of the loop, as in:\n ```rust\n # use tracing::{Level, span};\n # let n = 1u64;\n for i in 0..n {\n     let span = span!(Level::TRACE, \"my_loop\", iteration = i);\n     let _enter = span.enter();\n     // ...\n }\n ```\n\n Depending on the circumstances, we might want to do either, or both. For\n example, if we want to know how long was spent in the loop overall, we would\n create a single span around the entire loop; whereas if we wanted to know how\n much time was spent in each individual iteration, we would enter a new span\n on every iteration.\n\n [fields]: super::field\n [Metadata]: super::Metadata\n [verbosity level]: super::Level\n [`Poll::Ready`]: std::task::Poll::Ready\n [`span!`]: super::span!\n [`trace_span!`]: super::trace_span!\n [`debug_span!`]: super::debug_span!\n [`info_span!`]: super::info_span!\n [`warn_span!`]: super::warn_span!\n [`error_span!`]: super::error_span!\n [`clone_span`]: super::subscriber::Subscriber::clone_span()\n [`drop_span`]: super::subscriber::Subscriber::drop_span()\n [`exit`]: super::subscriber::Subscriber::exit\n [`Subscriber`]: super::subscriber::Subscriber\n [`enter`]: Span::enter()\n [`entered`]: Span::entered()\n [`in_scope`]: Span::in_scope()\n [`follows_from`]: Span::follows_from()\n [guard]: Entered\n [parent]: #span-relationships",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        1615,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          189,
+          190,
+          192,
+          194,
+          46,
+          209,
+          210
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "Span::follows_from()": 198,
+      "`Id`": 191,
+      "super::Level": 320,
+      "super::info_span!": 325,
+      "std::task::Poll::Ready": 328,
+      "super::subscriber::Subscriber::clone_span()": 330,
+      "super::error_span!": 327,
+      "super::warn_span!": 326,
+      "super::subscriber::Subscriber::exit": 206,
+      "Span::in_scope()": 207,
+      "super::subscriber::Subscriber::drop_span()": 329,
+      "super::subscriber::Subscriber": 17,
+      "super::trace_span!": 323,
+      "super::span!": 321,
+      "super::Metadata::target": 322,
+      "super::field": 45,
+      "super::debug_span!": 324,
+      "`Attributes`": 36,
+      "Span::enter()": 47,
+      "super::Metadata": 20,
+      "Span::entered()": 212,
+      "Entered": 209
+    },
+    "link_paths": {
+      "Span::follows_from()": "tracing::span::Span::follows_from",
+      "`Id`": "tracing_core::span::Id",
+      "super::Level": "tracing_core::metadata::Level",
+      "super::info_span!": "tracing::info_span",
+      "std::task::Poll::Ready": "core::task::poll::Poll::Ready",
+      "super::subscriber::Subscriber::clone_span()": "tracing_core::subscriber::Subscriber::clone_span",
+      "super::error_span!": "tracing::error_span",
+      "super::warn_span!": "tracing::warn_span",
+      "super::subscriber::Subscriber::exit": "tracing_core::subscriber::Subscriber::exit",
+      "Span::in_scope()": "tracing::span::Span::in_scope",
+      "super::subscriber::Subscriber::drop_span()": "tracing_core::subscriber::Subscriber::drop_span",
+      "super::subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "super::trace_span!": "tracing::trace_span",
+      "super::span!": "tracing::span",
+      "super::Metadata::target": "tracing_core::metadata::Metadata::target",
+      "super::field": "tracing::field",
+      "super::debug_span!": "tracing::debug_span",
+      "`Attributes`": "tracing_core::span::Attributes",
+      "Span::enter()": "tracing::span::Span::enter",
+      "super::Metadata": "tracing_core::metadata::Metadata",
+      "Span::entered()": "tracing::span::Span::entered",
+      "Entered": "tracing::span::Entered"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "34",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing.span.md",
+    "record_file": "modules/tracing.span.json",
+    "anchor": "op-43afab263f564d04279776cf",
+    "aliases": [],
+    "resolved_doc_links": {
+      "Span::follows_from()": "../operations/tracing.span.Span.md#op-4131e6dfcbea0091271fd03d",
+      "`Id`": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "super::Level": "../operations/tracing_core.metadata.Level.md#op-f8804717be954252aadd54ff",
+      "super::info_span!": "../operations/tracing.info_span.md#op-45ca51f4e9186b0d021bbe68",
+      "super::subscriber::Subscriber::clone_span()": "../operations/tracing_core.subscriber.Subscriber.md#op-7352d6acfcd094e272b99023",
+      "super::error_span!": "../operations/tracing.error_span.md#op-404b74567e9b4a33eee57bc9",
+      "super::warn_span!": "../operations/tracing.warn_span.md#op-d5dcc98e2cca91c96a6955f4",
+      "super::subscriber::Subscriber::exit": "../operations/tracing_core.subscriber.Subscriber.md#op-0b5bdf535b6a65a9bad07b05",
+      "Span::in_scope()": "../operations/tracing.span.Span.md#op-96f56929d165d5874027ae91",
+      "super::subscriber::Subscriber::drop_span()": "../operations/tracing_core.subscriber.Subscriber.md#op-318d7870f3253ee81d24adfb",
+      "super::subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "super::trace_span!": "../operations/tracing.trace_span.md#op-6161ad54de3b03a8494209c8",
+      "super::span!": "../operations/tracing.span.md#op-d37a648f25beedf59548b980",
+      "super::field": "../modules/tracing.field.md#op-0ea37d75ae03563c04f411dc",
+      "super::debug_span!": "../operations/tracing.debug_span.md#op-9874b343e33af2d4bf485dc4",
+      "`Attributes`": "../operations/tracing_core.span.Attributes.md#op-c26f3e8618922ff48422c6fb",
+      "Span::enter()": "../operations/tracing.span.Span.md#op-0ac1698dc0d740afb9e61b4b",
+      "super::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "Span::entered()": "../operations/tracing.span.Span.md#op-3b2f568eb51a6612d5b15c47",
+      "Entered": "../operations/tracing.span.Entered.md#op-5fa98f5fd356bc6e42d6afad"
+    }
+  }
+]

@@ -50,6 +50,9 @@ pub fn standard_registry() -> Result<QuantityRegistry, QuantityError> {
 #[derive(Debug)]
 pub struct StandardInvariantChecker;
 impl InvariantChecker for StandardInvariantChecker {
+    fn immutable(&self) -> bool {
+        true
+    }
     fn check(
         &self,
         id: InvariantId,

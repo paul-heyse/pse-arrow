@@ -1,0 +1,149 @@
+{
+  "profile": "Rust consumer using datafusion-tracing and instrumented-object-store 55.0.0. Use the reference recorded tracing/SDK versions where needed. Explain the composition, decisive API/lifecycle conditions, evidence, and what remains unverified; give a small Rust sketch where useful.",
+  "tasks": [
+    {
+      "id": "E01A",
+      "task": "Explain total planning-phase duration"
+    },
+    {
+      "id": "E01B",
+      "task": "Identify which rule changes a plan",
+      "context": "Explain total planning-phase duration"
+    },
+    {
+      "id": "E02A",
+      "task": "Observe all planning phases"
+    },
+    {
+      "id": "E02B",
+      "task": "Observe only physical optimization",
+      "context": "Observe all planning phases"
+    },
+    {
+      "id": "E03A",
+      "task": "Instrument the final physical plan"
+    },
+    {
+      "id": "E03B",
+      "task": "Another optimizer rewrite runs afterward",
+      "context": "Instrument the final physical plan"
+    },
+    {
+      "id": "E04A",
+      "task": "Use the macro's default target"
+    },
+    {
+      "id": "E04B",
+      "task": "Supply an explicit target under a narrow filter",
+      "context": "Use the macro's default target"
+    },
+    {
+      "id": "E05A",
+      "task": "Record a key declared in the macro"
+    },
+    {
+      "id": "E05B",
+      "task": "Record the same undeclared key",
+      "context": "Record a key declared in the macro"
+    },
+    {
+      "id": "E06A",
+      "task": "Positive preview limit with no custom formatter"
+    },
+    {
+      "id": "E06B",
+      "task": "Same limit with a custom formatter",
+      "context": "Positive preview limit with no custom formatter"
+    },
+    {
+      "id": "E07A",
+      "task": "Preview one batch in one partition"
+    },
+    {
+      "id": "E07B",
+      "task": "Same display limit with multiple batches/partitions",
+      "context": "Preview one batch in one partition"
+    },
+    {
+      "id": "E08A",
+      "task": "Fully consume execution streams"
+    },
+    {
+      "id": "E08B",
+      "task": "Consume one item, then drop the streams",
+      "context": "Fully consume execution streams"
+    },
+    {
+      "id": "E09A",
+      "task": "Retain a plan after execution completes"
+    },
+    {
+      "id": "E09B",
+      "task": "Keep an execution stream alive instead",
+      "context": "Retain a plan after execution completes"
+    },
+    {
+      "id": "E10A",
+      "task": "Await work under an instrumented future"
+    },
+    {
+      "id": "E10B",
+      "task": "Spawn it across a task boundary",
+      "context": "Await work under an instrumented future"
+    },
+    {
+      "id": "E11A",
+      "task": "A local formatting layer receives the span"
+    },
+    {
+      "id": "E11B",
+      "task": "The OTEL branch filters or samples it out",
+      "context": "A local formatting layer receives the span"
+    },
+    {
+      "id": "E12A",
+      "task": "Register and use the wrapped object store"
+    },
+    {
+      "id": "E12B",
+      "task": "Register and use the underlying store",
+      "context": "Register and use the wrapped object store"
+    },
+    {
+      "id": "E13A",
+      "task": "A store call immediately returns bytes"
+    },
+    {
+      "id": "E13B",
+      "task": "A store call returns a lazily consumed stream",
+      "context": "A store call immediately returns bytes"
+    },
+    {
+      "id": "E14A",
+      "task": "Emit spans while provider and runtime remain alive"
+    },
+    {
+      "id": "E14B",
+      "task": "End the program after emitting buffered spans",
+      "context": "Emit spans while provider and runtime remain alive"
+    },
+    {
+      "id": "E15A",
+      "task": "Use the retained bridge/SDK dependency profile"
+    },
+    {
+      "id": "E15B",
+      "task": "Use an uncharacterized version/feature combination",
+      "context": "Use the retained bridge/SDK dependency profile"
+    },
+    {
+      "id": "E16A",
+      "task": "Look up the reachable options builder"
+    },
+    {
+      "id": "E16B",
+      "task": "Look up the internal execution wrapper",
+      "context": "Look up the reachable options builder"
+    }
+  ]
+}

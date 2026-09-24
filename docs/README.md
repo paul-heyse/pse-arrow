@@ -1,14 +1,20 @@
 # pse-arrow
 
-An Arrow-native process systems engineering core in Rust. Arrow is the default for
-typed data and columnar operations; DataFusion is the default for data transformation,
-planning and execution across the system. Other libraries are acceptable when they
-offer a distinctive advantage ([blueprint D10](authoritative_design/blueprint.md#d10-arrow-and-datafusion-are-the-default-data-and-execution-foundation)).
-Typed relations are the model authority, with a relational math IR, native NLP
-solving and a generated Pyomo backend. It is a clean-room re-implementation
+A process systems engineering core in Rust. Typed relations remain model authority;
+computation placement follows
+[blueprint D10](authoritative_design/blueprint.md#d10-choose-computation-per-operation-and-preserve-relational-authority):
+typed Rust and MathIR for semantics, Salsa for bounded incremental reuse, graph
+libraries for admitted projections, Arrow for columnar boundaries, DataFusion for
+relational phases, and Delta Lake for selected durable products.
+It is a clean-room re-implementation
 of core IDAES-PSE capabilities, parity-tested against `idaes-pse 2.12.0`, and it
 is **not affiliated with IDAES** — see
 [Relationship to IDAES](relationship-to-idaes.md).
+
+[Plan 13](plans/13-rust-computation-architecture.md) owns current implementation.
+The [W19 repair checkpoint](plans/13-w19-repair-checkpoint.md) separates implemented
+replacement/deletion work and passing isolated controls from incomplete functional
+qualification and unrun performance work.
 
 The distribution is `pse-arrow` on PyPI (the name `pse` is taken); the import
 name is `pse` and the crate prefix is `pse-`. Everything is licensed
@@ -19,7 +25,7 @@ name is `pse` and the crate prefix is `pse-`. Everything is licensed
 | Question | Authority |
 |---|---|
 | What is the design? | [`authoritative_design/blueprint.md`](authoritative_design/blueprint.md) — one file, stable section numbers, revised in git |
-| Why does it read that way? | [`adr/`](adr/) — one record per decision, with the charter §H fields |
+| Why does it read that way? | [`adr/`](adr/) — one record per decision, with the design principles §H fields |
 | What was deliberately deferred? | [`adr/register.md`](adr/register.md) — one row per deferral, with its trigger and next check |
 | How is the work sequenced? | [`plans/`](plans/) — living until done, then an appended Outcome |
 | Is the design any good? | [`design_review/reviews/`](design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md) — **evidence, not authority** |
@@ -40,15 +46,15 @@ blueprint disagree, one of them is a bug, and the ADR says which.
    and process decisions.
 4. **The evidence** — the [capability maps](capability-maps/arrow-rust.md) before
    believing any claim about what Arrow, DataFusion or a supporting crate does at
-   the pinned version. Every claim in this book carries a charter §D evidence
+   the pinned version. Every claim in this book carries a design principles §D evidence
    label; `Proposed` means exactly that.
 
 ## Evidence vocabulary
 
-Every claim in these documents is labelled with the charter §D vocabulary —
+Every claim in these documents is labelled with the design principles §D vocabulary —
 `Proposed`, `Interface-checked`, `Implemented`, `Tested`, `Measured`,
 `Formally established`. The labels describe different claims, not one ladder: a
 measured implementation can still be incorrect, and an interface-checked design
 can still need substantial engineering. The definitions are in
-[`design_review/design_principles/DATA_MODEL_DESIGN_CHARTER.md`](design_review/design_principles/DATA_MODEL_DESIGN_CHARTER.md)
+[`design_review/design_principles/core/design-principles.md`](design_review/design_principles/core/design-principles.md)
 §D.

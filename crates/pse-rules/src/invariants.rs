@@ -7,8 +7,9 @@ mod program;
 
 use crate::{RuleError, errmap::internal};
 use datafusion::arrow::array::RecordBatch;
-use pse_catalog::session::{CompletedComputation, SnapshotSession};
-use pse_ids::{CancellationToken, SemanticId};
+use pse_columnar::CancellationToken;
+use pse_engine::session::{CompletedComputation, EngineSession};
+use pse_ids::SemanticId;
 use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{enums::FindingSeverity, runtime::diagnostics_findings},
@@ -19,29 +20,75 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Provider policies use the same registry-to-native lowering as bundle admission.
 #[derive(Debug)]
 pub struct RegistryRequirementPlanner;
+static IMPLEMENTATION: std::sync::LazyLock<
+    std::sync::Arc<pse_engine::session::ObligationImplementation>,
+> = std::sync::LazyLock::new(std::sync::Arc::default);
 #[async_trait::async_trait]
-impl pse_catalog::session::policy::RequirementPlanner for RegistryRequirementPlanner {
+impl pse_engine::session::policy::RequirementPlanner for RegistryRequirementPlanner {
     async fn plan(
         &self,
-        session: &SnapshotSession,
+        session: &EngineSession,
         requirements: &BTreeSet<SemanticId>,
         cancel: &CancellationToken,
-    ) -> Result<datafusion::logical_expr::LogicalPlan, pse_catalog::CatalogError> {
-        let result = program::compile(
-            &session.input_keys().collect(),
-            session,
-            session.registry(),
-            InvariantScope::Required(requirements),
-            cancel,
-        )
-        .await
-        .map_err(|error| pse_catalog::CatalogError::Semantic(std::sync::Arc::new(error)))?;
-        result
-            .0
-            .ok_or_else(|| pse_catalog::CatalogError::Admission {
+    ) -> Result<datafusion::logical_expr::LogicalPlan, pse_engine::EngineError> {
+        let mut plans = BTreeMap::new();
+        let mut missing = BTreeSet::new();
+        for id in requirements {
+            let required = BTreeSet::from([*id]);
+            if let Some(plan) = session.reuse_obligation(&required, &IMPLEMENTATION, cancel)? {
+                plans.insert(*id, plan);
+            } else {
+                missing.insert(*id);
+            }
+        }
+        if !missing.is_empty() {
+            let compiled = program::compile_individual(
+                &session.input_keys().collect(),
+                session,
+                session.registry(),
+                InvariantScope::Required(&missing),
+                cancel,
+            )
+            .await
+            .map_err(|error| pse_engine::EngineError::Semantic(std::sync::Arc::new(error)))?;
+            let (ids, inputs): (Vec<_>, Vec<_>) = compiled
+                .into_iter()
+                .map(|(id, plan)| (id, (plan, BTreeSet::from([id]))))
+                .unzip();
+            plans.extend(ids.into_iter().zip(session.bind_obligations(
+                &inputs,
+                &IMPLEMENTATION,
+                cancel,
+            )?));
+        }
+        let mut plans = plans.into_values().collect::<Vec<_>>();
+        let schema = plans
+            .first()
+            .ok_or_else(|| pse_engine::EngineError::Admission {
                 path: "provider.requirements".to_owned(),
-                reason: "selected requirements produced no native obligation".to_owned(),
-            })
+                reason: "empty requirement selection".to_owned(),
+            })?
+            .schema()
+            .clone();
+        plans.retain(|plan| !matches!(plan, datafusion::logical_expr::LogicalPlan::EmptyRelation(empty) if !empty.produce_one_row));
+        if plans.is_empty() {
+            return Ok(datafusion::logical_expr::LogicalPlan::EmptyRelation(
+                datafusion::logical_expr::EmptyRelation {
+                    produce_one_row: false,
+                    schema,
+                },
+            ));
+        }
+        if plans.len() == 1
+            && let Some(plan) = plans.pop()
+        {
+            return Ok(plan);
+        }
+        datafusion::logical_expr::Union::try_new_with_loose_types(
+            plans.into_iter().map(std::sync::Arc::new).collect(),
+        )
+        .map(datafusion::logical_expr::LogicalPlan::Union)
+        .map_err(pse_engine::EngineError::from)
     }
 }
 
@@ -119,7 +166,7 @@ impl InvariantReport {
 /// Incomplete input bindings, construction/analysis failures, cancellation or resource errors.
 pub async fn run_invariants(
     candidates: &BTreeMap<RelationKey, RecordBatch>,
-    session: &SnapshotSession,
+    session: &EngineSession,
     registry: &Registry,
     scope: InvariantScope<'_>,
     cancel: &CancellationToken,
@@ -142,7 +189,7 @@ pub async fn run_invariants(
         });
     };
     let completion = session
-        .prepare_rule_plan(plan, cancel)?
+        .prepare_rule_plan(program::full_report(plan)?, cancel)?
         .execute(cancel)
         .await?;
     let spec = diagnostics_findings::spec(registry)?;

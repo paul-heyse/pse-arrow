@@ -1,0 +1,933 @@
+[
+  {
+    "id": "3d87b1432c36b05a86275636",
+    "path": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder",
+    "name": "PeriodicReaderBuilder",
+    "owner": null,
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct PeriodicReaderBuilder<E, RT>",
+    "docs": "Configuration options for [PeriodicReader].\n\nA periodic reader is a [MetricReader] that collects and exports metric data\nto the exporter at a defined interval.\n\nBy default, the returned [MetricReader] will collect and export data every\n60 seconds, and will cancel export attempts that exceed 30 seconds. The\nexport time is not counted towards the interval between attempts.\n\nThe [collect] method of the returned [MetricReader] continues to gather and\nreturn metric data to the user. It will not automatically send that data to\nthe exporter outside of the predefined interval.\n\n[collect]: MetricReader::collect",
+    "span": {
+      "filename": "src/metrics/periodic_reader_with_async_runtime.rs",
+      "begin": [
+        48,
+        1
+      ],
+      "end": [
+        53,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "E",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "RT",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          1705,
+          1707,
+          1708,
+          1709,
+          1710,
+          1711,
+          1712,
+          1713,
+          1714,
+          1715,
+          1716,
+          1717,
+          1718,
+          1719,
+          1720,
+          1721,
+          1722,
+          1723,
+          1724,
+          1725,
+          1727
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "PeriodicReader": 1699,
+      "MetricReader": 1490,
+      "MetricReader::collect": 1700
+    },
+    "link_paths": {
+      "PeriodicReader": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReader",
+      "MetricReader": "opentelemetry_sdk::metrics::reader::MetricReader",
+      "MetricReader::collect": null
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1701",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.json",
+    "anchor": "op-3d87b1432c36b05a86275636",
+    "aliases": [],
+    "resolved_doc_links": {
+      "PeriodicReader": "../operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReader.md#op-2ff5056bea9eca1b7d916148",
+      "MetricReader": "../operations/opentelemetry_sdk.metrics.reader.MetricReader.md#op-50fae5ec1b547de01d0084a6",
+      "MetricReader::collect": "../operations/opentelemetry_sdk.metrics.reader.MetricReader.md#op-6af6e8e8effb8a7bcc01e0a5"
+    }
+  },
+  {
+    "id": "0aa367fdab9aaae39d89f3f3",
+    "path": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder::build",
+    "name": "build",
+    "owner": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn build(self) -> PeriodicReader<E>",
+    "docs": "Create a [PeriodicReader] with the given config.",
+    "span": {
+      "filename": "src/metrics/periodic_reader_with_async_runtime.rs",
+      "begin": [
+        108,
+        5
+      ],
+      "end": [
+        148,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "PeriodicReader",
+              "id": 1699,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "E"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1699": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReader"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PeriodicReaderBuilder",
+          "id": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "E"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "RT"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "E",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "RT",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "E"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "PushMetricExporter",
+                      "id": "opentelemetry_sdk::metrics::exporter::PushMetricExporter",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "RT"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Runtime",
+                      "id": "opentelemetry_sdk::runtime::Runtime",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/periodic_reader_with_async_runtime.rs",
+        "begin": [
+          55,
+          1
+        ],
+        "end": [
+          149,
+          2
+        ]
+      }
+    },
+    "links": {
+      "PeriodicReader": 1699
+    },
+    "link_paths": {
+      "PeriodicReader": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReader"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1704",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.json",
+    "anchor": "op-0aa367fdab9aaae39d89f3f3",
+    "aliases": [],
+    "resolved_doc_links": {
+      "PeriodicReader": "../operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReader.md#op-2ff5056bea9eca1b7d916148"
+    }
+  },
+  {
+    "id": "5890117822fce41f71af85a7",
+    "path": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/periodic_reader_with_async_runtime.rs",
+      "begin": [
+        47,
+        10
+      ],
+      "end": [
+        47,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "$crate::fmt::Formatter",
+                      "id": 69,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "$crate::fmt::Result",
+              "id": 70,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "69": "core::fmt::Formatter",
+      "70": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PeriodicReaderBuilder",
+          "id": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "E"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "RT"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "E",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "RT",
+            "kind": {
+              "type": {
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "$crate::fmt::Debug",
+                        "id": "core::fmt::Debug",
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/periodic_reader_with_async_runtime.rs",
+        "begin": [
+          47,
+          10
+        ],
+        "end": [
+          47,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1726",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.json",
+    "anchor": "op-5890117822fce41f71af85a7",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7f908a87c2b965829e7e82dd",
+    "path": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder::with_interval",
+    "name": "with_interval",
+    "owner": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_interval(self, interval: Duration) -> Self",
+    "docs": "Configures the intervening time between exports for a [PeriodicReader].\n\nThis option overrides any value set for the `OTEL_METRIC_EXPORT_INTERVAL`\nenvironment variable.\n\nIf this option is not used or `interval` is equal to zero, 60 seconds is\nused as the default.",
+    "span": {
+      "filename": "src/metrics/periodic_reader_with_async_runtime.rs",
+      "begin": [
+        85,
+        5
+      ],
+      "end": [
+        90,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "interval",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PeriodicReaderBuilder",
+          "id": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "E"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "RT"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "E",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "RT",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "E"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "PushMetricExporter",
+                      "id": "opentelemetry_sdk::metrics::exporter::PushMetricExporter",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "RT"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Runtime",
+                      "id": "opentelemetry_sdk::runtime::Runtime",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/periodic_reader_with_async_runtime.rs",
+        "begin": [
+          55,
+          1
+        ],
+        "end": [
+          149,
+          2
+        ]
+      }
+    },
+    "links": {
+      "PeriodicReader": 1699
+    },
+    "link_paths": {
+      "PeriodicReader": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReader"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1702",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.json",
+    "anchor": "op-7f908a87c2b965829e7e82dd",
+    "aliases": [],
+    "resolved_doc_links": {
+      "PeriodicReader": "../operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReader.md#op-2ff5056bea9eca1b7d916148"
+    }
+  },
+  {
+    "id": "0b20f361870e9ee9bd9a20fc",
+    "path": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder::with_timeout",
+    "name": "with_timeout",
+    "owner": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn with_timeout(self, timeout: Duration) -> Self",
+    "docs": "Configures the time a [PeriodicReader] waits for an export to complete\nbefore canceling it.\n\nThis option overrides any value set for the `OTEL_METRIC_EXPORT_TIMEOUT`\nenvironment variable.\n\nIf this option is not used or `timeout` is equal to zero, 30 seconds is used\nas the default.",
+    "span": {
+      "filename": "src/metrics/periodic_reader_with_async_runtime.rs",
+      "begin": [
+        100,
+        5
+      ],
+      "end": [
+        105,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "timeout",
+              {
+                "resolved_path": {
+                  "path": "Duration",
+                  "id": 79,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "79": "core::time::Duration"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "PeriodicReaderBuilder",
+          "id": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReaderBuilder",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "E"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "RT"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "E",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "RT",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "E"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "PushMetricExporter",
+                      "id": "opentelemetry_sdk::metrics::exporter::PushMetricExporter",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "RT"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Runtime",
+                      "id": "opentelemetry_sdk::runtime::Runtime",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/metrics/periodic_reader_with_async_runtime.rs",
+        "begin": [
+          55,
+          1
+        ],
+        "end": [
+          149,
+          2
+        ]
+      }
+    },
+    "links": {
+      "PeriodicReader": 1699
+    },
+    "link_paths": {
+      "PeriodicReader": "opentelemetry_sdk::metrics::periodic_reader_with_async_runtime::PeriodicReader"
+    },
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "1703",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReaderBuilder.json",
+    "anchor": "op-0b20f361870e9ee9bd9a20fc",
+    "aliases": [],
+    "resolved_doc_links": {
+      "PeriodicReader": "../operations/opentelemetry_sdk.metrics.periodic_reader_with_async_runtime.PeriodicReader.md#op-2ff5056bea9eca1b7d916148"
+    }
+  }
+]

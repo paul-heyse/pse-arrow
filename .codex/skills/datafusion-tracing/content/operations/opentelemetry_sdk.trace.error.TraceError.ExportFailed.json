@@ -1,0 +1,84 @@
+[
+  {
+    "id": "79217fa58ae9ddc3aa02ef95",
+    "path": "opentelemetry_sdk::trace::error::TraceError::ExportFailed::0",
+    "name": "0",
+    "owner": "opentelemetry_sdk::trace::error::TraceError::ExportFailed",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "0: Box<dyn ExportError>",
+    "docs": "",
+    "span": {
+      "filename": "src/trace/error.rs",
+      "begin": [
+        15,
+        18
+      ],
+      "end": [
+        15,
+        38
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Box",
+          "id": 1423,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "dyn_trait": {
+                      "traits": [
+                        {
+                          "trait": {
+                            "path": "ExportError",
+                            "id": 2345,
+                            "args": null
+                          },
+                          "generic_params": []
+                        }
+                      ],
+                      "lifetime": null
+                    }
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "1423": "alloc::boxed::Box",
+      "2345": "opentelemetry_sdk::error::ExportError"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "2344",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.trace.error.TraceError.ExportFailed.md",
+    "record_file": "operations/opentelemetry_sdk.trace.error.TraceError.ExportFailed.json",
+    "anchor": "op-79217fa58ae9ddc3aa02ef95",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "package": "arrow-schema",
+  "version": "59.3.0",
+  "archive_sha256": "10fab8d4563491417ba801fab29d205104d20d4bdf37bda6cd1cf425cff598cd",
+  "origin": "https://crates.io/api/v1/crates/arrow-schema/59.3.0/download",
+  "files": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "6323adf338e6c74a2924dc41ca6c85e372f86c8e9487e15865bd997d6375f773",
+      "size": 2015
+    },
+    {
+      "path": "LICENSE.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358
+    },
+    {
+      "path": "NOTICE.txt",
+      "sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+      "size": 470
+    },
+    {
+      "path": "src/field.rs",
+      "sha256": "7aea498fb386d32b1aac87d2b08a9aff591c2f7e259d4c12ed5c8667828afae1",
+      "size": 55569
+    }
+  ],
+  "scope": "Selected source, not the entire archive. Missing cfg evidence remains unknown."
+}

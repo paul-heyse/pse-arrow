@@ -1,0 +1,83 @@
+[
+  {
+    "id": "ad4cec090ca0a26cbe94a168",
+    "path": "tracing::dispatcher",
+    "name": "dispatcher",
+    "owner": null,
+    "crate": "tracing",
+    "version": "0.1.44",
+    "kind": "module",
+    "signature": "mod dispatcher",
+    "docs": "Dispatches trace events to [`Subscriber`]s.\n\nThe _dispatcher_ is the component of the tracing system which is responsible\nfor forwarding trace data from the instrumentation points that generate it\nto the subscriber that collects it.\n\n# Using the Trace Dispatcher\n\nEvery thread in a program using `tracing` has a _default subscriber_. When\nevents occur, or spans are created, they are dispatched to the thread's\ncurrent subscriber.\n\n## Setting the Default Subscriber\n\nBy default, the current subscriber is an empty implementation that does\nnothing. To use a subscriber implementation, it must be set as the default.\nThere are two methods for doing so: [`with_default`] and\n[`set_global_default`]. `with_default` sets the default subscriber for the\nduration of a scope, while `set_global_default` sets a default subscriber\nfor the entire process.\n\nTo use either of these functions, we must first wrap our subscriber in a\n[`Dispatch`], a cloneable, type-erased reference to a subscriber. For\nexample:\n```rust\n# pub struct FooSubscriber;\n# use tracing_core::{\n#   dispatcher, Event, Metadata,\n#   span::{Attributes, Id, Record}\n# };\n# impl tracing_core::Subscriber for FooSubscriber {\n#   fn new_span(&self, _: &Attributes) -> Id { Id::from_u64(0) }\n#   fn record(&self, _: &Id, _: &Record) {}\n#   fn event(&self, _: &Event) {}\n#   fn record_follows_from(&self, _: &Id, _: &Id) {}\n#   fn enabled(&self, _: &Metadata) -> bool { false }\n#   fn enter(&self, _: &Id) {}\n#   fn exit(&self, _: &Id) {}\n# }\n# impl FooSubscriber { fn new() -> Self { FooSubscriber } }\nuse dispatcher::Dispatch;\n\nlet my_subscriber = FooSubscriber::new();\nlet my_dispatch = Dispatch::new(my_subscriber);\n```\nThen, we can use [`with_default`] to set our `Dispatch` as the default for\nthe duration of a block:\n```rust\n# pub struct FooSubscriber;\n# use tracing_core::{\n#   dispatcher, Event, Metadata,\n#   span::{Attributes, Id, Record}\n# };\n# impl tracing_core::Subscriber for FooSubscriber {\n#   fn new_span(&self, _: &Attributes) -> Id { Id::from_u64(0) }\n#   fn record(&self, _: &Id, _: &Record) {}\n#   fn event(&self, _: &Event) {}\n#   fn record_follows_from(&self, _: &Id, _: &Id) {}\n#   fn enabled(&self, _: &Metadata) -> bool { false }\n#   fn enter(&self, _: &Id) {}\n#   fn exit(&self, _: &Id) {}\n# }\n# impl FooSubscriber { fn new() -> Self { FooSubscriber } }\n# let my_subscriber = FooSubscriber::new();\n# let my_dispatch = dispatcher::Dispatch::new(my_subscriber);\n// no default subscriber\n\n# #[cfg(feature = \"std\")]\ndispatcher::with_default(&my_dispatch, || {\n    // my_subscriber is the default\n});\n\n// no default subscriber again\n```\nIt's important to note that `with_default` will not propagate the current\nthread's default subscriber to any threads spawned within the `with_default`\nblock. To propagate the default subscriber to new threads, either use\n`with_default` from the new thread, or use `set_global_default`.\n\nAs an alternative to `with_default`, we can use [`set_global_default`] to\nset a `Dispatch` as the default for all threads, for the lifetime of the\nprogram. For example:\n```rust\n# pub struct FooSubscriber;\n# use tracing_core::{\n#   dispatcher, Event, Metadata,\n#   span::{Attributes, Id, Record}\n# };\n# impl tracing_core::Subscriber for FooSubscriber {\n#   fn new_span(&self, _: &Attributes) -> Id { Id::from_u64(0) }\n#   fn record(&self, _: &Id, _: &Record) {}\n#   fn event(&self, _: &Event) {}\n#   fn record_follows_from(&self, _: &Id, _: &Id) {}\n#   fn enabled(&self, _: &Metadata) -> bool { false }\n#   fn enter(&self, _: &Id) {}\n#   fn exit(&self, _: &Id) {}\n# }\n# impl FooSubscriber { fn new() -> Self { FooSubscriber } }\n# let my_subscriber = FooSubscriber::new();\n# let my_dispatch = dispatcher::Dispatch::new(my_subscriber);\n// no default subscriber\n\ndispatcher::set_global_default(my_dispatch)\n    // `set_global_default` will return an error if the global default\n    // subscriber has already been set.\n    .expect(\"global default was already set!\");\n\n// `my_subscriber` is now the default\n```\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: The thread-local scoped dispatcher (<code>with_default</code>)\nrequires the Rust standard library. <code>no_std</code> users should\nuse <a href=\"fn.set_global_default.html\"><code>set_global_default</code></a>\ninstead.\n</pre>\n\n## Accessing the Default Subscriber\n\nA thread's current default subscriber can be accessed using the\n[`get_default`] function, which executes a closure with a reference to the\ncurrently default `Dispatch`. This is used primarily by `tracing`\ninstrumentation.\n\n[`Subscriber`]: crate::Subscriber",
+    "span": {
+      "filename": "src/dispatcher.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        145,
+        48
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": false,
+        "items": [
+          1,
+          3,
+          5,
+          7,
+          9,
+          11,
+          13,
+          15
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`Dispatch`": 12,
+      "`with_default`": 4,
+      "`get_default`": 8,
+      "crate::Subscriber": 17,
+      "`set_global_default`": 10
+    },
+    "link_paths": {
+      "`Dispatch`": "tracing_core::dispatcher::Dispatch",
+      "`with_default`": "tracing_core::dispatcher::with_default",
+      "`get_default`": "tracing_core::dispatcher::get_default",
+      "crate::Subscriber": "tracing_core::subscriber::Subscriber",
+      "`set_global_default`": "tracing_core::dispatcher::set_global_default"
+    },
+    "artifact": {
+      "id": "32901cbc851c5373ced0fbc37ee07bd6de6183aba9bec4ce945ffe7b43122fe0",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "18",
+      "origin": "https://docs.rs/crate/tracing/0.1.44/json",
+      "compressed_sha256": "5358504e7e55c95357b5087823162cfac551006dff382ac613a593d02701cf63",
+      "local_file": "build/acquired/rustdoc/tracing@0.1.44.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing.dispatcher.md",
+    "record_file": "modules/tracing.dispatcher.json",
+    "anchor": "op-ad4cec090ca0a26cbe94a168",
+    "aliases": [],
+    "resolved_doc_links": {
+      "`Dispatch`": "../operations/tracing_core.dispatcher.Dispatch.md#op-bdcb8c4598cc406ba313069c",
+      "`with_default`": "../operations/tracing_core.dispatcher.with_default.md#op-3bd4d37aa9725572a1a5bae1",
+      "`get_default`": "../operations/tracing_core.dispatcher.get_default.md#op-282b7f5317299729004dc23f",
+      "crate::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "`set_global_default`": "../operations/tracing_core.dispatcher.set_global_default.md#op-d78540acfa7df1f4405da536"
+    }
+  }
+]

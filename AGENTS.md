@@ -6,12 +6,13 @@ file directly).
 
 ## What this repository is
 
-`pse-arrow` is an Arrow-native process systems engineering core in Rust. Arrow is the
-default for typed data and columnar operations; DataFusion is the default for data
-transformation, planning and execution across the system. Other libraries are
-acceptable when they offer a distinctive advantage (blueprint D10). Typed relations are the
-model authority, with a relational math IR, native NLP solving and a generated
-Pyomo backend.
+`pse-arrow` is a process systems engineering core in Rust. Typed process definitions
+in authored relations remain the model authority. Library-owned mathematics,
+thermodynamics and native solvers replace custom MathIR/evaluation and production
+Pyomo integration. Arrow/DataFusion/Delta retain useful data-boundary, relational and
+storage roles. Plan 14 M00–M21 implements typed compilation, FeOS properties, native
+solvers, public workflows, dynamics/fitting and executable acceptance tooling.
+M21 closes implementation/deletion contracts; M22 full scientific/runtime qualification remains open.
 
 It is a **clean-room re-implementation** of core IDAES-PSE capabilities, parity-tested
 against `idaes-pse==2.12.0`. **Not affiliated with IDAES.** Read `external/idaes-pse`
@@ -24,22 +25,66 @@ Crates are `pse-*` under `crates/`. The Python package is imported as `pse` and 
 
 ## Current implementation direction
 
-[Plan 09](docs/plans/09-native-caching-and-pivot-completion.md) records the completed
-native caching and schema-first hard pivot, including all carried Plan 08 obligations.
-Its acceptance review and source-specific receipts define the qualified scope.
-Build the target directly and delete superseded
-code/callers; retain no legacy APIs, stores, fallback engines or historical-data
-migration. Finish all implementation and deletions before integration and performance
-qualification; use compilation, generation and isolated units during implementation.
-Preserve existing process-model outcomes, exact ownership and native publication.
-Earlier plans retain scoped evidence. Full library eligibility remains in force.
+[Plan 14](docs/plans/14-library-owned-process-simulator.md) is the current implementation
+direction. M00–M21 and their approved hard-cut deletions are implemented; see the
+[foundation contract](docs/plans/14-math-foundation-contract.md) and
+[execution inventory](docs/plans/14-execution-inventory.md). Start next with M22's
+full qualification; see the [M21 packet](docs/plans/14-m21-execution.md).
+Targeted units pass and the implementation barrier authenticates current source/native
+evidence. Complete process acceptance bodies are compiled and discovered, not qualified. ADR-0082–0084 remain proposed; full qualification is M22.
+It supersedes Plan 13's execution scope: no unfinished package, acceptance ID,
+campaign or old source seal is inherited automatically. Retain a graph, Salsa,
+publication or resource mechanism only when evidence establishes its role in the new
+target. Plan 13's W19/W20 and older incomplete receipts remain historical outcomes.
+Build the target directly and remove replaced code/callers/tests without compatibility
+APIs or a second production compiler. Follow the execution rhythm below; full
+qualification occurs once at M22. Correctness tests retain explicit force-validation.
+Full library eligibility remains in force.
 
-## Start here, every session
+## Execution rhythm: pivot first, qualify at the end of the plan
+
+The work is moving the codebase onto the target design and deleting what it replaces.
+Spend attention there. A plan is qualified completely, but **once, at its end** — not
+after every change. Plans here are large; per-change polish costs more than it catches.
+
+**While implementing a plan:**
+
+- Compile what you touched: `just check-package <pkg>`, or `just check` for cross-crate work.
+- Run, or write, the targeted unit tests that show the new behaviour:
+  `just unit-package <pkg> <filter>`. A new mechanism gets its tests in the same change.
+- Run `just codegen` when a generator or registry declaration changes — regeneration is
+  part of the change, not polish. Run `just family-check` only when a pinned-family
+  dependency moves.
+- **Delete legacy code as soon as it is provably replaced** — the replacement's targeted
+  tests pass and every caller has moved. Remove the old mechanism, its callers, its tests
+  and its fixtures in the same change. Do not port tests for a deleted mechanism, keep a
+  shim, or retain a path "as evidence".
+
+**At the end of the plan, once:** integration, component, solver and Python journeys;
+performance campaigns; formatting and lint (`fmt-rust-check`, `clippy-*`, `lint-typos`,
+`lint-license`, `quality`); `governance`; `codegen-check`; `adr-lint`/`adr-index`;
+`lint-agents`; `docs`; architecture manifest/seal/preflight; evidence-labelled
+write-ups and the plan Outcome. Fix what they find in one pass, then rerun the affected
+gates until the whole set is green against the zero baseline.
+
+**Don't, mid-plan:**
+
+- Run `just doctor` — the SessionStart hook already reports it. Run it only when that
+  report shows a failure or a command fails in an environment-shaped way.
+- Run format checks. The post-edit hook formats every Rust, Python and TOML file you edit.
+- Rerun static checks after documentation-only edits.
+- Write per-command receipts, numbered rerun logs or "documentation checkpoint"
+  validations into plan documents. A checkpoint records state, decisions and next steps.
+
+**Reporting mid-plan:** what changed, what was deleted, which tests exercised it, and
+what is next. Evidence labels and baseline-framed failure counts belong in the plan
+Outcome, PR descriptions and ADRs (prime directives 4 and 7).
+
+## Start here
 
 ```bash
-just doctor        # is this working copy able to do work?
-just bootstrap     # if it complains -- idempotent, safe to re-run
 just --list        # the command surface
+just bootstrap     # only if the session's doctor report shows a failure -- idempotent
 ```
 
 `just --list` is the contract. Prefer a recipe over an ad hoc command: recipes own the
@@ -50,7 +95,8 @@ re-learning them. If no recipe fits, say so rather than improvising a long comma
 or downloads — `just bootstrap` does that, visibly.
 
 For Python/native development, run `just py-sync` to refresh the editable extension
-using the dev profile, then `just py-test` and `just quality`. Use
+using the dev profile, then targeted `just py-test`; `just quality` is an end-of-plan
+check. Use
 `just parity-container` when solver-backed parity is needed. Full wheel/sdist builds
 are manual (`just wheels-check <ref>`) or part of a release; ordinary PRs do not wait
 for distribution builds. CI uses editable development builds for Python and parity.
@@ -62,6 +108,8 @@ parity or distribution builds. GitHub runs the required suites before merging.
 
 1. **The baseline is zero.** No quality baselines exist and none will be introduced. A
    lint finding, a failing test, a warning: the target is none, not "no worse than before".
+   Zero is the required state when a plan closes and before merge — not after every edit
+   (see *Execution rhythm*).
 2. **Never edit a generated directory. Fix the generator, then `just codegen`.** The
    generated paths are `docs/generated/`, `crates/*/src/generated/`,
    `crates/pse-ipopt-sys/src/bindings.rs`, and `python/pse/contracts/`. `just codegen-check`
@@ -70,10 +118,12 @@ parity or distribution builds. GitHub runs the required suites before merging.
    (`[workspace.dependencies]`) and once in `pyproject.toml`. A schema is declared in the
    registry, never inferred. If you find yourself writing a fact down twice, one of the
    two is wrong and nothing will tell you which.
-4. **Label every claim with the evidence vocabulary** (charter §D): *Proposed*,
+4. **Label every claim with the evidence vocabulary** (design principles §D): *Proposed*,
    *Interface-checked*, *Implemented*, *Tested*, *Measured*, *Formally established*. The
-   labels are mandatory in PR descriptions, ADR `evidence:` fields and plan Verification
-   sections. `Tested` and `Measured` must name the test or benchmark and its conditions.
+   labels are mandatory in PR descriptions, ADR `evidence:` fields and a plan's
+   Verification and Outcome sections when it closes; interim notes and progress reports
+   do not need them. `Tested` and `Measured` must name the test or benchmark and its
+   conditions.
 5. **An ADR comes before the change**, not after, when the change alters a D1–D14
    decision, adds or removes a crate, or majors one of the four pinned families. See
    "When an ADR is required" below. **Adding a third-party dependency needs none of it** —
@@ -82,13 +132,14 @@ parity or distribution builds. GitHub runs the required suites before merging.
 6. **Use the tool from `.venv` and the pinned toolchain, never `$PATH`.** A stale global
    `ruff` or a nightly `cargo` silently produces a different result than CI.
 7. **Report a failure count with its baseline and the command.** Never report that tests
-   pass without naming the command, the mode, and the baseline.
+   pass without naming the command, the mode, and the baseline. Mid-plan, one line per
+   targeted check you ran is enough; the full accounting belongs to plan close.
 
 ## Repository map
 
 | Path | What it is | How to treat it |
 |---|---|---|
-| `crates/` | The 23 `pse-*` crates plus `pse-ipopt-sys`, `pse-buildinfo` | Ours; see `.claude/rules/rust.md` |
+| `crates/` | Workspace `pse-*` crates declared in `Cargo.toml` | Ours; see `.claude/rules/rust.md` |
 | `xtask/` | Everything that needs Rust APIs, JSON or cross-platform behaviour | Logic lives here, the justfile is the surface |
 | `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle`, `structural` | `tests/fixtures/` contains source inputs, not a crate |
 | `benches/` | Criterion benchmarks (`pse-benches`) | No timing gate in CI; `just bench-smoke` only runs them |
@@ -97,7 +148,7 @@ parity or distribution builds. GitHub runs the required suites before merging.
 | `docs/adr/` | Decision records, immutable once accepted | `just adr-new`; index via `just adr-index` |
 | `docs/plans/` | Implementation plans, living until done | `just plan <slug>` |
 | `docs/capability-maps/` | Pinned third-party API maps + their evidence | `just lib-outline <file>` first; they are large |
-| `docs/design_review/` | The design charter and the reviews written against it | The `design-review` skill's output contract |
+| `docs/design_review/` | The layered design standard (`design_principles/standard.toml`: core principles, process-simulator profile, pse-arrow binding) and the reviews written against it | The `design-review` and `design-review-process-simulator` skills' output contract |
 | `docs/generated/` | `pse-schema` output | Never edit |
 | `external/` | Pinned read-only checkouts (`just fetch-external`) | **Not source.** Gitignored, never edited, never copied from |
 | `build/`, `target/` | Build output | **Not source.** Regenerable |
@@ -121,6 +172,9 @@ Do not restate these; cite them.
   required.
 - **`docs/capability-maps/`** — what the pinned libraries actually expose, with evidence.
   `just lib-outline docs/capability-maps/arrow-rust.md` before reading one.
+- **`docs/design_review/design_principles/standard.toml`** — the layered design standard
+  used by design reviews: repo-agnostic core principles (`DP-nn`, gates `G1`–`G8`), the
+  process-simulator profile (`PS-nn`, `PS-G1`–`PS-G3`) and the pse-arrow binding.
 - **`docs/dev/dependency-policy.md`** — what you may depend on and under what licence.
   Short answer: anything. Read it before assuming a library is off-limits.
 
@@ -135,10 +189,10 @@ Do not restate these; cite them.
   the Ipopt callbacks `catch_unwind`; `abort` would take the interpreter down.
 - **Never `target-cpu=native`.** It lets LLVM contract `a*b + c` into an FMA and changes
   floating-point results between your machine and CI.
-- **Every `pub enum *Error` derives `thiserror::Error` and `miette::Diagnostic`** with a
+- **Every `pub enum *Error` derives `thiserror::Error` and implements `miette::Diagnostic`** with a
   blueprint §23.2 code. No `anyhow` in `crates/*`.
 - **`typing.Any` is banned in Python**, as is `from __future__ import annotations` under
-  `python/pse` (PEP 563 breaks the import-time `Any` check in `pse.governance`).
+  `python/pse` (PEP 563 obscures types from the explicit and dynamic-hook checks in `pse.governance`).
 - **No library or licence is refused** through phases 0–1. Admission is advisory; pinning,
   the one type universe and the import boundaries are not (§3.3.2, ADR-0066).
 - **Exactly one of `unit`/`component`/`integration`/`performance`** per Python test;
@@ -177,19 +231,23 @@ Each of these is a real incident, not a hypothetical.
 
 ## Verifying work — what each command actually proves
 
-| Command | Proves | Does not prove |
-|---|---|---|
-| `just ci-fast` | the workspace formats, compiles, lints clean and its tests and doctests pass | nothing about Python, features, policy or docs |
-| `just test` | Rust tests pass with Arrow `force_validate` on | nothing about doctests, other profiles, or release-only paths |
-| `just codegen-check` | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051) | nothing about runtime behavior of the generated interfaces |
-| `just family-check` | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
-| `just governance` | the workspace-level invariants hold (pins, crates registered, MSRV, unsafe allowlist, error taxonomy) | nothing about runtime behaviour |
-| `just quality` | Python format/lint/types/import boundaries and repo config are clean | that the code works |
-| `just deps-report` | what is in the dependency graph and under what licences; **advisory, always exits 0** | nothing — it refuses nothing and blocks nothing |
-| `just policy` | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
-| `just parity` | the exercised parity checks pass against `idaes-pse==2.12.0` | nothing about cases not exercised, or other IDAES versions |
-| `just docs` | the book builds and its internal links resolve | nothing about whether the prose is true |
-| `just adr-lint` | ADR front matter, numbering, supersession and register rows are well-formed | nothing about whether the decisions are good |
+During implementation the inner loop is `just check-package`/`just check`, targeted
+`just unit-package` and `just codegen` (see *Execution rhythm*). The table is the
+end-of-plan qualification surface.
+
+| Command | Run | Proves | Does not prove |
+|---|---|---|---|
+| `just ci-fast` | plan close | the workspace formats, compiles, lints clean and its tests and doctests pass | nothing about Python, features, policy or docs |
+| `just test` | plan close | Rust tests pass with Arrow `force_validate` on | nothing about doctests, other profiles, or release-only paths |
+| `just codegen-check` | plan close | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051) | nothing about runtime behavior of the generated interfaces |
+| `just family-check` | when a pinned-family dependency moves | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
+| `just governance` | plan close | the workspace-level invariants hold (pins, crates registered, MSRV, unsafe allowlist, error taxonomy) | nothing about runtime behaviour |
+| `just quality` | plan close | Python format/lint/types/import boundaries and repo config are clean | that the code works |
+| `just deps-report` | on demand | what is in the dependency graph and under what licences; **advisory, always exits 0** | nothing — it refuses nothing and blocks nothing |
+| `just policy` | on demand | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
+| `just parity` | plan close, when parity is in scope | the exercised parity checks pass against `idaes-pse==2.12.0` | nothing about cases not exercised, or other IDAES versions |
+| `just docs` | plan close | the book builds and its internal links resolve | nothing about whether the prose is true |
+| `just adr-lint` | ADR PR / plan close | ADR front matter, numbering, supersession and register rows are well-formed | nothing about whether the decisions are good |
 
 **Never report that tests pass without naming the command, the mode, and the baseline.**
 "34 failed" is not information until the baseline is known — and here the baseline is zero.
@@ -209,10 +267,10 @@ An ADR enters or changes status only in a PR labeled `adr` and titled `adr: ADR-
 revision row. `.codex/skills/adr/SKILL.md` explains the §H front-matter fields and when a
 record is required.
 
-**Doc conventions.** New files are lowercase kebab-case (exceptions: the three
-UPPER_SNAKE principle files, the root governance files, and the design-review skill's
+**Doc conventions.** New files are lowercase kebab-case (exceptions: the superseded
+UPPER_SNAKE and snake_case principle files, the root governance files, and the design-review skill's
 `design_review_{slug}_{date}.md`). YAML front matter on ADRs, plans, capability maps and
-the authoritative design. Citations are `blueprint §14.3`, `ADR-0020`, `DM-33`, `G4` —
+the authoritative design. Citations are `blueprint §14.3`, `ADR-0020`, `DP-09`, `PS-10`, `G4` —
 never line numbers. Generated docs carry `<!-- @generated by pse-schema; do not edit -->`.
 Plans go in `docs/plans/`, never in a home directory.
 
@@ -224,10 +282,16 @@ Plans go in `docs/plans/`, never in a home directory.
   are immutable; supersede them (`just adr-supersede`) instead.
 - The generated paths in prime directive 2, `external/`, `build/`, `target/`.
 
-A `PreToolUse` hook blocks writes to all of these. Its scope is the working copy plus the
-agent runtime's own directories: it allows `~/.claude` (or `CLAUDE_CONFIG_DIR`), `~/.codex`,
-the session temp directory and anything named in `PSE_AGENT_WRITABLE`, and refuses every
-other path outside the working copy so a stray edit cannot land in another checkout. That
+A `PreToolUse` hook blocks writes to all of these, and `.claude/settings.json` denies the
+generated paths, `build/`, `target/`, `external/` and `.git/` again with `Edit(/…)` rules. The
+rules are anchored at the repository root with a leading `/`: `./path` resolves against the
+session's current directory, and as a single-segment deny it matches the same name at any depth,
+which refused every skill's own `build/`. Claude Code consults only `Edit` and `Read` path rules
+(`Edit` covers writes), so `Write(...)` path rules do nothing; `just lint-agents` rejects both
+mistakes. The hook's scope is the working copy plus the agent runtime's own directories: it
+allows `~/.claude` (or `CLAUDE_CONFIG_DIR`), `~/.codex`, the session temp directory and
+anything named in `PSE_AGENT_WRITABLE`, and refuses every other path outside the working copy
+so a stray edit cannot land in another checkout. That
 allowance is for runtime state — memory, scratch files, the runtime's own configuration.
 Project state still belongs here: plans go in `docs/plans/`, never in a private home
 directory. When a change to the blueprint or an accepted ADR is genuinely the work, set
@@ -240,7 +304,10 @@ can stay strict; using it silently defeats it.
   describes Claude-specific behavior. Codex reads this file directly.
 - Skills are canonical in `.codex/skills/`; `.claude/skills` and `.agents/skills`
   expose the same content. `just agent-config-sync` materializes them on Windows
-  when symlinks are unavailable.
+  when symlinks are unavailable. Only the repository-process skills (`adr`,
+  `design-review`) are tracked; library capability skills are local-only and gitignored
+  until they move to a repository of their own. Skills committed before that rule stay
+  tracked.
 - Role instructions are canonical in `.claude/agents/`. Native Codex TOML roles
   in `.codex/agents/` are generated by `just agent-config-sync`; never edit them
   directly. Codex roles inherit the user's model; read-only roles remain read-only.
@@ -259,7 +326,8 @@ can stay strict; using it silently defeats it.
   their `just` confirmation, which is not a prompt: with no terminal it fails rather than
   asking, so run one deliberately with `just --yes <recipe>`. Permission to act is not an
   instruction to act -- commit, push and publish when the work calls for it.
-- `just lint-agents` checks references, aliases, native role drift and hook wiring.
+- `just lint-agents` checks references, aliases, native role drift, hook wiring and that
+  every file-path deny rule is an anchored `Edit`/`Read` rule.
   `just setup-test` exercises the guard behavior in disposable fixtures.
 
 Before editing a matching scope, read the applicable shared rule file. Claude also

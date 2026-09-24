@@ -1,0 +1,2711 @@
+[
+  {
+    "id": "4c1ba1a6be909c9a1b91bff8",
+    "path": "tracing_subscriber::layer::Layer",
+    "name": "Layer",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait Layer<S> where S: Subscriber, Self: 'static",
+    "docs": "A composable handler for `tracing` events.\n\nA `Layer` implements a behavior for recording or collecting traces that can\nbe composed together with other `Layer`s to build a [`Subscriber`]. See the\n[module-level documentation](crate::layer) for details.\n\n[`Subscriber`]: tracing_core::Subscriber",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        728,
+        1
+      ],
+      "end": [
+        1252,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(notable_trait)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          1347,
+          1350,
+          1354,
+          527,
+          531,
+          544,
+          1355,
+          1356,
+          1353,
+          535,
+          538,
+          541,
+          1357,
+          1358,
+          1348,
+          746,
+          1359
+        ],
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Subscriber",
+                        "id": 317,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "bounds": [],
+        "implementations": [
+          316,
+          359,
+          579,
+          789,
+          1362,
+          890,
+          1339,
+          1375,
+          1389,
+          1403,
+          1415,
+          1417,
+          1432,
+          1440
+        ]
+      }
+    },
+    "type_references": {
+      "317": "tracing_core::subscriber::Subscriber"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::layer": 279,
+      "tracing_core::Subscriber": 317
+    },
+    "link_paths": {
+      "crate::layer": "tracing_subscriber::layer",
+      "tracing_core::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "281",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-4c1ba1a6be909c9a1b91bff8",
+    "aliases": [
+      "tracing_subscriber::Layer",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer"
+    ],
+    "resolved_doc_links": {
+      "crate::layer": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "tracing_core::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  },
+  {
+    "id": "0cb46f508bf4be2b307fc2e2",
+    "path": "tracing_subscriber::layer::Layer::and_then",
+    "name": "and_then",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn and_then<L>(self, layer: L) -> Layered<L, Self, S> where L: Layer<S>, Self: Sized",
+    "docs": "Composes this layer around the given `Layer`, returning a `Layered`\nstruct implementing `Layer`.\n\nThe returned `Layer` will call the methods on this `Layer` and then\nthose of the new `Layer`, before calling the methods on the subscriber\nit wraps. For example:\n\n```rust\n# use tracing_subscriber::layer::Layer;\n# use tracing_core::Subscriber;\npub struct FooLayer {\n    // ...\n}\n\npub struct BarLayer {\n    // ...\n}\n\npub struct MySubscriber {\n    // ...\n}\n\nimpl<S: Subscriber> Layer<S> for FooLayer {\n    // ...\n}\n\nimpl<S: Subscriber> Layer<S> for BarLayer {\n    // ...\n}\n\n# impl FooLayer {\n# fn new() -> Self { Self {} }\n# }\n# impl BarLayer {\n# fn new() -> Self { Self { }}\n# }\n# impl MySubscriber {\n# fn new() -> Self { Self { }}\n# }\n# use tracing_core::{span::{Id, Attributes, Record}, Metadata, Event};\n# impl tracing_core::Subscriber for MySubscriber {\n#   fn new_span(&self, _: &Attributes) -> Id { Id::from_u64(1) }\n#   fn record(&self, _: &Id, _: &Record) {}\n#   fn event(&self, _: &Event) {}\n#   fn record_follows_from(&self, _: &Id, _: &Id) {}\n#   fn enabled(&self, _: &Metadata) -> bool { false }\n#   fn enter(&self, _: &Id) {}\n#   fn exit(&self, _: &Id) {}\n# }\nlet subscriber = FooLayer::new()\n    .and_then(BarLayer::new())\n    .with_subscriber(MySubscriber::new());\n```\n\nMultiple layers may be composed in this manner:\n\n```rust\n# use tracing_subscriber::layer::Layer;\n# use tracing_core::Subscriber;\n# pub struct FooLayer {}\n# pub struct BarLayer {}\n# pub struct MySubscriber {}\n# impl<S: Subscriber> Layer<S> for FooLayer {}\n# impl<S: Subscriber> Layer<S> for BarLayer {}\n# impl FooLayer {\n# fn new() -> Self { Self {} }\n# }\n# impl BarLayer {\n# fn new() -> Self { Self { }}\n# }\n# impl MySubscriber {\n# fn new() -> Self { Self { }}\n# }\n# use tracing_core::{span::{Id, Attributes, Record}, Metadata, Event};\n# impl tracing_core::Subscriber for MySubscriber {\n#   fn new_span(&self, _: &Attributes) -> Id { Id::from_u64(1) }\n#   fn record(&self, _: &Id, _: &Record) {}\n#   fn event(&self, _: &Event) {}\n#   fn record_follows_from(&self, _: &Id, _: &Id) {}\n#   fn enabled(&self, _: &Metadata) -> bool { false }\n#   fn enter(&self, _: &Id) {}\n#   fn exit(&self, _: &Id) {}\n# }\npub struct BazLayer {\n    // ...\n}\n\nimpl<S: Subscriber> Layer<S> for BazLayer {\n    // ...\n}\n# impl BazLayer { fn new() -> Self { BazLayer {} } }\n\nlet subscriber = FooLayer::new()\n    .and_then(BarLayer::new())\n    .and_then(BazLayer::new())\n    .with_subscriber(MySubscriber::new());\n```",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        1040,
+        5
+      ],
+      "end": [
+        1047,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "layer",
+              {
+                "generic": "L"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Layered",
+              "id": 1145,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "L"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "L",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "L"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Layer",
+                        "id": 281,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "generic": "S"
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1145": "tracing_subscriber::layer::layered::Layered",
+      "281": "tracing_subscriber::layer::Layer",
+      "26": "core::marker::Sized"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1358",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-0cb46f508bf4be2b307fc2e2",
+    "aliases": [
+      "tracing_subscriber::Layer::and_then",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::and_then"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "795099c45322e075d31d1b80",
+    "path": "tracing_subscriber::layer::Layer::boxed",
+    "name": "boxed",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn boxed(self) -> Box<dyn Layer<S> + Send + Sync + 'static> where Self: Sized + Layer<S> + Send + Sync + 'static, S: Subscriber",
+    "docs": "Erases the type of this [`Layer`], returning a [`Box`]ed `dyn\nLayer` trait object.\n\nThis can be used when a function returns a `Layer` which may be of\none of several types, or when a `Layer` subscriber has a very long type\nsignature.\n\n# Examples\n\nThe following example will *not* compile, because the value assigned to\n`log_layer` may have one of several different types:\n\n```compile_fail\n# fn main() -> Result<(), Box<dyn std::error::Error>> {\nuse tracing_subscriber::{Layer, filter::LevelFilter, prelude::*};\nuse std::{path::PathBuf, fs::File, io};\n\n/// Configures whether logs are emitted to a file, to stdout, or to stderr.\npub enum LogConfig {\n    File(PathBuf),\n    Stdout,\n    Stderr,\n}\n\nlet config = // ...\n    # LogConfig::Stdout;\n\n// Depending on the config, construct a layer of one of several types.\nlet log_layer = match config {\n    // If logging to a file, use a maximally-verbose configuration.\n    LogConfig::File(path) => {\n        let file = File::create(path)?;\n        tracing_subscriber::fmt::layer()\n            .with_thread_ids(true)\n            .with_thread_names(true)\n            // Selecting the JSON logging format changes the layer's\n            // type.\n            .json()\n            .with_span_list(true)\n            // Setting the writer to use our log file changes the\n            // layer's type again.\n            .with_writer(file)\n    },\n\n    // If logging to stdout, use a pretty, human-readable configuration.\n    LogConfig::Stdout => tracing_subscriber::fmt::layer()\n        // Selecting the \"pretty\" logging format changes the\n        // layer's type!\n        .pretty()\n        .with_writer(io::stdout)\n        // Add a filter based on the RUST_LOG environment variable;\n        // this changes the type too!\n        .and_then(tracing_subscriber::EnvFilter::from_default_env()),\n\n    // If logging to stdout, only log errors and warnings.\n    LogConfig::Stderr => tracing_subscriber::fmt::layer()\n        // Changing the writer changes the layer's type\n        .with_writer(io::stderr)\n        // Only log the `WARN` and `ERROR` levels. Adding a filter\n        // changes the layer's type to `Filtered<LevelFilter, ...>`.\n        .with_filter(LevelFilter::WARN),\n};\n\ntracing_subscriber::registry()\n    .with(log_layer)\n    .init();\n# Ok(()) }\n```\n\nHowever, adding a call to `.boxed()` after each match arm erases the\nlayer's type, so this code *does* compile:\n\n```\n# fn main() -> Result<(), Box<dyn std::error::Error>> {\n# use tracing_subscriber::{Layer, filter::LevelFilter, prelude::*};\n# use std::{path::PathBuf, fs::File, io};\n# pub enum LogConfig {\n#    File(PathBuf),\n#    Stdout,\n#    Stderr,\n# }\n# let config = LogConfig::Stdout;\nlet log_layer = match config {\n    LogConfig::File(path) => {\n        let file = File::create(path)?;\n        tracing_subscriber::fmt::layer()\n            .with_thread_ids(true)\n            .with_thread_names(true)\n            .json()\n            .with_span_list(true)\n            .with_writer(file)\n            // Erase the type by boxing the layer\n            .boxed()\n    },\n\n    LogConfig::Stdout => tracing_subscriber::fmt::layer()\n        .pretty()\n        .with_writer(io::stdout)\n        .and_then(tracing_subscriber::EnvFilter::from_default_env())\n        // Erase the type by boxing the layer\n        .boxed(),\n\n    LogConfig::Stderr => tracing_subscriber::fmt::layer()\n        .with_writer(io::stderr)\n        .with_filter(LevelFilter::WARN)\n        // Erase the type by boxing the layer\n        .boxed(),\n};\n\ntracing_subscriber::registry()\n    .with(log_layer)\n    .init();\n# Ok(()) }\n```",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        1235,
+        5
+      ],
+      "end": [
+        1242,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([Any([NameValue { name: \"feature\", value: Some(\"alloc\"), span: src/layer/mod.rs:1233:15: 1233:32 (#0) }, NameValue { name: \"feature\", value: Some(\"std\"), span: src/layer/mod.rs:1233:34: 1233:49 (#0) }], src/layer/mod.rs:1233:14: 1233:50 (#0))])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(any(feature = \"alloc\", feature = \"std\")))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Box",
+              "id": 827,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "dyn_trait": {
+                          "traits": [
+                            {
+                              "trait": {
+                                "path": "Layer",
+                                "id": 281,
+                                "args": {
+                                  "angle_bracketed": {
+                                    "args": [
+                                      {
+                                        "type": {
+                                          "generic": "S"
+                                        }
+                                      }
+                                    ],
+                                    "constraints": []
+                                  }
+                                }
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Send",
+                                "id": 6,
+                                "args": null
+                              },
+                              "generic_params": []
+                            },
+                            {
+                              "trait": {
+                                "path": "Sync",
+                                "id": 8,
+                                "args": null
+                              },
+                              "generic_params": []
+                            }
+                          ],
+                          "lifetime": "'static"
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Layer",
+                        "id": 281,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "generic": "S"
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Send",
+                        "id": 6,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sync",
+                        "id": 8,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "outlives": "'static"
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "S"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Subscriber",
+                        "id": 317,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "827": "alloc::boxed::Box",
+      "281": "tracing_subscriber::layer::Layer",
+      "6": "core::marker::Send",
+      "8": "core::marker::Sync",
+      "26": "core::marker::Sized",
+      "317": "tracing_core::subscriber::Subscriber"
+    },
+    "impl_context": null,
+    "links": {
+      "`Box`": 827,
+      "`Layer`": 281
+    },
+    "link_paths": {
+      "`Box`": "alloc::boxed::Box",
+      "`Layer`": "tracing_subscriber::layer::Layer"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1359",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-795099c45322e075d31d1b80",
+    "aliases": [
+      "tracing_subscriber::Layer::boxed",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::boxed"
+    ],
+    "resolved_doc_links": {
+      "`Layer`": "../operations/tracing_subscriber.layer.Layer.md#op-4c1ba1a6be909c9a1b91bff8"
+    }
+  },
+  {
+    "id": "bf52d490c84266759988e51e",
+    "path": "tracing_subscriber::layer::Layer::enabled",
+    "name": "enabled",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn enabled(&self, metadata: &Metadata<'_>, ctx: Context<'_, S>) -> bool",
+    "docs": "Returns `true` if this layer is interested in a span or event with the\ngiven `metadata` in the current [`Context`], similarly to\n[`Subscriber::enabled`].\n\nBy default, this always returns `true`, allowing the wrapped subscriber\nto choose to disable the span.\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: This method (and <a href=\"#method.register_callsite\">\n<code>Layer::register_callsite</code></a>) determine whether a span or event is\nglobally enabled, <em>not</em> whether the individual layer will be\nnotified about that span or event. This is intended to be used\nby layers that implement filtering for the entire stack. Layers which do\nnot wish to be notified about certain spans or events but do not wish to\nglobally disable them should ignore those spans or events in their\n<a href=\"#method.on_event\"><code>on_event</code></a>,\n<a href=\"#method.on_enter\"><code>on_enter</code></a>,\n<a href=\"#method.on_exit\"><code>on_exit</code></a>, and other notification\nmethods.\n</pre>\n\n\nSee [the trait-level documentation] for more information on filtering\nwith `Layer`s.\n\n[`Interest`]: tracing_core::Interest\n[`Subscriber::enabled`]: tracing_core::Subscriber::enabled()\n[`Layer::register_callsite`]: Layer::register_callsite()\n[`on_event`]: Layer::on_event()\n[`on_enter`]: Layer::on_enter()\n[`on_exit`]: Layer::on_exit()\n[the trait-level documentation]: #filtering-with-layers",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        869,
+        5
+      ],
+      "end": [
+        872,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {
+      "tracing_core::Interest": 315,
+      "Layer::register_callsite()": 1354,
+      "Layer::on_enter()": 535,
+      "`Context`": 313,
+      "Layer::on_event()": 1353,
+      "tracing_core::Subscriber::enabled()": 1246,
+      "Layer::on_exit()": 538
+    },
+    "link_paths": {
+      "tracing_core::Interest": "tracing_core::subscriber::Interest",
+      "Layer::register_callsite()": null,
+      "Layer::on_enter()": null,
+      "`Context`": "tracing_subscriber::layer::context::Context",
+      "Layer::on_event()": null,
+      "tracing_core::Subscriber::enabled()": null,
+      "Layer::on_exit()": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "527",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-bf52d490c84266759988e51e",
+    "aliases": [
+      "tracing_subscriber::Layer::enabled",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::enabled"
+    ],
+    "resolved_doc_links": {
+      "tracing_core::Interest": "../operations/tracing_core.subscriber.Interest.md#op-6a8f81daa049c40c19442579",
+      "Layer::register_callsite()": "../operations/tracing_subscriber.layer.Layer.md#op-a3dca9d32377d9e88d8c1899",
+      "Layer::on_enter()": "../operations/tracing_subscriber.layer.Layer.md#op-a351326be900db143e10528e",
+      "`Context`": "../operations/tracing_subscriber.layer.context.Context.md#op-0acb651e530d235188552e7d",
+      "Layer::on_event()": "../operations/tracing_subscriber.layer.Layer.md#op-15bf6d0857502ca2d97e4bd1",
+      "Layer::on_exit()": "../operations/tracing_subscriber.layer.Layer.md#op-5895c9c1e516a18c3eefe5ad"
+    }
+  },
+  {
+    "id": "ddaabed96bb016dd783e422f",
+    "path": "tracing_subscriber::layer::Layer::event_enabled",
+    "name": "event_enabled",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn event_enabled(&self, _event: &Event<'_>, _ctx: Context<'_, S>) -> bool",
+    "docs": "Called before [`on_event`], to determine if `on_event` should be called.\n\n<div class=\"example-wrap\" style=\"display:inline-block\">\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n\n**Note**: This method determines whether an event is globally enabled,\n*not* whether the individual `Layer` will be notified about the\nevent. This is intended to be used by `Layer`s that implement\nfiltering for the entire stack. `Layer`s which do not wish to be\nnotified about certain events but do not wish to globally disable them\nshould ignore those events in their [on_event][Self::on_event].\n\n</pre></div>\n\nSee [the trait-level documentation] for more information on filtering\nwith `Layer`s.\n\n[`on_event`]: Self::on_event\n[`Interest`]: tracing_core::Interest\n[the trait-level documentation]: #filtering-with-layers",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        923,
+        5
+      ],
+      "end": [
+        925,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 246,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "246": "tracing_core::event::Event",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {
+      "tracing_core::Interest": 315,
+      "Self::on_event": 1353
+    },
+    "link_paths": {
+      "tracing_core::Interest": "tracing_core::subscriber::Interest",
+      "Self::on_event": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1356",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-ddaabed96bb016dd783e422f",
+    "aliases": [
+      "tracing_subscriber::Layer::event_enabled",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::event_enabled"
+    ],
+    "resolved_doc_links": {
+      "tracing_core::Interest": "../operations/tracing_core.subscriber.Interest.md#op-6a8f81daa049c40c19442579",
+      "Self::on_event": "../operations/tracing_subscriber.layer.Layer.md#op-15bf6d0857502ca2d97e4bd1"
+    }
+  },
+  {
+    "id": "0ec2d3e1932d45768843f8f4",
+    "path": "tracing_subscriber::layer::Layer::on_close",
+    "name": "on_close",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_close(&self, _id: span::Id, _ctx: Context<'_, S>)",
+    "docs": "Notifies this layer that the span with the given ID has been closed.",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        937,
+        5
+      ],
+      "end": [
+        937,
+        63
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_id",
+              {
+                "resolved_path": {
+                  "path": "span::Id",
+                  "id": 534,
+                  "args": null
+                }
+              }
+            ],
+            [
+              "_ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "541",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-0ec2d3e1932d45768843f8f4",
+    "aliases": [
+      "tracing_subscriber::Layer::on_close",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_close"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a351326be900db143e10528e",
+    "path": "tracing_subscriber::layer::Layer::on_enter",
+    "name": "on_enter",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_enter(&self, _id: &span::Id, _ctx: Context<'_, S>)",
+    "docs": "Notifies this layer that a span with the given ID was entered.",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        931,
+        5
+      ],
+      "end": [
+        931,
+        64
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "535",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-a351326be900db143e10528e",
+    "aliases": [
+      "tracing_subscriber::Layer::on_enter",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_enter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "15bf6d0857502ca2d97e4bd1",
+    "path": "tracing_subscriber::layer::Layer::on_event",
+    "name": "on_event",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_event(&self, _event: &Event<'_>, _ctx: Context<'_, S>)",
+    "docs": "Notifies this layer that an event has occurred.",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        928,
+        5
+      ],
+      "end": [
+        928,
+        68
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_event",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Event",
+                      "id": 246,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "246": "tracing_core::event::Event",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1353",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-15bf6d0857502ca2d97e4bd1",
+    "aliases": [
+      "tracing_subscriber::Layer::on_event",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_event"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "5895c9c1e516a18c3eefe5ad",
+    "path": "tracing_subscriber::layer::Layer::on_exit",
+    "name": "on_exit",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_exit(&self, _id: &span::Id, _ctx: Context<'_, S>)",
+    "docs": "Notifies this layer that the span with the given ID was exited.",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        934,
+        5
+      ],
+      "end": [
+        934,
+        63
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "538",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-5895c9c1e516a18c3eefe5ad",
+    "aliases": [
+      "tracing_subscriber::Layer::on_exit",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_exit"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "446a3c717521220b96dba380",
+    "path": "tracing_subscriber::layer::Layer::on_follows_from",
+    "name": "on_follows_from",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_follows_from(&self, _span: &span::Id, _follows: &span::Id, _ctx: Context<'_, S>)",
+    "docs": "Notifies this layer that a span with the ID `span` recorded that it\nfollows from the span with the ID `follows`.",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        900,
+        5
+      ],
+      "end": [
+        900,
+        94
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_follows",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1355",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-446a3c717521220b96dba380",
+    "aliases": [
+      "tracing_subscriber::Layer::on_follows_from",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_follows_from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "36e393b9f5ce0e9954e8c6b0",
+    "path": "tracing_subscriber::layer::Layer::on_id_change",
+    "name": "on_id_change",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_id_change(&self, _old: &span::Id, _new: &span::Id, _ctx: Context<'_, S>)",
+    "docs": "Notifies this layer that a span ID has been cloned, and that the\nsubscriber returned a different ID.",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        941,
+        5
+      ],
+      "end": [
+        941,
+        86
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_old",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_new",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1357",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-36e393b9f5ce0e9954e8c6b0",
+    "aliases": [
+      "tracing_subscriber::Layer::on_id_change",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_id_change"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "cacfa9f7e5bf66f4017b2a44",
+    "path": "tracing_subscriber::layer::Layer::on_layer",
+    "name": "on_layer",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_layer(&mut self, subscriber: &mut S)",
+    "docs": "Performs late initialization when attaching a `Layer` to a\n[`Subscriber`].\n\nThis is a callback that is called when the `Layer` is added to a\n[`Subscriber`] (e.g. in [`Layer::with_subscriber`] and\n[`SubscriberExt::with`]). Since this can only occur before the\n[`Subscriber`] has been set as the default, both the `Layer` and\n[`Subscriber`] are passed to this method _mutably_. This gives the\n`Layer` the opportunity to set any of its own fields with values\nreceived by method calls on the [`Subscriber`].\n\nFor example, [`Filtered`] layers implement `on_layer` to call the\n[`Subscriber`]'s [`register_filter`] method, and store the returned\n[`FilterId`] as a field.\n\n**Note** In most cases, `Layer` implementations will not need to\nimplement this method. However, in cases where a type implementing\n`Layer` wraps one or more other types that implement `Layer`, like the\n[`Layered`] and [`Filtered`] types in this crate, that type MUST ensure\nthat the inner `Layer`s' `on_layer` methods are called. Otherwise,\nfunctionality that relies on `on_layer`, such as [per-layer filtering],\nmay not work correctly.\n\n[`Filtered`]: crate::filter::Filtered\n[`register_filter`]: crate::registry::LookupSpan::register_filter\n[per-layer filtering]: #per-layer-filtering\n[`FilterId`]: crate::filter::FilterId",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        785,
+        5
+      ],
+      "end": [
+        787,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "subscriber",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "S"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "crate::registry::LookupSpan::register_filter": 1139,
+      "`SubscriberExt::with`": 1349,
+      "`Subscriber`": 317,
+      "crate::filter::FilterId": 795,
+      "crate::filter::Filtered": 747,
+      "`Layer::with_subscriber`": 1348,
+      "`Layered`": 1145
+    },
+    "link_paths": {
+      "crate::registry::LookupSpan::register_filter": null,
+      "`SubscriberExt::with`": null,
+      "`Subscriber`": "tracing_core::subscriber::Subscriber",
+      "crate::filter::FilterId": "tracing_subscriber::filter::layer_filters::FilterId",
+      "crate::filter::Filtered": "tracing_subscriber::filter::layer_filters::Filtered",
+      "`Layer::with_subscriber`": null,
+      "`Layered`": "tracing_subscriber::layer::layered::Layered"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1350",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-cacfa9f7e5bf66f4017b2a44",
+    "aliases": [
+      "tracing_subscriber::Layer::on_layer",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_layer"
+    ],
+    "resolved_doc_links": {
+      "crate::registry::LookupSpan::register_filter": "../operations/tracing_subscriber.registry.LookupSpan.md#op-f7d578d2c654c0b0c7053fe4",
+      "`SubscriberExt::with`": "../operations/tracing_subscriber.layer.SubscriberExt.md#op-0268c7766658f40cc07d8c16",
+      "`Subscriber`": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "crate::filter::FilterId": "../operations/tracing_subscriber.filter.layer_filters.FilterId.md#op-ca4e7220569d32cbf2e6ed55",
+      "crate::filter::Filtered": "../operations/tracing_subscriber.filter.layer_filters.Filtered.md#op-54bb3c78606034b0e2ea655e",
+      "`Layer::with_subscriber`": "../operations/tracing_subscriber.layer.Layer.md#op-2f33f8d942a646eb3d8e5f41",
+      "`Layered`": "../operations/tracing_subscriber.layer.layered.Layered.md#op-a34d0c9535f11404fda44764"
+    }
+  },
+  {
+    "id": "501bbdafad438573cae702ef",
+    "path": "tracing_subscriber::layer::Layer::on_new_span",
+    "name": "on_new_span",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_new_span(&self, attrs: &span::Attributes<'_>, id: &span::Id, ctx: Context<'_, S>)",
+    "docs": "Notifies this layer that a new span was constructed with the given\n`Attributes` and `Id`.",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        876,
+        5
+      ],
+      "end": [
+        878,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "attrs",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Attributes",
+                      "id": 244,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "id",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "244": "tracing_core::span::Attributes",
+      "534": "tracing_core::span::Id",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "531",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-501bbdafad438573cae702ef",
+    "aliases": [
+      "tracing_subscriber::Layer::on_new_span",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_new_span"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "de23a21f9d492196ee6efda9",
+    "path": "tracing_subscriber::layer::Layer::on_record",
+    "name": "on_record",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_record(&self, _span: &span::Id, _values: &span::Record<'_>, _ctx: Context<'_, S>)",
+    "docs": "Notifies this layer that a span with the given `Id` recorded the given\n`values`.",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        893,
+        5
+      ],
+      "end": [
+        893,
+        95
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "_span",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Id",
+                      "id": 534,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_values",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "span::Record",
+                      "id": 245,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "_ctx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "534": "tracing_core::span::Id",
+      "245": "tracing_core::span::Record",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "544",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-de23a21f9d492196ee6efda9",
+    "aliases": [
+      "tracing_subscriber::Layer::on_record",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_record"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "37a0cc162283aa68420a0e50",
+    "path": "tracing_subscriber::layer::Layer::on_register_dispatch",
+    "name": "on_register_dispatch",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn on_register_dispatch(&self, subscriber: &Dispatch)",
+    "docs": "Performs late initialization when installing this layer as a\n[`Subscriber`].\n\n## Avoiding Memory Leaks\n\n`Layer`s should not store the [`Dispatch`] pointing to the [`Subscriber`]\nthat they are a part of. Because the `Dispatch` owns the `Subscriber`,\nstoring the `Dispatch` within the `Subscriber` will create a reference\ncount cycle, preventing the `Dispatch` from ever being dropped.\n\nInstead, when it is necessary to store a cyclical reference to the\n`Dispatch` within a `Layer`, use [`Dispatch::downgrade`] to convert a\n`Dispatch` into a [`WeakDispatch`]. This type is analogous to\n[`std::sync::Weak`], and does not create a reference count cycle. A\n[`WeakDispatch`] can be stored within a subscriber without causing a\nmemory leak, and can be [upgraded] into a `Dispatch` temporarily when\nthe `Dispatch` must be accessed by the subscriber.\n\n[`WeakDispatch`]: tracing_core::dispatcher::WeakDispatch\n[upgraded]: tracing_core::dispatcher::WeakDispatch::upgrade\n[`Subscriber`]: tracing_core::Subscriber",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        754,
+        5
+      ],
+      "end": [
+        756,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "subscriber",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Dispatch",
+                      "id": 776,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "776": "tracing_core::dispatcher::Dispatch"
+    },
+    "impl_context": null,
+    "links": {
+      "tracing_core::dispatcher::WeakDispatch": 1344,
+      "`std::sync::Weak`": 1345,
+      "tracing_core::dispatcher::WeakDispatch::upgrade": 1346,
+      "`Dispatch::downgrade`": 1343,
+      "tracing_core::Subscriber": 317,
+      "`Dispatch`": 776
+    },
+    "link_paths": {
+      "tracing_core::dispatcher::WeakDispatch": "tracing_core::dispatcher::WeakDispatch",
+      "`std::sync::Weak`": "alloc::sync::Weak",
+      "tracing_core::dispatcher::WeakDispatch::upgrade": null,
+      "`Dispatch::downgrade`": null,
+      "tracing_core::Subscriber": "tracing_core::subscriber::Subscriber",
+      "`Dispatch`": "tracing_core::dispatcher::Dispatch"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1347",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-37a0cc162283aa68420a0e50",
+    "aliases": [
+      "tracing_subscriber::Layer::on_register_dispatch",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::on_register_dispatch"
+    ],
+    "resolved_doc_links": {
+      "tracing_core::dispatcher::WeakDispatch": "../operations/tracing_core.dispatcher.WeakDispatch.md#op-0beab352f71fbbf38e94b386",
+      "tracing_core::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "`Dispatch`": "../operations/tracing_core.dispatcher.Dispatch.md#op-bdcb8c4598cc406ba313069c"
+    }
+  },
+  {
+    "id": "a3dca9d32377d9e88d8c1899",
+    "path": "tracing_subscriber::layer::Layer::register_callsite",
+    "name": "register_callsite",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn register_callsite(&self, metadata: &'static Metadata<'static>) -> Interest",
+    "docs": "Registers a new callsite with this layer, returning whether or not\nthe layer is interested in being notified about the callsite, similarly\nto [`Subscriber::register_callsite`].\n\nBy default, this returns [`Interest::always()`] if [`self.enabled`] returns\ntrue, or [`Interest::never()`] if it returns false.\n\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: This method (and <a href=\"#method.enabled\">\n<code>Layer::enabled</code></a>) determine whether a span or event is\nglobally enabled, <em>not</em> whether the individual layer will be\nnotified about that span or event. This is intended to be used\nby layers that implement filtering for the entire stack. Layers which do\nnot wish to be notified about certain spans or events but do not wish to\nglobally disable them should ignore those spans or events in their\n<a href=\"#method.on_event\"><code>on_event</code></a>,\n<a href=\"#method.on_enter\"><code>on_enter</code></a>,\n<a href=\"#method.on_exit\"><code>on_exit</code></a>, and other notification\nmethods.\n</pre>\n\nSee [the trait-level documentation] for more information on filtering\nwith `Layer`s.\n\nLayers may also implement this method to perform any behaviour that\nshould be run once per callsite. If the layer wishes to use\n`register_callsite` for per-callsite behaviour, but does not want to\nglobally enable or disable those callsites, it should always return\n[`Interest::always()`].\n\n[`Interest`]: tracing_core::Interest\n[`Subscriber::register_callsite`]: tracing_core::Subscriber::register_callsite()\n[`Interest::never()`]: tracing_core::subscriber::Interest::never()\n[`Interest::always()`]: tracing_core::subscriber::Interest::always()\n[`self.enabled`]: Layer::enabled()\n[`Layer::enabled`]: Layer::enabled()\n[`on_event`]: Layer::on_event()\n[`on_enter`]: Layer::on_enter()\n[`on_exit`]: Layer::on_exit()\n[the trait-level documentation]: #filtering-with-layers",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        829,
+        5
+      ],
+      "end": [
+        835,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Interest",
+              "id": 315,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "315": "tracing_core::subscriber::Interest"
+    },
+    "impl_context": null,
+    "links": {
+      "tracing_core::Interest": 315,
+      "Layer::on_event()": 1353,
+      "tracing_core::subscriber::Interest::never()": 1352,
+      "tracing_core::subscriber::Interest::always()": 1351,
+      "Layer::on_enter()": 535,
+      "tracing_core::Subscriber::register_callsite()": 1245,
+      "Layer::enabled()": 527,
+      "Layer::on_exit()": 538
+    },
+    "link_paths": {
+      "tracing_core::Interest": "tracing_core::subscriber::Interest",
+      "Layer::on_event()": null,
+      "tracing_core::subscriber::Interest::never()": null,
+      "tracing_core::subscriber::Interest::always()": null,
+      "Layer::on_enter()": null,
+      "tracing_core::Subscriber::register_callsite()": null,
+      "Layer::enabled()": null,
+      "Layer::on_exit()": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1354",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-a3dca9d32377d9e88d8c1899",
+    "aliases": [
+      "tracing_subscriber::Layer::register_callsite",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::register_callsite"
+    ],
+    "resolved_doc_links": {
+      "tracing_core::Interest": "../operations/tracing_core.subscriber.Interest.md#op-6a8f81daa049c40c19442579",
+      "Layer::on_event()": "../operations/tracing_subscriber.layer.Layer.md#op-15bf6d0857502ca2d97e4bd1",
+      "Layer::on_enter()": "../operations/tracing_subscriber.layer.Layer.md#op-a351326be900db143e10528e",
+      "Layer::enabled()": "../operations/tracing_subscriber.layer.Layer.md#op-bf52d490c84266759988e51e",
+      "Layer::on_exit()": "../operations/tracing_subscriber.layer.Layer.md#op-5895c9c1e516a18c3eefe5ad"
+    }
+  },
+  {
+    "id": "7bd3ef10607f7c7b6ba70fdd",
+    "path": "tracing_subscriber::layer::Layer::with_filter",
+    "name": "with_filter",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_filter<F>(self, filter: F) -> filter::Filtered<Self, F, S> where Self: Sized, F: Filter<S>",
+    "docs": "Combines `self` with a [`Filter`], returning a [`Filtered`] layer.\n\nThe [`Filter`] will control which spans and events are enabled for\nthis layer. See [the trait-level documentation][plf] for details on\nper-layer filtering.\n\n[`Filtered`]: crate::filter::Filtered\n[plf]: crate::layer#per-layer-filtering",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        1111,
+        5
+      ],
+      "end": [
+        1117,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"registry\"), span: src/layer/mod.rs:1109:15: 1109:35 (#0) }, NameValue { name: \"feature\", value: Some(\"std\"), span: src/layer/mod.rs:1109:37: 1109:52 (#0) }], src/layer/mod.rs:1109:14: 1109:53 (#0))])]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace]"
+      },
+      {
+        "other": "#[doc(cfg(all(feature = \"registry\", feature = \"std\")))]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "filter",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "filter::Filtered",
+              "id": 747,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "F"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "F"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Filter",
+                        "id": 280,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "generic": "S"
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "747": "tracing_subscriber::filter::layer_filters::Filtered",
+      "26": "core::marker::Sized",
+      "280": "tracing_subscriber::layer::Filter"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::filter::Filtered": 747,
+      "`Filter`": 280,
+      "crate::layer#per-layer-filtering": 279
+    },
+    "link_paths": {
+      "crate::filter::Filtered": "tracing_subscriber::filter::layer_filters::Filtered",
+      "`Filter`": "tracing_subscriber::layer::Filter",
+      "crate::layer#per-layer-filtering": "tracing_subscriber::layer"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "746",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-7bd3ef10607f7c7b6ba70fdd",
+    "aliases": [
+      "tracing_subscriber::Layer::with_filter",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::with_filter"
+    ],
+    "resolved_doc_links": {
+      "crate::filter::Filtered": "../operations/tracing_subscriber.filter.layer_filters.Filtered.md#op-54bb3c78606034b0e2ea655e",
+      "`Filter`": "../operations/tracing_subscriber.layer.Filter.md#op-fd31ac1a2cd1ed4f447625f3",
+      "crate::layer#per-layer-filtering": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d"
+    }
+  },
+  {
+    "id": "2f33f8d942a646eb3d8e5f41",
+    "path": "tracing_subscriber::layer::Layer::with_subscriber",
+    "name": "with_subscriber",
+    "owner": "tracing_subscriber::layer::Layer",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_subscriber(self, inner: S) -> Layered<Self, S> where Self: Sized",
+    "docs": " Composes this `Layer` with the given [`Subscriber`], returning a\n `Layered` struct that implements [`Subscriber`].\n\n The returned `Layered` subscriber will call the methods on this `Layer`\n and then those of the wrapped subscriber.\n\n For example:\n ```rust\n # use tracing_subscriber::layer::Layer;\n # use tracing_core::Subscriber;\n pub struct FooLayer {\n     // ...\n }\n\n pub struct MySubscriber {\n     // ...\n }\n\n impl<S: Subscriber> Layer<S> for FooLayer {\n     // ...\n }\n\n # impl FooLayer {\n # fn new() -> Self { Self {} }\n # }\n # impl MySubscriber {\n # fn new() -> Self { Self { }}\n # }\n # use tracing_core::{span::{Id, Attributes, Record}, Metadata};\n # impl tracing_core::Subscriber for MySubscriber {\n #   fn new_span(&self, _: &Attributes) -> Id { Id::from_u64(0) }\n #   fn record(&self, _: &Id, _: &Record) {}\n #   fn event(&self, _: &tracing_core::Event) {}\n #   fn record_follows_from(&self, _: &Id, _: &Id) {}\n #   fn enabled(&self, _: &Metadata) -> bool { false }\n #   fn enter(&self, _: &Id) {}\n #   fn exit(&self, _: &Id) {}\n # }\n let subscriber = FooLayer::new()\n     .with_subscriber(MySubscriber::new());\n```\n\n [`Subscriber`]: tracing_core::Subscriber",
+    "span": {
+      "filename": "src/layer/mod.rs",
+      "begin": [
+        1092,
+        5
+      ],
+      "end": [
+        1099,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "inner",
+              {
+                "generic": "S"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Layered",
+              "id": 1145,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1145": "tracing_subscriber::layer::layered::Layered",
+      "26": "core::marker::Sized"
+    },
+    "impl_context": null,
+    "links": {
+      "tracing_core::Subscriber": 317
+    },
+    "link_paths": {
+      "tracing_core::Subscriber": "tracing_core::subscriber::Subscriber"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1348",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.layer.Layer.md",
+    "record_file": "operations/tracing_subscriber.layer.Layer.json",
+    "anchor": "op-2f33f8d942a646eb3d8e5f41",
+    "aliases": [
+      "tracing_subscriber::Layer::with_subscriber",
+      "tracing_subscriber::prelude::__tracing_subscriber_Layer::with_subscriber"
+    ],
+    "resolved_doc_links": {
+      "tracing_core::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c"
+    }
+  }
+]

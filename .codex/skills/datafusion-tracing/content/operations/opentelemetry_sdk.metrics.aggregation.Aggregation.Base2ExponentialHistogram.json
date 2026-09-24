@@ -1,0 +1,158 @@
+[
+  {
+    "id": "1f68ce3b469db5d752757e08",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::Base2ExponentialHistogram::max_scale",
+    "name": "max_scale",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation::Base2ExponentialHistogram",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "max_scale: i8",
+    "docs": "The maximum resolution scale to use for the histogram.\n\nThe maximum value is `20`, in which case the maximum number of buckets\nthat can fit within the range of a signed 32-bit integer index could be\nused.\n\nThe minimum value is `-10` in which case only two buckets will be used.",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        80,
+        9
+      ],
+      "end": [
+        80,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "i8"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "719",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.Base2ExponentialHistogram.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.Base2ExponentialHistogram.json",
+    "anchor": "op-1f68ce3b469db5d752757e08",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "bc4f2920098f76ad57edf567",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::Base2ExponentialHistogram::max_size",
+    "name": "max_size",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation::Base2ExponentialHistogram",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "max_size: u32",
+    "docs": "The maximum number of buckets to use for the histogram.",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        71,
+        9
+      ],
+      "end": [
+        71,
+        22
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "u32"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "718",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.Base2ExponentialHistogram.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.Base2ExponentialHistogram.json",
+    "anchor": "op-bc4f2920098f76ad57edf567",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a28d0680f3c52a12384679ad",
+    "path": "opentelemetry_sdk::metrics::aggregation::Aggregation::Base2ExponentialHistogram::record_min_max",
+    "name": "record_min_max",
+    "owner": "opentelemetry_sdk::metrics::aggregation::Aggregation::Base2ExponentialHistogram",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "record_min_max: bool",
+    "docs": "Indicates whether to not record the min and max of the distribution.\n\nBy default, these values are recorded.\n\nIt is generally not valuable to record min and max for cumulative data\nas they will represent the entire life of the instrument instead of just\nthe current collection cycle, you can opt out by setting this value to\n`false`",
+    "span": {
+      "filename": "src/metrics/aggregation.rs",
+      "begin": [
+        90,
+        9
+      ],
+      "end": [
+        90,
+        29
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "primitive": "bool"
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "720",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.Base2ExponentialHistogram.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.aggregation.Aggregation.Base2ExponentialHistogram.json",
+    "anchor": "op-a28d0680f3c52a12384679ad",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

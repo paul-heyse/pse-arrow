@@ -1,0 +1,115 @@
+[
+  {
+    "id": "1c4efa69bf309db05ebcc5cf",
+    "path": "datafusion_tracing::instrument_rules_with_spans",
+    "name": "instrument_rules_with_spans",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "macro",
+    "signature": "macro_rules! instrument_rules_with_spans",
+    "docs": "Instruments a `SessionState` with tracing spans for all rule phases.\n\nThis macro wraps analyzer, optimizer, and physical optimizer rules with tracing spans\nat the specified level. Rule spans are grouped under phase spans\n(\"analyze_logical_plan\", \"optimize_logical_plan\", \"optimize_physical_plan\").\n\nWhen physical optimizer instrumentation is enabled, the query planner is also\nautomatically instrumented to trace physical plan creation.\n\n# Syntax\n\n```ignore\ninstrument_rules_with_spans!(\n    $level,\n    options: $options,\n    state: $session_state,\n    $($fields)*\n)\n```\n\n# Arguments\n\n* `$level` - The tracing level (e.g., `tracing::Level::INFO`)\n* `options` - A `RuleInstrumentationOptions` instance\n* `state` - A `SessionState` to instrument\n* `$fields` - Optional additional span fields\n\n# Example\n\n```rust,ignore\nuse datafusion_tracing::{instrument_rules_with_info_spans, RuleInstrumentationOptions};\n\nlet options = RuleInstrumentationOptions::full().with_plan_diff();\nlet session_state = instrument_rules_with_info_spans!(\n    options: options,\n    state: session_state\n);\n```",
+    "span": {
+      "filename": "src/rule_instrumentation_macros.rs",
+      "begin": [
+        59,
+        1
+      ],
+      "end": [
+        97,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! instrument_rules_with_spans {\n    (target: $target:expr, $lvl:expr, options: $options:expr, state: $state:expr, $($fields:tt)*) => { ... };\n    (target: $target:expr, $lvl:expr, options: $options:expr, state: $state:expr) => { ... };\n    ($lvl:expr, options: $options:expr, state: $state:expr, $($fields:tt)*) => { ... };\n    ($lvl:expr, options: $options:expr, state: $state:expr) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "1bf30c62b39d134411bf912873eb37a23c837fc3e7d1d00a6c7a603ef14a0d25",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "169",
+      "origin": "https://docs.rs/crate/datafusion-tracing/55.0.0/json",
+      "compressed_sha256": "eabf0cb9e3ea3020da4f288f0a926721414715c6fa627a57ace0f7893ea111ea",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrument_rules_with_spans.md",
+    "record_file": "operations/datafusion_tracing.instrument_rules_with_spans.json",
+    "anchor": "op-1c4efa69bf309db05ebcc5cf",
+    "aliases": [],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "dd96c18d1fb324be3624c5ff",
+    "path": "datafusion_tracing::instrument_rules_with_spans",
+    "name": "instrument_rules_with_spans",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "macro",
+    "signature": "macro_rules! instrument_rules_with_spans",
+    "docs": "Instruments a `SessionState` with tracing spans for all rule phases.\n\nThis macro wraps analyzer, optimizer, and physical optimizer rules with tracing spans\nat the specified level. Rule spans are grouped under phase spans\n(\"analyze_logical_plan\", \"optimize_logical_plan\", \"optimize_physical_plan\").\n\nWhen physical optimizer instrumentation is enabled, the query planner is also\nautomatically instrumented to trace physical plan creation.\n\n# Syntax\n\n```ignore\ninstrument_rules_with_spans!(\n    $level,\n    options: $options,\n    state: $session_state,\n    $($fields)*\n)\n```\n\n# Arguments\n\n* `$level` - The tracing level (e.g., `tracing::Level::INFO`)\n* `options` - A `RuleInstrumentationOptions` instance\n* `state` - A `SessionState` to instrument\n* `$fields` - Optional additional span fields\n\n# Example\n\n```rust,ignore\nuse datafusion_tracing::{instrument_rules_with_info_spans, RuleInstrumentationOptions};\n\nlet options = RuleInstrumentationOptions::full().with_plan_diff();\nlet session_state = instrument_rules_with_info_spans!(\n    options: options,\n    state: session_state\n);\n```",
+    "span": {
+      "filename": "src/rule_instrumentation_macros.rs",
+      "begin": [
+        59,
+        1
+      ],
+      "end": [
+        97,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      "macro_export"
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "macro": "macro_rules! instrument_rules_with_spans {\n    (target: $target:expr, $lvl:expr, options: $options:expr, state: $state:expr, $($fields:tt)*) => { ... };\n    (target: $target:expr, $lvl:expr, options: $options:expr, state: $state:expr) => { ... };\n    ($lvl:expr, options: $options:expr, state: $state:expr, $($fields:tt)*) => { ... };\n    ($lvl:expr, options: $options:expr, state: $state:expr) => { ... };\n}"
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "1289",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.instrument_rules_with_spans.md",
+    "record_file": "operations/datafusion_tracing.instrument_rules_with_spans.json",
+    "anchor": "op-dd96c18d1fb324be3624c5ff",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

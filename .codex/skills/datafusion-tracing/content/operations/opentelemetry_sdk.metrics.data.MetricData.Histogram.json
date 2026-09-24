@@ -1,0 +1,71 @@
+[
+  {
+    "id": "f6d63deaa44ec73fdd1ad1ad",
+    "path": "opentelemetry_sdk::metrics::data::MetricData::Histogram::0",
+    "name": "0",
+    "owner": "opentelemetry_sdk::metrics::data::MetricData::Histogram",
+    "crate": "opentelemetry_sdk",
+    "version": "0.31.0",
+    "kind": "struct_field",
+    "signature": "0: Histogram<T>",
+    "docs": "",
+    "span": {
+      "filename": "src/metrics/data/mod.rs",
+      "begin": [
+        118,
+        15
+      ],
+      "end": [
+        118,
+        27
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct_field": {
+        "resolved_path": {
+          "path": "Histogram",
+          "id": 891,
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "T"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      }
+    },
+    "type_references": {
+      "891": "opentelemetry_sdk::metrics::data::Histogram"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "078b20cbbfa3363a3eaeae33fd684f492648264498ac152f65040219a3955442",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "890",
+      "origin": "https://docs.rs/crate/opentelemetry_sdk/0.31.0/json",
+      "compressed_sha256": "337966ee9bc2605fe28502c2df0b93aea175652ddca60885811c6a6425d65383",
+      "local_file": "build/acquired/rustdoc/opentelemetry_sdk@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_sdk.metrics.data.MetricData.Histogram.md",
+    "record_file": "operations/opentelemetry_sdk.metrics.data.MetricData.Histogram.json",
+    "anchor": "op-f6d63deaa44ec73fdd1ad1ad",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

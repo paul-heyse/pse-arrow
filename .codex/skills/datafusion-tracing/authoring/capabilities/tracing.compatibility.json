@@ -1,0 +1,95 @@
+{
+  "id": "tracing.compatibility",
+  "title": "Match dependency and feature profiles",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "opentelemetry versions trait bound error",
+    "uncharacterized version combination",
+    "Cargo lock features compatibility"
+  ],
+  "crates": [
+    "datafusion-tracing",
+    "tracing-opentelemetry",
+    "opentelemetry",
+    "opentelemetry_sdk",
+    "opentelemetry-otlp"
+  ],
+  "input": [
+    "Cargo manifest",
+    "resolved lock and features"
+  ],
+  "output": [
+    "scoped compatibility evidence"
+  ],
+  "properties": [
+    "versions",
+    "features",
+    "compilation"
+  ],
+  "operations": [
+    "opentelemetry_sdk::trace::provider::SdkTracerProvider"
+  ],
+  "brief": "The historical release table records declared combinations. Resolved dependencies, features, successful compilation and delivery are different evidence levels.",
+  "choices": [
+    {
+      "candidate": "recorded profile",
+      "choose_when": "The consumer matches the qualified composition",
+      "tradeoff": "Transfer only the assertions actually executed."
+    },
+    {
+      "candidate": "different profile",
+      "choose_when": "Versions, targets or features differ",
+      "tradeoff": "Inspect resolution and compile the relevant composition; absence from the table is not incompatibility."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.compatibility.1",
+      "aspect": "Version evidence",
+      "kind": "source_observation",
+      "statement": "The retained wiring profile uses tracing-opentelemetry 0.32.0 and OpenTelemetry 0.31.0. Version arithmetic is not a compatibility contract.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.compatibility.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "The retained locked consumer compiles and exports locally with bridge 0.32.0, API/SDK 0.31.0, tracing 0.1.44 and the recorded features. This does not generalize to uncharacterized combinations.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Inspect actual resolved packages and duplicate crate versions at the trait boundary.",
+    "Qualify compile and runtime separately; do not silently upgrade the consumer."
+  ],
+  "unknowns": [
+    "No universal matrix of arbitrary versions/features/targets."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/index/compatibility.tsv",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "local_layer_and_otel_sampling_are_independent"
+      ],
+      "scope": "The retained locked consumer compiles and exports locally with bridge 0.32.0, API/SDK 0.31.0, tracing 0.1.44 and the recorded features. This does not generalize to uncharacterized combinations."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ]
+}

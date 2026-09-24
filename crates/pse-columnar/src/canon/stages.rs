@@ -1,0 +1,267 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+
+//! Internal stages run only after the complete preflight reservation is acquired.
+
+use super::preflight::add;
+use crate::{CanonError, CanonicalContract, ContentHash, EnvelopeBound, FieldPath, LogicalHash};
+use arrow::compute::{SortOptions, concat_batches, take_record_batch};
+use arrow_array::{ArrayRef, RecordBatch, StringArray, UInt32Array};
+use arrow_ipc::writer::{IpcWriteOptions, StreamWriter};
+use arrow_row::{RowConverter, SortField};
+use arrow_schema::{DataType, Field, Schema};
+use std::io::{self, Write};
+use std::sync::Arc;
+
+pub(super) fn admit_and_order(
+    contract: &CanonicalContract,
+    batches: &[RecordBatch],
+) -> Result<RecordBatch, CanonError> {
+    let source = concat_batches(&contract.schema, batches)?;
+    if contract.primary_key.is_empty() {
+        return if source.num_rows() > 1 {
+            Err(CanonError::DuplicateKey {
+                first: 0,
+                second: 1,
+            })
+        } else {
+            Ok(source)
+        };
+    }
+    let fields = contract
+        .primary_key
+        .iter()
+        .map(|index| {
+            SortField::new_with_options(
+                source.column(*index).data_type().clone(),
+                SortOptions {
+                    descending: false,
+                    nulls_first: true,
+                },
+            )
+        })
+        .collect();
+    let keys = contract
+        .primary_key
+        .iter()
+        .map(|index| Arc::clone(source.column(*index)))
+        .collect::<Vec<_>>();
+    for (index, array) in contract.primary_key.iter().zip(&keys) {
+        for row in 0..source.num_rows() {
+            if array.is_null(row) {
+                return Err(CanonError::NullKey {
+                    column: contract.schema.field(*index).name().to_owned(),
+                    row,
+                });
+            }
+        }
+    }
+    let converter = RowConverter::new(fields)?;
+    let rows = converter.convert_columns(&keys)?;
+    let mut order = (0..source.num_rows()).collect::<Vec<_>>();
+    order.sort_unstable_by(|one, two| rows.row(*one).cmp(&rows.row(*two)));
+    for pair in order.windows(2) {
+        if rows.row(pair[0]) == rows.row(pair[1]) {
+            return Err(CanonError::DuplicateKey {
+                first: pair[0],
+                second: pair[1],
+            });
+        }
+    }
+    let indices = order
+        .into_iter()
+        .map(|index| {
+            u32::try_from(index).map_err(|_| CanonError::Envelope {
+                what: EnvelopeBound::Rows,
+                limit: u64::from(u32::MAX),
+                actual: u64::try_from(index).unwrap_or(u64::MAX),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(take_record_batch(&source, &UInt32Array::from(indices))?)
+}
+
+pub(super) fn metadata_relation(contract: &CanonicalContract) -> Result<RecordBatch, CanonError> {
+    let mut rows = Vec::new();
+    metadata(&FieldPath::root(), contract.schema.metadata(), &mut rows);
+    for (index, field) in contract.schema.fields().iter().enumerate() {
+        field_metadata(&FieldPath::root().child(index), field, &mut rows);
+    }
+    rows.sort_unstable();
+    let fields = ["field_path", "key", "value"].map(|name| Field::new(name, DataType::Utf8, false));
+    let columns: (Vec<_>, Vec<_>, Vec<_>) = rows.into_iter().fold(
+        (Vec::new(), Vec::new(), Vec::new()),
+        |(mut paths, mut keys, mut values), (path, key, value)| {
+            paths.push(path);
+            keys.push(key);
+            values.push(value);
+            (paths, keys, values)
+        },
+    );
+    let arrays: Vec<ArrayRef> = vec![
+        Arc::new(StringArray::from(columns.0)),
+        Arc::new(StringArray::from(columns.1)),
+        Arc::new(StringArray::from(columns.2)),
+    ];
+    Ok(RecordBatch::try_new(
+        Arc::new(Schema::new(fields.to_vec())),
+        arrays,
+    )?)
+}
+fn metadata(
+    path: &FieldPath,
+    metadata: &std::collections::HashMap<String, String>,
+    out: &mut Vec<(String, String, String)>,
+) {
+    for (key, value) in metadata {
+        out.push((path.as_str().to_owned(), key.clone(), value.clone()));
+    }
+}
+fn field_metadata(path: &FieldPath, field: &Field, out: &mut Vec<(String, String, String)>) {
+    metadata(path, field.metadata(), out);
+    match field.data_type() {
+        DataType::List(child) | DataType::FixedSizeList(child, _) => {
+            field_metadata(&path.child(0), child, out);
+        }
+        DataType::Struct(children) => {
+            for (index, child) in children.iter().enumerate() {
+                field_metadata(&path.child(index), child, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+struct BoundedBytes {
+    bytes: Vec<u8>,
+    limit: usize,
+    exceeded: bool,
+}
+impl Write for BoundedBytes {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if self
+            .bytes
+            .len()
+            .checked_add(bytes.len())
+            .is_none_or(|total| total > self.limit)
+        {
+            self.exceeded = true;
+            return Err(io::Error::new(
+                io::ErrorKind::OutOfMemory,
+                "canonical stream exceeds reserved preflight capacity",
+            ));
+        }
+        self.bytes.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+pub(super) fn stream(batch: &RecordBatch, limit: usize) -> Result<Vec<u8>, CanonError> {
+    let mut output = BoundedBytes {
+        bytes: Vec::with_capacity(limit),
+        limit,
+        exceeded: false,
+    };
+    let result = (|| -> Result<(), arrow_schema::ArrowError> {
+        let options =
+            IpcWriteOptions::try_new(super::IPC_ALIGNMENT, false, super::IPC_METADATA_VERSION)?;
+        let mut writer = StreamWriter::try_new_with_options(&mut output, &batch.schema(), options)?;
+        writer.write(batch)?;
+        writer.finish()
+    })();
+    if output.exceeded {
+        return Err(CanonError::Envelope {
+            what: EnvelopeBound::Bytes,
+            limit: u64::try_from(limit).unwrap_or(u64::MAX),
+            actual: u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1),
+        });
+    }
+    result?;
+    Ok(output.bytes)
+}
+
+pub(super) fn frame_and_hash(
+    contract: &CanonicalContract,
+    metadata: &[u8],
+    data: &[u8],
+    keep_preimage: bool,
+) -> Result<(LogicalHash, Option<Vec<u8>>), CanonError> {
+    let mut hasher = pse_ids::preimage::PreimageHasher::new();
+    frame(&mut hasher, contract, metadata, data);
+    let hash = LogicalHash(ContentHash::from_bytes(*hasher.finalize().as_bytes()));
+    let preimage = if keep_preimage {
+        let capacity = add(
+            add(add(8, super::CANON_VERSION.len())?, 16 + 4 + 32 + 8 + 8)?,
+            add(metadata.len(), data.len())?,
+        )?;
+        let mut bytes = Vec::with_capacity(capacity);
+        frame(&mut bytes, contract, metadata, data);
+        Some(bytes)
+    } else {
+        None
+    };
+    Ok((hash, preimage))
+}
+fn frame(
+    output: &mut impl crate::frame::FrameSink,
+    contract: &CanonicalContract,
+    metadata: &[u8],
+    data: &[u8],
+) {
+    output.put_len_prefixed(super::CANON_VERSION.as_bytes());
+    output.put_fixed(contract.relation_id.as_bytes());
+    output.put_u32_le(contract.schema_version.0);
+    output.put_fixed(contract.registry_fingerprint.as_bytes());
+    output.put_len_prefixed(metadata);
+    output.put_len_prefixed(data);
+}
+
+#[cfg(test)]
+mod integrated_performance_unit {
+    use super::*;
+    #[test]
+    fn hash_only_and_retained_frames_match_an_independent_frozen_layout() {
+        let contract = CanonicalContract::try_new(
+            crate::SemanticId::from_bytes([0x17; 16]),
+            pse_ids::SchemaVersion(7),
+            ContentHash::from_bytes([0x39; 32]),
+            Arc::new(Schema::empty()),
+            &[],
+            &std::collections::BTreeMap::new(),
+        )
+        .unwrap();
+        let metadata = b"independent metadata";
+        let data = b"independent data stream";
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&12_u64.to_le_bytes());
+        expected.extend_from_slice(b"pse.canon.v2");
+        expected.extend_from_slice(&[0x17; 16]);
+        expected.extend_from_slice(&7_u32.to_le_bytes());
+        expected.extend_from_slice(&[0x39; 32]);
+        expected.extend_from_slice(&(metadata.len() as u64).to_le_bytes());
+        expected.extend_from_slice(metadata);
+        expected.extend_from_slice(&(data.len() as u64).to_le_bytes());
+        expected.extend_from_slice(data);
+        let (hash_only, absent) = frame_and_hash(&contract, metadata, data, false).unwrap();
+        let allocations = allocation_counter::measure(|| {
+            std::hint::black_box(frame_and_hash(&contract, metadata, data, false).unwrap());
+        });
+        assert_eq!(
+            allocations.count_total, 0,
+            "hash-only framing allocates no combined preimage"
+        );
+        assert_eq!(allocations.bytes_total, 0);
+        let (hash_retained, retained) = frame_and_hash(&contract, metadata, data, true).unwrap();
+        assert!(absent.is_none());
+        assert_eq!(retained.unwrap(), expected);
+        assert_eq!(hash_only, hash_retained);
+        assert_eq!(
+            hash_only,
+            LogicalHash(ContentHash::from_bytes(
+                *pse_ids::preimage::hash(&expected).as_bytes()
+            ))
+        );
+    }
+}

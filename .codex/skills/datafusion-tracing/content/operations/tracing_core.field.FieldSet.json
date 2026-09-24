@@ -1,0 +1,1330 @@
+[
+  {
+    "id": "c3de2aec342fd60d61868736",
+    "path": "tracing_core::field::FieldSet",
+    "name": "FieldSet",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "struct",
+    "signature": "struct FieldSet",
+    "docs": "Describes the fields present on a span.\n\n## Equality\n\nIn well-behaved applications, two `FieldSet`s [initialized] with equal\n[callsite identifiers] will have identical fields. Consequently, in release\nbuilds, [`FieldSet::eq`] *only* checks that its arguments have equal\ncallsites. However, the equality of field names is checked in debug builds.\n\n[initialized]: Self::new\n[callsite identifiers]: callsite::Identifier",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        159,
+        1
+      ],
+      "end": [
+        164,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          373,
+          374,
+          375,
+          376,
+          377,
+          378,
+          379,
+          380,
+          381,
+          382,
+          383,
+          384,
+          385,
+          386,
+          387,
+          388,
+          393,
+          395,
+          397,
+          398,
+          399
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "`FieldSet::eq`": 367,
+      "Self::new": 366,
+      "callsite::Identifier": 14
+    },
+    "link_paths": {
+      "`FieldSet::eq`": "tracing_core::field::FieldSet::eq",
+      "Self::new": "tracing_core::field::FieldSet::new",
+      "callsite::Identifier": "tracing_core::callsite::Identifier"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "306",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-c3de2aec342fd60d61868736",
+    "aliases": [
+      "tracing::field::FieldSet"
+    ],
+    "resolved_doc_links": {
+      "`FieldSet::eq`": "../operations/tracing_core.field.FieldSet.md#op-28d62bd7ee34c886a4b502e5",
+      "Self::new": "../operations/tracing_core.field.FieldSet.md#op-b0fc3d9471f9878ca48a9b56",
+      "callsite::Identifier": "../operations/tracing_core.callsite.Identifier.md#op-cef1410a3f296584b90d483e"
+    }
+  },
+  {
+    "id": "91589080be2b2f0e44e93463",
+    "path": "tracing_core::field::FieldSet::contains",
+    "name": "contains",
+    "owner": "tracing_core::field::FieldSet",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn contains(&self, field: &Field) -> bool",
+    "docs": "Returns `true` if `self` contains the given `field`.\n\n<div class=\"example-wrap\" style=\"display:inline-block\">\n<pre class=\"ignore\" style=\"white-space:normal;font:inherit;\">\n<strong>Note</strong>: If <code>field</code> shares a name with a field\nin this <code>FieldSet</code>, but was created by a <code>FieldSet</code>\nwith a different callsite, this <code>FieldSet</code> does <em>not</em>\ncontain it. This is so that if two separate span callsites define a field\nnamed \"foo\", the <code>Field</code> corresponding to \"foo\" for each\nof those callsites are not equivalent.\n</pre></div>",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        908,
+        5
+      ],
+      "end": [
+        910,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "field",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Field",
+                      "id": 299,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "299": "tracing_core::field::Field"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FieldSet",
+          "id": "tracing_core::field::FieldSet",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field.rs",
+        "begin": [
+          867,
+          1
+        ],
+        "end": [
+          973,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "369",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-91589080be2b2f0e44e93463",
+    "aliases": [
+      "tracing::field::FieldSet::contains"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "28d62bd7ee34c886a4b502e5",
+    "path": "tracing_core::field::FieldSet::eq",
+    "name": "eq",
+    "owner": "tracing_core::field::FieldSet",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &Self) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        1004,
+        5
+      ],
+      "end": [
+        1032,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FieldSet",
+          "id": "tracing_core::field::FieldSet",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field.rs",
+        "begin": [
+          1003,
+          1
+        ],
+        "end": [
+          1033,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "367",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-28d62bd7ee34c886a4b502e5",
+    "aliases": [
+      "tracing::field::FieldSet::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a3b4a0880964aad8a81c20cf",
+    "path": "tracing_core::field::FieldSet::field",
+    "name": "field",
+    "owner": "tracing_core::field::FieldSet",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn field<Q: Borrow<str> + ?Sized>(&self, name: &Q) -> Option<Field>",
+    "docs": "Returns the [`Field`] named `name`, or `None` if no such field exists.\n\n[`Field`]: super::Field",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        886,
+        5
+      ],
+      "end": [
+        895,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Q"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 155,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "Field",
+                          "id": 299,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "Q",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Borrow",
+                          "id": 39,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "primitive": "str"
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    },
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Sized",
+                          "id": 38,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "maybe"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "155": "core::option::Option",
+      "299": "tracing_core::field::Field",
+      "39": "core::borrow::Borrow",
+      "38": "core::marker::Sized"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FieldSet",
+          "id": "tracing_core::field::FieldSet",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field.rs",
+        "begin": [
+          867,
+          1
+        ],
+        "end": [
+          973,
+          2
+        ]
+      }
+    },
+    "links": {
+      "super::Field": 299
+    },
+    "link_paths": {
+      "super::Field": "tracing_core::field::Field"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "368",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-a3b4a0880964aad8a81c20cf",
+    "aliases": [
+      "tracing::field::FieldSet::field"
+    ],
+    "resolved_doc_links": {
+      "super::Field": "../operations/tracing_core.field.Field.md#op-d16f69bd65cdad5606214c7c"
+    }
+  },
+  {
+    "id": "68294a6725fe146d2d8c009d",
+    "path": "tracing_core::field::FieldSet::fmt",
+    "name": "fmt",
+    "owner": "tracing_core::field::FieldSet",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        985,
+        5
+      ],
+      "end": [
+        990,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 79,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 80,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "79": "core::fmt::Formatter",
+      "80": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FieldSet",
+          "id": "tracing_core::field::FieldSet",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field.rs",
+        "begin": [
+          984,
+          1
+        ],
+        "end": [
+          991,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "394",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-68294a6725fe146d2d8c009d",
+    "aliases": [
+      "tracing::field::FieldSet::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "d910161ddb4e33ffd65e4dd8",
+    "path": "tracing_core::field::FieldSet::fmt",
+    "name": "fmt",
+    "owner": "tracing_core::field::FieldSet",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        994,
+        5
+      ],
+      "end": [
+        998,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 79,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 80,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "79": "core::fmt::Formatter",
+      "80": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FieldSet",
+          "id": "tracing_core::field::FieldSet",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Display",
+        "id": "core::fmt::Display",
+        "args": null
+      },
+      "trait_path": "core::fmt::Display",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field.rs",
+        "begin": [
+          993,
+          1
+        ],
+        "end": [
+          999,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "396",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-d910161ddb4e33ffd65e4dd8",
+    "aliases": [
+      "tracing::field::FieldSet::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "1dd64e85464644b8989a949a",
+    "path": "tracing_core::field::FieldSet::is_empty",
+    "name": "is_empty",
+    "owner": "tracing_core::field::FieldSet",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn is_empty(&self) -> bool",
+    "docs": "Returns whether or not this `FieldSet` has fields.",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        970,
+        5
+      ],
+      "end": [
+        972,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FieldSet",
+          "id": "tracing_core::field::FieldSet",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field.rs",
+        "begin": [
+          867,
+          1
+        ],
+        "end": [
+          973,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "372",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-1dd64e85464644b8989a949a",
+    "aliases": [
+      "tracing::field::FieldSet::is_empty"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "63f2d64a6beb09c0d0313e6f",
+    "path": "tracing_core::field::FieldSet::iter",
+    "name": "iter",
+    "owner": "tracing_core::field::FieldSet",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn iter(&self) -> Iter",
+    "docs": "Returns an iterator over the `Field`s in this `FieldSet`.",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        914,
+        5
+      ],
+      "end": [
+        923,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Iter",
+              "id": 275,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "275": "tracing_core::field::Iter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FieldSet",
+          "id": "tracing_core::field::FieldSet",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field.rs",
+        "begin": [
+          867,
+          1
+        ],
+        "end": [
+          973,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "370",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-63f2d64a6beb09c0d0313e6f",
+    "aliases": [
+      "tracing::field::FieldSet::iter"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4f7c25a0cd4ff9fafc6c8074",
+    "path": "tracing_core::field::FieldSet::len",
+    "name": "len",
+    "owner": "tracing_core::field::FieldSet",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "fn len(&self) -> usize",
+    "docs": "Returns the number of fields in this `FieldSet`.",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        964,
+        5
+      ],
+      "end": [
+        966,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "usize"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FieldSet",
+          "id": "tracing_core::field::FieldSet",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field.rs",
+        "begin": [
+          867,
+          1
+        ],
+        "end": [
+          973,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "371",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-4f7c25a0cd4ff9fafc6c8074",
+    "aliases": [
+      "tracing::field::FieldSet::len"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b0fc3d9471f9878ca48a9b56",
+    "path": "tracing_core::field::FieldSet::new",
+    "name": "new",
+    "owner": "tracing_core::field::FieldSet",
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "function",
+    "signature": "const fn new(names: &'static [&'static str], callsite: callsite::Identifier) -> Self",
+    "docs": "Constructs a new `FieldSet` with the given array of field names and callsite.",
+    "span": {
+      "filename": "src/field.rs",
+      "begin": [
+        869,
+        5
+      ],
+      "end": [
+        871,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "names",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "slice": {
+                      "borrowed_ref": {
+                        "lifetime": "'static",
+                        "is_mutable": false,
+                        "type": {
+                          "primitive": "str"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "callsite",
+              {
+                "resolved_path": {
+                  "path": "callsite::Identifier",
+                  "id": 14,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": true,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "14": "tracing_core::callsite::Identifier"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "FieldSet",
+          "id": "tracing_core::field::FieldSet",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/field.rs",
+        "begin": [
+          867,
+          1
+        ],
+        "end": [
+          973,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "366",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_core.field.FieldSet.md",
+    "record_file": "operations/tracing_core.field.FieldSet.json",
+    "anchor": "op-b0fc3d9471f9878ca48a9b56",
+    "aliases": [
+      "tracing::field::FieldSet::new"
+    ],
+    "resolved_doc_links": {}
+  }
+]

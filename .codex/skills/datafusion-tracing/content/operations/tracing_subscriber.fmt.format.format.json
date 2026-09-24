@@ -1,0 +1,79 @@
+[
+  {
+    "id": "710c591eb3765324b50d52d1",
+    "path": "tracing_subscriber::fmt::format::format",
+    "name": "format",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn format() -> Format",
+    "docs": "Returns the default configuration for an event formatter.\n\nMethods on the returned event formatter can be used for further\nconfiguration. For example:\n\n```rust\nlet format = tracing_subscriber::fmt::format()\n    .without_time()         // Don't include timestamps\n    .with_target(false)     // Don't include event targets.\n    .with_level(false)      // Don't include event levels.\n    .compact();             // Use a more compact, abbreviated format.\n\n// Use the configured formatter when building a new subscriber.\ntracing_subscriber::fmt()\n    .event_format(format)\n    .init();\n```",
+    "span": {
+      "filename": "src/fmt/format/mod.rs",
+      "begin": [
+        273,
+        1
+      ],
+      "end": [
+        275,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [],
+          "output": {
+            "resolved_path": {
+              "path": "Format",
+              "id": 1648,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "1648": "tracing_subscriber::fmt::format::Format"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1998",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.format.format.md",
+    "record_file": "operations/tracing_subscriber.fmt.format.format.json",
+    "anchor": "op-710c591eb3765324b50d52d1",
+    "aliases": [
+      "tracing_subscriber::fmt::format"
+    ],
+    "resolved_doc_links": {}
+  }
+]

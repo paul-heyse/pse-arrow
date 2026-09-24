@@ -1,0 +1,386 @@
+[
+  {
+    "id": "22b604ea97836ca80661e6b1",
+    "path": "datafusion_tracing::rule_instrumentation::instrument_optimizer_rules",
+    "name": "instrument_optimizer_rules",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "function",
+    "signature": "fn instrument_optimizer_rules(rules: Vec<std::sync::Arc<dyn OptimizerRule + Send + Sync>>, options: &rule_options::RuleInstrumentationOptions, span_create_fn: &std::sync::Arc<dyn Fn(&str) -> tracing::Span + Send + Sync>, phase_span_create_fn: &std::sync::Arc<dyn Fn(&str) -> tracing::Span + Send + Sync>) -> Vec<std::sync::Arc<dyn OptimizerRule + Send + Sync>>",
+    "docs": "Instruments optimizer rules with phase sentinel and optional rule-level spans.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        1040,
+        1
+      ],
+      "end": [
+        1080,
+        2
+      ]
+    },
+    "visibility": {
+      "restricted": {
+        "parent": 327,
+        "path": "::rule_instrumentation"
+      }
+    },
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "rules",
+              {
+                "resolved_path": {
+                  "path": "Vec",
+                  "id": 124,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "type": {
+                            "resolved_path": {
+                              "path": "std::sync::Arc",
+                              "id": 2,
+                              "args": {
+                                "angle_bracketed": {
+                                  "args": [
+                                    {
+                                      "type": {
+                                        "dyn_trait": {
+                                          "traits": [
+                                            {
+                                              "trait": {
+                                                "path": "OptimizerRule",
+                                                "id": 522,
+                                                "args": null
+                                              },
+                                              "generic_params": []
+                                            },
+                                            {
+                                              "trait": {
+                                                "path": "Send",
+                                                "id": 5,
+                                                "args": null
+                                              },
+                                              "generic_params": []
+                                            },
+                                            {
+                                              "trait": {
+                                                "path": "Sync",
+                                                "id": 6,
+                                                "args": null
+                                              },
+                                              "generic_params": []
+                                            }
+                                          ],
+                                          "lifetime": null
+                                        }
+                                      }
+                                    }
+                                  ],
+                                  "constraints": []
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "options",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "crate::rule_options::RuleInstrumentationOptions",
+                      "id": 672,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "span_create_fn",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::sync::Arc",
+                      "id": 2,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "dyn_trait": {
+                                  "traits": [
+                                    {
+                                      "trait": {
+                                        "path": "Fn",
+                                        "id": 3,
+                                        "args": {
+                                          "parenthesized": {
+                                            "inputs": [
+                                              {
+                                                "borrowed_ref": {
+                                                  "lifetime": null,
+                                                  "is_mutable": false,
+                                                  "type": {
+                                                    "primitive": "str"
+                                                  }
+                                                }
+                                              }
+                                            ],
+                                            "output": {
+                                              "resolved_path": {
+                                                "path": "tracing::Span",
+                                                "id": 4,
+                                                "args": null
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      "generic_params": []
+                                    },
+                                    {
+                                      "trait": {
+                                        "path": "Send",
+                                        "id": 5,
+                                        "args": null
+                                      },
+                                      "generic_params": []
+                                    },
+                                    {
+                                      "trait": {
+                                        "path": "Sync",
+                                        "id": 6,
+                                        "args": null
+                                      },
+                                      "generic_params": []
+                                    }
+                                  ],
+                                  "lifetime": null
+                                }
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "phase_span_create_fn",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "std::sync::Arc",
+                      "id": 2,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "type": {
+                                "dyn_trait": {
+                                  "traits": [
+                                    {
+                                      "trait": {
+                                        "path": "Fn",
+                                        "id": 3,
+                                        "args": {
+                                          "parenthesized": {
+                                            "inputs": [
+                                              {
+                                                "borrowed_ref": {
+                                                  "lifetime": null,
+                                                  "is_mutable": false,
+                                                  "type": {
+                                                    "primitive": "str"
+                                                  }
+                                                }
+                                              }
+                                            ],
+                                            "output": {
+                                              "resolved_path": {
+                                                "path": "tracing::Span",
+                                                "id": 4,
+                                                "args": null
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      "generic_params": []
+                                    },
+                                    {
+                                      "trait": {
+                                        "path": "Send",
+                                        "id": 5,
+                                        "args": null
+                                      },
+                                      "generic_params": []
+                                    },
+                                    {
+                                      "trait": {
+                                        "path": "Sync",
+                                        "id": 6,
+                                        "args": null
+                                      },
+                                      "generic_params": []
+                                    }
+                                  ],
+                                  "lifetime": null
+                                }
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Vec",
+              "id": 124,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "std::sync::Arc",
+                          "id": 2,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "dyn_trait": {
+                                      "traits": [
+                                        {
+                                          "trait": {
+                                            "path": "OptimizerRule",
+                                            "id": 522,
+                                            "args": null
+                                          },
+                                          "generic_params": []
+                                        },
+                                        {
+                                          "trait": {
+                                            "path": "Send",
+                                            "id": 5,
+                                            "args": null
+                                          },
+                                          "generic_params": []
+                                        },
+                                        {
+                                          "trait": {
+                                            "path": "Sync",
+                                            "id": 6,
+                                            "args": null
+                                          },
+                                          "generic_params": []
+                                        }
+                                      ],
+                                      "lifetime": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true,
+        "default_unstable": null
+      }
+    },
+    "type_references": {
+      "124": "alloc::vec::Vec",
+      "2": "alloc::sync::Arc",
+      "522": "datafusion_optimizer::optimizer::OptimizerRule",
+      "5": "core::marker::Send",
+      "6": "core::marker::Sync",
+      "672": "datafusion_tracing::rule_options::RuleInstrumentationOptions",
+      "3": "core::ops::function::Fn",
+      "4": "tracing::span::Span"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "769",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.instrument_optimizer_rules.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.instrument_optimizer_rules.json",
+    "anchor": "op-22b604ea97836ca80661e6b1",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

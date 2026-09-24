@@ -1,0 +1,104 @@
+{
+  "id": "tracing.fields",
+  "title": "Declare and record custom span fields",
+  "reviewed": "2026-09-18",
+  "task_aliases": [
+    "attach query identifier",
+    "custom field missing",
+    "undeclared key",
+    "span attributes"
+  ],
+  "crates": [
+    "datafusion-tracing",
+    "tracing",
+    "tracing-core"
+  ],
+  "input": [
+    "macro field declaration",
+    "custom_fields map"
+  ],
+  "output": [
+    "span fields"
+  ],
+  "properties": [
+    "field-schema",
+    "recording"
+  ],
+  "operations": [
+    "datafusion_tracing::options::InstrumentationOptions",
+    "datafusion_tracing::options::InstrumentationOptionsBuilder::add_custom_field",
+    "tracing::span::Span"
+  ],
+  "brief": "A custom field value and its declaration are separate inputs. Tracing fixes a span's field set at creation.",
+  "choices": [
+    {
+      "candidate": "macro field plus options value",
+      "choose_when": "Custom metadata belongs on instrumented node spans",
+      "tradeoff": "The key must exist in the macro-created field set."
+    },
+    {
+      "candidate": "parent span field",
+      "choose_when": "Metadata belongs on the parent operation",
+      "tradeoff": "Backend presentation of parent attributes is distinct from copying them to children."
+    }
+  ],
+  "claims": [
+    {
+      "id": "tracing.fields.1",
+      "aspect": "Field schema",
+      "kind": "source_observation",
+      "statement": "add_custom_field inserts a value into the options map; it does not add a new field to a span after creation.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.fields.2",
+      "aspect": "Construction",
+      "kind": "source_observation",
+      "statement": "InstrumentationOptions also exposes custom_fields publicly; a struct literal can supply a map. The builder is a convenience, not the only way to configure values.",
+      "evidence": [
+        "source"
+      ]
+    },
+    {
+      "id": "tracing.fields.observed",
+      "aspect": "Executed scope",
+      "kind": "runtime_observation",
+      "statement": "The declared query_id field receives its configured value; an undeclared key is absent on the execution spans. The comparison also isolates metrics enablement.",
+      "evidence": [
+        "consumer"
+      ]
+    }
+  ],
+  "implementation": [
+    "Declare env = tracing::field::Empty in the macro and set env in the options.",
+    "Distinguish span metadata name/target from exported otel.name and other attributes."
+  ],
+  "unknowns": [
+    "No assumption that arbitrary dynamic keys are exportable or inherited by child spans."
+  ],
+  "evidence": [
+    {
+      "id": "source",
+      "kind": "source_observation",
+      "path": "content/corpus/source/datafusion-tracing/options.rs",
+      "scope": "Retained exact-release source or documentation; local runtime assertions are linked separately."
+    },
+    {
+      "id": "consumer",
+      "kind": "runtime_observation",
+      "path": "skill_improvement/evidence/implementation/probe-results.json",
+      "tests": [
+        "metrics_and_custom_fields_have_separate_controls"
+      ],
+      "scope": "The declared query_id field receives its configured value; an undeclared key is absent on the execution spans. The comparison also isolates metrics enablement."
+    },
+    {
+      "id": "fixture",
+      "kind": "source_observation",
+      "path": "build/fixtures/probe-crate/tests/contracts.rs",
+      "scope": "Public consumer implementation and discriminating assertions; captures and resolved profile accompany the receipt."
+    }
+  ]
+}

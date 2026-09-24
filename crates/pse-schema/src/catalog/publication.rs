@@ -11,6 +11,7 @@ use crate::{
 pub(super) fn declare(builder: &mut RegistryBuilder) {
     declare_retention(builder);
     declare_dependencies(builder);
+    declare_artifacts(builder);
     builder.declare_artifact_profile("relations", std::collections::BTreeSet::new());
     relation(
         builder,
@@ -28,7 +29,16 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     enumeration(
         builder,
         "PublicationKind",
-        ["relations", "source", "model", "case", "problem", "run"],
+        [
+            "relations",
+            "source",
+            "model",
+            "case",
+            "problem",
+            "run",
+            "diagnostics",
+            "inspection",
+        ],
     );
     builder.declare_relation(crate::model::RelationDecl::new(
         N::Runtime, "publications", 2, crate::model::Authority::Derived, S::Sidecar,
@@ -43,6 +53,71 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("inputs", T::list(member())),
             column("members", T::list(member())),
         ]).checks(super::row_checks::for_relation(N::Runtime, "publications")));
+}
+
+fn declare_artifacts(builder: &mut RegistryBuilder) {
+    enumeration(builder, "ArtifactReconstruction", ["none", "exact_release"]);
+    relation(
+        builder,
+        N::Runtime,
+        "artifact_descriptors",
+        S::Sidecar,
+        &["artifact_id"],
+        vec![
+            column("artifact_id", T::hash()),
+            column("descriptor_version", T::nonnegative(i64::MAX)),
+            column("profile", T::enumeration("PublicationKind")),
+            column("profile_contract", T::hash()),
+            column("requested_relations", T::list(T::id())),
+            column("release_id", T::hash()),
+            column("release_members", T::list(member())),
+            column("semantic_identity", T::hash()),
+            column(
+                "implementation",
+                T::structure(vec![
+                    T::hash().with_name("source"),
+                    T::hash().with_name("build"),
+                    T::hash().with_name("registry"),
+                    T::hash().with_name("algorithms"),
+                ]),
+            ),
+            column("target_contract", T::hash()),
+            column(
+                "value_assumptions",
+                T::list(T::structure(vec![
+                    T::native(arrow_schema::DataType::Utf8).with_name("name"),
+                    T::list(T::native(arrow_schema::DataType::UInt8)).with_name("canonical_value"),
+                ])),
+            ),
+            column("reconstruction", T::enumeration("ArtifactReconstruction")),
+        ],
+        "Exact current-format artifact validity. Control members own output versions; local graph and Salsa handles are never persisted.",
+    );
+    relation(
+        builder,
+        N::Runtime,
+        "release_checkpoints",
+        S::Sidecar,
+        &["consumer_id"],
+        vec![
+            column("consumer_id", T::id()),
+            column("interpretation_version", T::nonnegative(i64::MAX)),
+            column("admission_id", T::id()),
+            column("base_release", T::hash()),
+            column("target_release", T::hash()),
+            column("base_members", T::list(member())),
+            column("target_members", T::list(member())),
+            column(
+                "intervals",
+                T::list(T::structure(vec![
+                    T::native(arrow_schema::DataType::Utf8).with_name("table_uri"),
+                    T::nonnegative(i64::MAX).with_name("from_version"),
+                    T::nonnegative(i64::MAX).with_name("through_version"),
+                ])),
+            ),
+        ],
+        "Whole-release admission receipt and replay windows. A restarted compiler must admit its exact baseline before resuming.",
+    );
 }
 
 fn declare_dependencies(builder: &mut RegistryBuilder) {
@@ -227,39 +302,45 @@ fn declare_retention(builder: &mut RegistryBuilder) {
         "Actual native Delta maintenance outcomes; no bespoke data file deletion.",
     );
 }
-/// Profile membership follows domain output signatures, never predecessor stages or
-/// a stored execution graph. Partial checkpoints explicitly use `relations`.
+/// Durable products are consumer contracts, independent of stage execution inventory.
 pub(super) fn declare_profiles(builder: &mut RegistryBuilder) {
-    let outputs = |algorithms: &[&str]| {
-        builder
-            .declared_algorithms()
-            .iter()
-            .filter(|algorithm| algorithms.contains(&algorithm.name))
-            .flat_map(|algorithm| {
-                algorithm
-                    .outputs
-                    .iter()
-                    .map(|output| output.relation.clone())
-            })
-            .collect::<std::collections::BTreeSet<_>>()
-    };
-    let source = outputs(&["source"]);
-    let model = outputs(&["source", "P3"]);
-    let problem = outputs(&["source", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"]);
-    builder.declare_artifact_profile("source", source.clone());
-    builder.declare_artifact_profile("case", source);
-    builder.declare_artifact_profile("model", model);
-    builder.declare_artifact_profile("problem", problem);
+    use std::collections::BTreeSet;
+    let common = BTreeSet::from([
+        "runtime.artifact_descriptors".to_owned(),
+        "runtime.diagnostics_findings".to_owned(),
+        "provenance.derivations".to_owned(),
+    ]);
     builder.declare_artifact_profile(
         "run",
-        [
-            "runtime.numerical_programs",
-            "runtime.jacobian_coordinates",
-            "runtime.solver_outcomes",
-        ]
-        .into_iter()
-        .map(str::to_owned)
-        .collect(),
+        BTreeSet::from([
+            "runtime.artifact_descriptors".to_owned(),
+            "authored.computation_models".to_owned(),
+            "runtime.solve_runs".to_owned(),
+            "runtime.physical_checks".to_owned(),
+            "runtime.solve_variables".to_owned(),
+            "runtime.solve_constraints".to_owned(),
+            "runtime.solve_metrics".to_owned(),
+        ]),
+    );
+    let mut source = common.clone();
+    source.extend(
+        builder
+            .declared_relations()
+            .iter()
+            .filter(|relation| {
+                matches!(
+                    relation.authority,
+                    crate::model::Authority::Authored | crate::model::Authority::Reference
+                ) && relation.snapshot_class != S::Sidecar
+            })
+            .map(|relation| relation.key.qualified_name()),
+    );
+    builder.declare_artifact_profile("source", source.clone());
+    builder.declare_artifact_profile("case", source);
+    builder.declare_artifact_profile("diagnostics", common);
+    builder.declare_artifact_profile(
+        "inspection",
+        BTreeSet::from(["runtime.artifact_descriptors".to_owned()]),
     );
 }
 

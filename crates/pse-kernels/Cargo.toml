@@ -17,8 +17,17 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-num-dual.workspace = true
+pse-ids.workspace = true
 pse-quantity.workspace = true
-pse-relations.workspace = true
+pse-diagnostics.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+feos.workspace = true
+feos-core.workspace = true
+num-dual.workspace = true
+nalgebra.workspace = true
+quantity.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+pse-quantity = { workspace = true, features = ["fixtures"] }

@@ -1,0 +1,123 @@
+[
+  {
+    "id": "bc3bcf5240e7b08c5c7e5dbb",
+    "path": "datafusion_tracing::rule_instrumentation::RuleSpanCreateFn",
+    "name": "RuleSpanCreateFn",
+    "owner": null,
+    "crate": "datafusion-tracing",
+    "version": "55.0.0",
+    "kind": "type_alias",
+    "signature": "type RuleSpanCreateFn = dyn Fn(&str) -> tracing::Span + Send + Sync",
+    "docs": "Function type that creates a span for a rule, given the rule name.",
+    "span": {
+      "filename": "src/rule_instrumentation.rs",
+      "begin": [
+        631,
+        1
+      ],
+      "end": [
+        631,
+        71
+      ]
+    },
+    "visibility": "crate",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "type_alias": {
+        "type": {
+          "dyn_trait": {
+            "traits": [
+              {
+                "trait": {
+                  "path": "Fn",
+                  "id": 3,
+                  "args": {
+                    "parenthesized": {
+                      "inputs": [
+                        {
+                          "borrowed_ref": {
+                            "lifetime": null,
+                            "is_mutable": false,
+                            "type": {
+                              "primitive": "str"
+                            }
+                          }
+                        }
+                      ],
+                      "output": {
+                        "resolved_path": {
+                          "path": "tracing::Span",
+                          "id": 4,
+                          "args": null
+                        }
+                      }
+                    }
+                  }
+                },
+                "generic_params": []
+              },
+              {
+                "trait": {
+                  "path": "Send",
+                  "id": 5,
+                  "args": null
+                },
+                "generic_params": []
+              },
+              {
+                "trait": {
+                  "path": "Sync",
+                  "id": 6,
+                  "args": null
+                },
+                "generic_params": []
+              }
+            ],
+            "lifetime": null
+          }
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        }
+      }
+    },
+    "type_references": {
+      "3": "core::ops::function::Fn",
+      "4": "tracing::span::Span",
+      "5": "core::marker::Send",
+      "6": "core::marker::Sync"
+    },
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "872a0e876694bd5979f9b285422c005347075f9bb4d57fcf04e4d3f97c0eeb2b",
+      "capture": "private",
+      "format_version": 61,
+      "item_id": "669",
+      "origin": "../../build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "compressed_sha256": "6dd0eb18114900565fdee6147534598cc1bfb38f144e692094eefded0099479b",
+      "local_file": "build/acquired/rustdoc/datafusion-tracing@55.0.0.private.json.zst",
+      "producer": {
+        "toolchain": "nightly-2026-09-13",
+        "rustc_expected": [
+          "1.100.0-nightly",
+          "809936eac"
+        ],
+        "target": "x86_64-unknown-linux-gnu",
+        "note": "A recorded producer identity, not a build configuration. The dated form is required: a bare +nightly floats, and a floating producer cannot be re-pinned."
+      }
+    },
+    "availability": "Observed in the private capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "internal",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/datafusion_tracing.rule_instrumentation.RuleSpanCreateFn.md",
+    "record_file": "operations/datafusion_tracing.rule_instrumentation.RuleSpanCreateFn.json",
+    "anchor": "op-bc3bcf5240e7b08c5c7e5dbb",
+    "aliases": [],
+    "resolved_doc_links": {}
+  }
+]

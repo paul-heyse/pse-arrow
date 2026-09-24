@@ -19,7 +19,7 @@
 //! an unchanged snapshot reproduces identical IDs, and changing mesh resolution changes
 //! only the mesh-dependent ones.
 
-use crate::id::{ContentHash, Ordinal, SemanticId};
+use crate::id::{ContentHash, SemanticId};
 
 /// The frozen `derive_key` context strings (blueprint §5.1, §5.3, ADR-0050).
 ///
@@ -29,24 +29,10 @@ use crate::id::{ContentHash, Ordinal, SemanticId};
 pub mod context {
     /// Named-policy entity identity: `named_id(package_id, qualified_name)`.
     pub const NAMED: &str = "pse:named:v1";
-    /// A symbol instance, and a discretized symbol, of a compiled model.
-    pub const SYMBOL: &str = "pse:symbol:v1";
-    /// An equation instance of a compiled model.
-    pub const EQUATION: &str = "pse:equation:v1";
-    /// A law-expanded contribution term.
-    pub const TERM: &str = "pse:term:v1";
-    /// A connection equation.
-    pub const CONN: &str = "pse:conn:v1";
-    /// A mesh node.
-    pub const NODE: &str = "pse:node:v1";
     /// Registry identity and the registry fingerprint.
     pub const REGISTRY: &str = "pse:registry:v1";
-    /// A pass stage memo key (blueprint §14.3).
-    pub const STAGE_KEY: &str = "pse:stage_key:v1";
     /// An engine settings or profile digest (blueprint §14.3, §23.2).
     pub const SETTINGS: &str = "pse:settings:v1";
-    /// A math IR structural node hash (blueprint §7.4, ADR-0047).
-    pub const MATHIR_NODE: &str = "pse:mathir:node:v1";
 }
 
 /// Frames one part into a hasher: `u64` little-endian length, then the bytes.
@@ -55,9 +41,7 @@ pub mod context {
 /// unreachable; it exists because the crate's panic policy has no room for an `expect`
 /// that only a 128-bit address space could reach.
 fn put_part(hasher: &mut blake3::Hasher, part: &[u8]) {
-    let len = u64::try_from(part.len()).unwrap_or(u64::MAX);
-    hasher.update(&len.to_le_bytes());
-    hasher.update(part);
+    crate::frame::FrameSink::put_len_prefixed(hasher, part);
 }
 
 /// Derives a 128-bit semantic ID under `context` from framed `parts` (blueprint §5.1).
@@ -177,38 +161,6 @@ impl FramedHasher {
     }
 }
 
-/// The index tuple that distinguishes instances of one declaration (blueprint §5.1).
-///
-/// It contributes **one** part whose bytes are the members' raw bytes concatenated, so the
-/// tuple's arity is carried by the part's length and a member boundary is never ambiguous
-/// (every member is exactly [`SemanticId::WIDTH`] bytes).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct IndexTuple<'a>(pub &'a [SemanticId]);
-
-impl IndexTuple<'_> {
-    /// The empty tuple: a declaration with no free index.
-    pub const EMPTY: IndexTuple<'static> = IndexTuple(&[]);
-
-    /// The concatenated raw member bytes, which is the single part this tuple frames as.
-    pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(self.0.len() * SemanticId::WIDTH);
-        for member in self.0 {
-            out.extend_from_slice(member.as_bytes());
-        }
-        out
-    }
-
-    /// The number of members.
-    pub fn len(self) -> usize {
-        self.0.len()
-    }
-
-    /// Whether the tuple has no members.
-    pub fn is_empty(self) -> bool {
-        self.0.is_empty()
-    }
-}
-
 /// The identity of a named-policy entity: `blake3_128("pse:named:v1" ‖ package_id ‖ name)`.
 ///
 /// Named policy is for reference packages whose qualified names *are* the public contract
@@ -230,108 +182,11 @@ pub fn named_id(package_id: SemanticId, qualified_name: &str) -> SemanticId {
     )
 }
 
-/// A symbol instance of a compiled model (blueprint §5.1).
-pub fn symbol_instance_id(
-    instance_id: SemanticId,
-    symbol_decl_id: SemanticId,
-    index: IndexTuple<'_>,
-) -> SemanticId {
-    derive_id(
-        context::SYMBOL,
-        &[
-            instance_id.as_bytes(),
-            symbol_decl_id.as_bytes(),
-            &index.to_bytes(),
-        ],
-    )
-}
-
-/// An equation instance of a compiled model (blueprint §5.1).
-pub fn equation_instance_id(
-    instance_id: SemanticId,
-    equation_decl_id: SemanticId,
-    index: IndexTuple<'_>,
-) -> SemanticId {
-    derive_id(
-        context::EQUATION,
-        &[
-            instance_id.as_bytes(),
-            equation_decl_id.as_bytes(),
-            &index.to_bytes(),
-        ],
-    )
-}
-
-/// A law-expanded contribution term (blueprint §5.1, §10).
-pub fn law_term_id(
-    law_instance_id: SemanticId,
-    contribution_id: SemanticId,
-    index: IndexTuple<'_>,
-) -> SemanticId {
-    derive_id(
-        context::TERM,
-        &[
-            law_instance_id.as_bytes(),
-            contribution_id.as_bytes(),
-            &index.to_bytes(),
-        ],
-    )
-}
-
-/// A connection equation (blueprint §5.1).
-///
-/// The member ordinal is a *declared* position within the connection, not a row position,
-/// and frames as its eight little-endian bytes.
-pub fn connection_equation_id(
-    connection_id: SemanticId,
-    member_ordinal: Ordinal,
-    index: IndexTuple<'_>,
-) -> SemanticId {
-    derive_id(
-        context::CONN,
-        &[
-            connection_id.as_bytes(),
-            &member_ordinal.to_le_bytes(),
-            &index.to_bytes(),
-        ],
-    )
-}
-
-/// A mesh node of a discretized domain (blueprint §5.1, §12).
-pub fn mesh_node_id(
-    domain_id: SemanticId,
-    policy_id: SemanticId,
-    node_ordinal: Ordinal,
-) -> SemanticId {
-    derive_id(
-        context::NODE,
-        &[
-            domain_id.as_bytes(),
-            policy_id.as_bytes(),
-            &node_ordinal.to_le_bytes(),
-        ],
-    )
-}
-
-/// A symbol discretized onto a mesh node (blueprint §5.1).
-///
-/// Shares the `pse:symbol:v1` context with [`symbol_instance_id`]; the two cannot collide
-/// because they frame a different number of parts.
-pub fn discretized_symbol_id(parent_symbol_id: SemanticId, node_id: SemanticId) -> SemanticId {
-    derive_id(
-        context::SYMBOL,
-        &[parent_symbol_id.as_bytes(), node_id.as_bytes()],
-    )
-}
-
 #[cfg(test)]
-mod tests {
+mod consolidation_unit {
     use super::*;
 
     const A: SemanticId = SemanticId::from_bytes([0x01; 16]);
-    const B: SemanticId = SemanticId::from_bytes([0x02; 16]);
-    const C: SemanticId = SemanticId::from_bytes([0x03; 16]);
-    const D: SemanticId = SemanticId::from_bytes([0x04; 16]);
 
     #[test]
     fn framing_distinguishes_a_split_that_concatenation_would_not() {
@@ -370,8 +225,8 @@ mod tests {
     fn a_changed_context_changes_every_derived_value() {
         let parts: &[&[u8]] = &[b"x"];
         assert_ne!(
-            derive_id(context::SYMBOL, parts),
-            derive_id(context::EQUATION, parts)
+            derive_id("pse.test.domain.a.v1", parts),
+            derive_id("pse.test.domain.b.v1", parts)
         );
         assert_ne!(
             derive_hash(context::REGISTRY, parts),
@@ -391,7 +246,7 @@ mod tests {
 
     #[test]
     fn the_framed_hasher_equals_the_slice_form_on_the_same_parts() {
-        let mut framed = FramedHasher::new(context::STAGE_KEY);
+        let mut framed = FramedHasher::new("pse.test.framing.v1");
         framed
             .str("P2")
             .u32(1)
@@ -403,7 +258,7 @@ mod tests {
             .part(b"tail");
 
         let expected = derive_hash(
-            context::STAGE_KEY,
+            "pse.test.framing.v1",
             &[
                 b"P2",
                 &1_u32.to_le_bytes(),
@@ -431,54 +286,5 @@ mod tests {
         let id = derive_id(context::REGISTRY, parts);
         let hash = derive_hash(context::REGISTRY, parts);
         assert_eq!(id.as_bytes(), &hash.as_bytes()[..SemanticId::WIDTH]);
-    }
-
-    #[test]
-    fn an_index_tuple_frames_as_one_concatenated_part() {
-        assert_eq!(IndexTuple(&[C, D]).to_bytes().len(), 32);
-        assert_eq!(IndexTuple::EMPTY.to_bytes(), Vec::<u8>::new());
-        assert!(IndexTuple::EMPTY.is_empty());
-        assert_eq!(IndexTuple(&[C, D]).len(), 2);
-
-        // The tuple is one part, so a different arity is a different value.
-        assert_ne!(
-            symbol_instance_id(A, B, IndexTuple(&[C])),
-            symbol_instance_id(A, B, IndexTuple(&[C, D]))
-        );
-        // ... and member order is identity, not a set.
-        assert_ne!(
-            symbol_instance_id(A, B, IndexTuple(&[C, D])),
-            symbol_instance_id(A, B, IndexTuple(&[D, C]))
-        );
-    }
-
-    #[test]
-    fn the_typed_constructors_do_not_collide_with_each_other() {
-        let index = IndexTuple(&[C, D]);
-        let derived = vec![
-            symbol_instance_id(A, B, index),
-            equation_instance_id(A, B, index),
-            law_term_id(A, B, index),
-            connection_equation_id(A, Ordinal(7), index),
-            mesh_node_id(A, B, Ordinal(7)),
-            discretized_symbol_id(A, B),
-            named_id(A, "x"),
-        ];
-        let mut unique = derived.clone();
-        unique.sort_unstable();
-        unique.dedup();
-        assert_eq!(unique.len(), derived.len());
-    }
-
-    #[test]
-    fn an_ordinal_is_part_of_a_connection_equation_identity() {
-        assert_ne!(
-            connection_equation_id(A, Ordinal(0), IndexTuple::EMPTY),
-            connection_equation_id(A, Ordinal(1), IndexTuple::EMPTY)
-        );
-        assert_ne!(
-            mesh_node_id(A, B, Ordinal(0)),
-            mesh_node_id(A, B, Ordinal(1))
-        );
     }
 }

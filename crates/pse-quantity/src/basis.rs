@@ -4,7 +4,7 @@
 //! Basis declarations (blueprint §6.2, §8.4).
 use crate::{BasisId, BasisKind, CompositionBasis, RateBasis, ReferenceStateId};
 /// A declared material or specific-quantity basis.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::struct_field_names,
     reason = "fields retain the reference.bases contract names"

@@ -12,7 +12,7 @@
 //! # What the budget does not promise
 //!
 //! The fallible guarantee covers *accounted* consumers: DataFusion's reserving operators and
-//! the platform buffers that reserve through [`pse_ids::MemoryReserver`] before
+//! the platform buffers that reserve through [`pse_columnar::MemoryPool`] before
 //! allocating. It does not cover the global allocator, a solver process, or any Arrow
 //! array built outside a reservation. ADR-0046 states this in the same breath as the
 //! guarantee, and so does this type, because a budget whose scope is assumed rather than
@@ -21,8 +21,8 @@
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
-pub use pse_catalog::cache_service::CacheBudget;
-use pse_catalog::{ExecutionSettings, ThreadBudget};
+pub use pse_catalog::cache_service::DeltaCacheBudget;
+use pse_engine::{ExecutionSettings, ThreadBudget};
 
 use crate::error::RuntimeError;
 
@@ -46,7 +46,9 @@ pub struct ResourceBudget {
     /// The session execution settings.
     pub execution: ExecutionSettings,
     /// Native cache capacity, load staging and query headroom in the same pool.
-    pub cache: CacheBudget,
+    pub cache: DeltaCacheBudget,
+    /// Finite compiler and native math allowances in this same pool.
+    pub math: crate::math::MathPolicy,
     /// Whether artifact hashing may take pool threads (`blake3::update_rayon`).
     ///
     /// This grants permission; it does not require parallel hashing or change canonical
@@ -70,6 +72,7 @@ impl ResourceBudget {
     /// configuration error before any.
     pub fn validate(&self) -> Result<(), RuntimeError> {
         self.execution.validate()?;
+        self.math.validate()?;
         self.cache.validate(self.memory_limit_bytes.get())?;
         if isize::try_from(self.memory_limit_bytes.get()).is_err() {
             return Err(RuntimeError::ConfigInvalid {
@@ -133,7 +136,8 @@ mod tests {
                 target_partitions: count(8),
             },
             execution: ExecutionSettings::default(),
-            cache: CacheBudget::disabled(1),
+            cache: DeltaCacheBudget::disabled(1),
+            math: Default::default(),
             hashing_may_use_pool: false,
         }
     }

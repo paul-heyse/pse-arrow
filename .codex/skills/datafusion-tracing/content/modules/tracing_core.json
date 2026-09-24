@@ -1,0 +1,138 @@
+[
+  {
+    "id": "52dda2a9e4e737870d3f675f",
+    "path": "tracing_core",
+    "name": "tracing_core",
+    "owner": null,
+    "crate": "tracing-core",
+    "version": "0.1.36",
+    "kind": "module",
+    "signature": "mod tracing_core",
+    "docs": "Core primitives for `tracing`.\n\n[`tracing`] is a framework for instrumenting Rust programs to collect\nstructured, event-based diagnostic information. This crate defines the core\nprimitives of `tracing`.\n\nThis crate provides:\n\n* [`span::Id`] identifies a span within the execution of a program.\n\n* [`Event`] represents a single event within a trace.\n\n* [`Subscriber`], the trait implemented to collect trace data.\n\n* [`Metadata`] and [`Callsite`] provide information describing spans and\n  `Event`s.\n\n* [`Field`], [`FieldSet`], [`Value`], and [`ValueSet`] represent the\n  structured data attached to a span.\n\n* [`Dispatch`] allows spans and events to be dispatched to `Subscriber`s.\n\nIn addition, it defines the global callsite registry and per-thread current\ndispatcher which other components of the tracing system rely on.\n\n*Compiler support: [requires `rustc` 1.65+][msrv]*\n\n[msrv]: #supported-rust-versions\n\n## Usage\n\nApplication authors will typically not use this crate directly. Instead,\nthey will use the [`tracing`] crate, which provides a much more\nfully-featured API. However, this crate's API will change very infrequently,\nso it may be used when dependencies must be very stable.\n\n`Subscriber` implementations may depend on `tracing-core` rather than\n`tracing`, as the additional APIs provided by `tracing` are primarily useful\nfor instrumenting libraries and applications, and are generally not\nnecessary for `Subscriber` implementations.\n\nThe [`tokio-rs/tracing`] repository contains less stable crates designed to\nbe used with the `tracing` ecosystem. It includes a collection of\n`Subscriber` implementations, as well as utility and adapter crates.\n\n## Crate Feature Flags\n\nThe following crate [feature flags] are available:\n\n* `std`: Depend on the Rust standard library (enabled by default).\n\n  `no_std` users may disable this feature with `default-features = false`:\n\n  ```toml\n  [dependencies]\n  tracing-core = { version = \"0.1.22\", default-features = false }\n  ```\n\n  **Note**:`tracing-core`'s `no_std` support requires `liballoc`.\n\n### Unstable Features\n\nThese feature flags enable **unstable** features. The public API may break in 0.1.x\nreleases. To enable these features, the `--cfg tracing_unstable` must be passed to\n`rustc` when compiling.\n\nThe following unstable feature flags are currently available:\n\n* `valuable`: Enables support for recording [field values] using the\n  [`valuable`] crate.\n\n#### Enabling Unstable Features\n\nThe easiest way to set the `tracing_unstable` cfg is to use the `RUSTFLAGS`\nenv variable when running `cargo` commands:\n\n```shell\nRUSTFLAGS=\"--cfg tracing_unstable\" cargo build\n```\nAlternatively, the following can be added to the `.cargo/config` file in a\nproject to automatically enable the cfg flag for that project:\n\n```toml\n[build]\nrustflags = [\"--cfg\", \"tracing_unstable\"]\n```\n\n[feature flags]: https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section\n[field values]: crate::field\n[`valuable`]: https://crates.io/crates/valuable\n\n## Supported Rust Versions\n\nTracing is built against the latest stable release. The minimum supported\nversion is 1.65. The current Tracing version is not guaranteed to build on\nRust versions earlier than the minimum supported version.\n\nTracing follows the same compiler support policies as the rest of the Tokio\nproject. The current stable Rust compiler and the three most recent minor\nversions before it will always be supported. For example, if the current\nstable compiler version is 1.69, the minimum supported version will not be\nincreased past 1.66, three minor versions prior. Increasing the minimum\nsupported compiler version is not considered a semver breaking change as\nlong as doing so complies with this policy.\n\n\n[`span::Id`]: span::Id\n[`Event`]: event::Event\n[`Subscriber`]: subscriber::Subscriber\n[`Metadata`]: metadata::Metadata\n[`Callsite`]: callsite::Callsite\n[`Field`]: field::Field\n[`FieldSet`]: field::FieldSet\n[`Value`]: field::Value\n[`ValueSet`]: field::ValueSet\n[`Dispatch`]: dispatcher::Dispatch\n[`tokio-rs/tracing`]: https://github.com/tokio-rs/tracing\n[`tracing`]: https://crates.io/crates/tracing",
+    "span": {
+      "filename": "src/lib.rs",
+      "begin": [
+        1,
+        1
+      ],
+      "end": [
+        311,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [
+      {
+        "other": "#[deny(rustdoc::broken_intra_doc_links)]"
+      },
+      {
+        "other": "#[warn(missing_debug_implementations, missing_docs, rust_2018_idioms,\nunreachable_pub, bad_style, dead_code, improper_ctypes,\nnon_shorthand_field_patterns, no_mangle_generic_items, overflowing_literals,\npath_statements, patterns_in_fns_without_body, private_interfaces,\nprivate_bounds, unconditional_recursion, unused, unused_allocation,\nunused_comparisons, unused_parens, while_true)]"
+      },
+      {
+        "other": "#[attr = CfgAttrTrace([NameValue { name: \"docsrs\", value: None, span: src/lib.rs:126:13: 126:19 (#0) }])]"
+      },
+      {
+        "other": "#[attr = NoStd]"
+      },
+      {
+        "other": "#[doc(html_favicon_url = \"https://raw.githubusercontent.com/tokio-rs/tracing/main/assets/favicon.ico\")]"
+      },
+      {
+        "other": "#[doc(html_logo_url = \"https://raw.githubusercontent.com/tokio-rs/tracing/main/assets/logo-type.png\")]"
+      },
+      {
+        "other": "#[doc(issue_tracker_base_url = \"https://github.com/tokio-rs/tracing/issues/\")]"
+      },
+      {
+        "other": "#[attr = Feature([doc_cfg#0])]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "module": {
+        "is_crate": true,
+        "items": [
+          11,
+          262,
+          297,
+          266,
+          881,
+          228,
+          1100,
+          1102,
+          1104,
+          1105,
+          1106,
+          1107,
+          1108,
+          1109,
+          1110,
+          1111,
+          1112,
+          1113,
+          1114,
+          1115
+        ],
+        "is_stripped": false
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {
+      "field::ValueSet": 268,
+      "crate::field": 266,
+      "subscriber::Subscriber": 112,
+      "span::Id": 128,
+      "event::Event": 138,
+      "dispatcher::Dispatch": 120,
+      "callsite::Callsite": 16,
+      "field::Value": 300,
+      "field::FieldSet": 306,
+      "field::Field": 299,
+      "metadata::Metadata": 13
+    },
+    "link_paths": {
+      "field::ValueSet": "tracing_core::field::ValueSet",
+      "crate::field": "tracing_core::field",
+      "subscriber::Subscriber": "tracing_core::subscriber::Subscriber",
+      "span::Id": "tracing_core::span::Id",
+      "event::Event": "tracing_core::event::Event",
+      "dispatcher::Dispatch": "tracing_core::dispatcher::Dispatch",
+      "callsite::Callsite": "tracing_core::callsite::Callsite",
+      "field::Value": "tracing_core::field::Value",
+      "field::FieldSet": "tracing_core::field::FieldSet",
+      "field::Field": "tracing_core::field::Field",
+      "metadata::Metadata": "tracing_core::metadata::Metadata"
+    },
+    "artifact": {
+      "id": "6f72fe5a0473c1acb4f4f78f38766b31b5d8a4b79c7497373b73b774f8bf7a60",
+      "capture": "hosted",
+      "format_version": 61,
+      "item_id": "1116",
+      "origin": "https://docs.rs/crate/tracing-core/0.1.36/json",
+      "compressed_sha256": "341b1483624ee620081dd1d60eec902d599e0721ed517fa36124f27949944ace",
+      "local_file": "build/acquired/rustdoc/tracing-core@0.1.36.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "modules/tracing_core.md",
+    "record_file": "modules/tracing_core.json",
+    "anchor": "op-52dda2a9e4e737870d3f675f",
+    "aliases": [],
+    "resolved_doc_links": {
+      "field::ValueSet": "../operations/tracing_core.field.ValueSet.md#op-81b1992dfc73d64b6f31eb3a",
+      "crate::field": "../modules/tracing_core.field.md#op-477f165c4ba5dcf863f23dd0",
+      "subscriber::Subscriber": "../operations/tracing_core.subscriber.Subscriber.md#op-d03861aa726092c9d924061c",
+      "span::Id": "../operations/tracing_core.span.Id.md#op-a01c623911845c00e8650c4f",
+      "event::Event": "../operations/tracing_core.event.Event.md#op-7ee85389e31294d1a098f039",
+      "dispatcher::Dispatch": "../operations/tracing_core.dispatcher.Dispatch.md#op-bdcb8c4598cc406ba313069c",
+      "callsite::Callsite": "../operations/tracing_core.callsite.Callsite.md#op-f2f04985f5653f1f8f822082",
+      "field::Value": "../operations/tracing_core.field.Value.md#op-3bdffa798a494864d07fca1b",
+      "field::FieldSet": "../operations/tracing_core.field.FieldSet.md#op-c3de2aec342fd60d61868736",
+      "field::Field": "../operations/tracing_core.field.Field.md#op-d16f69bd65cdad5606214c7c",
+      "metadata::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c"
+    }
+  }
+]

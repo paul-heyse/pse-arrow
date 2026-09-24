@@ -6,12 +6,9 @@
 use datafusion::{
     arrow::array::{RecordBatch, UInt64Array},
     datasource::source_as_provider,
-    execution::runtime_env::RuntimeEnv,
 };
-use pse_catalog::session::{
-    ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile,
-};
-use pse_ids::{CancellationToken, FixedBudget};
+use pse_columnar::CancellationToken;
+use pse_engine::session::{ExecutionSettings, ThreadBudget};
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{
     Registry, RegistryBuilder,
@@ -59,15 +56,13 @@ async fn named_ports_keep_versions_distinct_and_alias_only_unique_provider_names
         .unwrap();
         FieldCheckedBatch::admit(&registry, spec, batch).unwrap()
     };
-    let factory = SessionFactory::new(
-        Arc::new(RuntimeEnv::default()),
-        FixedBudget::new(64 << 20),
+    let factory = pse_testkit::factory(
+        Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         ExecutionSettings::default(),
         ThreadBudget {
             pool_threads: 1.try_into().unwrap(),
             target_partitions: 2.try_into().unwrap(),
         },
-        native_engine_profile(),
     )
     .unwrap();
     let cancel = CancellationToken::new();

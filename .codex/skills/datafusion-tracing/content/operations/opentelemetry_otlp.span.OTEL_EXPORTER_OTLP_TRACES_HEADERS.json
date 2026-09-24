@@ -1,0 +1,69 @@
+[
+  {
+    "id": "7370a9579750ec3b57e9275c",
+    "path": "opentelemetry_otlp::span::OTEL_EXPORTER_OTLP_TRACES_HEADERS",
+    "name": "OTEL_EXPORTER_OTLP_TRACES_HEADERS",
+    "owner": null,
+    "crate": "opentelemetry-otlp",
+    "version": "0.31.0",
+    "kind": "constant",
+    "signature": "const OTEL_EXPORTER_OTLP_TRACES_HEADERS: &str = \"OTEL_EXPORTER_OTLP_TRACES_HEADERS\"",
+    "docs": "Key-value pairs to be used as headers associated with gRPC or HTTP requests\nfor sending spans.\nExample: `k1=v1,k2=v2`\nNote: this is only supported for HTTP.",
+    "span": {
+      "filename": "src/span.rs",
+      "begin": [
+        37,
+        1
+      ],
+      "end": [
+        37,
+        89
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "constant": {
+        "type": {
+          "borrowed_ref": {
+            "lifetime": null,
+            "is_mutable": false,
+            "type": {
+              "primitive": "str"
+            }
+          }
+        },
+        "const": {
+          "expr": "\"OTEL_EXPORTER_OTLP_TRACES_HEADERS\"",
+          "value": null,
+          "is_literal": true
+        }
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "fc779bfe0afcf1cd682dc34c8e0ad6efdd94acfc1b2a689eb3f442eff75d202a",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "582",
+      "origin": "https://docs.rs/crate/opentelemetry-otlp/0.31.0/json",
+      "compressed_sha256": "9dd3999a8ea89ab47788c799ae502ec695430d167a7e52243e836dc7d456af9f",
+      "local_file": "build/acquired/rustdoc/opentelemetry-otlp@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry_otlp.span.OTEL_EXPORTER_OTLP_TRACES_HEADERS.md",
+    "record_file": "operations/opentelemetry_otlp.span.OTEL_EXPORTER_OTLP_TRACES_HEADERS.json",
+    "anchor": "op-7370a9579750ec3b57e9275c",
+    "aliases": [
+      "opentelemetry_otlp::OTEL_EXPORTER_OTLP_TRACES_HEADERS"
+    ],
+    "resolved_doc_links": {}
+  }
+]

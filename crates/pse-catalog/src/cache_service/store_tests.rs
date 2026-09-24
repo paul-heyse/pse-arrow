@@ -2,15 +2,19 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! No Delta replay: verify the registered IO decorator seam for all object kinds.
-use super::*;
+use datafusion::execution::{runtime_env::RuntimeEnv, session_state::SessionStateBuilder};
 use futures_util::stream::BoxStream;
+use object_store::path::Path;
 use object_store::{ObjectStore, ObjectStoreExt};
+use pse_engine::cache_service::*;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug, Default)]
-struct CountingStore {
+pub(super) struct CountingStore {
     inner: object_store::memory::InMemory,
-    gets: AtomicUsize,
+    pub(super) gets: AtomicUsize,
+    pub(super) lists: AtomicUsize,
     puts: AtomicUsize,
 }
 impl std::fmt::Display for CountingStore {
@@ -54,12 +58,14 @@ impl ObjectStore for CountingStore {
         &self,
         prefix: Option<&Path>,
     ) -> BoxStream<'static, object_store::Result<object_store::ObjectMeta>> {
+        self.lists.fetch_add(1, Ordering::Relaxed);
         self.inner.list(prefix)
     }
     async fn list_with_delimiter(
         &self,
         prefix: Option<&Path>,
     ) -> object_store::Result<object_store::ListResult> {
+        self.lists.fetch_add(1, Ordering::Relaxed);
         self.inner.list_with_delimiter(prefix).await
     }
     async fn copy_opts(

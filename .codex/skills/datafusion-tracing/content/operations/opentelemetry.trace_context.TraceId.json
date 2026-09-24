@@ -1,0 +1,1522 @@
+[
+  {
+    "id": "436bb6ec32d874fe466755ee",
+    "path": "opentelemetry::trace_context::TraceId",
+    "name": "TraceId",
+    "owner": null,
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "struct",
+    "signature": "struct TraceId",
+    "docs": "A 16-byte value which identifies a given trace.\n\nThe id is valid if it contains at least one non-zero byte.",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        94,
+        1
+      ],
+      "end": [
+        94,
+        26
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "tuple": [
+            null
+          ]
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "impls": [
+          569,
+          570,
+          571,
+          572,
+          573,
+          574,
+          575,
+          576,
+          577,
+          578,
+          579,
+          580,
+          581,
+          582,
+          583,
+          584,
+          585,
+          586,
+          587,
+          588,
+          590,
+          591,
+          593,
+          594,
+          595,
+          597,
+          599,
+          601,
+          603,
+          605
+        ]
+      }
+    },
+    "type_references": {},
+    "impl_context": null,
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "563",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-436bb6ec32d874fe466755ee",
+    "aliases": [
+      "opentelemetry::TraceId",
+      "opentelemetry::trace::TraceId"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8ce00ee002c37f87bd559c22",
+    "path": "opentelemetry::trace_context::TraceId::INVALID",
+    "name": "INVALID",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "assoc_const",
+    "signature": "INVALID",
+    "docs": "Invalid trace id",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        98,
+        5
+      ],
+      "end": [
+        98,
+        45
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "assoc_const": {
+        "type": {
+          "resolved_path": {
+            "path": "TraceId",
+            "id": 563,
+            "args": null
+          }
+        },
+        "value": "_"
+      }
+    },
+    "type_references": {
+      "563": "opentelemetry::trace_context::TraceId"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          96,
+          1
+        ],
+        "end": [
+          125,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "564",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-8ce00ee002c37f87bd559c22",
+    "aliases": [
+      "opentelemetry::TraceId::INVALID",
+      "opentelemetry::trace::TraceId::INVALID"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "364d68ded5a7435cce5d0184",
+    "path": "opentelemetry::trace_context::TraceId::clone",
+    "name": "clone",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn clone(&self) -> TraceId",
+    "docs": "",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        93,
+        10
+      ],
+      "end": [
+        93,
+        15
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "TraceId",
+              "id": 563,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "563": "opentelemetry::trace_context::TraceId"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          93,
+          10
+        ],
+        "end": [
+          93,
+          15
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "589",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-364d68ded5a7435cce5d0184",
+    "aliases": [
+      "opentelemetry::TraceId::clone",
+      "opentelemetry::trace::TraceId::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a8810a33e637ebbae8964697",
+    "path": "opentelemetry::trace_context::TraceId::eq",
+    "name": "eq",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn eq(&self, other: &TraceId) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        93,
+        17
+      ],
+      "end": [
+        93,
+        26
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "other",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "TraceId",
+                      "id": 563,
+                      "args": null
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "563": "opentelemetry::trace_context::TraceId"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "PartialEq",
+        "id": "core::cmp::PartialEq",
+        "args": null
+      },
+      "trait_path": "core::cmp::PartialEq",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          93,
+          17
+        ],
+        "end": [
+          93,
+          26
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "592",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-a8810a33e637ebbae8964697",
+    "aliases": [
+      "opentelemetry::TraceId::eq",
+      "opentelemetry::trace::TraceId::eq"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "3d8ed41a5752a1e0bbabe857",
+    "path": "opentelemetry::trace_context::TraceId::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        146,
+        5
+      ],
+      "end": [
+        148,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "LowerHex",
+        "id": "core::fmt::LowerHex",
+        "args": null
+      },
+      "trait_path": "core::fmt::LowerHex",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          145,
+          1
+        ],
+        "end": [
+          149,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "604",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-3d8ed41a5752a1e0bbabe857",
+    "aliases": [
+      "opentelemetry::TraceId::fmt",
+      "opentelemetry::trace::TraceId::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a6c8d8123ead9a62d5498798",
+    "path": "opentelemetry::trace_context::TraceId::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        134,
+        5
+      ],
+      "end": [
+        136,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          133,
+          1
+        ],
+        "end": [
+          137,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "600",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-a6c8d8123ead9a62d5498798",
+    "aliases": [
+      "opentelemetry::TraceId::fmt",
+      "opentelemetry::trace::TraceId::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "f869dc1e69cf6155fcb06fe5",
+    "path": "opentelemetry::trace_context::TraceId::fmt",
+    "name": "fmt",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        140,
+        5
+      ],
+      "end": [
+        142,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 93,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 94,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "93": "core::fmt::Formatter",
+      "94": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Display",
+        "id": "core::fmt::Display",
+        "args": null
+      },
+      "trait_path": "core::fmt::Display",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          139,
+          1
+        ],
+        "end": [
+          143,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "602",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-f869dc1e69cf6155fcb06fe5",
+    "aliases": [
+      "opentelemetry::TraceId::fmt",
+      "opentelemetry::trace::TraceId::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "81d09171cbff30f38a8353d4",
+    "path": "opentelemetry::trace_context::TraceId::from",
+    "name": "from",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from(value: u128) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        128,
+        5
+      ],
+      "end": [
+        130,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "value",
+              {
+                "primitive": "u128"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "primitive": "u128"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          127,
+          1
+        ],
+        "end": [
+          131,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "598",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-81d09171cbff30f38a8353d4",
+    "aliases": [
+      "opentelemetry::TraceId::from",
+      "opentelemetry::trace::TraceId::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "7823c06a91177d5e6b491d67",
+    "path": "opentelemetry::trace_context::TraceId::from_bytes",
+    "name": "from_bytes",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "const fn from_bytes(bytes: [u8; 16]) -> Self",
+    "docs": "Create a trace id from its representation as a byte array.",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        101,
+        5
+      ],
+      "end": [
+        103,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "bytes",
+              {
+                "array": {
+                  "type": {
+                    "primitive": "u8"
+                  },
+                  "len": "16"
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": true,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          96,
+          1
+        ],
+        "end": [
+          125,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "565",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-7823c06a91177d5e6b491d67",
+    "aliases": [
+      "opentelemetry::TraceId::from_bytes",
+      "opentelemetry::trace::TraceId::from_bytes"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "00e6a21791e1c54dbd739036",
+    "path": "opentelemetry::trace_context::TraceId::from_hex",
+    "name": "from_hex",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn from_hex(hex: &str) -> Result<Self, ParseIntError>",
+    "docs": "Converts a string in base 16 to a trace id.\n\n# Examples\n\n```\nuse opentelemetry::trace::TraceId;\n\nassert!(TraceId::from_hex(\"42\").is_ok());\nassert!(TraceId::from_hex(\"58406520a006649127e371903a2de979\").is_ok());\n\nassert!(TraceId::from_hex(\"not_hex\").is_err());\n```",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        122,
+        5
+      ],
+      "end": [
+        124,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "hex",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "primitive": "str"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Result",
+              "id": 77,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "ParseIntError",
+                          "id": 568,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "77": "core::result::Result",
+      "568": "core::num::error::ParseIntError"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          96,
+          1
+        ],
+        "end": [
+          125,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "567",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-00e6a21791e1c54dbd739036",
+    "aliases": [
+      "opentelemetry::TraceId::from_hex",
+      "opentelemetry::trace::TraceId::from_hex"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "17cb43c7df1312d235e10d1e",
+    "path": "opentelemetry::trace_context::TraceId::hash",
+    "name": "hash",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "fn hash<__H: hash::Hasher>(&self, state: &mut __H)",
+    "docs": "",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        93,
+        38
+      ],
+      "end": [
+        93,
+        42
+      ]
+    },
+    "visibility": "default",
+    "attributes": [
+      {
+        "other": "#[attr = Inline(Hint)]"
+      }
+    ],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "state",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "generic": "__H"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": null,
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "__H",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "$crate::hash::Hasher",
+                          "id": 544,
+                          "args": null
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "544": "core::hash::Hasher"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": {
+        "path": "Hash",
+        "id": "core::hash::Hash",
+        "args": null
+      },
+      "trait_path": "core::hash::Hash",
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          93,
+          38
+        ],
+        "end": [
+          93,
+          42
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "596",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-17cb43c7df1312d235e10d1e",
+    "aliases": [
+      "opentelemetry::TraceId::hash",
+      "opentelemetry::trace::TraceId::hash"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "b64e8e99a0b8406750486a90",
+    "path": "opentelemetry::trace_context::TraceId::to_bytes",
+    "name": "to_bytes",
+    "owner": "opentelemetry::trace_context::TraceId",
+    "crate": "opentelemetry",
+    "version": "0.31.0",
+    "kind": "function",
+    "signature": "const fn to_bytes(self) -> [u8; 16]",
+    "docs": "Return the representation of this trace id as a byte array.",
+    "span": {
+      "filename": "src/trace_context.rs",
+      "begin": [
+        106,
+        5
+      ],
+      "end": [
+        108,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ]
+          ],
+          "output": {
+            "array": {
+              "type": {
+                "primitive": "u8"
+              },
+              "len": "16"
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": true,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "TraceId",
+          "id": "opentelemetry::trace_context::TraceId",
+          "args": null
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/trace_context.rs",
+        "begin": [
+          96,
+          1
+        ],
+        "end": [
+          125,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "60140ba95d4b23d1a1713d0a9109f8017751484d81b1bdccac5e69b22e4699b6",
+      "capture": "hosted",
+      "format_version": 56,
+      "item_id": "566",
+      "origin": "https://docs.rs/crate/opentelemetry/0.31.0/json",
+      "compressed_sha256": "438c17ab17d0901e3586353056868127de40ba8d5d6a47f8223b0f2432323ea4",
+      "local_file": "build/acquired/rustdoc/opentelemetry@0.31.0.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/opentelemetry.trace_context.TraceId.md",
+    "record_file": "operations/opentelemetry.trace_context.TraceId.json",
+    "anchor": "op-b64e8e99a0b8406750486a90",
+    "aliases": [
+      "opentelemetry::TraceId::to_bytes",
+      "opentelemetry::trace::TraceId::to_bytes"
+    ],
+    "resolved_doc_links": {}
+  }
+]

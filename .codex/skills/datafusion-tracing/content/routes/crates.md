@@ -1,0 +1,17 @@
+# Crate roles
+
+All pinned packages are routed; a role is not exhaustive semantic characterization.
+
+| Crate | Role | Representation | Task vocabulary | Reviewed briefs |
+|---|---|---|---|---|
+| datafusion-tracing | Planning and physical execution instrumentation | SessionState; optimizer rule; batch stream | planning execution preview metrics fields | [tracing.compatibility](../capabilities/tracing.compatibility.md), [tracing.execution](../capabilities/tracing.execution.md), [tracing.fields](../capabilities/tracing.fields.md), [tracing.lifecycle](../capabilities/tracing.lifecycle.md), [tracing.metrics](../capabilities/tracing.metrics.md), [tracing.preview](../capabilities/tracing.preview.md), [tracing.rules.full](../capabilities/tracing.rules.full.md), [tracing.rules.phase](../capabilities/tracing.rules.phase.md), [tracing.rules.selected](../capabilities/tracing.rules.selected.md), [tracing.targets](../capabilities/tracing.targets.md) |
+| instrumented-object-store | Instrumentation at the storage API boundary | Arc<dyn ObjectStore>; request; returned stream | store requests get ranges errors multipart | [tracing.storage](../capabilities/tracing.storage.md) |
+| tracing | Span construction and async instrumentation | Span; Future | fields parent target level await | [tracing.context](../capabilities/tracing.context.md), [tracing.fields](../capabilities/tracing.fields.md), [tracing.lifecycle](../capabilities/tracing.lifecycle.md), [tracing.targets](../capabilities/tracing.targets.md) |
+| tracing-core | Metadata, dispatch and field recording | Subscriber; Dispatch; field set | dispatch metadata field schema | [tracing.context](../capabilities/tracing.context.md), [tracing.fields](../capabilities/tracing.fields.md) |
+| tracing-attributes | Attribute instrumentation | async function; span | instrument skip fields arguments | [tracing.context](../capabilities/tracing.context.md) |
+| tracing-futures | Async span and subscriber adapters | Future; Stream; Instrumented | poll spawn context subscriber | [tracing.context](../capabilities/tracing.context.md), [tracing.storage](../capabilities/tracing.storage.md) |
+| tracing-subscriber | Registry, layers, filtering and formatting | Layer; Registry; EnvFilter | stdout filter target level close | [tracing.context](../capabilities/tracing.context.md), [tracing.filtering](../capabilities/tracing.filtering.md), [tracing.targets](../capabilities/tracing.targets.md) |
+| tracing-opentelemetry | Bridge tracing spans into OpenTelemetry | OpenTelemetryLayer; Context | bridge otel.name parent exported attributes | [tracing.compatibility](../capabilities/tracing.compatibility.md), [tracing.export](../capabilities/tracing.export.md), [tracing.filtering](../capabilities/tracing.filtering.md) |
+| opentelemetry | Trace API and context | Tracer; SpanContext | context trace propagation | [tracing.compatibility](../capabilities/tracing.compatibility.md), [tracing.export](../capabilities/tracing.export.md) |
+| opentelemetry_sdk | Provider, processor and sampling lifecycle | SdkTracerProvider; SpanExporter | sampling batch flush shutdown | [tracing.compatibility](../capabilities/tracing.compatibility.md), [tracing.export](../capabilities/tracing.export.md), [tracing.filtering](../capabilities/tracing.filtering.md) |
+| opentelemetry-otlp | Exporter transport configuration | SpanExporter; transport features | otlp http grpc endpoint timeout | [tracing.compatibility](../capabilities/tracing.compatibility.md), [tracing.export](../capabilities/tracing.export.md) |

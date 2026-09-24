@@ -13,7 +13,7 @@ import platform
 import msgspec
 import pytest
 
-from pse import HostCapabilities, probe_host
+from pse.parity.host import HostCapabilities, probe_host
 
 
 @pytest.mark.component

@@ -14,7 +14,6 @@ use deltalake::{
     DeltaTable,
     kernel::{Action, Transaction, transaction::CommitProperties},
 };
-use object_store::ObjectStoreExt;
 use pse_ids::SemanticId;
 use pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem as Member;
 use serde::{Deserialize, Serialize};
@@ -22,25 +21,22 @@ use serde::{Deserialize, Serialize};
 const KEY: &str = "pse.member_attempt.v3";
 
 /// A member failure whose settlement differs from an ordinary computation failure.
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[derive(Debug, thiserror::Error)]
 pub enum MemberAttemptError {
     /// Retrying with different inputs, implementations, policies or destination refuses.
     #[error("member attempt identity was reused with a different native operation")]
-    #[diagnostic(code(config::invalid))]
     IdentityReused,
     /// Complete readable history establishes that no data commit was made.
-    #[error("member write was rejected without a data commit: {detail}")]
-    #[diagnostic(code(runtime::infrastructure))]
+    #[error("member write was rejected without a data commit: {source}")]
     Rejected {
         /// Native operation diagnostic.
-        detail: String,
+        source: Box<dyn std::error::Error + Send + Sync>,
     },
     /// Incomplete history or failed observation cannot establish whether data committed.
-    #[error("member write settlement is unresolved: {detail}")]
-    #[diagnostic(code(runtime::infrastructure))]
+    #[error("member write settlement is unresolved: {source}")]
     Unresolved {
         /// Observation failure. Never interpreted as rollback or empty history.
-        detail: String,
+        source: Box<dyn std::error::Error + Send + Sync>,
     },
 }
 
@@ -117,7 +113,8 @@ impl MemberAttempt {
             phase,
         };
         let mut extent = SerializedExtent::default();
-        serde_json::to_writer(&mut extent, &receipt).map_err(external)?;
+        serde_json::to_writer(&mut extent, &receipt)
+            .map_err(|error| DataFusionError::External(Box::new(error)))?;
         let owner = MemoryConsumer::new("pse.delta.receipt_encode")
             .register(&state.runtime_env().memory_pool);
         owner.try_grow(
@@ -125,13 +122,16 @@ impl MemberAttempt {
                 .0
                 .checked_mul(96)
                 .and_then(|size| size.checked_add(4096))
-                .ok_or_else(|| unresolved("member receipt extent overflow".into()))?,
+                .ok_or_else(|| unresolved("member receipt extent overflow"))?,
         )?;
-        let mut commit = CommitProperties::default()
-            .with_metadata([(KEY.into(), serde_json::to_value(receipt).map_err(external)?)])
-            .with_max_retries(0)
-            .with_create_checkpoint(true)
-            .with_cleanup_expired_logs(Some(false));
+        let mut commit = super::operation::commit_policy(
+            CommitProperties::default().with_metadata([(
+                KEY.into(),
+                serde_json::to_value(receipt)
+                    .map_err(|error| DataFusionError::External(Box::new(error)))?,
+            )]),
+            super::operation::CommitKind::Publication,
+        );
         if phase == Phase::Written {
             commit =
                 commit.with_application_transaction(Transaction::new(self.transaction_id(), 1));
@@ -162,30 +162,45 @@ impl MemberAttempt {
             .map_or(0, |version| version.saturating_add(1));
         let mut found = MemberState::Unpublished;
         for version in first..=latest {
-            let (bytes, _decode_owner) = receipt_bytes(table, version, state).await?;
-            let mut actions = serde_json::Deserializer::from_slice(&bytes)
-                .into_iter::<Action>()
-                .collect::<std::result::Result<Vec<_>, _>>()
-                .map_err(|error| unresolved(error.to_string()))?;
+            let actions = super::actions::read(
+                table,
+                version,
+                state,
+                &pse_columnar::CancellationToken::new(),
+            )
+            .await?;
             let transaction_id = self.transaction_id();
-            let has_transaction = actions.iter().any(|action| matches!(action,
-                Action::Txn(transaction) if transaction.app_id == transaction_id && transaction.version == 1));
-            for action in &mut actions {
-                let Action::CommitInfo(info) = action else {
-                    continue;
-                };
-                let Some(value) = info.info.remove(KEY) else {
-                    continue;
-                };
-                let receipt: Receipt =
-                    serde_json::from_value(value).map_err(|error| unresolved(error.to_string()))?;
+            let mut transaction_count = 0;
+            let mut receipt = None;
+            actions.visit(|action| {
+                match action {
+                    Action::Txn(transaction)
+                        if transaction.app_id == transaction_id && transaction.version == 1 =>
+                    {
+                        transaction_count += 1;
+                    }
+                    Action::CommitInfo(mut info) => {
+                        if let Some(value) = info.info.remove(KEY) {
+                            if receipt.is_some() {
+                                return Err(unresolved("duplicate member receipt"));
+                            }
+                            receipt =
+                                Some(serde_json::from_value::<Receipt>(value).map_err(unresolved)?);
+                        }
+                    }
+                    _ => {}
+                }
+                Ok(())
+            })?;
+            let has_transaction = transaction_count == 1;
+            if let Some(receipt) = receipt {
                 if receipt.request.attempt_id != self.attempt_id {
                     continue;
                 }
                 self.compare(&receipt.request)?;
                 found = match receipt.phase {
                     Phase::Reclaimed => {
-                        return Err(rejected("member attempt was explicitly reclaimed".into()));
+                        return Err(rejected("member attempt was explicitly reclaimed"));
                     }
                     Phase::Provisioned if found == MemberState::Unpublished => {
                         MemberState::Provisioned(version)
@@ -193,13 +208,13 @@ impl MemberAttempt {
                     Phase::Written => {
                         if !has_transaction || matches!(found, MemberState::Committed(_)) {
                             return Err(unresolved(
-                                "missing or duplicate native application transaction".into(),
+                                "missing or duplicate native application transaction",
                             ));
                         }
                         MemberState::Committed(version)
                     }
                     Phase::Provisioned => {
-                        return Err(unresolved("invalid member attempt phase sequence".into()));
+                        return Err(unresolved("invalid member attempt phase sequence"));
                     }
                 };
             }
@@ -215,11 +230,19 @@ impl MemberAttempt {
     }
 }
 
-pub(super) fn unresolved(detail: String) -> DataFusionError {
-    external(MemberAttemptError::Unresolved { detail })
+pub(super) fn unresolved(
+    source: impl Into<Box<dyn std::error::Error + Send + Sync>>,
+) -> DataFusionError {
+    external(MemberAttemptError::Unresolved {
+        source: source.into(),
+    })
 }
-pub(super) fn rejected(detail: String) -> DataFusionError {
-    external(MemberAttemptError::Rejected { detail })
+pub(super) fn rejected(
+    source: impl Into<Box<dyn std::error::Error + Send + Sync>>,
+) -> DataFusionError {
+    external(MemberAttemptError::Rejected {
+        source: source.into(),
+    })
 }
 
 /// Reclamation requires an actual native member receipt at the current head.
@@ -231,34 +254,44 @@ pub(super) async fn admit_reclamation(
 ) -> Result<(CommitProperties, MemoryReservation)> {
     let version = table
         .version()
-        .ok_or_else(|| unresolved("attempt table has no version".into()))?;
-    let (bytes, _decode_owner) = receipt_bytes(table, version, state).await?;
+        .ok_or_else(|| unresolved("attempt table has no version"))?;
+    let actions = super::actions::read(
+        table,
+        version,
+        state,
+        &pse_columnar::CancellationToken::new(),
+    )
+    .await?;
     let mut receipt = None;
-    for action in serde_json::Deserializer::from_slice(&bytes).into_iter::<Action>() {
-        if let Action::CommitInfo(mut info) = action.map_err(external)?
+    for action in actions.iter() {
+        if let Action::CommitInfo(mut info) = action?
             && let Some(value) = info.info.remove(KEY)
         {
             if receipt.is_some() {
-                return Err(unresolved("duplicate member receipt".into()));
+                return Err(unresolved("duplicate member receipt"));
             }
-            receipt = Some(serde_json::from_value::<Receipt>(value).map_err(external)?);
+            receipt = Some(
+                serde_json::from_value::<Receipt>(value)
+                    .map_err(|error| DataFusionError::External(Box::new(error)))?,
+            );
         }
     }
-    let receipt =
-        receipt.ok_or_else(|| rejected("table head is not an owned member attempt".into()))?;
+    let receipt = receipt.ok_or_else(|| rejected("table head is not an owned member attempt"))?;
     let canonical = |location: &url::Url| {
         location
             .to_file_path()
-            .map_err(|()| rejected("remote attempt reclamation is unqualified".into()))?
+            .map_err(|()| rejected("remote attempt reclamation is unqualified"))?
             .canonicalize()
             .map_err(external)
     };
     if canonical(&receipt.request.publication_uri)? != canonical(control)?
-        || canonical(&url::Url::parse(&receipt.request.member.table_uri).map_err(external)?)?
-            != canonical(table.table_url())?
+        || canonical(
+            &url::Url::parse(&receipt.request.member.table_uri)
+                .map_err(|error| DataFusionError::External(Box::new(error)))?,
+        )? != canonical(table.table_url())?
     {
         return Err(rejected(
-            "member attempt belongs to a different control root or destination".into(),
+            "member attempt belongs to a different control root or destination",
         ));
     }
     receipt.request.commit(Phase::Reclaimed, state)
@@ -273,60 +306,51 @@ pub(super) async fn read_dependencies(
     MemoryReservation,
 )> {
     let version = super::provider::delta_version(member.delta_version)?;
-    let (bytes, owner) = receipt_bytes(table, version, state).await?;
+    let actions = super::actions::read(
+        table,
+        version,
+        state,
+        &pse_columnar::CancellationToken::new(),
+    )
+    .await?;
     let mut found = None;
-    for action in serde_json::Deserializer::from_slice(&bytes).into_iter::<Action>() {
-        if let Action::CommitInfo(mut info) = action.map_err(external)?
+    for action in actions.iter() {
+        if let Action::CommitInfo(mut info) = action?
             && let Some(value) = info.info.remove(KEY)
         {
-            let receipt: Receipt = serde_json::from_value(value).map_err(external)?;
+            let receipt: Receipt = serde_json::from_value(value)
+                .map_err(|error| DataFusionError::External(Box::new(error)))?;
             let mut recorded = receipt.request.member;
             recorded.delta_version = member.delta_version;
             if receipt.phase != Phase::Written || recorded != *member || found.is_some() {
                 return Err(rejected(
-                    "member dependency receipt does not describe this exact selected output".into(),
+                    "member dependency receipt does not describe this exact selected output",
                 ));
             }
             found = Some(receipt.request.dependencies);
         }
     }
-    found.map(|rows| (rows, owner)).ok_or_else(|| {
-        rejected("member has no retained native dependency receipt; recompute explicitly".into())
+    found.map(|rows| (rows, actions.owner)).ok_or_else(|| {
+        rejected("member has no retained native dependency receipt; recompute explicitly")
     })
 }
-/// Bound native commit bytes and conservative JSON/typed decoding workspace
-/// before either is allocated. Commit paths come from the native log-store API.
-pub(super) async fn receipt_bytes(
-    table: &DeltaTable,
-    version: u64,
-    state: &SessionState,
-) -> Result<(bytes::Bytes, MemoryReservation)> {
-    let log = table.log_store();
-    let path = deltalake::logstore::commit_uri_from_version(Some(version));
-    let metadata = log.object_store(None).head(&path).await.map_err(external)?;
-    let bytes = usize::try_from(metadata.size).map_err(external)?;
-    let extent = bytes
-        .checked_mul(96)
-        .and_then(|n| n.checked_add(4096))
-        .ok_or_else(|| unresolved("dependency JSON extent overflow".into()))?;
-    let reservation =
-        MemoryConsumer::new("pse.delta.receipt_decode").register(&state.runtime_env().memory_pool);
-    reservation.try_grow(extent)?;
-    let value = log
-        .read_commit_entry(version)
-        .await
-        .map_err(external)?
-        .ok_or_else(|| unresolved(format!("member commit {version} is unavailable")))?;
-    if value.len() != bytes {
-        return Err(unresolved(
-            "native commit size changed during receipt read".into(),
-        ));
-    }
-    Ok((value, reservation))
+
+fn external(error: impl Into<DataFusionError>) -> DataFusionError {
+    error.into()
 }
 
-fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
+pse_diagnostics::impl_diagnostic! {
+    MemberAttemptError,
+    code(this) { match this {
+            Self::IdentityReused => Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),
+            Self::Rejected { .. } | Self::Unresolved { .. } => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+
+            _ => None,
+        } },
+    forward(_this) { None },
+    help(_this) { None },
+    related(_this) { None },
+    source(_this) { None }
 }
 
 #[cfg(test)]
@@ -422,3 +446,5 @@ mod tests {
         assert_eq!(state.runtime_env().memory_pool.reserved(), 0);
     }
 }
+
+pse_columnar::impl_native_error!(MemberAttemptError);

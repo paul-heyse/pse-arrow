@@ -1,0 +1,20 @@
+# Which layers of the design standard apply in this repository.
+# Read by the design-review skills; paths are relative to this file.
+
+[core]
+version = "2.0"
+principles = "core/design-principles.md"
+template = "core/design-review-template.md"
+
+[[profiles]]
+name = "process-simulator"
+version = "1.0"
+prefix = "PS"
+principles = "profiles/process-simulator/principles.md"
+review = "profiles/process-simulator/review.md"
+skill = "design-review-process-simulator"
+
+[binding]
+name = "pse-arrow"
+path = "binding/pse-arrow.md"
+reviews = "../reviews"

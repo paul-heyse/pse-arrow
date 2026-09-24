@@ -1,0 +1,3631 @@
+[
+  {
+    "id": "f7f87b3a5d579fb3147cc3bf",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "name": "DynFilterFn",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "struct",
+    "signature": "struct DynFilterFn<S, F = fn(&tracing_core::Metadata<'_>, &layer::Context<'_, S>) -> bool, R = fn(&'static tracing_core::Metadata<'static>) -> tracing_core::Interest>",
+    "docs": "A filter implemented by a closure or function pointer that\ndetermines whether a given span or event is enabled _dynamically_,\npotentially based on the current [span context].\n\nThis type can be used for both [per-layer filtering][plf] (using its\n[`Filter`] implementation) and [global filtering][global] (using its\n[`Layer`] implementation).\n\nSee the [documentation on filtering with layers][filtering] for details.\n\n[span context]: crate::layer::Context\n[`Filter`]: crate::layer::Filter\n[`Layer`]: crate::layer::Layer\n[plf]: crate::layer#per-layer-filtering\n[global]: crate::layer#global-filtering\n[filtering]: crate::layer#filtering-with-layers",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        46,
+        1
+      ],
+      "end": [
+        56,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "struct": {
+        "kind": {
+          "plain": {
+            "fields": [],
+            "has_stripped_fields": true
+          }
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "S",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": {
+                    "function_pointer": {
+                      "sig": {
+                        "inputs": [
+                          [
+                            "_",
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": 278,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          [
+                            "_",
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": 313,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        ],
+                        "output": {
+                          "primitive": "bool"
+                        },
+                        "is_c_variadic": false
+                      },
+                      "generic_params": [],
+                      "header": {
+                        "is_const": false,
+                        "is_unsafe": false,
+                        "is_async": false,
+                        "abi": "Rust"
+                      }
+                    }
+                  },
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "R",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": {
+                    "function_pointer": {
+                      "sig": {
+                        "inputs": [
+                          [
+                            "_",
+                            {
+                              "borrowed_ref": {
+                                "lifetime": "'static",
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": 278,
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        ],
+                        "output": {
+                          "resolved_path": {
+                            "path": "tracing_core::Interest",
+                            "id": 315,
+                            "args": null
+                          }
+                        },
+                        "is_c_variadic": false
+                      },
+                      "generic_params": [],
+                      "header": {
+                        "is_const": false,
+                        "is_unsafe": false,
+                        "is_async": false,
+                        "abi": "Rust"
+                      }
+                    }
+                  },
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "impls": [
+          332,
+          337,
+          338,
+          339,
+          340,
+          341,
+          342,
+          343,
+          344,
+          345,
+          346,
+          347,
+          348,
+          349,
+          350,
+          351,
+          352,
+          353,
+          354,
+          355,
+          356,
+          359,
+          361,
+          363,
+          365,
+          369
+        ]
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "313": "tracing_subscriber::layer::context::Context",
+      "315": "tracing_core::subscriber::Interest"
+    },
+    "impl_context": null,
+    "links": {
+      "crate::layer#global-filtering": 279,
+      "crate::layer::Layer": 281,
+      "crate::layer#filtering-with-layers": 279,
+      "crate::layer::Context": 313,
+      "crate::layer#per-layer-filtering": 279,
+      "crate::layer::Filter": 280
+    },
+    "link_paths": {
+      "crate::layer#global-filtering": "tracing_subscriber::layer",
+      "crate::layer::Layer": "tracing_subscriber::layer::Layer",
+      "crate::layer#filtering-with-layers": "tracing_subscriber::layer",
+      "crate::layer::Context": "tracing_subscriber::layer::context::Context",
+      "crate::layer#per-layer-filtering": "tracing_subscriber::layer",
+      "crate::layer::Filter": "tracing_subscriber::layer::Filter"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "283",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-f7f87b3a5d579fb3147cc3bf",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn"
+    ],
+    "resolved_doc_links": {
+      "crate::layer#global-filtering": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "crate::layer::Layer": "../operations/tracing_subscriber.layer.Layer.md#op-4c1ba1a6be909c9a1b91bff8",
+      "crate::layer#filtering-with-layers": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "crate::layer::Context": "../operations/tracing_subscriber.layer.context.Context.md#op-0acb651e530d235188552e7d",
+      "crate::layer#per-layer-filtering": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "crate::layer::Filter": "../operations/tracing_subscriber.layer.Filter.md#op-fd31ac1a2cd1ed4f447625f3"
+    }
+  },
+  {
+    "id": "9a08b621799792baa0a39fb4",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::callsite_enabled",
+    "name": "callsite_enabled",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn callsite_enabled(&self, metadata: &'static Metadata<'static>) -> Interest",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        735,
+        9
+      ],
+      "end": [
+        737,
+        10
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Interest",
+              "id": 315,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "315": "tracing_core::subscriber::Interest"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Filter",
+        "id": "tracing_subscriber::layer::Filter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Filter",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": "tracing_subscriber::layer::context::Context",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": "'static",
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "resolved_path": {
+                              "path": "tracing_core::Interest",
+                              "id": "tracing_core::subscriber::Interest",
+                              "args": null
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          726,
+          5
+        ],
+        "end": [
+          742,
+          6
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "367",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-9a08b621799792baa0a39fb4",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::callsite_enabled"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4f30664b8e6a05f23c5c465c",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::clone",
+    "name": "clone",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn clone(&self) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        684,
+        5
+      ],
+      "end": [
+        691,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Clone",
+        "id": "core::clone::Clone",
+        "args": null
+      },
+      "trait_path": "core::clone::Clone",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Clone",
+                      "id": "core::clone::Clone",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Clone",
+                      "id": "core::clone::Clone",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          679,
+          1
+        ],
+        "end": [
+          692,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "362",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-4f30664b8e6a05f23c5c465c",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::clone"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "2feb6fd8f54d38fd370c15c2",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::enabled",
+    "name": "enabled",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn enabled(&self, metadata: &Metadata<'_>, cx: &Context<'_, S>) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        731,
+        9
+      ],
+      "end": [
+        733,
+        10
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Context",
+                      "id": 313,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            },
+                            {
+                              "type": {
+                                "generic": "S"
+                              }
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Filter",
+        "id": "tracing_subscriber::layer::Filter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Filter",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": "tracing_subscriber::layer::context::Context",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": "'static",
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "resolved_path": {
+                              "path": "tracing_core::Interest",
+                              "id": "tracing_core::subscriber::Interest",
+                              "args": null
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          726,
+          5
+        ],
+        "end": [
+          742,
+          6
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "366",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-2feb6fd8f54d38fd370c15c2",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::enabled"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "8d6a0472a7f34f8b6fa7310c",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::enabled",
+    "name": "enabled",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn enabled(&self, metadata: &Metadata<'_>, cx: Context<'_, S>) -> bool",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        649,
+        5
+      ],
+      "end": [
+        651,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            [
+              "cx",
+              {
+                "resolved_path": {
+                  "path": "Context",
+                  "id": 313,
+                  "args": {
+                    "angle_bracketed": {
+                      "args": [
+                        {
+                          "lifetime": "'_"
+                        },
+                        {
+                          "type": {
+                            "generic": "S"
+                          }
+                        }
+                      ],
+                      "constraints": []
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "primitive": "bool"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "313": "tracing_subscriber::layer::context::Context"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": "tracing_subscriber::layer::context::Context",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": "'static",
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "resolved_path": {
+                              "path": "tracing_core::Interest",
+                              "id": "tracing_core::subscriber::Interest",
+                              "args": null
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          643,
+          1
+        ],
+        "end": [
+          660,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "357",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-8d6a0472a7f34f8b6fa7310c",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::enabled"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "4f9f9cbc4eca91346d552086",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::fmt",
+    "name": "fmt",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        663,
+        5
+      ],
+      "end": [
+        676,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "f",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": true,
+                  "type": {
+                    "resolved_path": {
+                      "path": "fmt::Formatter",
+                      "id": 65,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'_"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "fmt::Result",
+              "id": 66,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "65": "core::fmt::Formatter",
+      "66": "core::fmt::Result"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Debug",
+        "id": "core::fmt::Debug",
+        "args": null
+      },
+      "trait_path": "core::fmt::Debug",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": []
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          662,
+          1
+        ],
+        "end": [
+          677,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "360",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-4f9f9cbc4eca91346d552086",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::fmt"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "a22f4cdbfb3b46128d3b4416",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::from",
+    "name": "from",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn from(f: F) -> Self",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        698,
+        5
+      ],
+      "end": [
+        700,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "f",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "From",
+        "id": "core::convert::From",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "F"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "core::convert::From",
+      "generics": {
+        "params": [
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": "tracing_subscriber::layer::context::Context",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          694,
+          1
+        ],
+        "end": [
+          701,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "364",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-a22f4cdbfb3b46128d3b4416",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::from"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "654470fa0fe6d9d80ef195fc",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::max_level_hint",
+    "name": "max_level_hint",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn max_level_hint(&self) -> Option<LevelFilter>",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        739,
+        9
+      ],
+      "end": [
+        741,
+        10
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Option",
+              "id": 325,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "resolved_path": {
+                          "path": "LevelFilter",
+                          "id": 288,
+                          "args": null
+                        }
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "325": "core::option::Option",
+      "288": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Filter",
+        "id": "tracing_subscriber::layer::Filter",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Filter",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": "tracing_subscriber::layer::context::Context",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": "'static",
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "resolved_path": {
+                              "path": "tracing_core::Interest",
+                              "id": "tracing_core::subscriber::Interest",
+                              "args": null
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          726,
+          5
+        ],
+        "end": [
+          742,
+          6
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "368",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-654470fa0fe6d9d80ef195fc",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::max_level_hint"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "36aee896474297987eea8c44",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::new",
+    "name": "new",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn new(enabled: F) -> Self",
+    "docs": "Constructs a [`Filter`] from a function or closure that returns `true`\nif a span or event should be enabled in the current [span\ncontext][`Context`].\n\nUnlike [`FilterFn`], a `DynFilterFn` is constructed from a closure or\nfunction pointer that takes both the [`Metadata`] for a span or event\n*and* the current [`Context`]. This means that a [`DynFilterFn`] can\nchoose whether to enable spans or events based on information about the\n_current_ span (or its parents).\n\nIf this is *not* necessary, use [`FilterFn`] instead.\n\nSee the [documentation on per-layer filtering][plf] for details on using\n[`Filter`]s.\n\n[`Filter`]: crate::layer::Filter\n[plf]: crate::layer#per-layer-filtering\n[`Context`]: crate::layer::Context\n[`Metadata`]: tracing_core::Metadata\n\n# Examples\n\n```\nuse tracing_subscriber::{\n    layer::{Layer, SubscriberExt},\n    filter::DynFilterFn,\n    util::SubscriberInitExt,\n};\n\n// Only enable spans or events within a span named \"interesting_span\".\nlet my_filter = DynFilterFn::new(|metadata, cx| {\n    // If this *is* \"interesting_span\", make sure to enable it.\n    if metadata.is_span() && metadata.name() == \"interesting_span\" {\n        return true;\n    }\n\n    // Otherwise, are we in an interesting span?\n    if let Some(current_span) = cx.lookup_current() {\n        return current_span.name() == \"interesting_span\";\n    }\n\n    false\n});\n\nlet my_layer = tracing_subscriber::fmt::layer();\n\ntracing_subscriber::registry()\n    .with(my_layer.with_filter(my_filter))\n    .init();\n\n// This event will not be enabled.\ntracing::info!(\"something happened\");\n\ntracing::info_span!(\"interesting_span\").in_scope(|| {\n    // This event will be enabled.\n    tracing::debug!(\"something else happened\");\n});\n```",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        424,
+        5
+      ],
+      "end": [
+        431,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "enabled",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {},
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": "tracing_subscriber::layer::context::Context",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          362,
+          1
+        ],
+        "end": [
+          432,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::layer#per-layer-filtering": 279,
+      "`DynFilterFn`": 283,
+      "`FilterFn`": 282,
+      "crate::layer::Context": 313,
+      "tracing_core::Metadata": 278,
+      "crate::layer::Filter": 280
+    },
+    "link_paths": {
+      "crate::layer#per-layer-filtering": "tracing_subscriber::layer",
+      "`DynFilterFn`": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+      "`FilterFn`": "tracing_subscriber::filter::filter_fn::FilterFn",
+      "crate::layer::Context": "tracing_subscriber::layer::context::Context",
+      "tracing_core::Metadata": "tracing_core::metadata::Metadata",
+      "crate::layer::Filter": "tracing_subscriber::layer::Filter"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "331",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-36aee896474297987eea8c44",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::new"
+    ],
+    "resolved_doc_links": {
+      "crate::layer#per-layer-filtering": "../modules/tracing_subscriber.layer.md#op-2ad2c88abbc1580a0091cf9d",
+      "`DynFilterFn`": "../operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md#op-f7f87b3a5d579fb3147cc3bf",
+      "`FilterFn`": "../operations/tracing_subscriber.filter.filter_fn.FilterFn.md#op-eddd2f4a151c93eddd276ba9",
+      "crate::layer::Context": "../operations/tracing_subscriber.layer.context.Context.md#op-0acb651e530d235188552e7d",
+      "tracing_core::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "crate::layer::Filter": "../operations/tracing_subscriber.layer.Filter.md#op-fd31ac1a2cd1ed4f447625f3"
+    }
+  },
+  {
+    "id": "ed02e12faeebca9988f2a0bc",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::register_callsite",
+    "name": "register_callsite",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn register_callsite(&self, metadata: &'static Metadata<'static>) -> Interest",
+    "docs": "",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        653,
+        5
+      ],
+      "end": [
+        655,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "borrowed_ref": {
+                  "lifetime": null,
+                  "is_mutable": false,
+                  "type": {
+                    "generic": "Self"
+                  }
+                }
+              }
+            ],
+            [
+              "metadata",
+              {
+                "borrowed_ref": {
+                  "lifetime": "'static",
+                  "is_mutable": false,
+                  "type": {
+                    "resolved_path": {
+                      "path": "Metadata",
+                      "id": 278,
+                      "args": {
+                        "angle_bracketed": {
+                          "args": [
+                            {
+                              "lifetime": "'static"
+                            }
+                          ],
+                          "constraints": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Interest",
+              "id": 315,
+              "args": null
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "278": "tracing_core::metadata::Metadata",
+      "315": "tracing_core::subscriber::Interest"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": {
+        "path": "Layer",
+        "id": "tracing_subscriber::layer::Layer",
+        "args": {
+          "angle_bracketed": {
+            "args": [
+              {
+                "type": {
+                  "generic": "S"
+                }
+              }
+            ],
+            "constraints": []
+          }
+        }
+      },
+      "trait_path": "tracing_subscriber::layer::Layer",
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": "tracing_subscriber::layer::context::Context",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "R"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": "'static",
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'static"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "resolved_path": {
+                              "path": "tracing_core::Interest",
+                              "id": "tracing_core::subscriber::Interest",
+                              "args": null
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                },
+                {
+                  "outlives": "'static"
+                }
+              ],
+              "generic_params": []
+            }
+          },
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "S"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Subscriber",
+                      "id": "tracing_core::subscriber::Subscriber",
+                      "args": null
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          643,
+          1
+        ],
+        "end": [
+          660,
+          2
+        ]
+      }
+    },
+    "links": {},
+    "link_paths": {},
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "358",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-ed02e12faeebca9988f2a0bc",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::register_callsite"
+    ],
+    "resolved_doc_links": {}
+  },
+  {
+    "id": "47589132231a471d118a9a9d",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::with_callsite_filter",
+    "name": "with_callsite_filter",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_callsite_filter<R2>(self, callsite_enabled: R2) -> DynFilterFn<S, F, R2> where R2: Fn(&'static Metadata<'static>) -> Interest",
+    "docs": "Adds a function for filtering callsites to this filter.\n\nWhen this filter's [`Filter::callsite_enabled`][cse] method is called,\nthe provided function will be used rather than the default.\n\nBy default, `DynFilterFn` assumes that, because the filter _may_ depend\ndynamically on the current [span context], its result should never be\ncached. However, some filtering strategies may require dynamic information\nfrom the current span context in *some* cases, but are able to make\nstatic filtering decisions from [`Metadata`] alone in others.\n\nFor example, consider the filter given in the example for\n[`DynFilterFn::new`]. That filter enables all spans named\n\"interesting_span\", and any events and spans that occur inside of an\ninteresting span. Since the span's name is part of its static\n[`Metadata`], the \"interesting_span\" can be enabled in\n[`callsite_enabled`][cse]:\n\n```\nuse tracing_subscriber::{\n    layer::{Layer, SubscriberExt},\n    filter::DynFilterFn,\n    util::SubscriberInitExt,\n};\nuse tracing_core::subscriber::Interest;\n\n// Only enable spans or events within a span named \"interesting_span\".\nlet my_filter = DynFilterFn::new(|metadata, cx| {\n    // If this *is* \"interesting_span\", make sure to enable it.\n    if metadata.is_span() && metadata.name() == \"interesting_span\" {\n        return true;\n    }\n\n    // Otherwise, are we in an interesting span?\n    if let Some(current_span) = cx.lookup_current() {\n        return current_span.name() == \"interesting_span\";\n    }\n\n    false\n}).with_callsite_filter(|metadata| {\n    // If this is an \"interesting_span\", we know we will always\n    // enable it.\n    if metadata.is_span() && metadata.name() == \"interesting_span\" {\n        return Interest::always();\n    }\n\n    // Otherwise, it depends on whether or not we're in an interesting\n    // span. You'll have to ask us again for each span/event!\n    Interest::sometimes()\n});\n\nlet my_layer = tracing_subscriber::fmt::layer();\n\ntracing_subscriber::registry()\n    .with(my_layer.with_filter(my_filter))\n    .init();\n```\n\n[cse]: crate::layer::Filter::callsite_enabled\n[`enabled`]: crate::layer::Filter::enabled\n[`Metadata`]: tracing_core::Metadata\n[span context]: crate::layer::Context",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        558,
+        5
+      ],
+      "end": [
+        575,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "callsite_enabled",
+              {
+                "generic": "R2"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "DynFilterFn",
+              "id": 283,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "S"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "F"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "R2"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "R2",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "R2"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Fn",
+                        "id": 214,
+                        "args": {
+                          "parenthesized": {
+                            "inputs": [
+                              {
+                                "borrowed_ref": {
+                                  "lifetime": "'static",
+                                  "is_mutable": false,
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Metadata",
+                                      "id": 278,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'static"
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "output": {
+                              "resolved_path": {
+                                "path": "Interest",
+                                "id": 315,
+                                "args": null
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "283": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+      "214": "core::ops::function::Fn",
+      "278": "tracing_core::metadata::Metadata",
+      "315": "tracing_core::subscriber::Interest"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": "tracing_subscriber::layer::context::Context",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          434,
+          1
+        ],
+        "end": [
+          598,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::layer::Filter::callsite_enabled": 334,
+      "`DynFilterFn::new`": 331,
+      "tracing_core::Metadata": 278,
+      "crate::layer::Context": 313,
+      "crate::layer::Filter::enabled": 335
+    },
+    "link_paths": {
+      "crate::layer::Filter::callsite_enabled": null,
+      "`DynFilterFn::new`": null,
+      "tracing_core::Metadata": "tracing_core::metadata::Metadata",
+      "crate::layer::Context": "tracing_subscriber::layer::context::Context",
+      "crate::layer::Filter::enabled": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "336",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-47589132231a471d118a9a9d",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::with_callsite_filter"
+    ],
+    "resolved_doc_links": {
+      "crate::layer::Filter::callsite_enabled": "../operations/tracing_subscriber.layer.Filter.md#op-49af4e3414ecfc52a0cb5887",
+      "`DynFilterFn::new`": "../operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md#op-36aee896474297987eea8c44",
+      "tracing_core::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "crate::layer::Context": "../operations/tracing_subscriber.layer.context.Context.md#op-0acb651e530d235188552e7d",
+      "crate::layer::Filter::enabled": "../operations/tracing_subscriber.layer.Filter.md#op-104b1d844775b41b079882e6"
+    }
+  },
+  {
+    "id": "3f65ce32ab3ad5076203851a",
+    "path": "tracing_subscriber::filter::filter_fn::DynFilterFn::with_max_level_hint",
+    "name": "with_max_level_hint",
+    "owner": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_max_level_hint(self, max_level_hint: impl Into<LevelFilter>) -> Self",
+    "docs": "Sets the highest verbosity [`Level`] the filter function will enable.\n\nThe value passed to this method will be returned by this `DynFilterFn`'s\n[`Filter::max_level_hint`] method.\n\nIf the provided function will not enable all levels, it is recommended\nto call this method to configure it with the most verbose level it will\nenable.\n\n# Examples\n\n```\nuse tracing_subscriber::{\n    layer::{Layer, SubscriberExt},\n    filter::{DynFilterFn, LevelFilter},\n    util::SubscriberInitExt,\n};\nuse tracing_core::Level;\n\n// Only enable spans or events with levels at or below `INFO`, if\n// we are inside a span called \"interesting_span\".\nlet my_filter = DynFilterFn::new(|metadata, cx| {\n    // If the level is greater than INFO, disable it.\n    if metadata.level() > &Level::INFO {\n        return false;\n    }\n\n    // If any span in the current scope is named \"interesting_span\",\n    // enable this span or event.\n    for span in cx.lookup_current().iter().flat_map(|span| span.scope()) {\n        if span.name() == \"interesting_span\" {\n            return true;\n         }\n    }\n\n    // Otherwise, disable it.\n    false\n})\n    // Since the filter closure will only enable the `INFO` level and\n    // below, set the max level hint\n    .with_max_level_hint(LevelFilter::INFO);\n\nlet my_layer = tracing_subscriber::fmt::layer();\n\ntracing_subscriber::registry()\n    .with(my_layer.with_filter(my_filter))\n    .init();\n```\n\n[`Level`]: tracing_core::Level\n[`Filter::max_level_hint`]: crate::layer::Filter::max_level_hint",
+    "span": {
+      "filename": "src/filter/filter_fn.rs",
+      "begin": [
+        489,
+        5
+      ],
+      "end": [
+        494,
+        6
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "max_level_hint",
+              {
+                "impl_trait": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Into",
+                        "id": 38,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "LevelFilter",
+                                    "id": 288,
+                                    "args": null
+                                  }
+                                }
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          ],
+          "output": {
+            "generic": "Self"
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "impl Into<LevelFilter>",
+              "kind": {
+                "type": {
+                  "bounds": [
+                    {
+                      "trait_bound": {
+                        "trait": {
+                          "path": "Into",
+                          "id": 38,
+                          "args": {
+                            "angle_bracketed": {
+                              "args": [
+                                {
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "LevelFilter",
+                                      "id": 288,
+                                      "args": null
+                                    }
+                                  }
+                                }
+                              ],
+                              "constraints": []
+                            }
+                          }
+                        },
+                        "generic_params": [],
+                        "modifier": "none"
+                      }
+                    }
+                  ],
+                  "default": null,
+                  "is_synthetic": true
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "38": "core::convert::Into",
+      "288": "tracing_core::metadata::LevelFilter"
+    },
+    "impl_context": {
+      "for": {
+        "resolved_path": {
+          "path": "DynFilterFn",
+          "id": "tracing_subscriber::filter::filter_fn::DynFilterFn",
+          "args": {
+            "angle_bracketed": {
+              "args": [
+                {
+                  "type": {
+                    "generic": "S"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "F"
+                  }
+                },
+                {
+                  "type": {
+                    "generic": "R"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          }
+        }
+      },
+      "trait": null,
+      "trait_path": null,
+      "generics": {
+        "params": [
+          {
+            "name": "S",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "F",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          },
+          {
+            "name": "R",
+            "kind": {
+              "type": {
+                "bounds": [],
+                "default": null,
+                "is_synthetic": false
+              }
+            }
+          }
+        ],
+        "where_predicates": [
+          {
+            "bound_predicate": {
+              "type": {
+                "generic": "F"
+              },
+              "bounds": [
+                {
+                  "trait_bound": {
+                    "trait": {
+                      "path": "Fn",
+                      "id": "core::ops::function::Fn",
+                      "args": {
+                        "parenthesized": {
+                          "inputs": [
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "tracing_core::Metadata",
+                                    "id": "tracing_core::metadata::Metadata",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "borrowed_ref": {
+                                "lifetime": null,
+                                "is_mutable": false,
+                                "type": {
+                                  "resolved_path": {
+                                    "path": "crate::layer::Context",
+                                    "id": "tracing_subscriber::layer::context::Context",
+                                    "args": {
+                                      "angle_bracketed": {
+                                        "args": [
+                                          {
+                                            "lifetime": "'_"
+                                          },
+                                          {
+                                            "type": {
+                                              "generic": "S"
+                                            }
+                                          }
+                                        ],
+                                        "constraints": []
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "output": {
+                            "primitive": "bool"
+                          }
+                        }
+                      }
+                    },
+                    "generic_params": [],
+                    "modifier": "none"
+                  }
+                }
+              ],
+              "generic_params": []
+            }
+          }
+        ]
+      },
+      "is_negative": false,
+      "span": {
+        "filename": "src/filter/filter_fn.rs",
+        "begin": [
+          434,
+          1
+        ],
+        "end": [
+          598,
+          2
+        ]
+      }
+    },
+    "links": {
+      "crate::layer::Filter::max_level_hint": 286,
+      "tracing_core::Level": 285
+    },
+    "link_paths": {
+      "crate::layer::Filter::max_level_hint": null,
+      "tracing_core::Level": "tracing_core::metadata::Level"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "333",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.md",
+    "record_file": "operations/tracing_subscriber.filter.filter_fn.DynFilterFn.json",
+    "anchor": "op-3f65ce32ab3ad5076203851a",
+    "aliases": [
+      "tracing_subscriber::filter::DynFilterFn::with_max_level_hint"
+    ],
+    "resolved_doc_links": {
+      "crate::layer::Filter::max_level_hint": "../operations/tracing_subscriber.layer.Filter.md#op-2e42e1baab0662273a9f7d60",
+      "tracing_core::Level": "../operations/tracing_core.metadata.Level.md#op-f8804717be954252aadd54ff"
+    }
+  }
+]

@@ -5,7 +5,7 @@ status: proposed
 date: YYYY-MM-DD
 deciders: [paul-heyse]
 level: decision
-principles: [DM-00]
+principles: [DP-00]
 blueprint: [§0.1]
 review: not-required: REASON
 evidence: Proposed
@@ -19,8 +19,8 @@ verification: The test, lint or CI job that shows this holds.
 # ADR-NNNN: TITLE
 
 *Delete the guidance under each heading as you fill it in. A small deviation
-fills each section in one line — charter §H: "a short, concrete decision record
-is sufficient". Cite `blueprint §N.M` rather than restating the design.*
+fills each section in one line — design principles §H: "a short, concrete record
+is enough". Cite `blueprint §N.M` rather than restating the design.*
 
 ## Context
 
@@ -37,7 +37,7 @@ level is `decision`.
 ## Drivers
 
 The forces, one line each: correctness, reproducibility, supply chain, parity,
-cost. The charter principle IDs go in the `principles:` field, not here.
+cost. The principle IDs (`DP-nn`, `PS-nn`) go in the `principles:` field, not here.
 
 ## Options
 

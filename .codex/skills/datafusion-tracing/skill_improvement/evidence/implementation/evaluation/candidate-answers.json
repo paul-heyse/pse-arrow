@@ -1,0 +1,715 @@
+{
+  "run_metadata": {
+    "evaluator": "candidate_evaluation",
+    "reference_root": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate",
+    "task_file": "/home/paul/.cache/datafusion-tracing-improvement-20260918/tasks.json",
+    "mode": "single-pass, reference-only; no external documentation, oracle, baseline, live skill, or compilation",
+    "timing_started_at": "2026-09-19T02:04:06.655Z",
+    "answers_completed_at": "2026-09-19T02:10:58.916Z",
+    "elapsed_seconds": 412.261,
+    "timing_scope": "Measured wall-clock interval starts immediately after the first discovery/read command finished and ends when the answer artifact was prepared. Initial discovery command and final serialization are outside that interval.",
+    "task_count": 32,
+    "word_count_method": "Whitespace-separated words in answer text",
+    "minimum_answer_words": 108,
+    "maximum_answer_words": 129,
+    "evidence_read_command_count": 14,
+    "token_usage": "not measurable; no total claimed",
+    "retrieved_bytes": "not measured; no total claimed",
+    "runtime_probes_executed_in_this_evaluation": false,
+    "evidence_path_base": "All answer and problem evidence_paths are relative to reference_root."
+  },
+  "answers": [
+    {
+      "id": "E01A",
+      "answer": "Use RuleInstrumentationOptions::phase_only() and pass the configured state through instrument_rules_with_info_spans!(options: options, state: state), then construct SessionContext from the returned state. The source enables analyzer, logical optimizer, and physical optimizer phase spans while omitting individual Rule spans. Inspect phase start/close timestamps in the actual subscriber or exporter; repeated logical optimizer passes are separate observations. Do not sum nested physical-planning and optimization spans as independent elapsed time. The retained phase_selection_and_rule_parentage test verifies equal phase membership between phase_only and full for a three-row VALUES query, with no Rule spans in the former. Its capture records identities and closure, not duration measurements. A parent planning span is appropriate when the desired number includes planning work outside these instrumented phases.",
+      "evidence_paths": [
+        "content/capabilities/tracing.rules.phase.md",
+        "content/corpus/source/datafusion-tracing/rule_options.rs",
+        "skill_improvement/evidence/implementation/captures/phase-only.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "No timing values or universal end-to-end planning coverage are established by the retained contract probe."
+      ],
+      "probe_ids": [
+        "phase_selection_and_rule_parentage"
+      ]
+    },
+    {
+      "id": "E01B",
+      "answer": "Switch to RuleInstrumentationOptions::full().with_plan_diff() and apply instrument_rules_with_info_spans! to the state before constructing SessionContext. Full mode emits Rule spans within phases. The retained source compares formatted before/after plans, marks a changed rule's otel.name with '(modified)', records datafusion.plan_diff when enabled, and accumulates datafusion.effective_rules on the phase. This identifies observable plan changes; it does not prove a rule improved cost or execution time. The retained phase_selection_and_rule_parentage test proves Rule presence and Phase parentage, and physical-only captures show modified rule names. That test does not enable plan diffs or assert attribution for a controlled changing rule. Treat diff behavior as a source-backed contract and verify the actual workload before claiming which rule caused a particular change.",
+      "evidence_paths": [
+        "content/capabilities/tracing.rules.full.md",
+        "content/corpus/source/datafusion-tracing/rule_options.rs",
+        "content/corpus/source/datafusion-tracing/rule_instrumentation.rs",
+        "skill_improvement/evidence/implementation/captures/physical-only.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Controlled per-rule diff attribution is not asserted by the named consumer tests.",
+        "Formatted plan changes need not imply semantic or performance improvements."
+      ],
+      "probe_ids": [
+        "phase_selection_and_rule_parentage"
+      ]
+    },
+    {
+      "id": "E02A",
+      "answer": "Apply instrument_rules_with_info_spans!(options: RuleInstrumentationOptions::phase_only(), state: state) to observe all three rule phases with low detail, or use full() when individual rules also matter. Keep the returned SessionState and create the context from it; these macros do not return an execution optimizer rule. The source enables analyzer, logical optimizer, and physical optimizer independently, whereas the default options disable them. The retained VALUES test confirms phase_only and full have equal Phase membership, full adds Rule children, and phase_only has none. Its capture names analyze_logical_plan, optimize_logical_plan, and optimize_physical_plan; logical optimization occurs in multiple passes. An additional create_physical_plan span has a library target. Matching filters and actual planning execution are prerequisites; phase selection alone does not prove elapsed-time completeness.",
+      "evidence_paths": [
+        "content/capabilities/tracing.rules.phase.md",
+        "content/capabilities/tracing.rules.full.md",
+        "content/catalogs/macros.md",
+        "skill_improvement/evidence/implementation/captures/phase-only.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Custom planners, other workloads, and total planning duration are not qualified by the VALUES test."
+      ],
+      "probe_ids": [
+        "phase_selection_and_rule_parentage"
+      ]
+    },
+    {
+      "id": "E02B",
+      "answer": "Build RuleInstrumentationOptions::builder().physical_optimizer().build(), then use the same instrument_rules_with_info_spans!(options: options, state: state) composition. The builder starts with every phase disabled; this selector enables the physical optimizer phase plus its Rule spans. For duration alone, physical_optimizer_phase_only() is the source-backed coarse alternative. The builder type is publicly reachable through builder() despite its private canonical module path, so let Rust infer it instead of importing that path. The retained phase_selection_and_rule_parentage test asserts the set of Phase names is exactly optimize_physical_plan for physical_optimizer(). It does not assert that the entire trace contains only that span: the capture also includes create_physical_plan and physical Rule spans. The phase-only selector's precise emitted shape is not independently exercised in that consumer test.",
+      "evidence_paths": [
+        "content/capabilities/tracing.rules.selected.md",
+        "content/corpus/source/datafusion-tracing/rule_options.rs",
+        "content/catalogs/options.md",
+        "skill_improvement/evidence/implementation/captures/physical-only.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "physical_optimizer_phase_only is source-backed but not directly exercised by this consumer test.",
+        "Ancillary planner spans may still be emitted."
+      ],
+      "probe_ids": [
+        "phase_selection_and_rule_parentage"
+      ]
+    },
+    {
+      "id": "E03A",
+      "answer": "Construct the execution rule with instrument_with_info_spans!(options: InstrumentationOptions::default()) and append it after the final physical optimizer rewrite using SessionStateBuilder::with_physical_optimizer_rule(rule). Build the context, execute a query, and consume its streams under an enabled subscriber. The retained source recursively wraps the physical nodes it receives, avoiding duplicate wrapping; merely constructing the plan does not demonstrate execution spans. Planning instrumentation is separately installed through the rule-instrumentation macro family. The retained later_rewrite_changes_observed_node_coverage test adds GlobalLimitExec through a controlled optimizer. Both registration orders return three rows, but only instrumentation placed after that optimizer produces a completed GlobalLimitExec span. That is evidence for this ordering distinction, not a universal guarantee about arbitrary extensions, overhead, or all possible rewrites.",
+      "evidence_paths": [
+        "content/capabilities/tracing.execution.md",
+        "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs",
+        "content/catalogs/macros.md",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Actual custom optimizer behavior and instrumentation overhead remain workload-specific."
+      ],
+      "probe_ids": [
+        "later_rewrite_changes_observed_node_coverage"
+      ]
+    },
+    {
+      "id": "E03B",
+      "answer": "Reassess the physical optimizer order: instrumentation observes the plan presented to its rule, so move it after the later rewrite when the requirement is coverage of the final plan. A later optimizer can preserve wrapped nodes, add unwrapped nodes, or replace parts of the tree; saying every later rewrite removes all tracing would be incorrect. The retained controlled test makes this distinction concrete: adding GlobalLimitExec after instrumentation preserves the three-row result but leaves that newly added node without a completed execution span. Reversing those two rules adds the missing span. The source also attempts to preserve wrapping for several delegated plan operations, so inspect the particular rewrite and final plan. Repeat the node-coverage comparison on the consumer workload before claiming complete final-plan instrumentation.",
+      "evidence_paths": [
+        "content/capabilities/tracing.execution.md",
+        "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "The controlled additive rewrite does not characterize every optimizer transformation."
+      ],
+      "probe_ids": [
+        "later_rewrite_changes_observed_node_coverage"
+      ]
+    },
+    {
+      "id": "E04A",
+      "answer": "For instrument_with_info_spans!(options: options), the default target is module_path!() expanded at the macro call site. Configure EnvFilter for the caller's module or crate and permit INFO; filtering only datafusion_tracing does not select these execution macro spans. A call inside the retained integration test emits target contracts, while the older snapshot records target probe. The explicit_target_and_filter_control consumer test observes execution spans with contracts=info for its default-target invocation. The older S006 result is only a recorded capture, not a separate discriminating target control. Also distinguish metadata target from otel.name, which identifies the execution node for export. Library-owned planner and object-store spans can use their own targets, so a blanket assertion that a datafusion_tracing filter can never produce anything is too broad.",
+      "evidence_paths": [
+        "content/capabilities/tracing.targets.md",
+        "content/catalogs/macros.md",
+        "content/probes/00-index.md",
+        "skill_improvement/evidence/implementation/captures/phase-only.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "The consumer's actual call-site module path and installed filter scope are not supplied."
+      ],
+      "probe_ids": [
+        "explicit_target_and_filter_control",
+        "S006"
+      ]
+    },
+    {
+      "id": "E04B",
+      "answer": "Give the execution macro a stable explicit target and match it in the desired subscriber branch: instrument_with_info_spans!(target: \"query_exec\", options: options), paired with EnvFilter::new(\"query_exec=info\"). The retained macro grammar permits target before the required options keyword; INFO is determined by the macro family, not by the target string. The consumer test contrasts contract_explicit=info with contract_missing=info under otherwise equivalent execution, observing spans only for the matching target. It separately verifies the caller target works for an invocation without target. Existing DEBUG-versus-INFO probes establish the level distinction too. This controls admission of these spans to that layer; it neither configures object-store targets nor proves SDK export. If no span appears, also verify execution occurred and the subscriber was active.",
+      "evidence_paths": [
+        "content/capabilities/tracing.targets.md",
+        "content/catalogs/macros.md",
+        "content/probes/00-index.md",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Other subscriber branches and export behavior are separate from this target/filter test."
+      ],
+      "probe_ids": [
+        "explicit_target_and_filter_control",
+        "S009",
+        "S010"
+      ]
+    },
+    {
+      "id": "E05A",
+      "answer": "Declare the key at the macro call site and supply its value in the options: let options = InstrumentationOptions::builder().add_custom_field(\"query_id\", \"abc\").build(); let rule = instrument_with_info_spans!(options: options, query_id = tracing::field::Empty);. The declaration creates a field in tracing's fixed span schema; add_custom_field populates the options map and does not create that schema itself. A public custom_fields map is another way to provide values, so the builder is convenient rather than mandatory. The retained metrics_and_custom_fields_have_separate_controls test records query_id=abc on execution spans and omits an undeclared key from the same options. Older S004 gives an additional declaration control. These are local span observations; neither arbitrary key inheritance nor collector receipt follows from them.",
+      "evidence_paths": [
+        "content/capabilities/tracing.fields.md",
+        "content/corpus/source/datafusion-tracing/options.rs",
+        "content/catalogs/macros.md",
+        "content/probes/00-index.md",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Exported backend attribute behavior is not established by the field capture."
+      ],
+      "probe_ids": [
+        "metrics_and_custom_fields_have_separate_controls",
+        "S004"
+      ]
+    },
+    {
+      "id": "E05B",
+      "answer": "Adding the same value through add_custom_field without declaring its key in the instrumentation macro does not extend the span's field set. The value remains in options but cannot be recorded into an undeclared tracing field; this is a silent omission, not a compilation or query failure. Restore query_id = tracing::field::Empty in the macro and preserve add_custom_field(\"query_id\", \"abc\") when the value belongs on each node span. Alternatively, explicitly model metadata on a parent span, while avoiding an assumption that child spans copy its attributes. The retained consumer test observes a declared query_id and omits an undeclared key in the same run; S004 compares declaration versus omission directly. Those controls establish local recording behavior for their constructions, not every exporter mapping.",
+      "evidence_paths": [
+        "content/capabilities/tracing.fields.md",
+        "content/catalogs/macros.md",
+        "content/probes/00-index.md",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "No general inheritance or arbitrary dynamic attribute export guarantee is provided."
+      ],
+      "probe_ids": [
+        "metrics_and_custom_fields_have_separate_controls",
+        "S004"
+      ]
+    },
+    {
+      "id": "E06A",
+      "answer": "A positive preview_limit works without a custom formatter: InstrumentationOptions::builder().preview_limit(2).build() leaves preview_fn as None and selects the default pretty_format_batches rendering. Register the execution rule, actually consume results, and allow stream-owned recorders to drop so datafusion.preview is recorded. Zero disables preview; setting a callback alone does not enable it. The source selects the default formatter explicitly when no callback is supplied. The retained preview_default_custom_disabled_and_error test executes a three-row VALUES query and checks that its default preview contains rows one and two but not three. This supports the default-formatting behavior and requested display count for that workload. It does not make the row limit a byte limit, bound retained Arrow buffers, or ensure previews from unfinished streams are available.",
+      "evidence_paths": [
+        "content/capabilities/tracing.preview.md",
+        "content/corpus/source/datafusion-tracing/preview.rs",
+        "content/corpus/source/datafusion-tracing/options.rs",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "No arbitrary-schema allocation bound or unfinished-stream preview guarantee is established."
+      ],
+      "probe_ids": [
+        "preview_default_custom_disabled_and_error"
+      ]
+    },
+    {
+      "id": "E06B",
+      "answer": "Keep the positive limit and add a formatter, for example .preview_limit(2).preview_fn(Arc::new(|batch| Ok(format!(\"rows={}\", batch.num_rows())))).build(). The accepted callback contract is Arc<dyn Fn(&RecordBatch) -> Result<String, ArrowError> + Send + Sync>; type inference avoids naming its internal alias. It receives the assembled, capped preview for the execution recorder group, so it is not a hook on every original result batch. The retained test distinguishes CUSTOM:2 from default table output while both queries still return three rows. A separate callback returning an error emits a warning and omits the preview without failing that query. Source inspection additionally reveals concatenation can fail at different boundaries. Formatter behavior changes presentation, not the display limit, retained-buffer memory bound, or downstream export guarantees.",
+      "evidence_paths": [
+        "content/capabilities/tracing.preview.md",
+        "content/corpus/source/datafusion-tracing/preview.rs",
+        "content/operations/datafusion_tracing.options.InstrumentationOptions.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Arbitrary callback cost and concatenation-failure behavior are not characterized by the formatter-error test."
+      ],
+      "probe_ids": [
+        "preview_default_custom_disabled_and_error"
+      ]
+    },
+    {
+      "id": "E07A",
+      "answer": "With one batch in one partition, choose a positive preview_limit and consume then release the execution stream. The source retains a slice of the first min(limit, batch_rows) rows, transfers that partition preview on stream drop, and formats the capped assembled batch when the recorder is destroyed. Original result batches continue through the stream unchanged on successful preview accumulation; the preview is a diagnostic prefix rather than the result itself. The retained default-preview test runs three VALUES rows with limit two and verifies two displayed rows while all three query rows return. That narrow observation supports a single simple construction. Even here, a small Arrow slice may retain underlying buffers larger than its visible rows, and no allocation measurement establishes a peak-memory bound.",
+      "evidence_paths": [
+        "content/capabilities/tracing.preview.md",
+        "content/corpus/source/datafusion-tracing/preview.rs",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Exact buffer retention and arbitrary-schema formatting overhead are not measured."
+      ],
+      "probe_ids": [
+        "preview_default_custom_disabled_and_error"
+      ]
+    },
+    {
+      "id": "E07B",
+      "answer": "The same display limit is applied after collecting available partition previews, not as a single global accumulator allocation limit. Source inspection shows each partition can retain up to limit rows across multiple batches, with concatenation during accumulation; recorder drop concatenates partition previews and slices the final batch to limit rows before formatting. Consequently partitions, intermediate concatenations, and shared Arrow buffers can increase memory beyond the displayed prefix. The retained partition_preview_cap_and_live_stream_lifetime test executes two partitions containing three batches and six total rows, yet its callback observes ROWS:3 with limit three. This is one shared recorder group using the same task context. Independent task contexts can form separate groups and previews. No random sampling, total-result completeness, or fixed peak-memory bound follows from this display cap.",
+      "evidence_paths": [
+        "content/capabilities/tracing.preview.md",
+        "content/corpus/source/datafusion-tracing/preview.rs",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "skill_improvement/evidence/implementation/captures/partition-preview-lifetime.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "No quantitative memory bound or universal partition scheduling behavior is measured."
+      ],
+      "probe_ids": [
+        "partition_preview_cap_and_live_stream_lifetime",
+        "independent_execution_groups_do_not_mix_previews"
+      ]
+    },
+    {
+      "id": "E08A",
+      "answer": "Fully consume all intended execution streams and release their handles before reading final preview, node, and enabled metric fields. The source ties recording to stream-owned recorders: each active stream holds a group reservation, and its drop releases that reservation; the last release removes the group from the plan's active list. The outer stream forwards polling, so observing EOF while deliberately retaining its handle is not itself evidence that every owner has been destroyed. The retained partition test collects both partitions, observes six returned rows and a completed execution span, and retains a plan clone throughout. Its preview remains capped to three displayed rows. This establishes successful consumption-and-release for that construction. It does not prove all fields are present on span creation, nor that closure alone demonstrates full query completion.",
+      "evidence_paths": [
+        "content/capabilities/tracing.lifecycle.md",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "content/corpus/source/datafusion-tracing/preview.rs",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "A retained exhausted stream is not separately tested; source ownership still requires its destruction.",
+        "Arbitrary errors and custom plans are outside this full-consumption test."
+      ],
+      "probe_ids": [
+        "partition_preview_cap_and_live_stream_lifetime"
+      ]
+    },
+    {
+      "id": "E08B",
+      "answer": "Dropping streams after one item can close spans and finalize a preview, but that telemetry describes consumed work rather than complete query output. The source writes each stream's accumulated preview on drop and releases its active recorder reservation; no automatic drain of remaining batches is shown. In the retained early_drop_partial_partition_and_repeated_execution test, partition zero first yields a two-row batch. Dropping that stream closes one span with ROWS:2. Executing the same partition again and fully collecting it returns four rows and creates a separate span with a different ID and ROWS:4. Partition one was not executed in this control. Therefore span closure is not a completion certificate. If other streams in the same group remain alive, they can delay recorder finalization; cancellation timing remains consumer-specific.",
+      "evidence_paths": [
+        "content/capabilities/tracing.lifecycle.md",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "content/corpus/source/datafusion-tracing/preview.rs",
+        "skill_improvement/evidence/implementation/captures/early-drop-repeat.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Dropping arbitrary custom plans and multiple partially consumed groups is not exhaustively characterized."
+      ],
+      "probe_ids": [
+        "early_drop_partial_partition_and_repeated_execution"
+      ]
+    },
+    {
+      "id": "E09A",
+      "answer": "Retaining a physical plan after its completed execution does not necessarily keep that execution's spans open. The retained implementation stores active recorder groups on the plan, but removes a group once all its stream reservations are released. The retained partition_preview_cap_and_live_stream_lifetime test keeps an extra plan clone alive while collecting and releasing both partition streams, then observes completed InstrumentedExec spans. Dropping the retained clone and original plan produces no additional closures. This directly distinguishes plan ownership from active stream ownership for that construction. Repeated execution is also observed to create different span IDs, so a reused plan is not one perpetual execution span. Preserve separate application parent-span ownership and provider lifetime checks, because a finished execution span still does not establish export or collector receipt.",
+      "evidence_paths": [
+        "content/capabilities/tracing.lifecycle.md",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "skill_improvement/evidence/implementation/captures/partition-preview-lifetime.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Arbitrary custom plan ownership and application parent-span lifetimes are not exhaustively tested."
+      ],
+      "probe_ids": [
+        "partition_preview_cap_and_live_stream_lifetime",
+        "early_drop_partial_partition_and_repeated_execution"
+      ]
+    },
+    {
+      "id": "E09B",
+      "answer": "An active execution stream owns recording state, so keeping it alive can delay final preview, metrics, and execution-span closure even if the plan is dropped or another stream finishes. Source inspection shows stream wrappers retain recorder Arcs and the execution wrapper releases its reservation from PinnedDrop. Its poll_next only forwards polling, making explicit stream destruction the decisive boundary; simply receiving EOF while retaining the handle is insufficient to infer finalization. The retained partition test checks no execution span has closed immediately after both streams are created, then observes closure after consuming and releasing them while a plan clone remains alive. That tests live streams versus retained plans, not every exhausted-handle or cancellation interleaving. Drop or scope completed stream handles deliberately, then inspect actual close callbacks before export checks.",
+      "evidence_paths": [
+        "content/capabilities/tracing.lifecycle.md",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "skill_improvement/evidence/implementation/captures/partition-preview-lifetime.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "The consumer test does not separately retain an already exhausted stream or assert every plan-drop ordering."
+      ],
+      "probe_ids": [
+        "partition_preview_cap_and_live_stream_lifetime"
+      ]
+    },
+    {
+      "id": "E10A",
+      "answer": "Wrap the async operation itself with tracing::Instrument, for example async { run_query(&ctx).await }.instrument(parent_span).await. The pinned Span documentation says the wrapper enters the span each time the future is polled and exits when it yields, maintaining the intended parent around asynchronous work. Keep a valid subscriber dispatch available during polling. Do not hold a Span::enter guard across await: the retained docs explain that unrelated concurrent work may then execute inside the wrong span. A synchronous in_scope closure is appropriate only for synchronous work. The retained spawned_future_propagates_parent_and_dispatch probe observes a child parent ID when both span and dispatch are explicitly carried; it is useful adjacent evidence, but it is a spawned-task test rather than a separate exhaustive test of directly awaited consumer queries.",
+      "evidence_paths": [
+        "content/capabilities/tracing.context.md",
+        "content/operations/tracing.span.Span.md",
+        "content/operations/tracing.instrument.Instrument.md",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Direct-await behavior is source-documented; the retained discriminating test specifically exercises a spawned future."
+      ],
+      "probe_ids": [
+        "spawned_future_propagates_parent_and_dispatch"
+      ]
+    },
+    {
+      "id": "E10B",
+      "answer": "Carry both the intended span and, when needed, its subscriber context across the task boundary: tokio::spawn(async move { work().await }.instrument(parent.clone()).with_subscriber(dispatch.clone())).await. The retained fixture imports Instrument and WithSubscriber from tracing::instrument. These wrappers solve different problems: the span supplies parent context during polling, while the dispatcher determines which subscriber receives newly constructed spans. A thread-local subscriber guard around spawning alone is not a blanket executor inheritance guarantee. The retained probe verifies the child ID points to the chosen parent; its control carries only the dispatcher and produces an unparented span. The DataFusion execution-rule source separately installs a JoinSetTracer for its own integration, but that does not qualify arbitrary application spawning. Check actual parent IDs and layer admission in the consumer's executor configuration.",
+      "evidence_paths": [
+        "content/capabilities/tracing.context.md",
+        "content/operations/tracing.instrument.WithSubscriber.md",
+        "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs",
+        "skill_improvement/evidence/implementation/captures/async-parent-dispatch.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "No all-executor inheritance guarantee or qualification of every DataFusion task boundary is provided."
+      ],
+      "probe_ids": [
+        "spawned_future_propagates_parent_and_dispatch"
+      ]
+    },
+    {
+      "id": "E11A",
+      "answer": "If the local formatting branch receives a span, you have evidence that the instrumentation reached that subscriber branch under its target and level selection. It does not establish that an OpenTelemetry layer admitted the same span, that SDK sampling recorded it, that it closed, or that an exporter delivered it. Compose the formatter and tracing_opentelemetry::layer().with_tracer(provider.tracer(...)) as separate Registry layers, then inspect their filters independently. The retained OTLP example illustrates that composition as source evidence. The executed local_layer_and_otel_sampling_are_independent test uses a custom local capture, not the formatter itself: it observes one local closed span under both AlwaysOn and AlwaysOff, while the in-memory exporter sees one versus zero. Therefore the runtime result supports branch independence without certifying formatting details or any collector.",
+      "evidence_paths": [
+        "content/capabilities/tracing.filtering.md",
+        "content/corpus/examples/otlp.rs",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "The discriminating consumer test uses Capture rather than fmt, and no collector is involved."
+      ],
+      "probe_ids": [
+        "local_layer_and_otel_sampling_are_independent"
+      ]
+    },
+    {
+      "id": "E11B",
+      "answer": "Diagnose the OpenTelemetry branch separately from the local formatter. A per-layer filter can reject its target or level while another layer still observes the span; an SDK sampler can admit no exported record even after local span creation and closure. Check dispatch, OTEL layer admission, sampling policy, completion, and export in that order rather than assuming stdout proves delivery. The retained source example attaches an INFO filter to the telemetry layer. The executed sampler test holds local construction constant and compares AlwaysOn with AlwaysOff: the local capture closes one span in both cases, while the SDK exporter contains one or zero spans respectively. It does not execute every per-layer filter combination. Filtering and sampling also do not establish zero instrumentation overhead; those costs need separate measurements.",
+      "evidence_paths": [
+        "content/capabilities/tracing.filtering.md",
+        "content/corpus/examples/otlp.rs",
+        "content/seams/subscriber-wiring.md",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Per-layer filter combinations and cost are not fully characterized; backend delivery remains untested."
+      ],
+      "probe_ids": [
+        "local_layer_and_otel_sampling_are_independent"
+      ]
+    },
+    {
+      "id": "E12A",
+      "answer": "Create the wrapper with let wrapped = instrumented_object_store::instrument_object_store(store, \"warehouse\"); where store is Arc<dyn ObjectStore>, and pass wrapped to the storage registration point the query actually uses. The function returns the same trait-object shape, so retaining or constructing a wrapper without registering and using it is insufficient. Allow the wrapper's own target, instrumented_object_store::instrumented_object_store, in the observing layer; an execution-macro caller-target filter need not select storage spans. The retained direct-call test returns identical bytes from the underlying and wrapped in-memory stores, but only wrapped calls produce the relevant store spans. It also observes ranges and missing-path errors. DataFusion RuntimeEnv registration is not exercised by that test, so verify the consumer's registration/routing and representative query I/O separately before claiming end-to-end query storage coverage.",
+      "evidence_paths": [
+        "content/capabilities/tracing.storage.md",
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+        "skill_improvement/evidence/implementation/captures/store-lifetimes.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "DataFusion runtime registration, cloud authentication, retries, and network I/O are not exercised."
+      ],
+      "probe_ids": [
+        "storage_wrapper_result_error_and_lazy_lifetime"
+      ]
+    },
+    {
+      "id": "E12B",
+      "answer": "Registering the underlying store bypasses this instrumentation wrapper, even if an unused wrapped clone exists elsewhere. A query may return the same data while producing no instrumented-object-store spans because its calls never cross the wrapper boundary. Change the actual registration and use site to the returned Arc<dyn ObjectStore>, then verify that the intended URL or table path resolves to it. The retained direct-call control reads abcdef through the bare in-memory store and asserts no get_opts span; the wrapped read returns the same bytes and records a completed get_opts span. That is evidence about object identity and direct routing, not a tested DataFusion registration recipe. Other tracing from the store or query may still exist, so absence of wrapper spans is not proof that no storage work occurred.",
+      "evidence_paths": [
+        "content/capabilities/tracing.storage.md",
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "The retained test does not resolve DataFusion registry URLs or exercise a query using either registration."
+      ],
+      "probe_ids": [
+        "storage_wrapper_result_error_and_lazy_lifetime"
+      ]
+    },
+    {
+      "id": "E13A",
+      "answer": "For a method that resolves to materialized bytes, such as get_ranges, the wrapper's async span surrounds the inner call and records successful result metadata before returning. The retained source records the sum of returned byte lengths as object_store.result.content_length and records errors without replacing the original Result. In the direct in-memory probe, get_ranges for 0..2 and 4..6 returns ab and ef; its saved close capture records content_length=4. This supports the boundary for that concrete method and store. Do not generalize it to get/get_opts: those return GetResult, and the same probe observes get_opts closing before the later bytes().await call. A completed metadata-returning call therefore need not represent completed payload transfer. Network retries, transport timings, and cloud behavior are outside the retained evidence.",
+      "evidence_paths": [
+        "content/capabilities/tracing.storage.md",
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+        "skill_improvement/evidence/implementation/captures/store-lifetimes.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "No cloud transfer or retry timing is measured, and GetResult payload completion has a different boundary."
+      ],
+      "probe_ids": [
+        "storage_wrapper_result_error_and_lazy_lifetime"
+      ]
+    },
+    {
+      "id": "E13B",
+      "answer": "Inspect the concrete returned type and method instead of treating every storage call as complete when it returns. The source wraps list, list_with_offset, and delete_stream outputs with in_current_span, preserving their span during subsequent stream polling and ownership. By contrast, get_opts instruments the async call that returns GetResult but does not demonstrate coverage of later payload consumption. The retained in-memory test checks list has no close callback immediately after creation and one after collecting it; it separately checks get_opts already closed before get.bytes().await. Those controls distinguish lazy listing from metadata-returning reads. They do not qualify every stream error, early drop, multipart upload, or cloud backend. If the requirement is end-to-end payload-transfer duration, add or verify an observation around actual payload consumption rather than relabeling get_opts duration.",
+      "evidence_paths": [
+        "content/capabilities/tracing.storage.md",
+        "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+        "skill_improvement/evidence/implementation/captures/store-lifetimes.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Other lazy methods are source-backed only; network payload transfer, multipart and cancellation are unqualified."
+      ],
+      "probe_ids": [
+        "storage_wrapper_result_error_and_lazy_lifetime"
+      ]
+    },
+    {
+      "id": "E14A",
+      "answer": "Keep the SdkTracerProvider and any transport-required runtime alive while instrumented work executes and its span handles are released. Obtain a tracer from that provider and install tracing_opentelemetry::layer().with_tracer(tracer) in the active subscriber; local formatting alone does not create SDK records. With a batch processor, completed spans may remain buffered until a timer, capacity condition, or explicit flush. The retained batch_flush_exports_completed_spans_and_shutdown_is_observed test uses an in-memory exporter: flushing while a span is still alive yields no finished record, while dropping it and force-flushing yields one. That test establishes completed-span and local SDK behavior under its locked profile. It does not exercise OTLP, prove collector receipt, or show all runtime/exporter feature combinations work. Provider liveness is necessary ownership discipline, not sufficient delivery evidence.",
+      "evidence_paths": [
+        "content/capabilities/tracing.export.md",
+        "content/corpus/examples/otlp.rs",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "No OTLP transport, delivery timing, queue-loss bound, or collector retention test is retained."
+      ],
+      "probe_ids": [
+        "batch_flush_exports_completed_spans_and_shutdown_is_observed"
+      ]
+    },
+    {
+      "id": "E14B",
+      "answer": "Finish the traced work and release its span and stream owners before shutting down the telemetry pipeline. Keep the provider and required runtime alive, inspect provider.force_flush() if you need an explicit completion check, then call provider.shutdown() and handle errors before program exit. A flush cannot export an unfinished span: the retained batch probe first flushes a live span and observes no record, then drops it and observes one after flushing. Its successful default shutdown clears the InMemorySpanExporter's stored records, so collect local evidence before that shutdown rather than interpreting the later empty store as lost export. The retained OTLP example also keeps provider ownership through work and explicitly shuts it down. Abrupt termination, timeouts, network transport, collector acknowledgement, and durable retention are not established by these local tests.",
+      "evidence_paths": [
+        "content/capabilities/tracing.export.md",
+        "content/corpus/examples/otlp.rs",
+        "skill_improvement/evidence/implementation/captures/batch-flush-shutdown.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Abrupt-exit losses, timeout behavior, OTLP transport and durable backend retention are not tested."
+      ],
+      "probe_ids": [
+        "batch_flush_exports_completed_spans_and_shutdown_is_observed"
+      ]
+    },
+    {
+      "id": "E15A",
+      "answer": "Use the resolved profile as the evidence boundary: datafusion-tracing and instrumented-object-store 55.0.0, DataFusion 55.1.0, tracing 0.1.44, tracing-subscriber 0.3.23, tracing-futures 0.2.5, bridge tracing-opentelemetry 0.32.0, and OpenTelemetry API/SDK 0.31.0. The retained receipt records locked release tests under rustc 1.98.1 on x86_64-unknown-linux-gnu. Its manifest disables bridge defaults and requests trace/testing for the SDK, while the resolved profile contains additional testing-related unified features; compare the resolved feature sets, not just manifest text. Executed tests demonstrate local bridge export, sampler distinction, and batch flush/shutdown. The historical compatibility table records declared release combinations, not exact resolution or universal support. No opentelemetry-otlp package appears in this probe profile, so it does not qualify the retained OTLP example's transport.",
+      "evidence_paths": [
+        "content/capabilities/tracing.compatibility.md",
+        "content/catalogs/compatibility.md",
+        "skill_improvement/evidence/implementation/probe-profile.json",
+        "build/fixtures/probe-crate/Cargo.toml",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "OTLP transport features are outside the executed profile; different targets or unified features need qualification."
+      ],
+      "probe_ids": [
+        "local_layer_and_otel_sampling_are_independent",
+        "batch_flush_exports_completed_spans_and_shutdown_is_observed"
+      ]
+    },
+    {
+      "id": "E15B",
+      "answer": "Treat an uncharacterized version or feature combination as unknown, not automatically compatible or incompatible. The compatibility table's bridge minor being one ahead of the SDK is a historical pattern, not a rule that proves trait compatibility. Compare actual resolved packages, features, duplicate OpenTelemetry versions, target, and compiler with the retained locked profile; bridge trait bounds can refer to a different crate identity even when similarly named types exist. Then qualify compilation and a minimal local export/sampling/flush lifecycle under the consumer's actual configuration, followed separately by any required transport and collector test. No compilation was run in this reference-only evaluation. The retained successful probes apply to bridge 0.32.0 and API/SDK 0.31.0 with their recorded features. Neither absence from the table nor a familiar version number settles the new combination.",
+      "evidence_paths": [
+        "content/capabilities/tracing.compatibility.md",
+        "content/catalogs/compatibility.md",
+        "skill_improvement/evidence/implementation/probe-profile.json",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "The requested alternative combination is unspecified and has no executed compatibility evidence here."
+      ],
+      "probe_ids": [
+        "local_layer_and_otel_sampling_are_independent",
+        "batch_flush_exports_completed_spans_and_shutdown_is_observed"
+      ]
+    },
+    {
+      "id": "E16A",
+      "answer": "Reach the options builder through the public InstrumentationOptions::builder() call and let its type be inferred. The exact contract helper classifies datafusion_tracing::options::InstrumentationOptionsBuilder::add_custom_field as reachable-undocumented, with signature fn add_custom_field<K: Into<String>, V: Into<String>>(self, key: K, value: V) -> Self. The options module is private and the builder lacks a public import path; its canonical reference path locates evidence rather than supplying valid consumer import syntax. For example, InstrumentationOptions::builder().preview_limit(2).add_custom_field(\"query_id\", \"abc\").build() uses the reachable methods. The original B001/B002 observations explain why hosted item lookup misses add_custom_field despite front-page example usage. Retained consumer tests compile and use the builder for previews and declared custom fields. The public options fields also permit direct construction; lack of hosted documentation does not make the builder internal.",
+      "evidence_paths": [
+        "content/catalogs/options.md",
+        "content/corpus/source/datafusion-tracing/lib.rs",
+        "content/corpus/source/datafusion-tracing/options.rs",
+        "content/operations/datafusion_tracing.options.InstrumentationOptionsBuilder.json",
+        "content/probes/00-index.md",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Consumer version/features must still match; canonical private paths are not imports."
+      ],
+      "probe_ids": [
+        "B001",
+        "B002",
+        "preview_default_custom_disabled_and_error",
+        "metrics_and_custom_fields_have_separate_controls"
+      ]
+    },
+    {
+      "id": "E16B",
+      "answer": "The reference lookup for datafusion_tracing::instrumented_exec::InstrumentedExec returns an internal item from the private capture, although raw visibility says public. That visibility applies inside a private module and does not establish a supported external import or constructor. Use its operation record and source to understand recorder ownership, span closure, plan delegation, or preview behavior, but use the public instrument_with_info_spans! macro family to obtain the consumer PhysicalOptimizerRule. The crate also re-exports doc-hidden helpers for macro expansion; those are a separate reachability category and explicitly not intended as the main consumer API. Retained lifecycle and ordering tests exercise behavior through public macros, not direct construction of InstrumentedExec. The successful lookup therefore establishes searchable implementation evidence, while the actual supported composition remains the macro, options, and optimizer registration.",
+      "evidence_paths": [
+        "content/operations/datafusion_tracing.instrumented_exec.InstrumentedExec.json",
+        "content/corpus/source/datafusion-tracing/lib.rs",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "content/capabilities/tracing.lifecycle.md",
+        "skill_improvement/evidence/implementation/probe-results.json",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "unknowns": [
+        "Private capture inclusion does not provide API stability or external constructor access."
+      ],
+      "probe_ids": [
+        "partition_preview_cap_and_live_stream_lifetime",
+        "later_rewrite_changes_observed_node_coverage"
+      ]
+    }
+  ],
+  "tool_evidence_read_command_log": [
+    {
+      "command": "pwd && rg --files /home/paul/.cache/datafusion-tracing-improvement-20260918/candidate && cat /home/paul/.cache/datafusion-tracing-improvement-20260918/tasks.json",
+      "purpose": "List frozen reference and read assigned tasks",
+      "tool": "exec_command"
+    },
+    {
+      "command": "cat SKILL.md content/routes/tasks.md content/routes/symptoms.md content/probes/00-index.md",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Read skill entrypoint task and symptom routes and probe scope index"
+    },
+    {
+      "command": "cat content/capabilities/tracing.rules.phase.md content/capabilities/tracing.rules.full.md content/capabilities/tracing.rules.selected.md content/capabilities/tracing.execution.md content/capabilities/tracing.targets.md content/capabilities/tracing.fields.md content/capabilities/tracing.preview.md",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Read planning execution target field and preview decision briefs"
+    },
+    {
+      "command": "cat content/capabilities/tracing.lifecycle.md content/capabilities/tracing.context.md content/capabilities/tracing.filtering.md content/capabilities/tracing.storage.md content/capabilities/tracing.export.md content/capabilities/tracing.compatibility.md content/catalogs/options.md content/catalogs/macros.md",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Read lifecycle async filtering storage export compatibility and macro/options contracts"
+    },
+    {
+      "command": "cat skill_improvement/evidence/implementation/probe-results.json skill_improvement/evidence/implementation/probe-profile.json build/fixtures/probe-crate/Cargo.toml && sed -n '1,260p' build/fixtures/probe-crate/tests/contracts.rs",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Read named probe receipt resolved dependency profile manifest and test implementation start"
+    },
+    {
+      "command": "sed -n '250,680p' build/fixtures/probe-crate/tests/contracts.rs",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Inspect lifecycle phase selection target fields storage async and sampler test controls"
+    },
+    {
+      "command": "cat content/corpus/source/datafusion-tracing/rule_options.rs content/corpus/source/datafusion-tracing/preview.rs && rg -n 'ExecutionRecorders|execute\\(|active|Drop|impl Stream|new\\(|InstrumentedExec|pub use|mod options' content/corpus/source/datafusion-tracing/instrumented_exec.rs content/corpus/source/datafusion-tracing/lib.rs content/corpus/source/datafusion-tracing/exec_instrument_rule.rs",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Read planning selectors preview retention and locate wrapper ownership public reachability"
+    },
+    {
+      "command": "python3 scripts/reference.py show datafusion_tracing::InstrumentationOptions --member preview_fn --view contract",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Exercise exact contract helper for reachable or internal surface"
+    },
+    {
+      "command": "python3 scripts/reference.py show datafusion_tracing::options::InstrumentationOptionsBuilder --member add_custom_field --view contract",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Exercise exact contract helper for reachable or internal surface"
+    },
+    {
+      "command": "python3 scripts/reference.py show datafusion_tracing::instrumented_exec::InstrumentedExec --view contract",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Exercise exact contract helper for reachable or internal surface"
+    },
+    {
+      "command": "sed -n '451,616p' content/corpus/source/datafusion-tracing/instrumented_exec.rs && rg -n -A 16 -B 6 'get_ranges|fn list\\(|async fn get_opts|instrument_result|fn instrument_object_store' content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Read concrete execution and storage lifecycle source"
+    },
+    {
+      "command": "python3 - <<'PY'\nimport json\nfrom pathlib import Path\np=Path('skill_improvement/evidence/implementation/probe-profile.json')\nd=json.loads(p.read_text())\nprint(json.dumps({'compiler':d['compiler'],'packages':[x for x in d['packages'] if x['name'] in {'datafusion','datafusion-tracing','instrumented-object-store','object_store','tracing','tracing-subscriber','tracing-futures','tracing-opentelemetry','opentelemetry','opentelemetry_sdk','opentelemetry-otlp','tokio'}]},indent=2))\nfor name in ['phase-only','physical-only','partition-preview-lifetime','early-drop-repeat','store-lifetimes','batch-flush-shutdown','async-parent-dispatch']:\n    rows=json.loads(Path(f'skill_improvement/evidence/implementation/captures/{name}.json').read_text())\n    print(name, json.dumps(rows if len(rows)<12 else [{'kind':v.get('kind'),'name':v.get('name'),'fields':v.get('fields')} for v in rows if v.get('kind')=='close'],indent=2))\nPY\nrg -n -A 12 -B 6 'plan_diff|plan_changed|plan\\.changed|generate_plan_diff' content/corpus/source/datafusion-tracing/rule_instrumentation.rs\ncat content/seams/subscriber-wiring.md content/catalogs/compatibility.md",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Extract relevant resolved profile and named retained captures, inspect plan diff fields and compatibility seam"
+    },
+    {
+      "command": "cat content/corpus/examples/otlp.rs && sed -n '129,158p' content/corpus/source/datafusion-tracing/lib.rs && sed -n '20,125p' content/corpus/source/datafusion-tracing/options.rs && rg -n -A 5 -B 4 'every time|polled|await|with_current_subscriber|with_subscriber' content/operations/tracing.instrument.Instrument.md content/operations/tracing.instrument.WithSubscriber.md content/operations/tracing.span.Span.md | head -160 && cat content/corpus/source/datafusion-tracing/exec_instrument_rule.rs | head -120",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Read retained OTLP example public exports exact option builder and async contract excerpts"
+    },
+    {
+      "command": "python3 - <<'PY'\nfrom pathlib import Path\nimport re\nroot=Path('.')\np=root/'content/corpus/source/datafusion-tracing/exec_instrument_macros.rs'\nprint('execution macro names:', re.findall(r'macro_rules!\\s+(\\w+)',p.read_text()))\nfor f,pattern in [('content/catalogs/macros.md','25'),('content/seams/subscriber-wiring.md','receives nothing'),('content/capabilities/tracing.lifecycle.md','completion/drop')]:\n for i,line in enumerate((root/f).read_text().splitlines(),1):\n  if pattern in line: print(f'{f}:{i}:{line}')\nPY",
+      "cwd": "candidate",
+      "tool": "exec_command",
+      "purpose": "Check independently discovered macro count and overbroad lifecycle/filter wording"
+    }
+  ],
+  "limitations": [
+    "No compilation, runtime probes, collector, network, or external documentation were run. Executed-probe claims refer only to supplied retained receipts and test assertions; source claims are distinguished in each answer.",
+    "The first file inventory and a broad resolved-profile read produced truncated tool output. Focused later reads recovered relevant profile, sources, and named test/capture evidence. No claim is based on unseen truncated output.",
+    "The retained consumer probe profile exercises local in-memory SDK export. It does not include an opentelemetry-otlp package or establish collector receipt.",
+    "Storage probe coverage is direct in-memory ObjectStore use; DataFusion runtime registration and representative query I/O are not executed in that test.",
+    "Per-command wall timing and per-read timestamps were not systematically captured. The exact shell read commands and purposes are recorded, and the measured evaluation interval is scoped explicitly.",
+    "Examples in the answers are reference-derived sketches, not newly compiled examples. Consumer-specific versions, feature unification, routing, lifetimes, and workloads remain separate qualification inputs."
+  ],
+  "reference_problems": [
+    {
+      "id": "CANDIDATE-P01",
+      "problem": "The macro catalog family table counts 25 instrument_with_*_spans macros, but the retained execution macro source defines six. The catalog includes unrelated generic tracing macros, so its family count is misleading.",
+      "evidence_paths": [
+        "content/catalogs/macros.md",
+        "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs"
+      ],
+      "impact": "Low: exact invocation forms remain usable, but the overview overstates the execution macro family."
+    },
+    {
+      "id": "CANDIDATE-P02",
+      "problem": "The subscriber-wiring seam says filtering on datafusion_tracing receives nothing. That is only justified for caller-target macro spans outside that prefix, not all library telemetry. The phase-only capture includes create_physical_plan with target datafusion_tracing::planner.",
+      "evidence_paths": [
+        "content/seams/subscriber-wiring.md",
+        "content/capabilities/tracing.targets.md",
+        "skill_improvement/evidence/implementation/captures/phase-only.json"
+      ],
+      "impact": "A narrow filter may still show ancillary planner spans while omitting the intended execution or Phase spans; the absolute warning can mislead diagnosis."
+    },
+    {
+      "id": "CANDIDATE-P03",
+      "problem": "The lifecycle brief says stream completion/drop releases recording ownership. The retained ExecutionRecordingStream::poll_next only forwards polling; PinnedDrop releases the reservation. The passing collect test also consumes and destroys the streams, so it does not establish closure at EOF while a handle is retained.",
+      "evidence_paths": [
+        "content/capabilities/tracing.lifecycle.md",
+        "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+        "build/fixtures/probe-crate/tests/contracts.rs"
+      ],
+      "impact": "Clarify consumption-and-release versus EOF alone; users retaining an exhausted stream may otherwise expect final telemetry too early."
+    }
+  ]
+}

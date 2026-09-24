@@ -105,6 +105,12 @@ def format_paths(root: Path, paths: list[str]) -> None:
         # and runtime config are not the working copy and are left untouched.
         if not within(target, root.resolve()):
             continue
+        # Match canonical bundles, symlink aliases and Windows materialized copies.
+        if any(
+            within(target, (root / runtime / "skills").resolve())
+            for runtime in (".codex", ".claude", ".agents")
+        ):
+            continue
         if protected(root, path, design_edit=os.environ.get("PSE_DESIGN_EDIT") == "1"):
             continue
         if not target.is_file():
@@ -120,7 +126,7 @@ def format_paths(root: Path, paths: list[str]) -> None:
                 str(target),
             ]
         elif target.suffix == ".py":
-            command = [str(bindir / "ruff"), "format", str(target)]
+            command = [str(bindir / "ruff"), "format", "--force-exclude", str(target)]
         elif target.suffix == ".toml":
             command = [str(bindir / "taplo"), "fmt", str(target)]
         if command:
@@ -142,12 +148,17 @@ def main() -> int:
             check=False,
             timeout=45,
         )
+        # A clean report is one line: a full PASS list primes agents to re-verify
+        # the environment instead of working on the change (AGENTS.md).
+        report = result.stdout + result.stderr
+        if result.returncode == 0 and not re.search(r"\[(FAIL|WARN)\]", report):
+            report = "doctor: environment ready (all checks pass); do not rerun it."
         print(
             json.dumps(
                 {
                     "hookSpecificOutput": {
                         "hookEventName": "SessionStart",
-                        "additionalContext": result.stdout + result.stderr,
+                        "additionalContext": report,
                     }
                 }
             )

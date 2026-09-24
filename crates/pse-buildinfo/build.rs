@@ -20,7 +20,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-fn main() {
+mod identity;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=build.rs");
 
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default());
@@ -37,6 +39,45 @@ fn main() {
         env::var("PROFILE").unwrap_or_else(|_| "unknown".to_owned())
     );
     println!("cargo:rustc-env=PSE_GIT_SHA={}", git_sha(&workspace_root));
+    let mut source = Vec::new();
+    source_files(&workspace_root, &workspace_root.join("crates"), &mut source)?;
+    source_files(&workspace_root, &workspace_root.join("vendor"), &mut source)?;
+    let source = identity::digest(source);
+    fs::write(out_dir.join("source.identity"), source.as_bytes())?;
+    let mut configuration = Vec::new();
+    for name in [
+        "Cargo.toml",
+        "Cargo.lock",
+        "uv.lock",
+        "pyproject.toml",
+        "rust-toolchain.toml",
+        ".cargo/config.toml",
+    ] {
+        let path = workspace_root.join(name);
+        println!("cargo:rerun-if-changed={}", path.display());
+        configuration.push((name.to_owned(), fs::read(path)?));
+    }
+    for name in [
+        "PROFILE",
+        "OPT_LEVEL",
+        "DEBUG",
+        "TARGET",
+        "CARGO_CFG_TARGET_FEATURE",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "RUSTFLAGS",
+    ] {
+        println!("cargo:rerun-if-env-changed={name}");
+        configuration.push((
+            format!("build:{name}"),
+            env::var(name).unwrap_or_default().into_bytes(),
+        ));
+    }
+    configuration.push(("rustc".into(), rustc_version().into_bytes()));
+    fs::write(
+        out_dir.join("build.identity"),
+        identity::digest(configuration).as_bytes(),
+    )?;
+    Ok(())
 }
 
 /// Copies `<root>/<src>` to `<out_dir>/<dst>`, or writes an empty file when it is absent.
@@ -88,4 +129,38 @@ fn git_sha(root: &Path) -> String {
         }
         _ => "sdist".to_owned(),
     }
+}
+
+fn source_files(
+    root: &Path,
+    directory: &Path,
+    files: &mut Vec<(String, Vec<u8>)>,
+) -> std::io::Result<()> {
+    println!("cargo:rerun-if-changed={}", directory.display());
+    for entry in fs::read_dir(directory)? {
+        let entry = entry?;
+        let path = entry.path();
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
+            if !matches!(
+                entry.file_name().to_str(),
+                Some("target" | "__pycache__" | ".git")
+            ) {
+                source_files(root, &path, files)?;
+            }
+        } else if kind.is_file() {
+            let relative = path
+                .strip_prefix(root)
+                .map_err(std::io::Error::other)?
+                .to_string_lossy()
+                .replace('\\', "/");
+            files.push((relative, fs::read(path)?));
+        } else if kind.is_symlink() {
+            return Err(std::io::Error::other(format!(
+                "unqualified source symlink {}",
+                path.display()
+            )));
+        }
+    }
+    Ok(())
 }

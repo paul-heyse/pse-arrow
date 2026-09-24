@@ -1,0 +1,2623 @@
+{
+  "schema_version": 1,
+  "evaluation": "Independent paired forward-task pilot for datafusion-tracing reference",
+  "judged_at_utc": "2026-09-19T02:18:55.165Z",
+  "task_profile": "Rust consumer using datafusion-tracing and instrumented-object-store 55.0.0. Use the reference recorded tracing/SDK versions where needed. Explain the composition, decisive API/lifecycle conditions, evidence, and what remains unverified; give a small Rust sketch where useful.",
+  "inputs": {
+    "task_file": "/home/paul/.cache/datafusion-tracing-improvement-20260918/tasks.json",
+    "oracle": "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/IMPLEMENTATION_PLAN.md",
+    "frozen_baseline": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline",
+    "frozen_candidate": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate",
+    "baseline_answers": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json",
+    "candidate_answers": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json",
+    "sha256": {
+      "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json": "0761762954cdf3836635ab0adccf17a9c92e3d84f4779665d5687fe235dc6afe",
+      "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json": "4ca123c1003be99d836b5a352e908cd19363857f1f6d6f18decebd0f1a3ecddd",
+      "/home/paul/.cache/datafusion-tracing-improvement-20260918/tasks.json": "4749bb4c8d10f4c70e141987a47452d793f1ceca383ec5d7ce6c1ed36d40ac45",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/IMPLEMENTATION_PLAN.md": "372dfed2948f306aca856961ba54136e9e0ebd4542f783e2defe81584c4cb74b",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/stream-adapter-verification.json": "d2805753f54561d5a87ffd6fd51323d57af9c2ec5eb9517db61e02ab46683f60",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs": "0ae6c6020a40b649ee250c42ff0c8eaffd3f2fe0b7662e9fe915f78d7375591e",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/eof-retention-hypothesis-failed.log": "4f471e546b05d3b81a1aac9e12ce6d1af804aea28ac0d2a50c94224062c034ce",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/eof-retention-hypothesis.rs": "6ad68e4b940f0fff7631412b8c90829625be20c2ded75d7d8f10a3e8523ad715",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/build/fixtures/probe-crate/tests/contracts.rs": "93c8621ac5672f9989f9b93461e2f351fc6a099a0c3428381aabea4ce323c39e",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/probe-results.json": "cc0cacb05cfecde8c4ca5d809c0d2f823e2104122e8850bf2d029c868098a73d",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/contract-probes.log": "fddde02563822168205f9e4596c54bec7e801bf00b3d0705a753117e2c9e17f2",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/captures/partition-preview-at-eof.json": "8549616b2dc3f6ba40ee178a62add103b516d1e758e5885b112bd2a078ac4d66"
+    }
+  },
+  "scope": {
+    "cases_per_condition": 32,
+    "total_case_answers": 64,
+    "judge": "Independent of the two answer authors; labels were not blinded.",
+    "inspection": "Frozen references, task/answer artifacts, E01-E16 plan oracles, plus explicitly authorized post-pilot EOF oracle artifacts.",
+    "execution": "No evaluator-produced sketch, compiler, upstream test or probe was run by the judge. JSON/file reads only.",
+    "contamination_control": "Supplemental EOF source and runtime evidence were received only after both answers were frozen. Final verdicts incorporate the correction symmetrically; neither frozen answer is rewritten.",
+    "changed_files": [
+      "/home/paul/.cache/datafusion-tracing-improvement-20260918/paired-evaluation.json"
+    ]
+  },
+  "rubric": {
+    "verdicts": {
+      "pass": "The answer gives the material decision/contract and uses evidence within scope.",
+      "partial": "The material direction is useful, but a consequential qualification or compositional claim is wrong or incomplete.",
+      "fail": "The answer selects an incompatible mechanism or materially wrong decisive behavior."
+    },
+    "dimensions": {
+      "discovery": "Finds relevant mechanisms, callable routes and alternatives without presenting unrelated candidates as support.",
+      "contract_fidelity": "Gets API reachability, target/field semantics, lifecycle and dependency scope right.",
+      "diagnosis": "Separates plausible causes using observations that discriminate the changed condition.",
+      "evidence_use": "Uses relevant exact sources or assertions and distinguishes inherited source/runtime evidence from fresh execution. A comparative improvement can mean stronger correctly scoped support while both answers still pass.",
+      "integration": "Only the evaluator-produced sketch compiling and meeting its oracle qualifies. Retained shared fixtures and post-pilot oracle tests do not qualify these sketches."
+    },
+    "comparison": "Judged case-by-case, condition labels visible. Correct source-backed uncertainty is not a failure. Evidence-strength improvements are not claimed as better mechanism selection. No synthetic score or quality percentage is computed."
+  },
+  "summary": {
+    "text": "Both conditions find the correct mechanisms in all 32 cases. Each has 30 pass and 2 partial case answers: E08A and E09B miss the same enclosing-stream-adapter EOF behavior, exposed by a post-pilot exact-release source and executed control. There is no demonstrated improvement or regression in discovery, contract fidelity or diagnosis in this sample. Candidate answers use stronger correctly scoped behavioral or resolved-profile support in 26 cases; six evidence-use comparisons tie. Every evaluator-sketch integration outcome is not_run. The elapsed measurements are not directly comparable.",
+    "per_condition": {
+      "baseline": {
+        "case_verdicts": {
+          "pass": 30,
+          "partial": 2,
+          "fail": 0
+        },
+        "dimensions": {
+          "discovery": {
+            "pass": 32,
+            "partial": 0,
+            "fail": 0
+          },
+          "contract_fidelity": {
+            "pass": 30,
+            "partial": 2,
+            "fail": 0
+          },
+          "diagnosis": {
+            "pass": 30,
+            "partial": 2,
+            "fail": 0
+          },
+          "evidence_use": {
+            "pass": 30,
+            "partial": 2,
+            "fail": 0
+          }
+        },
+        "integration": {
+          "not_run": 32
+        }
+      },
+      "candidate": {
+        "case_verdicts": {
+          "pass": 30,
+          "partial": 2,
+          "fail": 0
+        },
+        "dimensions": {
+          "discovery": {
+            "pass": 32,
+            "partial": 0,
+            "fail": 0
+          },
+          "contract_fidelity": {
+            "pass": 30,
+            "partial": 2,
+            "fail": 0
+          },
+          "diagnosis": {
+            "pass": 30,
+            "partial": 2,
+            "fail": 0
+          },
+          "evidence_use": {
+            "pass": 30,
+            "partial": 2,
+            "fail": 0
+          }
+        },
+        "integration": {
+          "not_run": 32
+        }
+      }
+    },
+    "comparative_dimensions": {
+      "discovery": {
+        "improvement": 0,
+        "regression": 0,
+        "tie": 32
+      },
+      "contract_fidelity": {
+        "improvement": 0,
+        "regression": 0,
+        "tie": 32
+      },
+      "diagnosis": {
+        "improvement": 0,
+        "regression": 0,
+        "tie": 32
+      },
+      "evidence_use": {
+        "improvement": 26,
+        "regression": 0,
+        "tie": 6
+      }
+    },
+    "integration": {
+      "baseline_not_run": 32,
+      "candidate_not_run": 32
+    },
+    "no_synthetic_overall_score": true
+  },
+  "cases": [
+    {
+      "id": "E01A",
+      "task": "Explain total planning-phase duration",
+      "context": null,
+      "oracle_pair": "E01",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/rule_options.rs:95-121",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/rule_instrumentation.rs:599-627",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:350-404"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Finds phase_only and the application timing boundary; correctly limits S007 to phase/rule structure, not elapsed-time accuracy.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/0",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/rule_options.rs:104-114",
+          "content/corpus/source/datafusion-tracing/rule_instrumentation_macros.rs:20-27",
+          "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:948-990",
+          "content/probes/00-index.md#S007"
+        ],
+        "stated_unknowns": [
+          "No numerical phase-duration or complete SQL-planning coverage probe is retained.",
+          "Caller must define whether total includes parsing, application work, and nested phases."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Correctly selects phase_only, distinguishes nested durations, and uses the named phase-membership assertion without claiming measured duration.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/0",
+        "cited_evidence": [
+          "content/capabilities/tracing.rules.phase.md",
+          "content/corpus/source/datafusion-tracing/rule_options.rs",
+          "skill_improvement/evidence/implementation/captures/phase-only.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "No timing values or universal end-to-end planning coverage are established by the retained contract probe."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites parsed phase membership, Rule exclusion and phase closure for the retained query; baseline S007 only establishes a Rule-span switch. Neither measures duration.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E01B",
+      "task": "Identify which rule changes a plan",
+      "context": "Explain total planning-phase duration",
+      "oracle_pair": "E01",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/rule_options.rs:95-121",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/rule_instrumentation.rs:599-627",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:350-404"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Finds full plus optional with_plan_diff; explains modified names/effective_rules and physical Arc/text comparison; explicitly leaves behavioral plan-diff discrimination unverified.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/1",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:200-215",
+          "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:599-627",
+          "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:889-917",
+          "content/corpus/source/datafusion-tracing/rule_instrumentation_macros.rs:60-84",
+          "content/corpus/tests/integration_tests.rs:229",
+          "content/probes/00-index.md#S007"
+        ],
+        "stated_unknowns": [
+          "Textual change detection is not an engineering or semantic validity judgment.",
+          "No executed retained plan-diff discrimination probe is identified."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Correctly selects full plus plan diffs and explains modified/effective-rule fields; explicitly says controlled diff attribution remains source-backed and unasserted.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/1",
+        "cited_evidence": [
+          "content/capabilities/tracing.rules.full.md",
+          "content/corpus/source/datafusion-tracing/rule_options.rs",
+          "content/corpus/source/datafusion-tracing/rule_instrumentation.rs",
+          "skill_improvement/evidence/implementation/captures/physical-only.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Controlled per-rule diff attribution is not asserted by the named consumer tests.",
+          "Formatted plan changes need not imply semantic or performance improvements."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "tie",
+        "evidence_rationale": "Both use source for plan-change/diff behavior. Candidate adds phase parentage and observed modified names, but its fixture does not isolate a changing rule or assert diff attribution.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E02A",
+      "task": "Observe all planning phases",
+      "context": null,
+      "oracle_pair": "E02",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/rule_options.rs:125-199",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/rule_instrumentation.rs:948-990",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:350-404"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Selects full/all phases with phase_only alternative and physical planner wrapper; distinguishes phase invocation and unrelated execution/storage.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/2",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/rule_options.rs:95-114",
+          "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:948-990",
+          "content/corpus/source/datafusion-tracing/planner.rs:62-104",
+          "content/probes/00-index.md#S007",
+          "content/probes/00-index.md#S008"
+        ],
+        "stated_unknowns": [
+          "Actual phase invocation and rule-list contents depend on the caller's DataFusion session.",
+          "No collector-delivery guarantee follows from enabling phases."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Finds both all-phase levels, returned-state composition, and ancillary planner spans; names the three observed phases without claiming general elapsed-time coverage.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/2",
+        "cited_evidence": [
+          "content/capabilities/tracing.rules.phase.md",
+          "content/capabilities/tracing.rules.full.md",
+          "content/catalogs/macros.md",
+          "skill_improvement/evidence/implementation/captures/phase-only.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Custom planners, other workloads, and total planning duration are not qualified by the VALUES test."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate names captured analyzer/logical/physical Phase membership and the equality/Rule-parentage assertions, beyond baseline's weaker substring/difference probes.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E02B",
+      "task": "Observe only physical optimization",
+      "context": "Observe all planning phases",
+      "oracle_pair": "E02",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/rule_options.rs:125-199",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/rule_instrumentation.rs:948-990",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:350-404"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses the reachable physical_optimizer builder and physical_optimizer_phase_only alternative; correctly warns that create_physical_plan is additionally wrapped.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/3",
+        "cited_evidence": [
+          "content/catalogs/options.md",
+          "content/corpus/source/datafusion-tracing/rule_options.rs:180-199",
+          "content/corpus/source/datafusion-tracing/rule_instrumentation.rs:986-990",
+          "content/corpus/source/datafusion-tracing/planner.rs:86-104",
+          "content/probes/00-index.md#S008"
+        ],
+        "stated_unknowns": [
+          "Physical-only options also instrument physical-plan creation.",
+          "Custom-planner and filter behavior has not been independently executed here."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses the reachable selector and exactly scoped Phase-name assertion, while retaining the source-only phase_only alternative and extra planner-span distinction.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/3",
+        "cited_evidence": [
+          "content/capabilities/tracing.rules.selected.md",
+          "content/corpus/source/datafusion-tracing/rule_options.rs",
+          "content/catalogs/options.md",
+          "skill_improvement/evidence/implementation/captures/physical-only.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "physical_optimizer_phase_only is source-backed but not directly exercised by this consumer test.",
+          "Ancillary planner spans may still be emitted."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites an exact physical-only Phase set assertion; baseline accurately describes S008 as a difference without strict exclusion proof.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E03A",
+      "task": "Instrument the final physical plan",
+      "context": null,
+      "oracle_pair": "E03",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:64-85",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:407-463"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses supported execution macro and installs its rule last; explains wrappers, execution requirement and internal type boundary.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/4",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:64-85",
+          "content/corpus/docs/README.md:164-187",
+          "content/catalogs/not-reachable.md",
+          "content/probes/00-index.md#S001"
+        ],
+        "stated_unknowns": [
+          "S001 proves node-span presence, not complete arbitrary-plan coverage.",
+          "Consumer rule ordering and later rewrites must be inspected."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Gives the supported rule installation order and uses the controlled GlobalLimitExec span contrast with unchanged row count, not a universal rewrite guarantee.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/4",
+        "cited_evidence": [
+          "content/capabilities/tracing.execution.md",
+          "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs",
+          "content/catalogs/macros.md",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Actual custom optimizer behavior and instrumentation overhead remain workload-specific."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate uses a controlled added GlobalLimitExec with both registration orders and row-count control; baseline has only generic node-span presence.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E03B",
+      "task": "Another optimizer rewrite runs afterward",
+      "context": "Instrument the final physical plan",
+      "oracle_pair": "E03",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:64-85",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:407-463"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Changes effective registration order and leaves arbitrary later-rewrite coverage unverified; does not treat S001 or syntax lint as an oracle for this contrast.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/5",
+        "cited_evidence": [
+          "content/corpus/docs/README.md:164-189",
+          "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:64-85",
+          "content/probes/00-index.md#S001",
+          "reference.md#Known limits"
+        ],
+        "stated_unknowns": [
+          "No later-rewrite behavioral probe is retained.",
+          "Preserving existing wrappers does not prove instrumentation of arbitrary new nodes."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Explains the additive later-rewrite failure and reversed-order control; correctly allows existing wrappers to survive other transformations.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/5",
+        "cited_evidence": [
+          "content/capabilities/tracing.execution.md",
+          "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "The controlled additive rewrite does not characterize every optimizer transformation."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate supports the changed later-rewrite condition with the missing-versus-present added-node span; baseline correctly leaves that contrast unprobed.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E04A",
+      "task": "Use the macro's default target",
+      "context": null,
+      "oracle_pair": "E04",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:192-209",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:466-498"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Identifies call-site module_path target and level filtering; labels default-target S006 recorded rather than discriminating.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/6",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:202-209",
+          "content/corpus/source/datafusion-tracing/rule_instrumentation_macros.rs:91-95",
+          "content/probes/00-index.md#S006",
+          "content/probes/00-index.md#S009",
+          "content/seams/object-store.md",
+          "content/corpus/source/datafusion-tracing/planner.rs:34-41"
+        ],
+        "stated_unknowns": [
+          "S006 is a recorded shape observation, not a two-construction target-filter probe.",
+          "The consumer's actual module path and installed filter are unspecified."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Identifies the caller target, preserves S006's recorded status, and corrects the overbroad reference warning by allowing library-owned planner spans.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/6",
+        "cited_evidence": [
+          "content/capabilities/tracing.targets.md",
+          "content/catalogs/macros.md",
+          "content/probes/00-index.md",
+          "skill_improvement/evidence/implementation/captures/phase-only.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "The consumer's actual call-site module path and installed filter scope are not supplied."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate supports the default caller target under a matching target filter with the new control; baseline S006 is a recorded observation.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E04B",
+      "task": "Supply an explicit target under a narrow filter",
+      "context": "Use the macro's default target",
+      "oracle_pair": "E04",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:192-209",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:466-498"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Supplies an explicit matching target while separately checking level; scopes the control gap and planner/store targets correctly.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/7",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:107-121",
+          "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:202-209",
+          "content/index/macros.tsv",
+          "content/probes/00-index.md#S006",
+          "content/probes/00-index.md#S009",
+          "content/corpus/source/datafusion-tracing/planner.rs:34-41"
+        ],
+        "stated_unknowns": [
+          "Explicit-target filtering is source-backed but not directly probed in the retained set.",
+          "The narrow target does not automatically cover planner or store spans."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Supplies explicit target grammar and matching filter, and cites positive/nonmatching/default-target controls while separating level and export.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/7",
+        "cited_evidence": [
+          "content/capabilities/tracing.targets.md",
+          "content/catalogs/macros.md",
+          "content/probes/00-index.md",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Other subscriber branches and export behavior are separate from this target/filter test."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites matching versus nonmatching explicit-target controls; baseline has source and the separate level filter control only.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E05A",
+      "task": "Record a key declared in the macro",
+      "context": null,
+      "oracle_pair": "E05",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/options.rs:100-108",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:192-199",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:318-346"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Separates declaration from builder-recorded value and gives the callable route; relevant S004 declaration control supports the distinction.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/8",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:107-121",
+          "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:192-199",
+          "content/corpus/source/datafusion-tracing/options.rs:100-108",
+          "content/corpus/examples/integration-utils/src/lib.rs:207-225",
+          "content/probes/00-index.md#S004",
+          "content/probes/00-index.md#B001",
+          "content/probes/00-index.md#B002"
+        ],
+        "stated_unknowns": [
+          "Exporter attribute limits and backend retention are outside S004's local observation."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Separates fixed field declaration from map values, supplies the builder route, and cites both exact value capture and the older declaration control.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/8",
+        "cited_evidence": [
+          "content/capabilities/tracing.fields.md",
+          "content/corpus/source/datafusion-tracing/options.rs",
+          "content/catalogs/macros.md",
+          "content/probes/00-index.md",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Exported backend attribute behavior is not established by the field capture."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites the exact declared query_id=abc value and absence of an undeclared key on intended execution spans, while retaining S004's declaration contrast.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E05B",
+      "task": "Record the same undeclared key",
+      "context": "Record a key declared in the macro",
+      "oracle_pair": "E05",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/options.rs:100-108",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:192-199",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:318-346"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Diagnoses silent recording loss at undeclared fields and supplies the declaration fix; does not blame the builder or infer absent capability.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/9",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:192-199",
+          "content/corpus/source/datafusion-tracing/options.rs:100-108",
+          "content/probes/00-index.md#S004"
+        ],
+        "stated_unknowns": [
+          "Successful local field recording does not guarantee backend delivery or retention."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Diagnoses undeclared omission, restores the declaration, and scopes parent-span metadata and exporter mapping rather than promising inheritance.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/9",
+        "cited_evidence": [
+          "content/capabilities/tracing.fields.md",
+          "content/catalogs/macros.md",
+          "content/probes/00-index.md",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "No general inheritance or arbitrary dynamic attribute export guarantee is provided."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate adds specific intended-span values and absence to the older S004 presence control; both correctly diagnose silent undeclared-field omission.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E06A",
+      "task": "Positive preview limit with no custom formatter",
+      "context": null,
+      "oracle_pair": "E06",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/preview.rs:36-76",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/preview.rs:167-202",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:130-187"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Correctly overrides stale summary text using default_preview_fn in exact source; leaves default-formatter execution unverified.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/10",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:154-160",
+          "content/corpus/source/datafusion-tracing/preview.rs:46-76",
+          "content/corpus/source/datafusion-tracing/preview.rs:167-200",
+          "content/corpus/source/datafusion-tracing/exec_instrument_macros.rs:30-34",
+          "content/seams/preview.md",
+          "content/topics/00-map.md",
+          "content/probes/00-index.md#S002"
+        ],
+        "stated_unknowns": [
+          "Frozen summary guidance contradicts its source on the default formatter.",
+          "No retained discriminating default-versus-custom formatter probe was executed here."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Correctly finds the default formatter and two-of-three row assertion; separates row display from buffer allocation and unfinished-stream availability.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/10",
+        "cited_evidence": [
+          "content/capabilities/tracing.preview.md",
+          "content/corpus/source/datafusion-tracing/preview.rs",
+          "content/corpus/source/datafusion-tracing/options.rs",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "No arbitrary-schema allocation bound or unfinished-stream preview guarantee is established."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites executed omitted-formatter output with rows one/two and exclusion of three; baseline correctly recovers the fallback from source but lacks that control.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E06B",
+      "task": "Same limit with a custom formatter",
+      "context": "Positive preview limit with no custom formatter",
+      "oracle_pair": "E06",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/preview.rs:36-76",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/preview.rs:167-202",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:130-187"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Gives the Arc/Send/Sync callback contract and source-backed formatting/error timing; distinguishes customization from the row limit.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/11",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/options.rs:89-97",
+          "content/corpus/source/datafusion-tracing/preview.rs:36",
+          "content/corpus/source/datafusion-tracing/preview.rs:46-76",
+          "content/corpus/source/datafusion-tracing/preview.rs:167-202",
+          "content/corpus/examples/integration-utils/src/lib.rs:207-219",
+          "content/probes/00-index.md#S005",
+          "content/probes/00-index.md#S002"
+        ],
+        "stated_unknowns": [
+          "The exact rendered width/content depends on the input schema and callback.",
+          "S005 does not establish arbitrary callback correctness or performance."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Gives the exact callback shape and group-level invocation; scopes successful custom output and formatter-error warning to the tested construction.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/11",
+        "cited_evidence": [
+          "content/capabilities/tracing.preview.md",
+          "content/corpus/source/datafusion-tracing/preview.rs",
+          "content/operations/datafusion_tracing.options.InstrumentationOptions.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Arbitrary callback cost and concatenation-failure behavior are not characterized by the formatter-error test."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate distinguishes CUSTOM:2, default output, disabled preview and formatter error with unchanged row count; baseline mainly has a compact-rendering marker.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E07A",
+      "task": "Preview one batch in one partition",
+      "context": null,
+      "oracle_pair": "E07",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/preview.rs:46-76",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/preview.rs:111-156",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:191-253"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Describes successful-poll row capture, unchanged result batch, and drop-time finalization; no query completeness inference.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/12",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/preview.rs:46-76",
+          "content/corpus/source/datafusion-tracing/preview.rs:111-156",
+          "content/probes/00-index.md#S002",
+          "content/probes/00-index.md#S005"
+        ],
+        "stated_unknowns": [
+          "No retained probe isolates every single-batch boundary and error condition.",
+          "A preview is bounded observed data, not evidence of complete query execution."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Explains slice/forward/drop behavior and observed display cap, explicitly avoiding Arrow-buffer or peak-memory claims.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/12",
+        "cited_evidence": [
+          "content/capabilities/tracing.preview.md",
+          "content/corpus/source/datafusion-tracing/preview.rs",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Exact buffer retention and arbitrary-schema formatting overhead are not measured."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites a specific two-row display against three returned rows; baseline has enabling/rendering controls without a row-content assertion.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E07B",
+      "task": "Same display limit with multiple batches/partitions",
+      "context": "Preview one batch in one partition",
+      "oracle_pair": "E07",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/preview.rs:46-76",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/preview.rs:111-156",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:191-253"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Explains accumulation over batches and partitions, final display cap and execution grouping; no global ordering or query-wide budget claim.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/13",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/preview.rs:46-65",
+          "content/corpus/source/datafusion-tracing/preview.rs:111-156",
+          "content/corpus/source/datafusion-tracing/preview.rs:207-214",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:133-173",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:536-556",
+          "content/seams/preview.md",
+          "content/probes/00-index.md#S002",
+          "content/probes/00-index.md#S005"
+        ],
+        "stated_unknowns": [
+          "No retained confirmed multi-batch/partition preview probe is listed.",
+          "Global query ordering and a query-wide preview budget are not established."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Explains per-partition accumulation and final cap for shared groups, using the six-result/three-preview control with explicit memory and grouping limits.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/13",
+        "cited_evidence": [
+          "content/capabilities/tracing.preview.md",
+          "content/corpus/source/datafusion-tracing/preview.rs",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+          "skill_improvement/evidence/implementation/captures/partition-preview-lifetime.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "No quantitative memory bound or universal partition scheduling behavior is measured."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites the two-partition/three-batch six-result versus ROWS:3 control and separate-group observation; baseline relies on exact source alone.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E08A",
+      "task": "Fully consume execution streams",
+      "context": null,
+      "oracle_pair": "E08",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/instrumented_exec.rs:480-495",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-608",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:256-283"
+      ],
+      "baseline": {
+        "verdict": "partial",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "partial",
+          "diagnosis": "partial",
+          "evidence_use": "partial"
+        },
+        "rationale": "Correctly requires full intended consumption and identifies drop-time inner recorders, but infers that retaining an exhausted public stream prevents finalization. It omits the enclosing RecordBatchStreamAdapter, which releases the inner stream at EOF in the resolved profile. Explicitly dropping the public handle is safe but is not necessary for this tested closure.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/14",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-608",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:802-846",
+          "content/corpus/source/datafusion-tracing/metrics.rs:51-63",
+          "content/probes/00-index.md#S003"
+        ],
+        "stated_unknowns": [
+          "EOF while retaining the stream is not the same lifecycle event as dropping it.",
+          "Source regression tests were inspected but not run in this evaluation."
+        ],
+        "corrections": [
+          {
+            "oracle": "post_pilot_eof_composition",
+            "finding": "The internal recording wrapper releases ownership in PinnedDrop, but the public outer RecordBatchStreamAdapter in resolved DataFusion 55.1.0 drops that inner stream on Poll::Ready(None). Retaining an exhausted public adapter therefore does not keep its inner recorder alive in the tested profile.",
+            "correct_answer": "Distinguish a live unexhausted stream from a retained exhausted public adapter. In the tested two-partition 55.1.0 profile, polling both streams to EOF closes the execution span and records ROWS:3 while both public handles and the plan are retained; dropping those handles adds no closes. Early drop remains a partial-consumption boundary. Qualify other adapter versions and additional owners separately.",
+            "evidence": [
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/content/corpus/source/datafusion-tracing/instrumented_exec.rs:490-495",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:411-418",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:468-484",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/build/fixtures/probe-crate/tests/contracts.rs:224-255",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/eof-retention-hypothesis-failed.log",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/probe-results.json",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/contract-probes.log",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/captures/partition-preview-at-eof.json"
+            ]
+          }
+        ],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "partial",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "partial",
+          "diagnosis": "partial",
+          "evidence_use": "partial"
+        },
+        "rationale": "Correctly distinguishes active ownership and full consumption, and accurately scopes the original collect-and-drop probe. Its unknown nevertheless says source ownership still requires destruction of the retained exhausted stream. The post-pilot outer-adapter oracle disproves that inference for the resolved profile.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/14",
+        "cited_evidence": [
+          "content/capabilities/tracing.lifecycle.md",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+          "content/corpus/source/datafusion-tracing/preview.rs",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "A retained exhausted stream is not separately tested; source ownership still requires its destruction.",
+          "Arbitrary errors and custom plans are outside this full-consumption test."
+        ],
+        "corrections": [
+          {
+            "oracle": "post_pilot_eof_composition",
+            "finding": "The internal recording wrapper releases ownership in PinnedDrop, but the public outer RecordBatchStreamAdapter in resolved DataFusion 55.1.0 drops that inner stream on Poll::Ready(None). Retaining an exhausted public adapter therefore does not keep its inner recorder alive in the tested profile.",
+            "correct_answer": "Distinguish a live unexhausted stream from a retained exhausted public adapter. In the tested two-partition 55.1.0 profile, polling both streams to EOF closes the execution span and records ROWS:3 while both public handles and the plan are retained; dropping those handles adds no closes. Early drop remains a partial-consumption boundary. Qualify other adapter versions and additional owners separately.",
+            "evidence": [
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/content/corpus/source/datafusion-tracing/instrumented_exec.rs:490-495",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:411-418",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:468-484",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/build/fixtures/probe-crate/tests/contracts.rs:224-255",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/eof-retention-hypothesis-failed.log",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/probe-results.json",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/contract-probes.log",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/captures/partition-preview-at-eof.json"
+            ]
+          }
+        ],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "tie",
+        "evidence_rationale": "Both answers miss the same outer-adapter composition and over-infer public EOF behavior from internal PinnedDrop. Candidate's original collect-and-drop observation does not discriminate that boundary; the later supplemental oracle corrects both symmetrically.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E08B",
+      "task": "Consume one item, then drop the streams",
+      "context": "Fully consume execution streams",
+      "oracle_pair": "E08",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/instrumented_exec.rs:480-495",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-608",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:256-283"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Explains early-drop partial evidence and upstream-work uncertainty; a closed span is not a success certificate.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/15",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/preview.rs:46-76",
+          "content/corpus/source/datafusion-tracing/preview.rs:111-156",
+          "content/corpus/source/datafusion-tracing/metrics.rs:51-63",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-578",
+          "content/probes/00-index.md#S002",
+          "content/probes/00-index.md#S003"
+        ],
+        "stated_unknowns": [
+          "Exact work performed upstream before early drop is DataFusion/operator dependent.",
+          "No retained confirmed early-drop probe establishes cancellation or metric totals."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses two-row early drop versus four-row repeat, notes the other partition was not run, and refuses to treat closure as full completion.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/15",
+        "cited_evidence": [
+          "content/capabilities/tracing.lifecycle.md",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+          "content/corpus/source/datafusion-tracing/preview.rs",
+          "skill_improvement/evidence/implementation/captures/early-drop-repeat.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Dropping arbitrary custom plans and multiple partially consumed groups is not exhaustively characterized."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites early-drop ROWS:2 versus later full ROWS:4 with distinct span IDs and the unexecuted partition limitation; baseline has no retained early-drop probe.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E09A",
+      "task": "Retain a plan after execution completes",
+      "context": null,
+      "oracle_pair": "E09",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/instrumented_exec.rs:480-495",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-608",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:213-253"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses recorder ownership and retained-plan source regression to explain why a plan handle alone need not keep spans open.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/16",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-578",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:802-846",
+          "content/probes/00-index.md"
+        ],
+        "stated_unknowns": [
+          "Lifecycle evidence is inspected source/test code, not an executed evaluator probe.",
+          "Other outstanding span handles or recorder streams can still delay closure."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses observed closure while a plan clone remains alive and no extra closure after plan release, separating application-parent/provider ownership.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/16",
+        "cited_evidence": [
+          "content/capabilities/tracing.lifecycle.md",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+          "skill_improvement/evidence/implementation/captures/partition-preview-lifetime.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Arbitrary custom plan ownership and application parent-span lifetimes are not exhaustively tested."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites observed closure before retained plan release and unchanged closure count after release; baseline explicitly has inspected, unexecuted source regression evidence.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E09B",
+      "task": "Keep an execution stream alive instead",
+      "context": "Retain a plan after execution completes",
+      "oracle_pair": "E09",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/instrumented_exec.rs:480-495",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-608",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:213-253"
+      ],
+      "baseline": {
+        "verdict": "partial",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "partial",
+          "diagnosis": "partial",
+          "evidence_use": "partial"
+        },
+        "rationale": "Correctly says a live unexhausted stream owns recorder references, but explicitly advises dropping an exhausted handle to obtain close-time evidence based only on the internal wrapper. The outer 55.1.0 adapter releases its inner recorder at EOF; the public-handle retention implication is incorrect.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/17",
+        "cited_evidence": [
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:492-495",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:559-608",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:849-888",
+          "content/api/opentelemetry_sdk.trace.span_processor.md:80-102"
+        ],
+        "stated_unknowns": [
+          "The retained probe catalog has no direct stream-retention execution probe.",
+          "Unexpected additional span owners require consumer-specific inspection."
+        ],
+        "corrections": [
+          {
+            "oracle": "post_pilot_eof_composition",
+            "finding": "The internal recording wrapper releases ownership in PinnedDrop, but the public outer RecordBatchStreamAdapter in resolved DataFusion 55.1.0 drops that inner stream on Poll::Ready(None). Retaining an exhausted public adapter therefore does not keep its inner recorder alive in the tested profile.",
+            "correct_answer": "Distinguish a live unexhausted stream from a retained exhausted public adapter. In the tested two-partition 55.1.0 profile, polling both streams to EOF closes the execution span and records ROWS:3 while both public handles and the plan are retained; dropping those handles adds no closes. Early drop remains a partial-consumption boundary. Qualify other adapter versions and additional owners separately.",
+            "evidence": [
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/content/corpus/source/datafusion-tracing/instrumented_exec.rs:490-495",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:411-418",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:468-484",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/build/fixtures/probe-crate/tests/contracts.rs:224-255",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/eof-retention-hypothesis-failed.log",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/probe-results.json",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/contract-probes.log",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/captures/partition-preview-at-eof.json"
+            ]
+          }
+        ],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "partial",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "partial",
+          "diagnosis": "partial",
+          "evidence_use": "partial"
+        },
+        "rationale": "Correctly describes unexhausted stream ownership and acknowledges no exhausted-handle probe in the frozen bundle, but still calls explicit public stream destruction decisive. The enclosing 55.1.0 adapter performs inner destruction at EOF while the public handle survives.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/17",
+        "cited_evidence": [
+          "content/capabilities/tracing.lifecycle.md",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+          "skill_improvement/evidence/implementation/captures/partition-preview-lifetime.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "The consumer test does not separately retain an already exhausted stream or assert every plan-drop ordering."
+        ],
+        "corrections": [
+          {
+            "oracle": "post_pilot_eof_composition",
+            "finding": "The internal recording wrapper releases ownership in PinnedDrop, but the public outer RecordBatchStreamAdapter in resolved DataFusion 55.1.0 drops that inner stream on Poll::Ready(None). Retaining an exhausted public adapter therefore does not keep its inner recorder alive in the tested profile.",
+            "correct_answer": "Distinguish a live unexhausted stream from a retained exhausted public adapter. In the tested two-partition 55.1.0 profile, polling both streams to EOF closes the execution span and records ROWS:3 while both public handles and the plan are retained; dropping those handles adds no closes. Early drop remains a partial-consumption boundary. Qualify other adapter versions and additional owners separately.",
+            "evidence": [
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/content/corpus/source/datafusion-tracing/instrumented_exec.rs:490-495",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:411-418",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:468-484",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/build/fixtures/probe-crate/tests/contracts.rs:224-255",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/eof-retention-hypothesis-failed.log",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/probe-results.json",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/contract-probes.log",
+              "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/captures/partition-preview-at-eof.json"
+            ]
+          }
+        ],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "tie",
+        "evidence_rationale": "Both answers miss the same outer-adapter composition and over-infer public EOF behavior from internal PinnedDrop. Candidate's original collect-and-drop observation does not discriminate that boundary; the later supplemental oracle corrects both symmetrically.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E10A",
+      "task": "Await work under an instrumented future",
+      "context": null,
+      "oracle_pair": "E10",
+      "independently_checked_evidence": [
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/operations/tracing.instrument.Instrument.md",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/operations/tracing.instrument.WithSubscriber.md",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:502-528"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses tracing::Instrument on the future, explains poll/drop context and lazy-returned-work scope, with exact retained docs.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/18",
+        "cited_evidence": [
+          "build/acquired/rustdoc/tracing@0.1.44.json.zst#index/53",
+          "content/api/tracing.instrument.md#instrument",
+          "content/corpus/source/datafusion-tracing/planner.rs:100-104",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:492-495",
+          "content/probes/00-index.md"
+        ],
+        "stated_unknowns": [
+          "No retained discriminating async-parent propagation probe is listed.",
+          "Work performed after returning a lazy value needs its own context/lifetime analysis."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses the Instrument extension trait and avoids Span::enter across await; explicitly labels the available spawned-task probe adjacent to the direct-await question.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/18",
+        "cited_evidence": [
+          "content/capabilities/tracing.context.md",
+          "content/operations/tracing.span.Span.md",
+          "content/operations/tracing.instrument.Instrument.md",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Direct-await behavior is source-documented; the retained discriminating test specifically exercises a spawned future."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "tie",
+        "evidence_rationale": "Both establish direct-await Instrument behavior from exact retained docs. Candidate correctly labels the spawned-task probe as adjacent, not a direct-await behavioral oracle.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E10B",
+      "task": "Spawn it across a task boundary",
+      "context": "Await work under an instrumented future",
+      "oracle_pair": "E10",
+      "independently_checked_evidence": [
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/operations/tracing.instrument.Instrument.md",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/operations/tracing.instrument.WithSubscriber.md",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:502-528"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Explicitly propagates parent and, where needed, scoped dispatch across spawn; avoids assuming all application spawns inherit the library helper.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/19",
+        "cited_evidence": [
+          "build/acquired/rustdoc/tracing@0.1.44.json.zst#index/55",
+          "build/acquired/rustdoc/tracing@0.1.44.json.zst#index/62",
+          "content/api/tracing.instrument.md#withsubscriber",
+          "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:37-45",
+          "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs:103-108"
+        ],
+        "stated_unknowns": [
+          "No retained confirmed arbitrary-spawn or scoped-subscriber propagation probe exists.",
+          "DataFusion JoinSetTracer registration and use are bounded and may fail."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Carries both span and dispatch, identifies their distinct roles, and cites the child-parent-ID versus dispatcher-only unparented control.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/19",
+        "cited_evidence": [
+          "content/capabilities/tracing.context.md",
+          "content/operations/tracing.instrument.WithSubscriber.md",
+          "content/corpus/source/datafusion-tracing/exec_instrument_rule.rs",
+          "skill_improvement/evidence/implementation/captures/async-parent-dispatch.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "No all-executor inheritance guarantee or qualification of every DataFusion task boundary is provided."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites exact parent ID and a dispatch-only unparented control; baseline has retained async contracts but no executed task-boundary contrast.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E11A",
+      "task": "A local formatting layer receives the span",
+      "context": null,
+      "oracle_pair": "E11",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/examples/otlp.rs:117-141",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:564-590"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Separates local layer receipt/formatting from OTEL branch admission, sampler, closure and export; no collector inference.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/20",
+        "cited_evidence": [
+          "content/corpus/examples/otlp.rs:126-141",
+          "content/api/tracing_subscriber.layer.md:64-65",
+          "content/api/opentelemetry_sdk.trace.sampler.md:99-116",
+          "content/api/opentelemetry_sdk.trace.span_processor.md:80-108",
+          "content/probes/00-index.md#S009",
+          "content/probes/00-index.md#S010"
+        ],
+        "stated_unknowns": [
+          "The reference has local subscriber probes but no confirmed end-to-end collector delivery probe.",
+          "Formatter receipt and visible lifecycle output are distinct."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Separates local branch, SDK and collector boundaries and accurately says the new local observer is Capture rather than fmt.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/20",
+        "cited_evidence": [
+          "content/capabilities/tracing.filtering.md",
+          "content/corpus/examples/otlp.rs",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "The discriminating consumer test uses Capture rather than fmt, and no collector is involved."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate adds independent local-capture and in-memory SDK counts under AlwaysOn/AlwaysOff and correctly distinguishes Capture from fmt; baseline has separate source composition only.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E11B",
+      "task": "The OTEL branch filters or samples it out",
+      "context": "A local formatting layer receives the span",
+      "oracle_pair": "E11",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/examples/otlp.rs:117-141",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:564-590"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Distinguishes per-layer filtering from sampling and retained local work, while explicitly leaving the two-branch runtime contrast unverified.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/21",
+        "cited_evidence": [
+          "content/api/tracing_subscriber.layer.md:64-65",
+          "content/corpus/examples/otlp.rs:117-141",
+          "content/api/opentelemetry_sdk.trace.sampler.md:99-116",
+          "content/probes/00-index.md#S009",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:154-170"
+        ],
+        "stated_unknowns": [
+          "No retained two-branch filtering or sampling contrast was executed.",
+          "Exact sampler decisions depend on configured policy and parent context."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Separates per-layer admission from sampling and uses the AlwaysOn/AlwaysOff contrast without claiming every filter combination was tested.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/21",
+        "cited_evidence": [
+          "content/capabilities/tracing.filtering.md",
+          "content/corpus/examples/otlp.rs",
+          "content/seams/subscriber-wiring.md",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Per-layer filter combinations and cost are not fully characterized; backend delivery remains untested."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites local close=1 for both sampler settings and SDK output=1/0. Branch filtering itself remains source-backed rather than a tested filter matrix.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E12A",
+      "task": "Register and use the wrapped object store",
+      "context": null,
+      "oracle_pair": "E12",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/instrumented-object-store/instrumented_object_store.rs:35-60",
+        "both frozen conditions/content/corpus/examples/integration-utils/src/lib.rs:183-192",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:531-560"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Wraps before the actual registration/use path, identifies the separate target, and accurately scopes recorded storage evidence.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/22",
+        "cited_evidence": [
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:35-40",
+          "content/corpus/examples/integration-utils/src/lib.rs:183-192",
+          "content/seams/object-store.md",
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:181-276",
+          "content/index/behaviors.tsv"
+        ],
+        "stated_unknowns": [
+          "The retained store snapshot is recorded, with a named JSON repair described in reference.md.",
+          "Store registration/routing is not independently exercised by a retained confirmed wrapper probe."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Finds wrapper creation and actual registration/use requirement with the correct target; explicitly leaves DataFusion registry/query integration untested.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/22",
+        "cited_evidence": [
+          "content/capabilities/tracing.storage.md",
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+          "skill_improvement/evidence/implementation/captures/store-lifetimes.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "DataFusion runtime registration, cloud authentication, retries, and network I/O are not exercised."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate adds direct wrapped/bare bytes and store-span controls while preserving untested DataFusion registration/routing; baseline has only source and recorded snapshots.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E12B",
+      "task": "Register and use the underlying store",
+      "context": "Register and use the wrapped object store",
+      "oracle_pair": "E12",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/instrumented-object-store/instrumented_object_store.rs:35-60",
+        "both frozen conditions/content/corpus/examples/integration-utils/src/lib.rs:183-192",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:531-560"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Diagnoses bypass of an unused wrapper and corrects the unrelated S008 route; allows independent tracing by the underlying implementation.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/23",
+        "cited_evidence": [
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:35-60",
+          "content/corpus/examples/integration-utils/src/lib.rs:183-192",
+          "content/index/questions.tsv",
+          "content/index/behaviors.tsv",
+          "content/seams/object-store.md"
+        ],
+        "stated_unknowns": [
+          "The original store may have independent instrumentation.",
+          "No confirmed registered-wrapper versus original-store probe is retained.",
+          "questions.tsv associates the object-store question with unrelated S008."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Diagnoses the unused-wrapper bypass with bare versus wrapped direct calls, while leaving consumer URL routing and other instrumentation distinct.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/23",
+        "cited_evidence": [
+          "content/capabilities/tracing.storage.md",
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "The retained test does not resolve DataFusion registry URLs or exercise a query using either registration."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate adds the bare no-get_opts versus wrapped-get_opts contrast without presenting it as runtime-registry qualification; baseline has source delegation only.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E13A",
+      "task": "A store call immediately returns bytes",
+      "context": null,
+      "oracle_pair": "E13",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/instrumented-object-store/instrumented_object_store.rs:78-128",
+        "both frozen conditions/content/corpus/source/instrumented-object-store/instrumented_object_store.rs:181-263",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:531-560"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses eager get_ranges as the concrete bytes-returning method and explains awaited-call result/error observation, excluding later processing.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/24",
+        "cited_evidence": [
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:101-128",
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:197-214",
+          "content/seams/object-store.md",
+          "content/index/spans.tsv"
+        ],
+        "stated_unknowns": [
+          "No retained controlled eager-versus-lazy store probe exists.",
+          "The timing contract concerns this store call, not later byte processing."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses get_ranges and its observed bytes/content length, contrasting get_opts closure before payload consumption and excluding cloud-transfer claims.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/24",
+        "cited_evidence": [
+          "content/capabilities/tracing.storage.md",
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+          "skill_improvement/evidence/implementation/captures/store-lifetimes.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "No cloud transfer or retry timing is measured, and GetResult payload completion has a different boundary."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites returned ab/ef and retained content_length=4 plus get_opts-before-bytes closure. Field length is a saved observation, not a separately asserted field test.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E13B",
+      "task": "A store call returns a lazily consumed stream",
+      "context": "A store call immediately returns bytes",
+      "oracle_pair": "E13",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/instrumented-object-store/instrumented_object_store.rs:78-128",
+        "both frozen conditions/content/corpus/source/instrumented-object-store/instrumented_object_store.rs:181-263",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:531-560"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Distinguishes instrumented listing/deletion streams from unchanged GetResult payloads; scopes future consumption/errors as unprobed.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/25",
+        "cited_evidence": [
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:78-82",
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:181-195",
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs:216-263",
+          "content/api/tracing_futures.md#instrument",
+          "content/probes/00-index.md"
+        ],
+        "stated_unknowns": [
+          "GetResult payload behavior is part of object_store, which is not indexed.",
+          "No retained probe measures returned-stream lifetime or lazy payload errors."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Distinguishes instrumented list streams from get_opts payloads and accurately scopes the observed creation/collection closure control.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/25",
+        "cited_evidence": [
+          "content/capabilities/tracing.storage.md",
+          "content/corpus/source/instrumented-object-store/instrumented_object_store.rs",
+          "skill_improvement/evidence/implementation/captures/store-lifetimes.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Other lazy methods are source-backed only; network payload transfer, multipart and cancellation are unqualified."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites live list then collected-list closure separately from get_opts-before-payload closure; baseline derives both from source and leaves runtime unknown.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E14A",
+      "task": "Emit spans while provider and runtime remain alive",
+      "context": null,
+      "oracle_pair": "E14",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/examples/otlp.rs:69-80",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/opentelemetry_sdk.trace.span_processor.md:80-108",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:594-616"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Retains provider/runtime through span finalization, with batch/tonic lifecycle details, while withholding a delivery claim.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/26",
+        "cited_evidence": [
+          "content/corpus/examples/otlp.rs:69-80",
+          "content/corpus/examples/otlp.rs:108-144",
+          "content/api/opentelemetry_sdk.trace.span_processor.md:80-103",
+          "content/probes/00-index.md"
+        ],
+        "stated_unknowns": [
+          "No retained OTLP collector delivery probe exists.",
+          "Exporter failures, queue pressure, and remote acceptance are unverified."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Keeps provider/runtime ownership through closure and explains open-span versus closed-and-flushed local SDK observations; no OTLP claim.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/26",
+        "cited_evidence": [
+          "content/capabilities/tracing.export.md",
+          "content/corpus/examples/otlp.rs",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "No OTLP transport, delivery timing, queue-loss bound, or collector retention test is retained."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate cites live-span no SDK record versus closed-and-flushed one record; baseline has provider/runtime source only. Both withhold network-delivery claims.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E14B",
+      "task": "End the program after emitting buffered spans",
+      "context": "Emit spans while provider and runtime remain alive",
+      "oracle_pair": "E14",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/examples/otlp.rs:69-80",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/api/opentelemetry_sdk.trace.span_processor.md:80-108",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/tests/contracts.rs:594-616"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Closes owners before checked shutdown, distinguishes force_flush, and includes current-thread blocking constraints; no backend persistence claim.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/27",
+        "cited_evidence": [
+          "content/corpus/examples/otlp.rs:69-80",
+          "content/api/opentelemetry_sdk.trace.span_processor.md:98-108",
+          "content/api/opentelemetry_sdk.trace.provider.md:36-41",
+          "content/api/opentelemetry_sdk.trace.provider.md:21-25"
+        ],
+        "stated_unknowns": [
+          "No retained exit-time exporter probe is present.",
+          "Successful shutdown does not by itself verify downstream storage or user-visible trace availability."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Releases span/stream owners before checked flush/shutdown and correctly explains in-memory record clearing; abrupt-exit, timeout and transport remain unknown.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/27",
+        "cited_evidence": [
+          "content/capabilities/tracing.export.md",
+          "content/corpus/examples/otlp.rs",
+          "skill_improvement/evidence/implementation/captures/batch-flush-shutdown.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Abrupt-exit losses, timeout behavior, OTLP transport and durable backend retention are not tested."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate adds local finished-span flush and shutdown-clears-buffer observation, while explicitly leaving abrupt exit and transport unknown; no process-exit-loss experiment is claimed.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E15A",
+      "task": "Use the retained bridge/SDK dependency profile",
+      "context": null,
+      "oracle_pair": "E15",
+      "independently_checked_evidence": [
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/catalogs/compatibility.md",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/catalogs/compatibility.md",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/skill_improvement/evidence/implementation/probe-profile.json",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/Cargo.lock"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Names the captured 55/0.32/0.31 profile and transport features while explicitly withholding consumer-lock/compile/runtime qualification.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/28",
+        "cited_evidence": [
+          "reference.md",
+          "content/catalogs/compatibility.md",
+          "content/corpus/examples/Cargo.toml:39-47",
+          "content/corpus/docs/Cargo.toml:41-47",
+          "content/corpus/examples/otlp.rs:108-129",
+          "content/PROVENANCE.json"
+        ],
+        "stated_unknowns": [
+          "No consumer lockfile was supplied or compiled.",
+          "Recorded dependency compatibility does not imply collector reachability or all-feature compatibility."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Uses the resolved 55.1.0/55.0.0/0.32.0/0.31.0 profile and unified features, distinguishing captured declarations from tested resolution and absent OTLP transport.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/28",
+        "cited_evidence": [
+          "content/capabilities/tracing.compatibility.md",
+          "content/catalogs/compatibility.md",
+          "skill_improvement/evidence/implementation/probe-profile.json",
+          "build/fixtures/probe-crate/Cargo.toml",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "OTLP transport features are outside the executed profile; different targets or unified features need qualification."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate names resolved lock/feature/compiler identities and the tested local SDK path, distinguishing it from historical declarations and the untested OTLP transport.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E15B",
+      "task": "Use an uncharacterized version/feature combination",
+      "context": "Use the retained bridge/SDK dependency profile",
+      "oracle_pair": "E15",
+      "independently_checked_evidence": [
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline/content/catalogs/compatibility.md",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/catalogs/compatibility.md",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/skill_improvement/evidence/implementation/probe-profile.json",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/build/fixtures/probe-crate/Cargo.lock"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Treats unspecified changed versions/features as unverified and proposes dependency/compile/runtime qualification without numerical compatibility inference.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/29",
+        "cited_evidence": [
+          "content/catalogs/compatibility.md",
+          "reference.md",
+          "content/api/opentelemetry_sdk.trace.span_processor.md:91-108",
+          "content/corpus/examples/Cargo.toml:39-47",
+          "content/corpus/examples/otlp.rs:108-141"
+        ],
+        "stated_unknowns": [
+          "Exact uncharacterized versions/features were not specified.",
+          "Neither compilation nor runtime export for the changed profile was attempted."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Keeps the uncharacterized profile unknown and requires graph/compile/lifecycle qualification without version-number arithmetic; no evaluation compilation claim.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/29",
+        "cited_evidence": [
+          "content/capabilities/tracing.compatibility.md",
+          "content/catalogs/compatibility.md",
+          "skill_improvement/evidence/implementation/probe-profile.json",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "The requested alternative combination is unspecified and has no executed compatibility evidence here."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "tie",
+        "evidence_rationale": "Both keep the unspecified changed profile unverified and propose dependency, compile and runtime checks. A tested retained profile does not characterize the new one.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E16A",
+      "task": "Look up the reachable options builder",
+      "context": null,
+      "oracle_pair": "E16",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/lib.rs:125-154",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/options.rs:64-124",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/operations/datafusion_tracing.options.InstrumentationOptionsBuilder.json",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/operations/datafusion_tracing.instrumented_exec.InstrumentedExec.json"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Finds builder() reachability without inventing a publicly nameable private-module path; B001/B002 support the docs gap.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/30",
+        "cited_evidence": [
+          "content/index/symbols.tsv:29",
+          "content/index/symbols.tsv:74",
+          "content/catalogs/options.md",
+          "content/corpus/source/datafusion-tracing/lib.rs:137-154",
+          "content/corpus/source/datafusion-tracing/options.rs:64-124",
+          "content/probes/00-index.md#B001",
+          "content/probes/00-index.md#B002"
+        ],
+        "stated_unknowns": [
+          "Reachability is established for this pinned release, not all versions.",
+          "Builder lookup alone supplies no runtime/export guarantee."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Finds the callable builder and exact generic signature without importing a private module; retained consumer compilation is correctly separate from the sketch.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/30",
+        "cited_evidence": [
+          "content/catalogs/options.md",
+          "content/corpus/source/datafusion-tracing/lib.rs",
+          "content/corpus/source/datafusion-tracing/options.rs",
+          "content/operations/datafusion_tracing.options.InstrumentationOptionsBuilder.json",
+          "content/probes/00-index.md",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Consumer version/features must still match; canonical private paths are not imports."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "improvement",
+        "evidence_rationale": "Candidate supports reachable builder usage with exact contract metadata and retained public consumer compilation; baseline has source reachability and documentation-gap probes.",
+        "integration": "not_run"
+      }
+    },
+    {
+      "id": "E16B",
+      "task": "Look up the internal execution wrapper",
+      "context": "Look up the reachable options builder",
+      "oracle_pair": "E16",
+      "independently_checked_evidence": [
+        "both frozen conditions/content/corpus/source/datafusion-tracing/lib.rs:125-154",
+        "both frozen conditions/content/corpus/source/datafusion-tracing/options.rs:64-124",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/operations/datafusion_tracing.options.InstrumentationOptionsBuilder.json",
+        "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate/content/operations/datafusion_tracing.instrumented_exec.InstrumentedExec.json"
+      ],
+      "baseline": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Separates internal InstrumentedExec from macro-created optimizer rule and doc-hidden helper; does not claim a negative consumer compile was run.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/baseline-answers.json#/answers/31",
+        "cited_evidence": [
+          "content/index/symbols.tsv:22",
+          "content/corpus/source/datafusion-tracing/lib.rs:125-154",
+          "content/corpus/docs/README.md:185-189",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs:444-448",
+          "content/catalogs/not-reachable.md",
+          "content/probes/00-index.md#S001"
+        ],
+        "stated_unknowns": [
+          "No negative consumer import compile test was executed.",
+          "ExecutionPlan details beyond this wrapper's delegation are outside the indexed crate set."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "candidate": {
+        "verdict": "pass",
+        "dimensions": {
+          "discovery": "pass",
+          "contract_fidelity": "pass",
+          "diagnosis": "pass",
+          "evidence_use": "pass"
+        },
+        "rationale": "Separates raw visibility, internal module reachability and doc-hidden helpers, using public macros for supported composition without asserting a negative compile test.",
+        "answer_artifact": "/home/paul/.cache/datafusion-tracing-improvement-20260918/candidate-answers.json#/answers/31",
+        "cited_evidence": [
+          "content/operations/datafusion_tracing.instrumented_exec.InstrumentedExec.json",
+          "content/corpus/source/datafusion-tracing/lib.rs",
+          "content/corpus/source/datafusion-tracing/instrumented_exec.rs",
+          "content/capabilities/tracing.lifecycle.md",
+          "skill_improvement/evidence/implementation/probe-results.json",
+          "build/fixtures/probe-crate/tests/contracts.rs"
+        ],
+        "stated_unknowns": [
+          "Private capture inclusion does not provide API stability or external constructor access."
+        ],
+        "corrections": [],
+        "integration": {
+          "state": "not_run",
+          "reason": "Evaluator-produced sketch was not compiled or executed. Retained fixture executions do not change this status."
+        }
+      },
+      "comparison": {
+        "discovery": "tie",
+        "contract_fidelity": "tie",
+        "diagnosis": "tie",
+        "evidence_use": "tie",
+        "evidence_rationale": "Both use the same private-module/export graph for the internal boundary. Public macro tests do not provide a negative external-import compile result.",
+        "integration": "not_run"
+      }
+    }
+  ],
+  "post_pilot_eof_composition": {
+    "finding": "The internal recording wrapper releases ownership in PinnedDrop, but the public outer RecordBatchStreamAdapter in resolved DataFusion 55.1.0 drops that inner stream on Poll::Ready(None). Retaining an exhausted public adapter therefore does not keep its inner recorder alive in the tested profile.",
+    "correct_answer": "Distinguish a live unexhausted stream from a retained exhausted public adapter. In the tested two-partition 55.1.0 profile, polling both streams to EOF closes the execution span and records ROWS:3 while both public handles and the plan are retained; dropping those handles adds no closes. Early drop remains a partial-consumption boundary. Qualify other adapter versions and additional owners separately.",
+    "evidence": [
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/content/corpus/source/datafusion-tracing/instrumented_exec.rs:490-495",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:411-418",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/upstream-sources/datafusion-physical-plan-55.1.0/src/stream.rs:468-484",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/build/fixtures/probe-crate/tests/contracts.rs:224-255",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/eof-retention-hypothesis-failed.log",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/probe-results.json",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/contract-probes.log",
+      "/home/paul/library-enrichment/.claude/skills/datafusion-tracing/skill_improvement/evidence/implementation/captures/partition-preview-at-eof.json"
+    ],
+    "provenance": "Post-pilot supplemental composition oracle; independently inspected after both frozen answers were produced. It was not available to either evaluator. Both frozen Cargo.lock files resolve datafusion-physical-plan 55.1.0. This is not an evaluator-sketch integration pass."
+  },
+  "retained_probe_limits": [
+    "Candidate's original phase test establishes membership and Rule parentage, not duration accuracy or controlled plan-diff attribution.",
+    "Controlled optimizer rewriting establishes the added GlobalLimitExec contrast and unchanged row count, not arbitrary rewrite coverage or complete value equivalence.",
+    "Metrics controls check option-dependent field presence, not full versus partial native-metric totals.",
+    "Candidate's original stream test collected and destroyed streams together; it did not discriminate EOF from public-handle release. The supplemental oracle does.",
+    "Async test proves chosen parent ID versus dispatcher-only unparented child; it is not an all-executor or all-DataFusion-task-boundary qualification.",
+    "Local/SDK sampling test asserts SDK record counts and local closure; saved sdk-on/off files contain the local capture, not retained SDK record payloads. It does not run a complete per-layer filtering matrix or fmt-rendering test.",
+    "Storage fixture calls bare/wrapped in-memory stores directly. It does not register those stores in DataFusion, test URL resolution, characterize cloud behavior, or cover every lazy/error/multipart path.",
+    "Exporter fixture covers a local in-memory exporter, finished-span flushing and shutdown clearing. It does not simulate abrupt process exit, establish buffered exit-loss counts, execute OTLP, or prove collector acknowledgement/persistence.",
+    "Reachability source and positive macro/builder consumers do not supply a negative external InstrumentedExec import compile fixture."
+  ],
+  "efficiency": {
+    "comparable_observations": {
+      "evidence_read_exec_command_count": {
+        "baseline": 13,
+        "candidate": 14,
+        "basis": "Both authored command logs enumerate evidence-read exec_command calls. Commands differ in size and operation; a call count is not retrieved-byte or context cost."
+      },
+      "answer_words": {
+        "baseline": 3984,
+        "candidate": 3829,
+        "basis": "Judge recomputed whitespace-separated answer-text words from the frozen artifacts. This is output length, not model-token usage."
+      }
+    },
+    "elapsed": {
+      "baseline_seconds": 592,
+      "candidate_seconds": 412.261,
+      "baseline_scope": "Wall-clock timestamps from initial date command and clock.curr_time; excludes subsequent serialization verification.",
+      "candidate_scope": "Measured wall-clock interval starts immediately after the first discovery/read command finished and ends when the answer artifact was prepared. Initial discovery command and final serialization are outside that interval.",
+      "directly_comparable": false,
+      "conclusion": "No speedup or time-efficiency claim: the candidate timer excludes its first discovery/read command, while baseline timing includes initial work; no repeated runs or systematic per-read timing exists."
+    },
+    "unavailable": [
+      "retrieved bytes",
+      "model tokens",
+      "context usage",
+      "normalized per-task latency"
+    ],
+    "overall_comparative_result": "not established"
+  },
+  "sample_limits": [
+    "One agent pass per condition across 32 planned cases; one independent judge; no repeated trials, variance estimate or blinded ranking.",
+    "This is the planned E01-E16 contrast pilot, not held-out coverage or representative coverage of all eleven crates.",
+    "Answers may inspect exact retained source, so a capable evaluator can recover contracts despite reference prose defects; ceiling effects are plausible.",
+    "Correct mechanism selection ties here. Stronger cited support does not prove fewer future mistakes, higher integration success or better generalization.",
+    "The final delivered reference may include post-evaluation refinements; these results attach to the named frozen bundles and answer hashes.",
+    "The post-pilot EOF result shows why semantic depth must include a dependency's enclosing adapter, even when the inner subject-crate source appears decisive."
+  ],
+  "reference_findings": {
+    "baseline_recovered": [
+      "Incorrect custom-preview-required summary contradicted by default_preview_fn.",
+      "One-batch preview summary omits accumulation across batches/partitions.",
+      "Store question incorrectly cites physical-only S008.",
+      "Universal bridge +1 minor language exceeds the declared release evidence."
+    ],
+    "candidate_recovered": [
+      "Execution macro overview count 25 differs from six execution macro definitions.",
+      "Subscriber seam overstates total silence for a datafusion_tracing-only filter; planner spans can use that target prefix."
+    ],
+    "shared_unrecovered_until_supplement": [
+      "The evaluators inferred exhausted public-stream ownership from inner PinnedDrop without the enclosing DataFusion adapter. Candidate's proposed prose correction inherited the same incomplete interpretation."
+    ],
+    "answer_rerun_after_reference_fixes": "not_run"
+  },
+  "validation": {
+    "task_ids_match": true,
+    "answers_judged": 64,
+    "conditions_per_case": 2,
+    "all_evaluator_integration_not_run": true,
+    "partial_cases_have_correction_evidence": true,
+    "comparison_counts_recomputed": true,
+    "input_digests_checked": true,
+    "supplemental_fixture_digest_matches_executed_receipt": true,
+    "validation_scope": "Report structure, task coverage, counts and input/artifact digests; no evaluator code compilation or execution."
+  }
+}

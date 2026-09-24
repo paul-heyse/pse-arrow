@@ -29,17 +29,15 @@ use crate::ids::{ConversionId, OperationId, QuantityKindId, QuantityTypeId, Unit
 /// Every variant is `validation::invariant`: the exponent pair is data, and a pair that
 /// cannot be reduced into the `pse.dimension_vector` storage is invalid data rather than a
 /// failure of the expression being compiled.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error, miette::Diagnostic)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum DimensionError {
     /// A rational exponent was offered with a zero denominator.
     #[error("a rational exponent cannot have a zero denominator")]
-    #[diagnostic(code(validation::invariant))]
     ZeroDenominator,
 
     /// A reduced exponent does not fit the `i16` numerator/denominator pair.
     #[error("the rational exponent {num}/{den} does not fit the canonical `i16` pair")]
-    #[diagnostic(code(validation::invariant))]
     Overflow {
         /// The numerator before reduction.
         num: i64,
@@ -49,7 +47,6 @@ pub enum DimensionError {
 
     /// A stored exponent pair is not the canonical form of its value.
     #[error("the rational exponent {num}/{den} is not in canonical reduced form")]
-    #[diagnostic(code(validation::invariant))]
     NotReduced {
         /// The stored numerator.
         num: i16,
@@ -109,12 +106,11 @@ crate::closed_enum! {
 }
 
 /// Every failure of physical typing (blueprint §8.1, §8.3, §23.2).
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum QuantityError {
     /// A load-time invariant of the quantity registry was violated.
     #[error("quantity registry rule `{rule}` rejected `{subject}`: {detail}")]
-    #[diagnostic(code(validation::invariant))]
     Registry {
         /// The load-time rule that refused, named as it is in §8.2.
         rule: &'static str,
@@ -126,7 +122,6 @@ pub enum QuantityError {
 
     /// An operation lacks an established semantic prerequisite.
     #[error("quantity inference rule `{rule}` rejected the operation: {detail}")]
-    #[diagnostic(code(compile::math::quantity_operation_unsupported))]
     InferencePrecondition {
         /// Named prerequisite that was not established.
         rule: &'static str,
@@ -136,7 +131,6 @@ pub enum QuantityError {
 
     /// Dimension arithmetic failed.
     #[error(transparent)]
-    #[diagnostic(code(validation::invariant))]
     Dimension(#[from] DimensionError),
 
     /// No registered `quantity_operations` rule, or more than one, matched the operands.
@@ -148,7 +142,6 @@ pub enum QuantityError {
          ({ordered_matches} ordered and {swapped_matches} swapped matches)",
         .input_kinds.len()
     )]
-    #[diagnostic(code(compile::math::quantity_operation_unsupported))]
     OperationUnsupported {
         /// The operator whose composition failed.
         opcode: Opcode,
@@ -164,7 +157,6 @@ pub enum QuantityError {
     #[error(
         "`{opcode}` resolved operation `{operation}`, whose result type `{requested}` is not registered"
     )]
-    #[diagnostic(code(compile::math::quantity_operation_unsupported))]
     UnregisteredResultType {
         /// The operator whose result could not be resolved.
         opcode: Opcode,
@@ -176,7 +168,6 @@ pub enum QuantityError {
 
     /// Two complete quantity types could not be combined.
     #[error("incompatible quantity types ({reason}): {}", operand_contracts(.operands))]
-    #[diagnostic(code(compile::math::unit_inconsistent))]
     Incompatible {
         /// Which component, or which origin-sensitive rule, refused.
         reason: IncompatibilityReason,
@@ -189,7 +180,6 @@ pub enum QuantityError {
 
     /// A literal's unit does not resolve to exactly one quantity type.
     #[error("the literal unit `{unit}` matches {} registered quantity types", .candidates.len())]
-    #[diagnostic(code(compile::math::unit_inconsistent))]
     AmbiguousLiteral {
         /// The unit written on the literal.
         unit: UnitId,
@@ -201,7 +191,6 @@ pub enum QuantityError {
     #[error(
         "`UnitConvert` declares `{declared_from}` → `{to}`, but the operand carries `{operand_unit}`"
     )]
-    #[diagnostic(code(compile::math::unit_inconsistent))]
     UnitConvertMismatch {
         /// The source unit the conversion edge declares.
         declared_from: UnitId,
@@ -213,7 +202,6 @@ pub enum QuantityError {
 
     /// A literal operand violates an operator's domain restriction before any solve.
     #[error("`{opcode}` requires {restriction}, but the literal operand is {value}")]
-    #[diagnostic(code(compile::math::domain_violation_static))]
     StaticDomain {
         /// The operator whose restriction was violated.
         opcode: Opcode,
@@ -225,7 +213,6 @@ pub enum QuantityError {
 
     /// A declared contract and the inferred type disagree in one component.
     #[error("{component} mismatch: expected `{expected}`, inferred `{actual}`")]
-    #[diagnostic(code(compile::math::unit_inconsistent))]
     ContractMismatch {
         /// Which component of the §8.1 tuple disagreed.
         component: ContractComponent,
@@ -237,7 +224,6 @@ pub enum QuantityError {
 
     /// An identity does not resolve in the quantity registry.
     #[error("unknown {kind} `{id}`")]
-    #[diagnostic(code(validation::invariant))]
     UnknownId {
         /// What kind of identity it was meant to be (`unit`, `quantity_type`, …).
         kind: &'static str,
@@ -261,9 +247,45 @@ fn operand_contracts(operands: &[(QuantityTypeId, crate::IndexSet)]) -> String {
         .join("; ")
 }
 
+pse_diagnostics::impl_diagnostic! {
+    DimensionError,
+    code(this) { match this {
+            Self::ZeroDenominator | Self::Overflow { .. } | Self::NotReduced { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
+
+
+            _ => None,
+        } },
+    forward(_this) { None },
+    help(_this) { None },
+    related(_this) { None },
+    source(_this) { None }
+}
+
+pse_diagnostics::impl_diagnostic! {
+    QuantityError,
+    code(this) { match this {
+            Self::Registry { .. } | Self::Dimension(..) | Self::UnknownId { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
+            Self::InferencePrecondition { .. } | Self::OperationUnsupported { .. } | Self::UnregisteredResultType { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathQuantityOperationUnsupported),
+
+
+
+            Self::Incompatible { .. } | Self::AmbiguousLiteral { .. } | Self::UnitConvertMismatch { .. } | Self::ContractMismatch { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent),
+
+
+            Self::StaticDomain { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic),
+
+
+            _ => None,
+        } },
+    forward(_this) { None },
+    help(_this) { None },
+    related(_this) { None },
+    source(_this) { None }
+}
+
 #[cfg(test)]
 mod tests {
-    use miette::Diagnostic as _;
+    use pse_diagnostics::TypedDiagnostic;
     use pse_ids::SemanticId;
 
     use super::{ContractComponent, DimensionError, IncompatibilityReason, QuantityError};
@@ -272,11 +294,8 @@ mod tests {
 
     /// The §23.2 class of a variant, as a string, so the mapping is asserted and not
     /// merely written down.
-    fn code_of(error: &QuantityError) -> String {
-        error
-            .code()
-            .map(|code| code.to_string())
-            .unwrap_or_default()
+    fn code_of(error: &QuantityError) -> Option<pse_diagnostics::DiagnosticCode> {
+        error.diagnostic_code()
     }
 
     #[test]
@@ -284,11 +303,11 @@ mod tests {
         let id = SemanticId::NIL;
         assert_eq!(
             code_of(&QuantityError::UnknownId { kind: "unit", id }),
-            "validation::invariant"
+            Some(pse_diagnostics::DiagnosticCode::ValidationInvariant)
         );
         assert_eq!(
             code_of(&QuantityError::Dimension(DimensionError::ZeroDenominator)),
-            "validation::invariant"
+            Some(pse_diagnostics::DiagnosticCode::ValidationInvariant)
         );
         assert_eq!(
             code_of(&QuantityError::OperationUnsupported {
@@ -297,7 +316,7 @@ mod tests {
                 ordered_matches: 0,
                 swapped_matches: 0,
             }),
-            "compile::math::quantity_operation_unsupported"
+            Some(pse_diagnostics::DiagnosticCode::CompileMathQuantityOperationUnsupported)
         );
         assert_eq!(
             code_of(&QuantityError::Incompatible {
@@ -305,7 +324,7 @@ mod tests {
                 operands: Vec::new(),
                 hint: None,
             }),
-            "compile::math::unit_inconsistent"
+            Some(pse_diagnostics::DiagnosticCode::CompileMathUnitInconsistent)
         );
         assert_eq!(
             code_of(&QuantityError::StaticDomain {
@@ -313,7 +332,7 @@ mod tests {
                 restriction: "a positive argument",
                 value: 0.0,
             }),
-            "compile::math::domain_violation_static"
+            Some(pse_diagnostics::DiagnosticCode::CompileMathDomainViolationStatic)
         );
     }
 
@@ -349,6 +368,9 @@ mod tests {
     fn a_dimension_error_converts_into_a_quantity_error() {
         let error: QuantityError = DimensionError::Overflow { num: 1, den: 2 }.into();
         assert!(matches!(error, QuantityError::Dimension(_)));
-        assert_eq!(code_of(&error), "validation::invariant");
+        assert_eq!(
+            code_of(&error),
+            Some(pse_diagnostics::DiagnosticCode::ValidationInvariant)
+        );
     }
 }

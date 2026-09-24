@@ -1,0 +1,1069 @@
+[
+  {
+    "id": "4f9599f0ed408c253b20e964",
+    "path": "tracing_subscriber::fmt::writer::MakeWriterExt",
+    "name": "MakeWriterExt",
+    "owner": null,
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "trait",
+    "signature": "trait MakeWriterExt<'a>: MakeWriter<'a>",
+    "docs": "Extension trait adding combinators for working with types implementing\n[`MakeWriter`].\n\nThis is not intended to be implemented directly for user-defined\n[`MakeWriter`]s; instead, it should be imported when the desired methods are\nused.",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        220,
+        1
+      ],
+      "end": [
+        494,
+        2
+      ]
+    },
+    "visibility": "public",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "trait": {
+        "is_auto": false,
+        "is_unsafe": false,
+        "is_dyn_compatible": true,
+        "items": [
+          2629,
+          2630,
+          2632,
+          2633,
+          2634
+        ],
+        "generics": {
+          "params": [
+            {
+              "name": "'a",
+              "kind": {
+                "lifetime": {
+                  "outlives": []
+                }
+              }
+            }
+          ],
+          "where_predicates": []
+        },
+        "bounds": [
+          {
+            "trait_bound": {
+              "trait": {
+                "path": "MakeWriter",
+                "id": 1443,
+                "args": {
+                  "angle_bracketed": {
+                    "args": [
+                      {
+                        "lifetime": "'a"
+                      }
+                    ],
+                    "constraints": []
+                  }
+                }
+              },
+              "generic_params": [],
+              "modifier": "none"
+            }
+          }
+        ],
+        "implementations": [
+          2635
+        ]
+      }
+    },
+    "type_references": {
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "impl_context": null,
+    "links": {
+      "`MakeWriter`": 1443
+    },
+    "link_paths": {
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "1004",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.json",
+    "anchor": "op-4f9599f0ed408c253b20e964",
+    "aliases": [
+      "tracing_subscriber::prelude::_"
+    ],
+    "resolved_doc_links": {
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a"
+    }
+  },
+  {
+    "id": "661cbfa269f4ebce10d749a7",
+    "path": "tracing_subscriber::fmt::writer::MakeWriterExt::and",
+    "name": "and",
+    "owner": "tracing_subscriber::fmt::writer::MakeWriterExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn and<B>(self, other: B) -> Tee<Self, B> where Self: Sized, B: MakeWriter<'a> + Sized",
+    "docs": "Combines `self` with another type implementing [`MakeWriter`], returning\na new [`MakeWriter`] that produces [writers] that write to *both*\noutputs.\n\nIf writing to either writer returns an error, the returned writer will\nreturn that error. However, both writers will still be written to before\nthe error is returned, so it is possible for one writer to fail while\nthe other is written to successfully.\n\n# Examples\n\n```\nuse tracing_subscriber::fmt::writer::MakeWriterExt;\n\n// Construct a writer that outputs events to `stdout` *and* `stderr`.\nlet mk_writer = std::io::stdout.and(std::io::stderr);\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n```\n\n`and` can be used in conjunction with filtering combinators. For\nexample, if we want to write to a number of outputs depending on the\nlevel of an event, we could write:\n\n```\nuse tracing::Level;\n# use tracing_subscriber::fmt::writer::MakeWriterExt;\nuse std::{sync::Arc, fs::File};\n# // don't actually create the file when running the tests.\n# fn docs() -> std::io::Result<()> {\nlet debug_log = Arc::new(File::create(\"debug.log\")?);\n\n// Write everything to the debug log.\nlet mk_writer = debug_log\n    // Write the `ERROR` and `WARN` levels to stderr.\n    .and(std::io::stderr.with_max_level(Level::WARN))\n    // Write `INFO` to `stdout`.\n    .and(std::io::stdout\n        .with_max_level(Level::INFO)\n        .with_min_level(Level::INFO)\n    );\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n# Ok(()) }\n```\n\n[writers]: std::io::Write",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        455,
+        5
+      ],
+      "end": [
+        461,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "other",
+              {
+                "generic": "B"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "Tee",
+              "id": 2619,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "B"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "B",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "B"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "MakeWriter",
+                        "id": 1443,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'a"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2619": "tracing_subscriber::fmt::writer::Tee",
+      "26": "core::marker::Sized",
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter"
+    },
+    "impl_context": null,
+    "links": {
+      "`MakeWriter`": 1443,
+      "std::io::Write": 87
+    },
+    "link_paths": {
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter",
+      "std::io::Write": "std::io::Write"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2633",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.json",
+    "anchor": "op-661cbfa269f4ebce10d749a7",
+    "aliases": [
+      "tracing_subscriber::prelude::_::and"
+    ],
+    "resolved_doc_links": {
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a"
+    }
+  },
+  {
+    "id": "321b77fb903fda6ba83d5fdd",
+    "path": "tracing_subscriber::fmt::writer::MakeWriterExt::or_else",
+    "name": "or_else",
+    "owner": "tracing_subscriber::fmt::writer::MakeWriterExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn or_else<W, B>(self, other: B) -> OrElse<Self, B> where Self: MakeWriter<'a, Writer = OptionalWriter<W>> + Sized, B: MakeWriter<'a> + Sized, W: Write",
+    "docs": "Combines `self` with another type implementing [`MakeWriter`], returning\na new [`MakeWriter`] that calls `other`'s [`make_writer`] if `self`'s\n`make_writer` returns [`OptionalWriter::none`][own].\n\n# Examples\n\n```\nuse tracing::Level;\nuse tracing_subscriber::fmt::writer::MakeWriterExt;\n\n// Produces a writer that writes to `stderr` if the level is <= WARN,\n// or returns `OptionalWriter::none()` otherwise.\nlet stderr = std::io::stderr.with_max_level(Level::WARN);\n\n// If the `stderr` `MakeWriter` is disabled by the max level filter,\n// write to stdout instead:\nlet mk_writer = stderr.or_else(std::io::stdout);\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n```\n\n[`make_writer`]: MakeWriter::make_writer\n[own]: EitherWriter::none",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        486,
+        5
+      ],
+      "end": [
+        493,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "other",
+              {
+                "generic": "B"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "OrElse",
+              "id": 2628,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "B"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "W",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            },
+            {
+              "name": "B",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "MakeWriter",
+                        "id": 1443,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'a"
+                              }
+                            ],
+                            "constraints": [
+                              {
+                                "name": "Writer",
+                                "args": null,
+                                "binding": {
+                                  "equality": {
+                                    "type": {
+                                      "resolved_path": {
+                                        "path": "OptionalWriter",
+                                        "id": 2627,
+                                        "args": {
+                                          "angle_bracketed": {
+                                            "args": [
+                                              {
+                                                "type": {
+                                                  "generic": "W"
+                                                }
+                                              }
+                                            ],
+                                            "constraints": []
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "B"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "MakeWriter",
+                        "id": 1443,
+                        "args": {
+                          "angle_bracketed": {
+                            "args": [
+                              {
+                                "lifetime": "'a"
+                              }
+                            ],
+                            "constraints": []
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  },
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "W"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Write",
+                        "id": 87,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2628": "tracing_subscriber::fmt::writer::OrElse",
+      "1443": "tracing_subscriber::fmt::writer::MakeWriter",
+      "2627": "tracing_subscriber::fmt::writer::OptionalWriter",
+      "26": "core::marker::Sized",
+      "87": "std::io::Write"
+    },
+    "impl_context": null,
+    "links": {
+      "EitherWriter::none": 2631,
+      "`MakeWriter`": 1443,
+      "MakeWriter::make_writer": 2572
+    },
+    "link_paths": {
+      "EitherWriter::none": null,
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter",
+      "MakeWriter::make_writer": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2634",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.json",
+    "anchor": "op-321b77fb903fda6ba83d5fdd",
+    "aliases": [
+      "tracing_subscriber::prelude::_::or_else"
+    ],
+    "resolved_doc_links": {
+      "EitherWriter::none": "../operations/tracing_subscriber.fmt.writer.EitherWriter.md#op-f6e00051b2c8a83963973ec7",
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a",
+      "MakeWriter::make_writer": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-04947f8cd797aae6fbf28878"
+    }
+  },
+  {
+    "id": "25389b1a363c79682d8c131a",
+    "path": "tracing_subscriber::fmt::writer::MakeWriterExt::with_filter",
+    "name": "with_filter",
+    "owner": "tracing_subscriber::fmt::writer::MakeWriterExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_filter<F>(self, filter: F) -> WithFilter<Self, F> where Self: Sized, F: Fn(&Metadata<'_>) -> bool",
+    "docs": "Wraps `self` with a predicate that takes a span or event's [`Metadata`]\nand returns a `bool`. The returned [`MakeWriter`]'s\n[`MakeWriter::make_writer_for`] method will check the predicate to\ndetermine if  a writer should be produced for a given span or event.\n\nIf the predicate returns `false`, the wrapped [`MakeWriter`]'s\n[`make_writer_for`][mwf] will return [`OptionalWriter::none`][own].\nOtherwise, it calls the wrapped [`MakeWriter`]'s\n[`make_writer_for`][mwf] method, and returns the produced writer.\n\nThis can be used to filter an output based on arbitrary [`Metadata`]\nparameters.\n\n# Examples\n\nWriting events with a specific target to an HTTP access log, and other\nevents to stdout:\n\n```\nuse tracing_subscriber::fmt::writer::MakeWriterExt;\nuse std::{sync::Arc, fs::File};\n# // don't actually create the file when running the tests.\n# fn docs() -> std::io::Result<()> {\nlet access_log = Arc::new(File::create(\"access.log\")?);\n\nlet mk_writer = access_log\n    // Only write events with the target \"http::access_log\" to the\n    // access log file.\n    .with_filter(|meta| meta.target() == \"http::access_log\")\n    // Write events with all other targets to stdout.\n    .or_else(std::io::stdout);\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n# Ok(())\n# }\n```\n\nConditionally enabling or disabling a log file:\n```\nuse tracing_subscriber::fmt::writer::MakeWriterExt;\nuse std::{\n    sync::{Arc, atomic::{AtomicBool, Ordering}},\n    fs::File,\n};\n\nstatic DEBUG_LOG_ENABLED: AtomicBool = AtomicBool::new(false);\n\n# // don't actually create the file when running the tests.\n# fn docs() -> std::io::Result<()> {\n// Create the debug log file\nlet debug_file = Arc::new(File::create(\"debug.log\")?)\n    // Enable the debug log only if the flag is enabled.\n    .with_filter(|_| DEBUG_LOG_ENABLED.load(Ordering::Acquire));\n\n// Always write to stdout\nlet mk_writer = std::io::stdout\n    // Write to the debug file if it's enabled\n    .and(debug_file);\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n\n// ...\n\n// Later, we can toggle on or off the debug log file.\nDEBUG_LOG_ENABLED.store(true, Ordering::Release);\n# Ok(())\n# }\n```\n\n[`Metadata`]: tracing_core::Metadata\n[mwf]: MakeWriter::make_writer_for\n[own]: EitherWriter::none",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        400,
+        5
+      ],
+      "end": [
+        406,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "filter",
+              {
+                "generic": "F"
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WithFilter",
+              "id": 2617,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    },
+                    {
+                      "type": {
+                        "generic": "F"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [
+            {
+              "name": "F",
+              "kind": {
+                "type": {
+                  "bounds": [],
+                  "default": null,
+                  "is_synthetic": false
+                }
+              }
+            }
+          ],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            },
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "F"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Fn",
+                        "id": 214,
+                        "args": {
+                          "parenthesized": {
+                            "inputs": [
+                              {
+                                "borrowed_ref": {
+                                  "lifetime": null,
+                                  "is_mutable": false,
+                                  "type": {
+                                    "resolved_path": {
+                                      "path": "Metadata",
+                                      "id": 278,
+                                      "args": {
+                                        "angle_bracketed": {
+                                          "args": [
+                                            {
+                                              "lifetime": "'_"
+                                            }
+                                          ],
+                                          "constraints": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "output": {
+                              "primitive": "bool"
+                            }
+                          }
+                        }
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "2617": "tracing_subscriber::fmt::writer::WithFilter",
+      "26": "core::marker::Sized",
+      "214": "core::ops::function::Fn",
+      "278": "tracing_core::metadata::Metadata"
+    },
+    "impl_context": null,
+    "links": {
+      "MakeWriter::make_writer_for": 2575,
+      "`MakeWriter`": 1443,
+      "`MakeWriter::make_writer_for`": 2575,
+      "tracing_core::Metadata": 278,
+      "EitherWriter::none": 2631
+    },
+    "link_paths": {
+      "MakeWriter::make_writer_for": null,
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter",
+      "`MakeWriter::make_writer_for`": null,
+      "tracing_core::Metadata": "tracing_core::metadata::Metadata",
+      "EitherWriter::none": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2632",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.json",
+    "anchor": "op-25389b1a363c79682d8c131a",
+    "aliases": [
+      "tracing_subscriber::prelude::_::with_filter"
+    ],
+    "resolved_doc_links": {
+      "MakeWriter::make_writer_for": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-f80df00cea31d415c78108e6",
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a",
+      "`MakeWriter::make_writer_for`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-f80df00cea31d415c78108e6",
+      "tracing_core::Metadata": "../operations/tracing_core.metadata.Metadata.md#op-3c5a7a9d81c273e2173bb24c",
+      "EitherWriter::none": "../operations/tracing_subscriber.fmt.writer.EitherWriter.md#op-f6e00051b2c8a83963973ec7"
+    }
+  },
+  {
+    "id": "7991c17e378056a2039494a3",
+    "path": "tracing_subscriber::fmt::writer::MakeWriterExt::with_max_level",
+    "name": "with_max_level",
+    "owner": "tracing_subscriber::fmt::writer::MakeWriterExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_max_level(self, level: tracing_core::Level) -> WithMaxLevel<Self> where Self: Sized",
+    "docs": "Wraps `self` and returns a [`MakeWriter`] that will only write output\nfor events at or below the provided verbosity [`Level`]. For instance,\n`Level::TRACE` is considered to be _more verbose` than `Level::INFO`.\n\nEvents whose level is more verbose than `level` will be ignored, and no\noutput will be written.\n\n# Examples\n\n```\nuse tracing::Level;\nuse tracing_subscriber::fmt::writer::MakeWriterExt;\n\n// Construct a writer that outputs events to `stderr` only if the span or\n// event's level is <= WARN (WARN and ERROR).\nlet mk_writer = std::io::stderr.with_max_level(Level::WARN);\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n```\n\nWriting the `ERROR` and `WARN` levels to `stderr`, and everything else\nto `stdout`:\n\n```\n# use tracing::Level;\n# use tracing_subscriber::fmt::writer::MakeWriterExt;\n\nlet mk_writer = std::io::stderr\n    .with_max_level(Level::WARN)\n    .or_else(std::io::stdout);\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n```\n\nWriting the `ERROR` level to `stderr`, the `INFO` and `WARN` levels to\n`stdout`, and the `INFO` and DEBUG` levels to a file:\n\n```\n# use tracing::Level;\n# use tracing_subscriber::fmt::writer::MakeWriterExt;\nuse std::{sync::Arc, fs::File};\n# // don't actually create the file when running the tests.\n# fn docs() -> std::io::Result<()> {\nlet debug_log = Arc::new(File::create(\"debug.log\")?);\n\nlet mk_writer = std::io::stderr\n    .with_max_level(Level::ERROR)\n    .or_else(std::io::stdout\n        .with_max_level(Level::INFO)\n        .and(debug_log.with_max_level(Level::DEBUG))\n    );\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n# Ok(()) }\n```\n\n[`Level`]: tracing_core::Level\n[`io::Write`]: std::io::Write",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        279,
+        5
+      ],
+      "end": [
+        284,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "level",
+              {
+                "resolved_path": {
+                  "path": "tracing_core::Level",
+                  "id": 285,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WithMaxLevel",
+              "id": 2607,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "285": "tracing_core::metadata::Level",
+      "2607": "tracing_subscriber::fmt::writer::WithMaxLevel",
+      "26": "core::marker::Sized"
+    },
+    "impl_context": null,
+    "links": {
+      "`MakeWriter`": 1443,
+      "tracing_core::Level": 285,
+      "std::io::Write": 87
+    },
+    "link_paths": {
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter",
+      "tracing_core::Level": "tracing_core::metadata::Level",
+      "std::io::Write": "std::io::Write"
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2629",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.json",
+    "anchor": "op-7991c17e378056a2039494a3",
+    "aliases": [
+      "tracing_subscriber::prelude::_::with_max_level"
+    ],
+    "resolved_doc_links": {
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a",
+      "tracing_core::Level": "../operations/tracing_core.metadata.Level.md#op-f8804717be954252aadd54ff"
+    }
+  },
+  {
+    "id": "bd0cba079fd2dbd015c758ab",
+    "path": "tracing_subscriber::fmt::writer::MakeWriterExt::with_min_level",
+    "name": "with_min_level",
+    "owner": "tracing_subscriber::fmt::writer::MakeWriterExt",
+    "crate": "tracing-subscriber",
+    "version": "0.3.23",
+    "kind": "function",
+    "signature": "fn with_min_level(self, level: tracing_core::Level) -> WithMinLevel<Self> where Self: Sized",
+    "docs": "Wraps `self` and returns a [`MakeWriter`] that will only write output\nfor events at or above the provided verbosity [`Level`].\n\nEvents whose level is less verbose than `level` will be ignored, and no\noutput will be written.\n\n# Examples\n\n```\nuse tracing::Level;\nuse tracing_subscriber::fmt::writer::MakeWriterExt;\n\n// Construct a writer that outputs events to `stdout` only if the span or\n// event's level is >= DEBUG (DEBUG and TRACE).\nlet mk_writer = std::io::stdout.with_min_level(Level::DEBUG);\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n```\nThis can be combined with [`MakeWriterExt::with_max_level`] to write\nonly within a range of levels:\n\n```\n# use tracing::Level;\n# use tracing_subscriber::fmt::writer::MakeWriterExt;\n// Only write the `DEBUG` and `INFO` levels to stdout.\nlet mk_writer = std::io::stdout\n    .with_max_level(Level::DEBUG)\n    .with_min_level(Level::INFO)\n    // Write the `WARN` and `ERROR` levels to stderr.\n    .and(std::io::stderr.with_min_level(Level::WARN));\n\ntracing_subscriber::fmt().with_writer(mk_writer).init();\n```\n[`Level`]: tracing_core::Level\n[`io::Write`]: std::io::Write",
+    "span": {
+      "filename": "src/fmt/writer.rs",
+      "begin": [
+        321,
+        5
+      ],
+      "end": [
+        326,
+        6
+      ]
+    },
+    "visibility": "default",
+    "attributes": [],
+    "deprecation": null,
+    "type_tree": {
+      "function": {
+        "sig": {
+          "inputs": [
+            [
+              "self",
+              {
+                "generic": "Self"
+              }
+            ],
+            [
+              "level",
+              {
+                "resolved_path": {
+                  "path": "tracing_core::Level",
+                  "id": 285,
+                  "args": null
+                }
+              }
+            ]
+          ],
+          "output": {
+            "resolved_path": {
+              "path": "WithMinLevel",
+              "id": 2612,
+              "args": {
+                "angle_bracketed": {
+                  "args": [
+                    {
+                      "type": {
+                        "generic": "Self"
+                      }
+                    }
+                  ],
+                  "constraints": []
+                }
+              }
+            }
+          },
+          "is_c_variadic": false
+        },
+        "generics": {
+          "params": [],
+          "where_predicates": [
+            {
+              "bound_predicate": {
+                "type": {
+                  "generic": "Self"
+                },
+                "bounds": [
+                  {
+                    "trait_bound": {
+                      "trait": {
+                        "path": "Sized",
+                        "id": 26,
+                        "args": null
+                      },
+                      "generic_params": [],
+                      "modifier": "none"
+                    }
+                  }
+                ],
+                "generic_params": []
+              }
+            }
+          ]
+        },
+        "header": {
+          "is_const": false,
+          "is_unsafe": false,
+          "is_async": false,
+          "abi": "Rust"
+        },
+        "has_body": true
+      }
+    },
+    "type_references": {
+      "285": "tracing_core::metadata::Level",
+      "2612": "tracing_subscriber::fmt::writer::WithMinLevel",
+      "26": "core::marker::Sized"
+    },
+    "impl_context": null,
+    "links": {
+      "`MakeWriter`": 1443,
+      "tracing_core::Level": 285,
+      "std::io::Write": 87,
+      "`MakeWriterExt::with_max_level`": 2629
+    },
+    "link_paths": {
+      "`MakeWriter`": "tracing_subscriber::fmt::writer::MakeWriter",
+      "tracing_core::Level": "tracing_core::metadata::Level",
+      "std::io::Write": "std::io::Write",
+      "`MakeWriterExt::with_max_level`": null
+    },
+    "artifact": {
+      "id": "8dae4638068fea6ad14c5a2fc32a2ef077159e55bc5b62b03b6dc96ea1f1cbad",
+      "capture": "hosted",
+      "format_version": 59,
+      "item_id": "2630",
+      "origin": "https://docs.rs/crate/tracing-subscriber/0.3.23/json",
+      "compressed_sha256": "db0b7d8c50cae3f58582f965ac0989a0c7d3d261787c05043ae53f03810ca8cf",
+      "local_file": "build/acquired/rustdoc/tracing-subscriber@0.3.23.json.zst"
+    },
+    "availability": "Observed in the hosted capture; reachability is separate from raw visibility. Consumer dependency/features/target must be checked independently.",
+    "reachability": "supported",
+    "reached_via": "",
+    "reader_notes": [],
+    "page": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.md",
+    "record_file": "operations/tracing_subscriber.fmt.writer.MakeWriterExt.json",
+    "anchor": "op-bd0cba079fd2dbd015c758ab",
+    "aliases": [
+      "tracing_subscriber::prelude::_::with_min_level"
+    ],
+    "resolved_doc_links": {
+      "`MakeWriter`": "../operations/tracing_subscriber.fmt.writer.MakeWriter.md#op-49cad405bcbd7170e0ab390a",
+      "tracing_core::Level": "../operations/tracing_core.metadata.Level.md#op-f8804717be954252aadd54ff",
+      "`MakeWriterExt::with_max_level`": "../operations/tracing_subscriber.fmt.writer.MakeWriterExt.md#op-7991c17e378056a2039494a3"
+    }
+  }
+]

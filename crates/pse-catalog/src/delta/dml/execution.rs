@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Effect timing, real physical children and native Delta operation execution.
-use crate::session::physical_input::PhysicalInput;
+use super::super::settlement::{committed, unresolved};
 use datafusion::{
     arrow::{
         array::{Array, RecordBatch, UInt64Array},
@@ -12,46 +12,17 @@ use datafusion::{
     datasource::provider_as_source,
     execution::{TaskContext, session_state::SessionState},
     logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, cast, dml::MergeIntoClause, lit},
-    physical_expr::EquivalenceProperties,
-    physical_plan::{
-        DisplayAs, DisplayFormatType, ExecutionPlan, Partitioning, PlanProperties,
-        SendableRecordBatchStream,
-        execution_plan::{Boundedness, EmissionType},
-        stream::RecordBatchStreamAdapter,
-    },
+    physical_plan::{ExecutionPlan, SendableRecordBatchStream},
 };
 use deltalake::{
     DeltaTable,
-    delta_datafusion::SessionFallbackPolicy,
     kernel::{Action, transaction::CommitProperties},
     operations::write::WriteMetrics,
     protocol::SaveMode,
 };
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
-
-/// A native mutation could have committed even when outcome delivery failed.
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
-pub enum MutationError {
-    /// Inspect the native Delta log before retrying an uncertain command.
-    #[error("Delta mutation outcome is unresolved: {source}")]
-    #[diagnostic(code(runtime::infrastructure))]
-    Unresolved {
-        /// Original operation or outcome observation error.
-        source: deltalake::DeltaTableError,
-    },
-    /// The native commit completed; only result observation failed.
-    #[error("Delta mutation committed version {version}; subsequent work failed: {source}")]
-    #[diagnostic(code(runtime::infrastructure))]
-    Committed {
-        /// Actual committed Delta version.
-        version: u64,
-        /// Result observation error.
-        source: Box<dyn std::error::Error + Send + Sync>,
-    },
-}
+use pse_engine::operation::{Body, Execution, Family};
+use pse_engine::session::physical_input::PhysicalInput;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub(super) enum Command {
@@ -67,173 +38,103 @@ pub(super) enum Command {
     },
 }
 #[derive(Debug)]
-pub(super) struct MutationExec {
+struct MutationBody {
+    table: DeltaTable,
+    context: Arc<super::super::operation::DeltaOperationContext>,
+    command: Command,
+}
+pub(super) fn plan(
     table: DeltaTable,
     state: Arc<SessionState>,
     commit: CommitProperties,
+    contract: Option<super::super::contract::DeclaredCheck>,
     command: Command,
     children: Vec<Arc<dyn ExecutionPlan>>,
-    properties: Arc<PlanProperties>,
-    started: Arc<AtomicBool>,
-}
-impl MutationExec {
-    pub(super) fn new(
-        table: DeltaTable,
-        state: Arc<SessionState>,
-        commit: CommitProperties,
-        command: Command,
-        children: Vec<Arc<dyn ExecutionPlan>>,
-    ) -> Self {
-        let schema = Arc::new(Schema::new(vec![Field::new(
-            "count",
-            DataType::UInt64,
-            false,
-        )]));
-        Self {
+) -> Result<Arc<dyn ExecutionPlan>> {
+    let context = Arc::new(super::super::operation::DeltaOperationContext::new(
+        state,
+        contract,
+        commit,
+        super::super::operation::CommitKind::Data,
+    )?);
+    let services = context.services.clone();
+    Execution::plan(
+        "DeltaMutation",
+        count_schema(),
+        children,
+        Arc::new(MutationBody {
             table,
-            state,
-            commit,
+            context,
             command,
-            children,
-            started: Arc::default(),
-            properties: Arc::new(PlanProperties::new(
-                EquivalenceProperties::new(schema),
-                Partitioning::UnknownPartitioning(1),
-                EmissionType::Final,
-                Boundedness::Bounded,
-            )),
-        }
-    }
+        }),
+        Family::Command,
+        Arc::default(),
+        services,
+    )
 }
-impl DisplayAs for MutationExec {
-    fn fmt_as(&self, _: DisplayFormatType, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "DeltaMutationExec: {:?}", self.command)
-    }
+fn count_schema() -> datafusion::arrow::datatypes::SchemaRef {
+    Arc::new(Schema::new(vec![Field::new(
+        "count",
+        DataType::UInt64,
+        false,
+    )]))
 }
-impl ExecutionPlan for MutationExec {
-    fn apply_expressions(
+impl Body for MutationBody {
+    fn execute(
         &self,
-        _: &mut dyn FnMut(
-            &Arc<dyn datafusion::physical_expr::PhysicalExpr>,
-        ) -> Result<datafusion::common::tree_node::TreeNodeRecursion>,
-    ) -> Result<datafusion::common::tree_node::TreeNodeRecursion> {
-        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
-    }
-    fn name(&self) -> &'static str {
-        "DeltaMutationExec"
-    }
-    fn properties(&self) -> &Arc<PlanProperties> {
-        &self.properties
-    }
-    fn children(&self) -> Vec<&Arc<dyn ExecutionPlan>> {
-        self.children.iter().collect()
-    }
-    fn with_new_children(
-        self: Arc<Self>,
         children: Vec<Arc<dyn ExecutionPlan>>,
-    ) -> Result<Arc<dyn ExecutionPlan>> {
-        if children.len() != self.children.len() {
-            return Err(invalid("Delta mutation child count changed"));
-        }
-        Ok(Arc::new(Self {
-            table: self.table.clone(),
-            state: Arc::clone(&self.state),
-            commit: self.commit.clone(),
-            command: self.command.clone(),
-            children,
-            properties: Arc::clone(&self.properties),
-            started: Arc::clone(&self.started),
-        }))
-    }
-    fn execute(&self, partition: usize, _: Arc<TaskContext>) -> Result<SendableRecordBatchStream> {
-        if partition != 0 || self.started.swap(true, Ordering::AcqRel) {
-            return Err(invalid(
-                "a prepared Delta mutation executes once in partition zero",
-            ));
-        }
+        _: Arc<TaskContext>,
+    ) -> Result<SendableRecordBatchStream> {
         let table = self.table.clone();
-        let state = Arc::clone(&self.state);
-        let commit = self.commit.clone();
+        let context = self.context.clone();
         let command = self.command.clone();
-        let children = self.children.clone();
-        let schema = self.schema();
-        let output = Arc::clone(&schema);
-        let stream = futures_util::stream::once(async move {
-            let count = run(table, state, commit, command, children).await?;
+        Ok(pse_engine::operation::batch(count_schema(), async move {
+            let count = run(table, context, command, children).await?;
             Ok(RecordBatch::try_new(
-                schema,
+                count_schema(),
                 vec![Arc::new(UInt64Array::from(vec![count]))],
             )?)
-        });
-        Ok(Box::pin(RecordBatchStreamAdapter::new(output, stream)))
+        }))
     }
 }
 async fn run(
     table: DeltaTable,
-    state: Arc<SessionState>,
-    commit: CommitProperties,
+    context: Arc<super::super::operation::DeltaOperationContext>,
     command: Command,
     children: Vec<Arc<dyn ExecutionPlan>>,
 ) -> Result<u64> {
-    let services = crate::session::execution::NativeExecutionContext::from_session(state.as_ref())?;
-    let _writer = super::super::lease::write(table.table_url(), services.cancellation()).await?;
-    services.require_settlement();
+    let state = context.state.clone();
+    let _writer = context.begin(&table).await?;
     match command {
-        Command::Insert(mode) => {
-            let input = input(&children)?;
-            let previous = table.version();
-            let table = table
-                .write(Vec::<RecordBatch>::new())
-                .with_input_plan(input)
-                .with_save_mode(mode)
-                .with_session_state(state)
-                .with_session_fallback_policy(SessionFallbackPolicy::RequireSessionState)
-                .with_cast_safety(false)
-                .with_commit_properties(commit)
-                .await
-                .map_err(unresolved)?;
-            if table.version() == previous {
-                return Ok(0);
-            }
-            let version = table
-                .version()
-                .ok_or_else(|| invalid("Delta write omitted its version"))?;
-            write_count(&table, version)
-                .await
-                .map_err(|error| committed(version, error))
-        }
+        Command::Insert(mode) => insert(table, &context, mode, &children).await,
         Command::Update {
             assignments,
             filters,
         } => {
-            let mut builder = table
-                .update()
-                .with_session_state(state)
-                .with_session_fallback_policy(SessionFallbackPolicy::RequireSessionState)
-                .with_safe_cast(false)
-                .with_commit_properties(commit);
+            let mut builder = context.update(table);
             if let Some(predicate) = filters.into_iter().reduce(Expr::and) {
                 builder = builder.with_predicate(predicate);
             }
             for (name, value) in assignments {
                 builder = builder.with_update(datafusion::common::Column::from_name(name), value);
             }
-            let (_, metrics) = builder.await.map_err(unresolved)?;
-            count(metrics.num_updated_rows)
+            let (after, metrics) = builder.await.map_err(unresolved)?;
+            super::super::provider::committed(&after, &state).await;
+            super::super::settlement::observed(after.version(), count(metrics.num_updated_rows))
         }
         Command::Delete(filters) => {
             let before = table.clone();
-            let mut builder = table
-                .delete()
-                .with_session_state(state.clone())
-                .with_session_fallback_policy(SessionFallbackPolicy::RequireSessionState)
-                .with_commit_properties(commit);
+            let mut builder = context.delete(table);
             if let Some(predicate) = filters.into_iter().reduce(Expr::and) {
                 builder = builder.with_predicate(predicate);
             }
             let (after, metrics) = builder.await.map_err(unresolved)?;
+            super::super::provider::committed(&after, &state).await;
+            if after.version() == before.version() {
+                return Ok(0);
+            }
             if let Some(rows) = metrics.num_deleted_rows {
-                return count(rows);
+                return super::super::settlement::observed(after.version(), count(rows));
             }
             let version = after
                 .version()
@@ -244,17 +145,79 @@ async fn run(
             let observed = async {
                 let before = row_count(before, Arc::clone(&state)).await?;
                 let after = row_count(after, state).await?;
-                before
-                    .checked_sub(after)
-                    .ok_or_else(|| invalid("delete increased the row count"))
+                affected_difference(before, after, true)
             }
             .await;
             observed.map_err(|error| committed(version, error))
         }
         Command::Merge { on, clauses } => {
-            super::merge::execute(table, state, commit, input(&children)?, on, clauses).await
+            super::merge::execute(table, &context, input(&children)?, on, clauses).await
         }
     }
+}
+async fn insert(
+    table: DeltaTable,
+    context: &super::super::operation::DeltaOperationContext,
+    mode: SaveMode,
+    children: &[Arc<dyn ExecutionPlan>],
+) -> Result<u64> {
+    let state = context.state.clone();
+    let exact_input = children
+        .first()
+        .and_then(|child| {
+            datafusion::physical_plan::statistics::StatisticsContext::new()
+                .compute(
+                    child.as_ref(),
+                    &datafusion::physical_plan::statistics::StatisticsArgs::new(),
+                )
+                .ok()
+        })
+        .and_then(|stats| match stats.num_rows {
+            datafusion::common::stats::Precision::Exact(rows) => u64::try_from(rows).ok(),
+            _ => None,
+        });
+    let input = input(children)?;
+    let previous = table.version();
+    let before = table.clone();
+    let table = context
+        .write(table, input, mode)
+        .await
+        .map_err(unresolved)?;
+    if table.version() == previous {
+        return Ok(0);
+    }
+    let version = table
+        .version()
+        .ok_or_else(|| invalid("Delta write omitted its version"))?;
+    super::super::provider::committed(&table, &state).await;
+    if let Some(rows) = exact_input {
+        return Ok(rows);
+    }
+    let metrics = write_count(&table, version, &state).await;
+    if let Ok(Some(rows)) = metrics {
+        return Ok(rows);
+    }
+    let fallback = async {
+        let after = row_count(table, state.clone()).await?;
+        let before = if matches!(mode, SaveMode::Overwrite | SaveMode::ErrorIfExists)
+            || previous.is_none()
+        {
+            0
+        } else {
+            row_count(before, state.clone()).await?
+        };
+        affected_difference(before, after, false)
+    }
+    .await;
+    fallback.map_err(|error| {
+        committed(
+            version,
+            match metrics {
+                Err(primary) => DataFusionError::Collection(vec![primary, error]),
+                Ok(_) => error,
+            },
+        )
+    })
 }
 fn input(children: &[Arc<dyn ExecutionPlan>]) -> Result<LogicalPlan> {
     let [child] = children else {
@@ -267,28 +230,36 @@ fn input(children: &[Arc<dyn ExecutionPlan>]) -> Result<LogicalPlan> {
     )?
     .build()
 }
-async fn write_count(table: &DeltaTable, version: u64) -> Result<u64> {
-    let bytes = table
-        .log_store()
-        .read_commit_entry(version)
-        .await
-        .map_err(unresolved)?
-        .ok_or_else(|| invalid("committed Delta log entry unavailable"))?;
-    for line in bytes.split(|b| *b == b'\n').filter(|line| !line.is_empty()) {
-        let action: Action =
-            serde_json::from_slice(line).map_err(|e| DataFusionError::External(Box::new(e)))?;
+async fn write_count(
+    table: &DeltaTable,
+    version: u64,
+    state: &SessionState,
+) -> Result<Option<u64>> {
+    let actions = super::super::actions::read(
+        table,
+        version,
+        state,
+        &pse_columnar::CancellationToken::new(),
+    )
+    .await?;
+    let mut count_value = None;
+    let mut seen = false;
+    actions.visit(|action| {
         if let Action::CommitInfo(info) = action {
-            let metrics: WriteMetrics = serde_json::from_value(
-                info.info
-                    .get("operationMetrics")
-                    .cloned()
-                    .ok_or_else(|| invalid("write metrics unavailable"))?,
-            )
-            .map_err(|e| DataFusionError::External(Box::new(e)))?;
-            return count(metrics.num_added_rows);
+            if seen {
+                return Err(invalid("duplicate write commit info"));
+            }
+            seen = true;
+            let Some(metrics) = info.info.get("operationMetrics") else {
+                return Ok(());
+            };
+            let metrics: WriteMetrics = serde_json::from_value(metrics.clone())
+                .map_err(|e| DataFusionError::External(Box::new(e)))?;
+            count_value = Some(count(metrics.num_added_rows)?);
         }
-    }
-    Err(invalid("write commit info unavailable"))
+        Ok(())
+    })?;
+    Ok(count_value)
 }
 async fn row_count(table: DeltaTable, state: Arc<SessionState>) -> Result<u64> {
     let provider = table
@@ -333,18 +304,27 @@ async fn row_count(table: DeltaTable, state: Arc<SessionState>) -> Result<u64> {
 pub(super) fn count(value: usize) -> Result<u64> {
     u64::try_from(value).map_err(|e| DataFusionError::External(Box::new(e)))
 }
-pub(super) fn unresolved(source: deltalake::DeltaTableError) -> DataFusionError {
-    DataFusionError::External(Box::new(MutationError::Unresolved { source }))
-}
-fn committed(
-    version: u64,
-    error: impl std::error::Error + Send + Sync + 'static,
-) -> DataFusionError {
-    DataFusionError::External(Box::new(MutationError::Committed {
-        version,
-        source: Box::new(error),
-    }))
-}
 pub(super) fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(reason.to_owned())
+}
+
+fn affected_difference(before: u64, after: u64, deleted: bool) -> Result<u64> {
+    if deleted {
+        before.checked_sub(after)
+    } else {
+        after.checked_sub(before)
+    }
+    .ok_or_else(|| invalid("native mutation changed the exact count in the wrong direction"))
+}
+#[cfg(test)]
+mod count_unit {
+    use super::*;
+    #[test]
+    fn exact_snapshot_differences_preserve_zero_and_reject_inconsistent_metrics() {
+        assert_eq!(affected_difference(4, 7, false).unwrap(), 3);
+        assert_eq!(affected_difference(4, 0, true).unwrap(), 4);
+        assert_eq!(affected_difference(0, 0, false).unwrap(), 0);
+        assert!(affected_difference(4, 3, false).is_err());
+        assert!(affected_difference(3, 4, true).is_err());
+    }
 }
