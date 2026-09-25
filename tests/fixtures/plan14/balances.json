@@ -12,6 +12,7 @@
       {
         "source_id": "c9bbd1b7969d5eaebef2973377ffd380",
         "role": "inlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "a22789b39b7c5859b15ed2b09d632f87",
@@ -20,6 +21,7 @@
       {
         "source_id": "c9cffcbdddbd547f9eab08cb522cfe17",
         "role": "inlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "a22789b39b7c5859b15ed2b09d632f87",
@@ -28,6 +30,7 @@
       {
         "source_id": "485d1f1852c05892926311bf36281c73",
         "role": "outlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "a22789b39b7c5859b15ed2b09d632f87",
@@ -49,6 +52,7 @@
       {
         "source_id": "18dd03387cf85a8097f4c67f125c8bc8",
         "role": "inlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "b726134ae60753c4a3cc8e902c85633a",
@@ -57,6 +61,7 @@
       {
         "source_id": "09fc0497b0a0563eb86877a4c3e5c310",
         "role": "work_in",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "b726134ae60753c4a3cc8e902c85633a",
@@ -65,6 +70,7 @@
       {
         "source_id": "bd896eb25586564d95bc90c21c3d2c3b",
         "role": "outlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "b726134ae60753c4a3cc8e902c85633a",
@@ -86,6 +92,7 @@
       {
         "source_id": "77647c8d14c358ef94c004743bfbc060",
         "role": "inlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "233417bae07b5ad2bf9261f880754846",
@@ -94,6 +101,7 @@
       {
         "source_id": "c43ac475b4af530a933bc938b7cde144",
         "role": "outlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "233417bae07b5ad2bf9261f880754846",
@@ -115,6 +123,7 @@
       {
         "source_id": "7321466504bc553d89803e057488cd6b",
         "role": "inlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "31569f19d3b6510cb5c667db94f2735d",
@@ -123,6 +132,7 @@
       {
         "source_id": "b7a65f10e86d5d0093aadc8a85402945",
         "role": "outlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "31569f19d3b6510cb5c667db94f2735d",
@@ -144,6 +154,7 @@
       {
         "source_id": "1381a382e9ab505aa7d5ee993a03113d",
         "role": "inlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "860465af3b995cbb900ece113924fc6c",
@@ -152,6 +163,7 @@
       {
         "source_id": "903d54cb3bae56b4ba57f13cef8547b3",
         "role": "outlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "860465af3b995cbb900ece113924fc6c",
@@ -173,6 +185,7 @@
       {
         "source_id": "38840b3100f05f698ba35e9c1c869b3d",
         "role": "outlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "567c7a54c6b555aab42d0eb45c6da5e5",
@@ -181,6 +194,7 @@
       {
         "source_id": "570661f6ea38500d9ac1065e78c77cd5",
         "role": "outlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "567c7a54c6b555aab42d0eb45c6da5e5",
@@ -189,6 +203,7 @@
       {
         "source_id": "263ecbae07035e2591cd43524b7c6ae8",
         "role": "inlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "567c7a54c6b555aab42d0eb45c6da5e5",
@@ -210,6 +225,7 @@
       {
         "source_id": "b692141cfdeb5c6ea8c72b284967460c",
         "role": "outlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "97ada9f5599c5bd6a002176e7afecd90",
@@ -218,6 +234,7 @@
       {
         "source_id": "c8d186595080594e897ef8f8de8e1fcb",
         "role": "outlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "97ada9f5599c5bd6a002176e7afecd90",
@@ -226,6 +243,7 @@
       {
         "source_id": "5fd4cd68ba1f5bfd845032fc06240c87",
         "role": "inlet",
+        "multiplier": 1.0,
         "transfer_id": null,
         "mode": null,
         "instance_id": "97ada9f5599c5bd6a002176e7afecd90",

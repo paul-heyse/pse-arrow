@@ -96,6 +96,111 @@ impl PartialEq for AuthoredNativeProvidersFieldEnvelope {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredNativeProvidersFieldComponentsItem {
+    ///species_id
+    pub r#species_id: pse_ids::SemanticId,
+    ///pcsaft_cas
+    pub r#pcsaft_cas: String,
+    ///ideal_gas_cas
+    pub r#ideal_gas_cas: String,
+}
+impl crate::SemanticEq for AuthoredNativeProvidersFieldComponentsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#species_id, &other.r#species_id)
+            && crate::SemanticEq::semantic_eq(&self.r#pcsaft_cas, &other.r#pcsaft_cas)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#ideal_gas_cas,
+                &other.r#ideal_gas_cas,
+            )
+    }
+}
+impl PartialEq for AuthoredNativeProvidersFieldComponentsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredNativeProvidersFieldQuantityKinds {
+    ///temperature
+    pub r#temperature: pse_ids::SemanticId,
+    ///density
+    pub r#density: pse_ids::SemanticId,
+    ///fraction
+    pub r#fraction: pse_ids::SemanticId,
+    ///pressure
+    pub r#pressure: pse_ids::SemanticId,
+    ///enthalpy
+    pub r#enthalpy: pse_ids::SemanticId,
+    ///entropy
+    pub r#entropy: pse_ids::SemanticId,
+    ///ln_fugacity
+    pub r#ln_fugacity: pse_ids::SemanticId,
+}
+impl crate::SemanticEq for AuthoredNativeProvidersFieldQuantityKinds {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#temperature, &other.r#temperature)
+            && crate::SemanticEq::semantic_eq(&self.r#density, &other.r#density)
+            && crate::SemanticEq::semantic_eq(&self.r#fraction, &other.r#fraction)
+            && crate::SemanticEq::semantic_eq(&self.r#pressure, &other.r#pressure)
+            && crate::SemanticEq::semantic_eq(&self.r#enthalpy, &other.r#enthalpy)
+            && crate::SemanticEq::semantic_eq(&self.r#entropy, &other.r#entropy)
+            && crate::SemanticEq::semantic_eq(&self.r#ln_fugacity, &other.r#ln_fugacity)
+    }
+}
+impl PartialEq for AuthoredNativeProvidersFieldQuantityKinds {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredNativeProvidersFieldData {
+    ///pcsaft
+    pub r#pcsaft: String,
+    ///ideal_gas
+    pub r#ideal_gas: String,
+    ///binary
+    pub r#binary: String,
+    ///provenance
+    pub r#provenance: String,
+    ///missing_interactions
+    pub r#missing_interactions: crate::generated::enums::MissingInteractionPolicy,
+}
+impl crate::SemanticEq for AuthoredNativeProvidersFieldData {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#pcsaft, &other.r#pcsaft)
+            && crate::SemanticEq::semantic_eq(&self.r#ideal_gas, &other.r#ideal_gas)
+            && crate::SemanticEq::semantic_eq(&self.r#binary, &other.r#binary)
+            && crate::SemanticEq::semantic_eq(&self.r#provenance, &other.r#provenance)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#missing_interactions,
+                &other.r#missing_interactions,
+            )
+    }
+}
+impl PartialEq for AuthoredNativeProvidersFieldData {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredNativeProvidersRow {
     ///model_id
     pub r#model_id: pse_ids::SemanticId,
@@ -103,16 +208,30 @@ pub struct AuthoredNativeProvidersRow {
     pub r#name: String,
     ///kind
     pub r#kind: String,
+    ///material_system_id
+    pub r#material_system_id: Option<pse_ids::SemanticId>,
     ///inputs
     pub r#inputs: Vec<AuthoredNativeProvidersFieldInputsItem>,
     ///outputs
     pub r#outputs: Vec<AuthoredNativeProvidersFieldOutputsItem>,
     ///envelope
     pub r#envelope: AuthoredNativeProvidersFieldEnvelope,
-    ///caloric_reference
-    pub r#caloric_reference: pse_ids::SemanticId,
+    ///enthalpy_reference
+    pub r#enthalpy_reference: pse_ids::SemanticId,
+    ///entropy_reference
+    pub r#entropy_reference: pse_ids::SemanticId,
     ///components
-    pub r#components: Vec<pse_ids::SemanticId>,
+    pub r#components: Vec<AuthoredNativeProvidersFieldComponentsItem>,
+    ///dependent_species
+    pub r#dependent_species: pse_ids::SemanticId,
+    ///quantity_kinds
+    pub r#quantity_kinds: AuthoredNativeProvidersFieldQuantityKinds,
+    ///data
+    pub r#data: AuthoredNativeProvidersFieldData,
+    ///formulation
+    pub r#formulation: crate::generated::enums::ThermodynamicFormulation,
+    ///stability
+    pub r#stability: crate::generated::enums::StabilityPolicy,
     ///output
     pub r#output: i64,
 }
@@ -121,13 +240,30 @@ impl crate::SemanticEq for AuthoredNativeProvidersRow {
         crate::SemanticEq::semantic_eq(&self.r#model_id, &other.r#model_id)
             && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
             && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
-            && crate::SemanticEq::semantic_eq(&self.r#inputs, &other.r#inputs)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#material_system_id,
+                &other.r#material_system_id,
+            ) && crate::SemanticEq::semantic_eq(&self.r#inputs, &other.r#inputs)
             && crate::SemanticEq::semantic_eq(&self.r#outputs, &other.r#outputs)
             && crate::SemanticEq::semantic_eq(&self.r#envelope, &other.r#envelope)
             && crate::SemanticEq::semantic_eq(
-                &self.r#caloric_reference,
-                &other.r#caloric_reference,
+                &self.r#enthalpy_reference,
+                &other.r#enthalpy_reference,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#entropy_reference,
+                &other.r#entropy_reference,
             ) && crate::SemanticEq::semantic_eq(&self.r#components, &other.r#components)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#dependent_species,
+                &other.r#dependent_species,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#quantity_kinds,
+                &other.r#quantity_kinds,
+            ) && crate::SemanticEq::semantic_eq(&self.r#data, &other.r#data)
+            && crate::SemanticEq::semantic_eq(&self.r#formulation, &other.r#formulation)
+            && crate::SemanticEq::semantic_eq(&self.r#stability, &other.r#stability)
             && crate::SemanticEq::semantic_eq(&self.r#output, &other.r#output)
     }
 }
@@ -198,6 +334,78 @@ impl crate::HeapUsage for AuthoredNativeProvidersFieldEnvelope {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#provenance))
     }
 }
+impl crate::SemanticFrame for AuthoredNativeProvidersFieldComponentsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#species_id));
+        crate::SemanticFrame::frame(&self.r#species_id, hash);
+        hash.str(stringify!(r#pcsaft_cas));
+        crate::SemanticFrame::frame(&self.r#pcsaft_cas, hash);
+        hash.str(stringify!(r#ideal_gas_cas));
+        crate::SemanticFrame::frame(&self.r#ideal_gas_cas, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredNativeProvidersFieldComponentsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#species_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#pcsaft_cas))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#ideal_gas_cas))
+    }
+}
+impl crate::SemanticFrame for AuthoredNativeProvidersFieldQuantityKinds {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#temperature));
+        crate::SemanticFrame::frame(&self.r#temperature, hash);
+        hash.str(stringify!(r#density));
+        crate::SemanticFrame::frame(&self.r#density, hash);
+        hash.str(stringify!(r#fraction));
+        crate::SemanticFrame::frame(&self.r#fraction, hash);
+        hash.str(stringify!(r#pressure));
+        crate::SemanticFrame::frame(&self.r#pressure, hash);
+        hash.str(stringify!(r#enthalpy));
+        crate::SemanticFrame::frame(&self.r#enthalpy, hash);
+        hash.str(stringify!(r#entropy));
+        crate::SemanticFrame::frame(&self.r#entropy, hash);
+        hash.str(stringify!(r#ln_fugacity));
+        crate::SemanticFrame::frame(&self.r#ln_fugacity, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredNativeProvidersFieldQuantityKinds {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#temperature))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#density))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#fraction))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#pressure))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#enthalpy))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#entropy))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#ln_fugacity))
+    }
+}
+impl crate::SemanticFrame for AuthoredNativeProvidersFieldData {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#pcsaft));
+        crate::SemanticFrame::frame(&self.r#pcsaft, hash);
+        hash.str(stringify!(r#ideal_gas));
+        crate::SemanticFrame::frame(&self.r#ideal_gas, hash);
+        hash.str(stringify!(r#binary));
+        crate::SemanticFrame::frame(&self.r#binary, hash);
+        hash.str(stringify!(r#provenance));
+        crate::SemanticFrame::frame(&self.r#provenance, hash);
+        hash.str(stringify!(r#missing_interactions));
+        crate::SemanticFrame::frame(&self.r#missing_interactions, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredNativeProvidersFieldData {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#pcsaft))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#ideal_gas))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#binary))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#provenance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#missing_interactions))
+    }
+}
 impl crate::SemanticFrame for AuthoredNativeProvidersRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#model_id));
@@ -206,16 +414,30 @@ impl crate::SemanticFrame for AuthoredNativeProvidersRow {
         crate::SemanticFrame::frame(&self.r#name, hash);
         hash.str(stringify!(r#kind));
         crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#material_system_id));
+        crate::SemanticFrame::frame(&self.r#material_system_id, hash);
         hash.str(stringify!(r#inputs));
         crate::SemanticFrame::frame(&self.r#inputs, hash);
         hash.str(stringify!(r#outputs));
         crate::SemanticFrame::frame(&self.r#outputs, hash);
         hash.str(stringify!(r#envelope));
         crate::SemanticFrame::frame(&self.r#envelope, hash);
-        hash.str(stringify!(r#caloric_reference));
-        crate::SemanticFrame::frame(&self.r#caloric_reference, hash);
+        hash.str(stringify!(r#enthalpy_reference));
+        crate::SemanticFrame::frame(&self.r#enthalpy_reference, hash);
+        hash.str(stringify!(r#entropy_reference));
+        crate::SemanticFrame::frame(&self.r#entropy_reference, hash);
         hash.str(stringify!(r#components));
         crate::SemanticFrame::frame(&self.r#components, hash);
+        hash.str(stringify!(r#dependent_species));
+        crate::SemanticFrame::frame(&self.r#dependent_species, hash);
+        hash.str(stringify!(r#quantity_kinds));
+        crate::SemanticFrame::frame(&self.r#quantity_kinds, hash);
+        hash.str(stringify!(r#data));
+        crate::SemanticFrame::frame(&self.r#data, hash);
+        hash.str(stringify!(r#formulation));
+        crate::SemanticFrame::frame(&self.r#formulation, hash);
+        hash.str(stringify!(r#stability));
+        crate::SemanticFrame::frame(&self.r#stability, hash);
         hash.str(stringify!(r#output));
         crate::SemanticFrame::frame(&self.r#output, hash);
     }
@@ -226,11 +448,18 @@ impl crate::HeapUsage for AuthoredNativeProvidersRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#model_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#material_system_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#inputs))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outputs))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#envelope))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#caloric_reference))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#enthalpy_reference))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#entropy_reference))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#components))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#dependent_species))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_kinds))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#data))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#formulation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stability))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#output))
     }
 }

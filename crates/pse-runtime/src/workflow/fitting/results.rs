@@ -115,7 +115,7 @@ impl RunResult {
                             value: report.and_then(|r| r.constraint_values.get(global).copied()),
                             lower: row.lower.is_finite().then_some(row.lower),
                             upper: row.upper.is_finite().then_some(row.upper),
-                            tolerance: p.profile.solver.tolerances.rows[global],
+                            tolerance: p.tolerances.rows[global],
                         })
                         .map_err(relation)?;
                 }
@@ -140,12 +140,10 @@ impl RunResult {
                     at_bound: value.map(|v| {
                         param.lower.is_some_and(|b| {
                             (v - b).abs()
-                                <= p.parameter_columns[i]
-                                    .map_or(0.0, |c| p.profile.solver.tolerances.variables[c])
+                                <= p.parameter_columns[i].map_or(0.0, |c| p.tolerances.variables[c])
                         }) || param.upper.is_some_and(|b| {
                             (v - b).abs()
-                                <= p.parameter_columns[i]
-                                    .map_or(0.0, |c| p.profile.solver.tolerances.variables[c])
+                                <= p.parameter_columns[i].map_or(0.0, |c| p.tolerances.variables[c])
                         })
                     }),
                 })
@@ -243,6 +241,19 @@ impl RunResult {
             }
             if let Some(rank) = r.rank {
                 metric("local_response", "rank", Metric::Integer(rank as i64))?;
+            }
+            metric(
+                "estimate",
+                "qualified",
+                Metric::Bool(r.estimate_qualified()),
+            )?;
+            metric(
+                "local_response",
+                "available",
+                Metric::Bool(r.responses.is_some()),
+            )?;
+            if let Some(condition) = r.response_condition() {
+                metric("local_response", "condition", Metric::Real(condition))?;
             }
             if let Some(d) = &r.diagnostic {
                 metric("local_response", "unavailable", Metric::Text(d.clone()))?;

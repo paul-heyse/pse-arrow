@@ -6,20 +6,20 @@
 pub use pse_model::generated::r#runtime::r#solve_metrics::{RuntimeSolveMetricsRow, Row};
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    248u8, 84u8, 100u8, 2u8, 156u8, 146u8, 133u8, 230u8, 156u8, 46u8, 192u8, 44u8, 165u8,
-    190u8, 222u8, 205u8,
+    133u8, 1u8, 112u8, 132u8, 219u8, 139u8, 70u8, 210u8, 81u8, 178u8, 59u8, 132u8, 172u8,
+    182u8, 116u8, 218u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "solve_metrics";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    166u8, 90u8, 135u8, 62u8, 153u8, 244u8, 171u8, 32u8, 144u8, 137u8, 252u8, 216u8,
-    15u8, 140u8, 12u8, 142u8, 181u8, 38u8, 157u8, 113u8, 216u8, 55u8, 246u8, 140u8,
-    209u8, 64u8, 77u8, 175u8, 196u8, 61u8, 51u8, 227u8,
+    80u8, 116u8, 64u8, 73u8, 8u8, 194u8, 67u8, 233u8, 153u8, 54u8, 151u8, 184u8, 238u8,
+    104u8, 238u8, 40u8, 164u8, 153u8, 130u8, 38u8, 126u8, 74u8, 131u8, 177u8, 6u8, 20u8,
+    42u8, 227u8, 10u8, 103u8, 9u8, 25u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolveMetricsRow {
     fn append(
@@ -42,6 +42,10 @@ impl crate::columnar::ArrowValue for RuntimeSolveMetricsRow {
         crate::columnar::ArrowValue::append(&self.r#integer, children[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#boolean, children[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#text, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unavailable,
+            children[9usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -73,6 +77,9 @@ impl crate::columnar::ArrowValue for RuntimeSolveMetricsRow {
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            crate::generated::enums::EvidenceUnavailableReason,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -125,6 +132,12 @@ impl crate::columnar::ArrowValue for RuntimeSolveMetricsRow {
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#unavailable: <Option<
+                crate::generated::enums::EvidenceUnavailableReason,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -187,6 +200,10 @@ impl crate::columnar::RelationRow for RuntimeSolveMetricsRow {
         crate::columnar::ArrowValue::append(&self.r#integer, columns[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#boolean, columns[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#text, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unavailable,
+            columns[9usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -221,10 +238,10 @@ impl crate::columnar::RelationRow for RuntimeSolveMetricsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        19_456_usize + size_of::<Self::Builder>()
+        21_504_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        152usize
+        168usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -292,6 +309,17 @@ impl crate::columnar::RelationRow for RuntimeSolveMetricsRow {
                 Ok::<usize, crate::RelationError>(1)
             }?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#unavailable).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -302,7 +330,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 10usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -348,6 +376,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
         name: "text",
         position: 8usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "unavailable",
+        position: 9usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -369,6 +402,8 @@ pub mod columns {
     pub const BOOLEAN: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///text
     pub const TEXT: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///unavailable
+    pub const UNAVAILABLE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -384,6 +419,7 @@ pub struct RuntimeSolveMetricsView<'a> {
     integer_column: &'a arrow_array::Int64Array,
     boolean_column: &'a arrow_array::BooleanArray,
     text_column: &'a arrow_array::StringArray,
+    unavailable_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeSolveMetricsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -450,6 +486,9 @@ impl<'a> RuntimeSolveMetricsView<'a> {
             text_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(8usize).as_ref())?,
+            unavailable_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(9usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -572,6 +611,18 @@ impl<'a> RuntimeSolveMetricsView<'a> {
     pub fn text_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[8usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "unavailable",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn unavailable_column(&self) -> &'a arrow_array::StringArray {
+        self.unavailable_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "unavailable", "`.")]
+    pub fn unavailable_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -596,6 +647,10 @@ impl<'a> RuntimeSolveMetricsView<'a> {
             r#integer: crate::columnar::ArrowValue::read(self.integer_column, index)?,
             r#boolean: crate::columnar::ArrowValue::read(self.boolean_column, index)?,
             r#text: crate::columnar::ArrowValue::read(self.text_column, index)?,
+            r#unavailable: crate::columnar::ArrowValue::read(
+                self.unavailable_column,
+                index,
+            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

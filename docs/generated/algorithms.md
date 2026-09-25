@@ -94,10 +94,15 @@ Version: `1`. Determinism: `deterministic`. Native effects: {Read}.
 | output | `algorithm_arguments` | `reference.algorithm_arguments` |
 | output | `algorithm_results` | `reference.algorithm_results` |
 | output | `engine_profiles` | `reference.engine_profiles` |
+| output | `provider_scaling_bindings` | `authored.provider_scaling_bindings` |
+| output | `numerical_requirements` | `authored.numerical_requirements` |
+| output | `directional_valve_laws` | `authored.directional_valve_laws` |
+| output | `reaction_applications` | `authored.reaction_applications` |
 | output | `native_providers` | `authored.native_providers` |
 | output | `dynamic_cases` | `authored.dynamic_cases` |
 | output | `fit_cases` | `authored.fit_cases` |
 | output | `physical_balances` | `authored.physical_balances` |
+| output | `model_compositions` | `authored.model_compositions` |
 | output | `computation_models` | `authored.computation_models` |
 | output | `artifact_profiles` | `reference.artifact_profiles` |
 | output | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |

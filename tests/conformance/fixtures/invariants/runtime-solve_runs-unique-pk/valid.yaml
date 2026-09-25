@@ -3,9 +3,9 @@
   "rows": {
     "runtime.solve_runs": [
       {
-        "assurance": "[\"text\",\"value-1\"]",
-        "backend": "[\"text\",\"value-1\"]",
-        "candidate_present": "[\"bool\",true]",
+        "assurance": "[\"enum\",\"none\"]",
+        "backend": "[\"enum\",\"ipopt\"]",
+        "candidate_kind": "[\"enum\",\"final_iterate\"]",
         "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "error": "[\"text\",\"value-1\"]",
         "feasible": "[\"bool\",true]",
@@ -17,8 +17,9 @@
         "objective_sense": "[\"enum\",\"minimize\"]",
         "revision": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state": "[\"enum\",\"native\"]",
         "step": "[\"i64\",1]",
-        "termination": "[\"text\",\"value-1\"]",
+        "termination": "[\"enum\",\"success\"]",
         "transformation": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
         "validation_error": "[\"text\",\"value-1\"]"
       }

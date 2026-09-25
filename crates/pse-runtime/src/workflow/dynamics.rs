@@ -33,6 +33,7 @@ pub struct PreparedSimulation {
     pub(crate) revision: ModelRevision,
     pub(crate) declaration: DynamicDeclaration,
     pub(crate) profile: SimulationProfile,
+    pub(crate) numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
     pub(crate) contract: native::Contract,
     pub(crate) programs: Vec<FunctionProgram>,
     pub(crate) values: CaseValues,
@@ -91,7 +92,7 @@ impl ModelRevision {
     pub async fn prepare_simulation(
         &self,
         id: SemanticId,
-        profile: SimulationProfile,
+        mut profile: SimulationProfile,
         compiler: pse_compiler::workspace::Profile,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedSimulation, WorkflowError> {
@@ -108,7 +109,7 @@ impl ModelRevision {
             .ok_or_else(|| contract("unknown dynamic declaration"))?;
         for b in self
             .0
-            .sources
+            .resolved_sources
             .balances
             .iter()
             .filter(|b| b.case_id == d.case_id)
@@ -167,6 +168,9 @@ impl ModelRevision {
         let time_dim = pse_quantity::DimensionVector::base(pse_quantity::BaseDimension::Time);
         if time_unit.dimension != time_dim || time_unit.is_affine {
             return Err(contract("dynamic time needs a non-affine time unit"));
+        }
+        if d.time_origin.is_some_and(|t| !t.is_finite()) {
+            return Err(contract("nonfinite model time origin"));
         }
         let time_scale = time_unit.scale_to_canonical;
         let mut states = Vec::new();
@@ -238,12 +242,145 @@ impl ModelRevision {
                 })
             })
             .collect::<Result<Vec<_>, WorkflowError>>()?;
+        use pse_math::numerics::{SourcedRequirement, TargetSpec};
+        use pse_model::generated::enums::{NumericalCoordinates, NumericalSource, NumericalTarget};
+        let mut targets = Vec::new();
+        let mut declarations = self
+            .0
+            .resolved_sources
+            .numerics
+            .iter()
+            .filter(|r| r.case_id.is_none_or(|id| id == d.case_id))
+            .map(|r| SourcedRequirement {
+                source: if r.case_id.is_some() {
+                    NumericalSource::Case
+                } else {
+                    NumericalSource::Model
+                },
+                declaration: r.clone(),
+            })
+            .collect::<Vec<_>>();
+        for (state, port) in d.states.iter().zip(&states) {
+            let unit = q.quantity_type(port.quantity).map_err(math)?.canonical_unit;
+            targets.push(TargetSpec {
+                id: port.id,
+                kind: NumericalTarget::Variable,
+                quantity: port.quantity,
+                unit,
+                integer: false,
+                declared_tolerance: None,
+            });
+            declarations.push(SourcedRequirement {
+                source: NumericalSource::Model,
+                declaration: pse_model::numerics::NumericalRequirement {
+                    requirement_id: pse_ids::named_id(
+                        d.dynamic_id,
+                        &format!("state-nominal.{}", port.id),
+                    ),
+                    model_id: d.model_id,
+                    case_id: None,
+                    target_id: port.id,
+                    target_kind: NumericalTarget::Variable,
+                    nominal: Some(state.scale),
+                    scaling_factor: None,
+                    absolute_tolerance: None,
+                    relative_tolerance: None,
+                    unit_id: Some(unit.as_id()),
+                    coordinates: NumericalCoordinates::Physical,
+                    priority: i32::MIN,
+                    required: true,
+                    provenance: "authored dynamic state normalization".into(),
+                },
+            });
+        }
+        for row in source.rows() {
+            targets.push(TargetSpec {
+                id: row.id,
+                kind: NumericalTarget::Row,
+                quantity: row.quantity,
+                unit: q.quantity_type(row.quantity).map_err(math)?.canonical_unit,
+                integer: false,
+                declared_tolerance: None,
+            });
+        }
+        for output in &output_ports {
+            targets.push(TargetSpec {
+                id: output.id,
+                kind: NumericalTarget::Observable,
+                quantity: output.quantity,
+                unit: output.unit,
+                integer: false,
+                declared_tolerance: None,
+            });
+        }
+        for (i, b) in self
+            .0
+            .resolved_sources
+            .balances
+            .iter()
+            .filter(|b| b.case_id == d.case_id && b.accumulation.is_some())
+            .enumerate()
+        {
+            let port = get(b
+                .accumulation
+                .ok_or_else(|| contract("missing conserved state"))?)?;
+            let unit = q.quantity_type(port.quantity).map_err(math)?.canonical_unit;
+            targets.push(TargetSpec {
+                id: b.balance_id,
+                kind: NumericalTarget::Closure,
+                quantity: port.quantity,
+                unit,
+                integer: false,
+                declared_tolerance: b.integral_tolerance,
+            });
+            targets.push(TargetSpec {
+                id: b.balance_id,
+                kind: NumericalTarget::Observable,
+                quantity: port.quantity,
+                unit,
+                integer: false,
+                declared_tolerance: profile.out_atol.get(i).copied(),
+            });
+        }
+        declarations.extend(self.property_numerics(d.case_id, &targets)?);
+        let numerics = Arc::new(
+            pse_math::numerics::resolve(q, &targets, &declarations, &profile.numerics)
+                .map_err(math)?,
+        );
+        for state in &mut d.states {
+            state.scale = numerics
+                .targets
+                .iter()
+                .find(|t| t.id == state.symbol_id && t.kind == NumericalTarget::Variable)
+                .ok_or_else(|| contract("missing dynamic nominal"))?
+                .coordinate_scale;
+        }
+        let integrated = self
+            .0
+            .resolved_sources
+            .balances
+            .iter()
+            .filter(|b| b.case_id == d.case_id && b.accumulation.is_some())
+            .collect::<Vec<_>>();
+        if profile.out_atol.len() != integrated.len() {
+            return Err(contract(
+                "explicit integrated-flux absolute tolerances required",
+            ));
+        }
+        for (atol, balance) in profile.out_atol.iter_mut().zip(&integrated) {
+            *atol = numerics
+                .targets
+                .iter()
+                .find(|t| t.id == balance.balance_id && t.kind == NumericalTarget::Observable)
+                .ok_or_else(|| contract("missing integrated-flux numerical target"))?
+                .budget;
+        }
         let mut h = FramedHasher::new("pse.dynamic.source.v1");
         h.hash(&self.identity());
         d.frame(&mut h);
         let balances = self
             .0
-            .sources
+            .resolved_sources
             .balances
             .iter()
             .filter(|b| b.case_id == d.case_id && b.accumulation.is_some())
@@ -257,9 +394,12 @@ impl ModelRevision {
                     id: b.balance_id,
                     state,
                     scale: d.states[state].scale,
-                    tolerance: b
-                        .integral_tolerance
-                        .ok_or_else(|| contract("conserved tolerance missing"))?,
+                    tolerance: numerics
+                        .targets
+                        .iter()
+                        .find(|t| t.id == b.balance_id && t.kind == NumericalTarget::Closure)
+                        .ok_or_else(|| contract("conserved tolerance missing"))?
+                        .budget,
                     impulses: b.impulses.iter().map(|i| (i.event_id, i.value)).collect(),
                 })
             })
@@ -507,11 +647,12 @@ impl ModelRevision {
         )?;
         let profile_key = profile_identity(&profile);
         let mut key = FramedHasher::new("pse.dynamic.prepared.v1");
-        key.hash(&c.identity).hash(&profile_key);
+        key.hash(&c.identity).hash(&profile_key).hash(&numerics.key);
         Ok(PreparedSimulation {
             revision: self.clone(),
             declaration: d,
             profile,
+            numerics,
             contract: c,
             programs,
             values: CaseValues {
@@ -574,9 +715,10 @@ impl Oracle for DynamicWorker {
         if state.len() != n || parameters.len() != d.parameters.len() {
             return Err(ProblemError::Contract("dynamic binding dimensions".into()));
         }
-        self.values
-            .scalars
-            .insert(d.time_id, time / self.prepared.time_scale);
+        self.values.scalars.insert(
+            d.time_id,
+            (time - d.time_origin.unwrap_or(0.0)) / self.prepared.time_scale,
+        );
         let mut chain = Vec::with_capacity(n + parameters.len());
         for (i, s) in d.states.iter().enumerate() {
             let c = &self.prepared.conversions[i];
@@ -618,7 +760,7 @@ impl Oracle for DynamicWorker {
         let jacobian = if derivatives {
             let source = worker.jacobian(&self.values)?;
             let mut triplets = Vec::new();
-            for c in 0..source.ncols() {
+            for (c, chain) in chain.iter().enumerate().take(source.ncols()) {
                 for k in source.col_range(c) {
                     let r = source.row_idx()[k];
                     for (i, &row) in p.rows.iter().enumerate() {
@@ -626,7 +768,7 @@ impl Oracle for DynamicWorker {
                             triplets.push(faer::sparse::Triplet::new(
                                 i,
                                 c,
-                                source.val()[k] * p.scales[i] * chain[c],
+                                source.val()[k] * p.scales[i] * chain,
                             ));
                         }
                     }
@@ -654,7 +796,11 @@ pub(crate) fn profile_identity(p: &SimulationProfile) -> ContentHash {
     for x in [p.start, p.end, p.rtol, p.initial_step] {
         h.u64(x.to_bits());
     }
-    for values in [&p.samples, &p.atol, &p.parameter_scales] {
+    h.hash(&p.numerics.key()).bool(p.out_rtol.is_some());
+    if let Some(t) = p.out_rtol {
+        h.u64(t.to_bits());
+    }
+    for values in [&p.samples, &p.atol, &p.parameter_scales, &p.out_atol] {
         h.u64(values.len() as u64);
         for x in values {
             h.u64(x.to_bits());

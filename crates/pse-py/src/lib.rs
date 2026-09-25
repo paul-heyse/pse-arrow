@@ -65,15 +65,17 @@ mod _native {
         },
         inspection::{
             CacheReport, CacheSettings, DiagnosticAnnotation, DiagnosticCause, DiagnosticContext,
-            DiagnosticNote, DiagnosticReport, DiagnosticSpan, EngineSettings, InspectionError,
-            Publication, ResourceConsumer, ResourceReport, TableName, TableStream,
-            open_publication,
+            DiagnosticNote, DiagnosticObservation, DiagnosticReport, DiagnosticSpan,
+            EngineSettings, InspectionError, Publication, ResourceConsumer, ResourceReport,
+            TableName, TableStream, open_publication,
         },
         registry_fingerprint,
         workflow::{
-            NativeModelRevision, NativePhysicalContext, NativePreparedCase,
-            NativePreparedOperation, NativePublicationAttempt, NativeRunHandle, NativeRunResult,
-            NativeRuntime, ProgressEvent, SimulationSettings, SolveSettings, SolverCapability,
+            NativeAttempt, NativeModelRevision, NativePhysicalContext, NativePreparedCase,
+            NativePreparedFlow, NativePreparedOperation, NativePreparedStrategy,
+            NativePublicationAttempt, NativeRunHandle, NativeRunResult, NativeRuntime, NativeStart,
+            NativeStrategyResult, ProgressEvent, SimulationSettings, SolveSettings,
+            SolverCapability,
         },
     };
 

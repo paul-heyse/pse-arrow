@@ -26,8 +26,14 @@ Crates are `pse-*` under `crates/`. The Python package is imported as `pse` and 
 
 ## Current implementation direction
 
-[Plan 14](docs/plans/14-library-owned-process-simulator.md) is the current implementation
-direction. M00–M21 and their approved hard-cut deletions are implemented; see the
+[Plan 16 P00–P04](docs/plans/16-p00-p04-execution.md) extends the implemented
+foundation with selected composition admission, exact powers, shared execution tags,
+scoped identities and explicit material/FeOS/reaction bindings. P05–P18 remain future
+work. The packet records the supported boundary and scoped verification; it does not
+replace the historical M22 qualification or authorize full Plan 16 acceptance.
+
+[Plan 14](docs/plans/14-library-owned-process-simulator.md) supplies the implemented
+baseline. M00–M21 and their approved hard-cut deletions are implemented; see the
 [foundation contract](docs/plans/14-math-foundation-contract.md) and
 [execution inventory](docs/plans/14-execution-inventory.md). The
 [M22 packet](docs/plans/14-m22-execution.md) records local Linux qualification,

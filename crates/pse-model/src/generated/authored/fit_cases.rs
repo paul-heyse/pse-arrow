@@ -81,6 +81,10 @@ pub struct AuthoredFitCasesFieldObservationsItem {
     pub r#output_id: pse_ids::SemanticId,
     ///time
     pub r#time: Option<f64>,
+    ///time_basis
+    pub r#time_basis: Option<crate::generated::enums::ObservationTimeBasis>,
+    ///time_unit_id
+    pub r#time_unit_id: Option<pse_ids::SemanticId>,
     ///included
     pub r#included: bool,
     ///importance
@@ -94,7 +98,11 @@ impl crate::SemanticEq for AuthoredFitCasesFieldObservationsItem {
                 &other.r#experiment_id,
             ) && crate::SemanticEq::semantic_eq(&self.r#output_id, &other.r#output_id)
             && crate::SemanticEq::semantic_eq(&self.r#time, &other.r#time)
-            && crate::SemanticEq::semantic_eq(&self.r#included, &other.r#included)
+            && crate::SemanticEq::semantic_eq(&self.r#time_basis, &other.r#time_basis)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#time_unit_id,
+                &other.r#time_unit_id,
+            ) && crate::SemanticEq::semantic_eq(&self.r#included, &other.r#included)
             && crate::SemanticEq::semantic_eq(&self.r#importance, &other.r#importance)
     }
 }
@@ -196,6 +204,10 @@ impl crate::SemanticFrame for AuthoredFitCasesFieldObservationsItem {
         crate::SemanticFrame::frame(&self.r#output_id, hash);
         hash.str(stringify!(r#time));
         crate::SemanticFrame::frame(&self.r#time, hash);
+        hash.str(stringify!(r#time_basis));
+        crate::SemanticFrame::frame(&self.r#time_basis, hash);
+        hash.str(stringify!(r#time_unit_id));
+        crate::SemanticFrame::frame(&self.r#time_unit_id, hash);
         hash.str(stringify!(r#included));
         crate::SemanticFrame::frame(&self.r#included, hash);
         hash.str(stringify!(r#importance));
@@ -209,6 +221,8 @@ impl crate::HeapUsage for AuthoredFitCasesFieldObservationsItem {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#experiment_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#output_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time_basis))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time_unit_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#included))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#importance))
     }

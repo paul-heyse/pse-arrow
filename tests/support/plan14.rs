@@ -76,20 +76,52 @@ pub(crate) async fn builder(owner: &WorkflowRuntime) -> ModelBuilder {
     for provider in json("providers.json").as_array().unwrap() {
         builder.native_provider(serde_json::from_value(provider.clone()).unwrap());
     }
+    let declaration = builder.declaration_mut().clone();
+    let balances = json("balances.json");
+    for case in &declaration.cases {
+        let mut targets = case
+            .variables
+            .iter()
+            .map(|v| (v.port.symbol_id, "variable", 1e-6))
+            .chain(case.rows.iter().map(|r| (r.row_id, "row", 1e-4)))
+            .collect::<Vec<_>>();
+        targets.extend(
+            balances
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|b| sid(&b["case_id"]) == case.case_id)
+                .map(|b| (sid(&b["balance_id"]), "row", 1e-4)),
+        );
+        for (id, kind, tolerance) in targets {
+            builder.numerical_requirement(requirement(
+                declaration.model_id,
+                Some(case.case_id),
+                id,
+                kind,
+                tolerance,
+            ));
+        }
+    }
     builder
+}
+pub(crate) fn requirement(
+    model: SemanticId,
+    case: Option<SemanticId>,
+    target: SemanticId,
+    kind: &str,
+    tolerance: f64,
+) -> pse_relations::generated::authored::numerical_requirements::Row {
+    serde_json::from_value(serde_json::json!({"requirement_id":pse_ids::named_id(case.unwrap_or(model),&format!("acceptance.{kind}.{target}")),"model_id":model,"case_id":case,"target_id":target,"target_kind":kind,"nominal":null,"scaling_factor":null,"absolute_tolerance":tolerance,"relative_tolerance":null,"unit_id":null,"coordinates":"physical","priority":0,"required":true,"provenance":"Plan 14 acceptance budget migrated by semantic identity"})).unwrap()
 }
 pub(crate) fn compiler() -> pse_compiler::workspace::Profile {
     Default::default()
 }
-pub(crate) fn profile(
-    backend: Backend,
-    variables: usize,
-    rows: usize,
-    optimize: bool,
-) -> SolverProfile {
+pub(crate) fn profile(backend: Backend, optimize: bool) -> SolverProfile {
     SolverProfile {
         presolve: Default::default(),
-        scaling: None,
+        numerics: Default::default(),
+        convexity: Default::default(),
         intent: if optimize {
             SolveIntent::Optimize
         } else if backend == Backend::Kinsol {
@@ -100,11 +132,6 @@ pub(crate) fn profile(
         selection: SolverSelection::Explicit(backend),
         controls: Controls::default(),
         backend: BackendSettings::Default,
-        tolerances: pse_backend_native::quality::Tolerances {
-            variables: vec![1e-6; variables],
-            rows: vec![1e-4; rows],
-            integrality: 1e-8,
-        },
     }
 }
 pub(crate) async fn solve(
@@ -113,29 +140,11 @@ pub(crate) async fn solve(
     backend: Backend,
     optimize: bool,
 ) -> Arc<RunResult> {
-    let source = revision
-        .declaration()
-        .cases
-        .iter()
-        .find(|c| c.case_id == case)
-        .unwrap();
     let p = revision
         .prepare(
             case,
-            profile(
-                backend,
-                source.variables.iter().filter(|v| !v.fixed).count(),
-                source.rows.len()
-                    + revision
-                        .source_declarations()
-                        .balances
-                        .iter()
-                        .filter(|b| b.case_id == case)
-                        .count(),
-                optimize,
-            ),
+            profile(backend, optimize),
             compiler(),
-            false,
             &pse_runtime::CancelSource::new(),
         )
         .await
@@ -203,7 +212,7 @@ pub(crate) fn vessel(builder: &mut ModelBuilder, valve: bool) {
         .as_object()
         .unwrap()
         .iter()
-        .filter(|(k, _)| valve || !matches!(k.as_str(), "valve_k" | "downstream"))
+        .filter(|(k, _)| valve || !matches!(k.as_str(), "valve_k" | "downstream" | "valve_width"))
         .map(|(role, p)| {
             (
                 role.clone(),
@@ -241,7 +250,13 @@ pub(crate) fn vessel(builder: &mut ModelBuilder, valve: bool) {
                 temperature0: ports["temperature0"].clone(),
                 density0: ports["density0"].clone(),
                 pressure0: ports["pressure0"].clone(),
-                valve: valve.then(|| (ports["valve_k"].clone(), ports["downstream"].clone())),
+                valve: valve.then(|| {
+                    (
+                        ports["valve_k"].clone(),
+                        ports["downstream"].clone(),
+                        ports["valve_width"].clone(),
+                    )
+                }),
             },
             values,
             functions: pse_runtime::workflow::VesselQuantities {
@@ -383,7 +398,11 @@ pub(crate) fn heat_fit(
     }
     let model_id = b.declaration_mut().model_id;
     b.fit(serde_json::from_value(serde_json::json!({"fit_id":fit_id,"model_id":model_id,"parameters":[{"symbol_id":heat,"fixed":false,"value":3.,"lower":0.,"upper":20.,"scale":10.}],"experiments":experiments,"observations":observations})).unwrap());
-    let mut solver = profile(Backend::Ipopt, 1, 0, true);
+    let mut solver = profile(Backend::Ipopt, true);
+    solver
+        .numerics
+        .requirements
+        .push(requirement(model_id, None, heat, "variable", 1e-6));
     solver.controls.hessian = pse_backend_native::solve::HessianMode::LimitedMemory;
     let mut simulation = simulation();
     simulation.sensitivities = true;

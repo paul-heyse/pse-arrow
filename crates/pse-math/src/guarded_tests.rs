@@ -79,6 +79,7 @@ fn run(
 
 #[test]
 fn domain_survives_symbolic_cancellation() {
+    crate::initialize().unwrap();
     let x = library::formal(0).unwrap();
     let normalized = &x / &x;
     assert_eq!(normalized, Atom::num(1));
@@ -108,6 +109,7 @@ fn domain_survives_symbolic_cancellation() {
 
 #[test]
 fn lazy_branch_and_cloned_workers_do_not_evaluate_inactive_domain() {
+    crate::initialize().unwrap();
     let x = library::formal(0).unwrap();
     let zero = library::formal(1).unwrap();
     let positive = vec![
@@ -151,6 +153,7 @@ fn lazy_branch_and_cloned_workers_do_not_evaluate_inactive_domain() {
 
 #[test]
 fn square_root_boundary_has_separate_value_and_derivative_admission() {
+    crate::initialize().unwrap();
     let x = library::formal(0).unwrap();
     let mut artifact = compile(
         1,
@@ -190,6 +193,7 @@ fn square_root_boundary_has_separate_value_and_derivative_admission() {
 
 #[test]
 fn bounded_layout_and_cancellation_reject_before_execution() {
+    crate::initialize().unwrap();
     let cancelled = Arc::new(AtomicBool::new(true));
     assert!(matches!(
         compile_artifact(
@@ -234,6 +238,7 @@ fn bounded_layout_and_cancellation_reject_before_execution() {
 #[test]
 fn explicit_optimizer_thread_budget_uses_library_capability() {
     crate::initialize().unwrap();
+    crate::initialize().unwrap();
     let capabilities = symbolica::license::LicenseManager::execution_capabilities();
     let cores = symbolica::license::LicenseManager::max_threads(2);
     assert!(cores > 0 && cores <= 2);
@@ -269,6 +274,7 @@ fn explicit_optimizer_thread_budget_uses_library_capability() {
 
 #[test]
 fn schedule_refuses_forward_reads_and_partial_branch_outputs() {
+    crate::initialize().unwrap();
     let cancel = Arc::new(AtomicBool::new(false));
     let attempt = |stages: Vec<Stage>| {
         compile_artifact(1, 3, vec![2], &stages, Optimization::default(), &cancel)
@@ -306,6 +312,7 @@ fn schedule_refuses_forward_reads_and_partial_branch_outputs() {
 
 #[test]
 fn high_precision_real_values_survive_optimizer_and_jet_profiles() {
+    crate::initialize().unwrap();
     let reference: serde_json::Value = serde_json::from_str(include_str!(
         "../../../tests/fixtures/plan14/real-algebra-reference.json"
     ))

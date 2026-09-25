@@ -279,6 +279,19 @@ impl IntoBatches for pse_authoring::generated::documents::ComputationModelsDocum
             )
             .or_default()
             .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#model_compositions::Builder::with_registry(
+            registry,
+            self.r#model_compositions.len(),
+        )?;
+        for row in self.r#model_compositions {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#model_compositions::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
         let mut builder = pse_relations::generated::r#authored::r#dynamic_cases::Builder::with_registry(
             registry,
             self.r#dynamic_cases.len(),
@@ -301,6 +314,19 @@ impl IntoBatches for pse_authoring::generated::documents::ComputationModelsDocum
             .entry(pse_relations::generated::r#authored::r#native_providers::RELATION_ID)
             .or_default()
             .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#directional_valve_laws::Builder::with_registry(
+            registry,
+            self.r#directional_valve_laws.len(),
+        )?;
+        for row in self.r#directional_valve_laws {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#directional_valve_laws::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
         let mut builder = pse_relations::generated::r#authored::r#physical_balances::Builder::with_registry(
             registry,
             self.r#physical_balances.len(),
@@ -311,6 +337,45 @@ impl IntoBatches for pse_authoring::generated::documents::ComputationModelsDocum
         batches
             .entry(
                 pse_relations::generated::r#authored::r#physical_balances::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#numerical_requirements::Builder::with_registry(
+            registry,
+            self.r#numerical_requirements.len(),
+        )?;
+        for row in self.r#numerical_requirements {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#numerical_requirements::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#provider_scaling_bindings::Builder::with_registry(
+            registry,
+            self.r#provider_scaling_bindings.len(),
+        )?;
+        for row in self.r#provider_scaling_bindings {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#provider_scaling_bindings::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#reaction_applications::Builder::with_registry(
+            registry,
+            self.r#reaction_applications.len(),
+        )?;
+        for row in self.r#reaction_applications {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#reaction_applications::RELATION_ID,
             )
             .or_default()
             .push(builder.finish()?);

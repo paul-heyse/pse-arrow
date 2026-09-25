@@ -9,20 +9,20 @@ pub use pse_model::generated::r#authored::r#dynamic_cases::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    79u8, 169u8, 221u8, 143u8, 53u8, 165u8, 97u8, 41u8, 78u8, 135u8, 172u8, 155u8, 154u8,
-    167u8, 151u8, 135u8,
+    214u8, 251u8, 45u8, 253u8, 216u8, 170u8, 204u8, 220u8, 119u8, 159u8, 15u8, 213u8,
+    244u8, 233u8, 207u8, 186u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "dynamic_cases";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    227u8, 65u8, 32u8, 204u8, 150u8, 214u8, 30u8, 248u8, 85u8, 93u8, 84u8, 19u8, 86u8,
-    26u8, 189u8, 168u8, 29u8, 96u8, 196u8, 18u8, 169u8, 232u8, 127u8, 60u8, 37u8, 70u8,
-    95u8, 114u8, 107u8, 129u8, 36u8, 67u8,
+    196u8, 75u8, 98u8, 251u8, 182u8, 29u8, 221u8, 156u8, 106u8, 177u8, 161u8, 165u8, 2u8,
+    22u8, 91u8, 212u8, 248u8, 248u8, 133u8, 164u8, 46u8, 8u8, 197u8, 55u8, 254u8, 202u8,
+    17u8, 252u8, 144u8, 177u8, 33u8, 60u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredDynamicCasesFieldStatesItem {
     fn append(
@@ -276,13 +276,17 @@ impl crate::columnar::ArrowValue for AuthoredDynamicCasesRow {
         )?;
         crate::columnar::ArrowValue::append(&self.r#case_id, children[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#time_id, children[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#states, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#time_origin,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#states, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#parameters,
-            children[5usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#outputs, children[6usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#modes, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outputs, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#modes, children[8usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -305,18 +309,21 @@ impl crate::columnar::ArrowValue for AuthoredDynamicCasesRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
-        <Vec<
-            AuthoredDynamicCasesFieldStatesItem,
+        <Option<
+            f64,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Vec<
-            pse_ids::SemanticId,
+            AuthoredDynamicCasesFieldStatesItem,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <Vec<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Vec<
-            AuthoredDynamicCasesFieldModesItem,
+            pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Vec<
+            AuthoredDynamicCasesFieldModesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -343,28 +350,34 @@ impl crate::columnar::ArrowValue for AuthoredDynamicCasesRow {
                 input.column(3usize).as_ref(),
                 index,
             )?,
+            r#time_origin: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
             r#states: <Vec<
                 AuthoredDynamicCasesFieldStatesItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#parameters: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#outputs: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#modes: <Vec<
                 AuthoredDynamicCasesFieldModesItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
         })
@@ -422,13 +435,17 @@ impl crate::columnar::RelationRow for AuthoredDynamicCasesRow {
         crate::columnar::ArrowValue::append(&self.r#model_id, columns[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#case_id, columns[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#time_id, columns[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#states, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#time_origin,
+            columns[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#states, columns[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#parameters,
-            columns[5usize].as_mut(),
+            columns[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#outputs, columns[6usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#modes, columns[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outputs, columns[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#modes, columns[8usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -463,10 +480,10 @@ impl crate::columnar::RelationRow for AuthoredDynamicCasesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        61_440_usize + size_of::<Self::Builder>()
+        63_488_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        480usize
+        496usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -485,6 +502,17 @@ impl crate::columnar::RelationRow for AuthoredDynamicCasesRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#time_origin).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -633,7 +661,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "dynamic_id",
@@ -656,23 +684,28 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "states",
+        name: "time_origin",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "parameters",
+        name: "states",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "outputs",
+        name: "parameters",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "modes",
+        name: "outputs",
         position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "modes",
+        position: 8usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -685,14 +718,16 @@ pub mod columns {
     pub const CASE_ID: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///time_id
     pub const TIME_ID: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///time_origin
+    pub const TIME_ORIGIN: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///states
-    pub const STATES: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const STATES: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///parameters
-    pub const PARAMETERS: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const PARAMETERS: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///outputs
-    pub const OUTPUTS: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const OUTPUTS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///modes
-    pub const MODES: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const MODES: crate::columnar::ColumnReference = super::COLUMNS[8usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -703,6 +738,7 @@ pub struct AuthoredDynamicCasesView<'a> {
     model_id_column: &'a arrow_array::FixedSizeBinaryArray,
     case_id_column: &'a arrow_array::FixedSizeBinaryArray,
     time_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    time_origin_column: &'a arrow_array::Float64Array,
     states_column: &'a arrow_array::ListArray,
     parameters_column: &'a arrow_array::ListArray,
     outputs_column: &'a arrow_array::ListArray,
@@ -758,18 +794,21 @@ impl<'a> AuthoredDynamicCasesView<'a> {
             time_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(3usize).as_ref())?,
+            time_origin_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(4usize).as_ref())?,
             states_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
             parameters_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             outputs_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             modes_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -834,6 +873,18 @@ impl<'a> AuthoredDynamicCasesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "time_origin",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn time_origin_column(&self) -> &'a arrow_array::Float64Array {
+        self.time_origin_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "time_origin", "`.")]
+    pub fn time_origin_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "states",
         "`, including its offsets and validity bitmap.",
     )]
@@ -842,7 +893,7 @@ impl<'a> AuthoredDynamicCasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "states", "`.")]
     pub fn states_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -854,7 +905,7 @@ impl<'a> AuthoredDynamicCasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "parameters", "`.")]
     pub fn parameters_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -866,7 +917,7 @@ impl<'a> AuthoredDynamicCasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "outputs", "`.")]
     pub fn outputs_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -878,7 +929,7 @@ impl<'a> AuthoredDynamicCasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "modes", "`.")]
     pub fn modes_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -899,6 +950,10 @@ impl<'a> AuthoredDynamicCasesView<'a> {
             r#model_id: crate::columnar::ArrowValue::read(self.model_id_column, index)?,
             r#case_id: crate::columnar::ArrowValue::read(self.case_id_column, index)?,
             r#time_id: crate::columnar::ArrowValue::read(self.time_id_column, index)?,
+            r#time_origin: crate::columnar::ArrowValue::read(
+                self.time_origin_column,
+                index,
+            )?,
             r#states: crate::columnar::ArrowValue::read(self.states_column, index)?,
             r#parameters: crate::columnar::ArrowValue::read(
                 self.parameters_column,

@@ -120,6 +120,8 @@ pub struct AuthoredDynamicCasesRow {
     pub r#case_id: pse_ids::SemanticId,
     ///time_id
     pub r#time_id: pse_ids::SemanticId,
+    ///time_origin
+    pub r#time_origin: Option<f64>,
     ///states
     pub r#states: Vec<AuthoredDynamicCasesFieldStatesItem>,
     ///parameters
@@ -135,6 +137,7 @@ impl crate::SemanticEq for AuthoredDynamicCasesRow {
             && crate::SemanticEq::semantic_eq(&self.r#model_id, &other.r#model_id)
             && crate::SemanticEq::semantic_eq(&self.r#case_id, &other.r#case_id)
             && crate::SemanticEq::semantic_eq(&self.r#time_id, &other.r#time_id)
+            && crate::SemanticEq::semantic_eq(&self.r#time_origin, &other.r#time_origin)
             && crate::SemanticEq::semantic_eq(&self.r#states, &other.r#states)
             && crate::SemanticEq::semantic_eq(&self.r#parameters, &other.r#parameters)
             && crate::SemanticEq::semantic_eq(&self.r#outputs, &other.r#outputs)
@@ -227,6 +230,8 @@ impl crate::SemanticFrame for AuthoredDynamicCasesRow {
         crate::SemanticFrame::frame(&self.r#case_id, hash);
         hash.str(stringify!(r#time_id));
         crate::SemanticFrame::frame(&self.r#time_id, hash);
+        hash.str(stringify!(r#time_origin));
+        crate::SemanticFrame::frame(&self.r#time_origin, hash);
         hash.str(stringify!(r#states));
         crate::SemanticFrame::frame(&self.r#states, hash);
         hash.str(stringify!(r#parameters));
@@ -244,6 +249,7 @@ impl crate::HeapUsage for AuthoredDynamicCasesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#model_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#case_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time_origin))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#states))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameters))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outputs))

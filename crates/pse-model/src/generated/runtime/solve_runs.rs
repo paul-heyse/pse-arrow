@@ -20,17 +20,19 @@ pub struct RuntimeSolveRunsRow {
     ///case_id
     pub r#case_id: Option<pse_ids::SemanticId>,
     ///backend
-    pub r#backend: Option<String>,
+    pub r#backend: Option<crate::generated::enums::NativeBackend>,
     ///native_code
     pub r#native_code: Option<i64>,
     ///native_status
     pub r#native_status: Option<String>,
+    ///state
+    pub r#state: crate::generated::enums::NativeRunState,
     ///termination
-    pub r#termination: String,
+    pub r#termination: Option<crate::generated::enums::NativeTermination>,
     ///assurance
-    pub r#assurance: String,
-    ///candidate_present
-    pub r#candidate_present: bool,
+    pub r#assurance: crate::generated::enums::NativeAssurance,
+    ///candidate_kind
+    pub r#candidate_kind: Option<crate::generated::enums::NativeCandidateKind>,
     ///feasible
     pub r#feasible: Option<bool>,
     ///objective
@@ -58,12 +60,12 @@ impl crate::SemanticEq for RuntimeSolveRunsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#native_status,
                 &other.r#native_status,
-            )
+            ) && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
             && crate::SemanticEq::semantic_eq(&self.r#termination, &other.r#termination)
             && crate::SemanticEq::semantic_eq(&self.r#assurance, &other.r#assurance)
             && crate::SemanticEq::semantic_eq(
-                &self.r#candidate_present,
-                &other.r#candidate_present,
+                &self.r#candidate_kind,
+                &other.r#candidate_kind,
             ) && crate::SemanticEq::semantic_eq(&self.r#feasible, &other.r#feasible)
             && crate::SemanticEq::semantic_eq(&self.r#objective, &other.r#objective)
             && crate::SemanticEq::semantic_eq(
@@ -109,12 +111,14 @@ impl crate::SemanticFrame for RuntimeSolveRunsRow {
         crate::SemanticFrame::frame(&self.r#native_code, hash);
         hash.str(stringify!(r#native_status));
         crate::SemanticFrame::frame(&self.r#native_status, hash);
+        hash.str(stringify!(r#state));
+        crate::SemanticFrame::frame(&self.r#state, hash);
         hash.str(stringify!(r#termination));
         crate::SemanticFrame::frame(&self.r#termination, hash);
         hash.str(stringify!(r#assurance));
         crate::SemanticFrame::frame(&self.r#assurance, hash);
-        hash.str(stringify!(r#candidate_present));
-        crate::SemanticFrame::frame(&self.r#candidate_present, hash);
+        hash.str(stringify!(r#candidate_kind));
+        crate::SemanticFrame::frame(&self.r#candidate_kind, hash);
         hash.str(stringify!(r#feasible));
         crate::SemanticFrame::frame(&self.r#feasible, hash);
         hash.str(stringify!(r#objective));
@@ -142,9 +146,10 @@ impl crate::HeapUsage for RuntimeSolveRunsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#native_code))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#native_status))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#assurance))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#candidate_present))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#candidate_kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#feasible))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#objective))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#objective_sense))

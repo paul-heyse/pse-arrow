@@ -405,6 +405,8 @@ class AuthoredConnectionsRow:
     to_port_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     rule_template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     tear_cost: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    tear_policy: e.TearPolicy | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.TearPolicy)))
+    tear_group: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
@@ -438,6 +440,15 @@ class AuthoredDefaultScalingRow:
     property_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     index: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     scaling_factor: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredDirectionalValveLawsRow:
+    """Declared relation row or nested value."""
+
+    model_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    transition_width_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
 @attrs.frozen(kw_only=True)
@@ -525,6 +536,7 @@ class AuthoredDynamicCasesRow:
     model_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     case_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     time_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    time_origin: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     states: b.tuple[AuthoredDynamicCasesFieldStatesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredDynamicCasesFieldStatesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     parameters: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     outputs: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -573,6 +585,8 @@ class AuthoredFitCasesFieldObservationsItem:
     experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     output_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    time_basis: e.ObservationTimeBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ObservationTimeBasis)))
+    time_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     included: b.bool = attrs.field(validator=v.exact_type(b.bool))
     importance: b.float = attrs.field(validator=v.finite_float)
 
@@ -700,6 +714,14 @@ class AuthoredMethodSelectionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredModelCompositionsRow:
+    """Declared relation row or nested value."""
+
+    model_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    root_instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredNativeProvidersFieldInputsItem:
     """Declared relation row or nested value."""
 
@@ -729,18 +751,78 @@ class AuthoredNativeProvidersFieldEnvelope:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredNativeProvidersFieldComponentsItem:
+    """Declared relation row or nested value."""
+
+    species_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    pcsaft_cas: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    ideal_gas_cas: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredNativeProvidersFieldQuantityKinds:
+    """Declared relation row or nested value."""
+
+    temperature: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    density: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    fraction: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    pressure: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    enthalpy: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    entropy: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    ln_fugacity: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredNativeProvidersFieldData:
+    """Declared relation row or nested value."""
+
+    pcsaft: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    ideal_gas: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    binary: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    missing_interactions: e.MissingInteractionPolicy = attrs.field(validator=attrs.validators.instance_of(e.MissingInteractionPolicy))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredNativeProvidersRow:
     """Declared relation row or nested value."""
 
     model_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    material_system_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     inputs: b.tuple[AuthoredNativeProvidersFieldInputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredNativeProvidersFieldInputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     outputs: b.tuple[AuthoredNativeProvidersFieldOutputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredNativeProvidersFieldOutputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     envelope: AuthoredNativeProvidersFieldEnvelope = attrs.field(validator=attrs.validators.instance_of(AuthoredNativeProvidersFieldEnvelope))
-    caloric_reference: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    components: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    enthalpy_reference: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    entropy_reference: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    components: b.tuple[AuthoredNativeProvidersFieldComponentsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredNativeProvidersFieldComponentsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    dependent_species: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_kinds: AuthoredNativeProvidersFieldQuantityKinds = attrs.field(validator=attrs.validators.instance_of(AuthoredNativeProvidersFieldQuantityKinds))
+    data: AuthoredNativeProvidersFieldData = attrs.field(validator=attrs.validators.instance_of(AuthoredNativeProvidersFieldData))
+    formulation: e.ThermodynamicFormulation = attrs.field(validator=attrs.validators.instance_of(e.ThermodynamicFormulation))
+    stability: e.StabilityPolicy = attrs.field(validator=attrs.validators.instance_of(e.StabilityPolicy))
     output: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredNumericalRequirementsRow:
+    """Declared relation row or nested value."""
+
+    requirement_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    model_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    case_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.NumericalTarget = attrs.field(validator=attrs.validators.instance_of(e.NumericalTarget))
+    nominal: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    scaling_factor: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    absolute_tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    relative_tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    coordinates: e.NumericalCoordinates = attrs.field(validator=attrs.validators.instance_of(e.NumericalCoordinates))
+    priority: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
+    required: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
@@ -897,6 +979,7 @@ class AuthoredPhysicalBalancesFieldTermsItem:
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     role: e.BalanceRole = attrs.field(validator=attrs.validators.instance_of(e.BalanceRole))
+    multiplier: b.float = attrs.field(validator=v.finite_float)
     transfer_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     mode: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
     instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
@@ -942,6 +1025,51 @@ class AuthoredPropertyPackagesRow:
     include_enthalpy_of_formation: b.bool = attrs.field(validator=v.exact_type(b.bool))
     bubble_dew_method_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredProviderScalingBindingsRow:
+    """Declared relation row or nested value."""
+
+    binding_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    model_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    case_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    provider: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    output: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.NumericalTarget = attrs.field(validator=attrs.validators.instance_of(e.NumericalTarget))
+    property_package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    property_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredReactionApplicationsFieldSpeciesBalancesItem:
+    """Declared relation row or nested value."""
+
+    species_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    balance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredReactionApplicationsRow:
+    """Declared relation row or nested value."""
+
+    application_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    model_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    case_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    material_system_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    reaction_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    phase_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    rate_instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    rate_output: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    species_balances: b.tuple[AuthoredReactionApplicationsFieldSpeciesBalancesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredReactionApplicationsFieldSpeciesBalancesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    energy_balance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    heat_instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    heat_output: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    element_tolerance: b.float = attrs.field(validator=v.finite_float)
+    provenance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)

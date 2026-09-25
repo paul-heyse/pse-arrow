@@ -556,20 +556,20 @@ fn conditional_blocks_drop_objective_demands_and_reuse_pure_salsa_products() {
     let i = inputs();
     let mut w = CompilerWorkspace::new(i.clone(), WorkspaceLimits::default()).unwrap();
     let first = w
-        .prepare_initialization_blocks(id(9), Profile::default())
+        .prepare_initialization_blocks(id(9), Profile::default(), DerivativeOrder::First)
         .unwrap();
     assert_eq!(first.len(), 1);
     assert!(first[0].plan.structure().objective().is_none());
     assert_eq!(first[0].plan.demands()[0].outputs, vec![0]);
     let again = w
-        .prepare_initialization_blocks(id(9), Profile::default())
+        .prepare_initialization_blocks(id(9), Profile::default(), DerivativeOrder::First)
         .unwrap();
     assert!(Arc::ptr_eq(&first, &again));
     let mut next = i;
     next.values.insert(id(2), 42.0);
     w.publish(next).unwrap();
     let unchanged = w
-        .prepare_initialization_blocks(id(9), Profile::default())
+        .prepare_initialization_blocks(id(9), Profile::default(), DerivativeOrder::First)
         .unwrap();
     assert!(Arc::ptr_eq(&first, &unchanged));
 }
@@ -602,4 +602,47 @@ fn flow_membership_absence_and_isolated_nodes_are_tracked() {
     let next = w.prepare_flow(id(90)).unwrap();
     assert_eq!(next.components().len(), 2);
     assert_ne!(first.key(), next.key());
+}
+
+#[test]
+fn signed_zero_case_publication_matches_clean_coefficient_assumptions() {
+    let mut source = inputs();
+    source.values.insert(id(2), 0.0);
+    let mut workspace = CompilerWorkspace::new(source.clone(), WorkspaceLimits::default()).unwrap();
+    let positive = prepare(&mut workspace);
+    source.values.insert(id(2), -0.0);
+    assert_ne!(workspace.inputs, source);
+    workspace.publish(source.clone()).unwrap();
+    let negative = compare_clean(&mut workspace, &source);
+    assert_ne!(positive.coefficient_values, negative.coefficient_values);
+    assert_ne!(
+        positive.coefficients.unwrap().assumptions,
+        negative.coefficients.unwrap().assumptions
+    );
+    assert_eq!(positive.artifacts, negative.artifacts);
+}
+
+#[test]
+fn renamed_definition_reuses_body_with_current_source_provenance() {
+    let mut source = inputs();
+    let mut workspace = CompilerWorkspace::new(source.clone(), WorkspaceLimits::default()).unwrap();
+    let before = prepare(&mut workspace);
+    let definition = source.definitions.remove(&id(10)).unwrap();
+    source.definitions.insert(id(11), definition);
+    *source
+        .cases
+        .get_mut(&id(9))
+        .unwrap()
+        .definitions
+        .get_mut(&id(8))
+        .unwrap() = id(11);
+    workspace.publish(source.clone()).unwrap();
+    let after = compare_clean(&mut workspace, &source);
+    assert_eq!(before.artifacts, after.artifacts);
+    assert!(!after.occurrences.contains_key(&id(10)));
+    assert!(
+        after.occurrences[&id(11)]
+            .iter()
+            .all(|o| o.definition == id(11))
+    );
 }

@@ -90,6 +90,7 @@ impl Default for BodyLimits {
 
 /// A single specialization's typed construction context, never a model-wide graph.
 pub struct BodyBuilder<'a> {
+    context: &'a crate::SymbolicContext,
     registry: &'a QuantityRegistry,
     checker: &'a dyn InvariantChecker,
     limits: BodyLimits,
@@ -117,12 +118,12 @@ impl<'a> BodyBuilder<'a> {
     /// # Errors
     /// Zero/oversized limits or excessive input width.
     pub fn new(
+        context: &'a crate::SymbolicContext,
         registry: &'a QuantityRegistry,
         checker: &'a dyn InvariantChecker,
         inputs: usize,
         limits: BodyLimits,
     ) -> Result<Self, MathError> {
-        crate::initialize()?;
         if limits.slots == 0
             || limits.slots > library::MAX_FORMAL_SYMBOLS
             || inputs > limits.slots
@@ -132,6 +133,7 @@ impl<'a> BodyBuilder<'a> {
             return Err(MathError::Limit("body limits"));
         }
         Ok(Self {
+            context,
             registry,
             checker,
             limits,
@@ -150,11 +152,12 @@ impl<'a> BodyBuilder<'a> {
     /// # Errors
     /// Invalid resource bounds.
     pub fn type_checking(
+        context: &'a crate::SymbolicContext,
         registry: &'a QuantityRegistry,
         checker: &'a dyn InvariantChecker,
         limits: BodyLimits,
     ) -> Result<Self, MathError> {
-        let mut builder = Self::new(registry, checker, 1, limits)?;
+        let mut builder = Self::new(context, registry, checker, 1, limits)?;
         builder.physical_only = true;
         Ok(builder)
     }
@@ -268,7 +271,17 @@ impl<'a> BodyBuilder<'a> {
         }
         Ok(TypedValue {
             effects: BTreeSet::new(),
-            atom: Atom::num(canonical),
+            // Preserve integral authored facts in the same exact coefficient domain
+            // used by physical rational exponents. Other literals stay binary64;
+            // approximate decimals are never guessed to be rational numbers.
+            atom: if canonical.fract() == 0.0
+                && canonical >= f64::from(i16::MIN)
+                && canonical <= f64::from(i16::MAX)
+            {
+                Atom::num(canonical as i32)
+            } else {
+                Atom::num(canonical)
+            },
             quantity,
             indices,
             source,
@@ -356,7 +369,10 @@ impl<'a> BodyBuilder<'a> {
                 source,
             });
         }
-        if op == Binary::Div {
+        if op == Binary::Div
+            && !(matches!(right.atom.as_view(), symbolica::atom::AtomView::Num(_))
+                && !right.atom.is_zero())
+        {
             self.require(
                 &mut right,
                 Condition::Nonzero,
@@ -759,7 +775,7 @@ impl<'a> BodyBuilder<'a> {
     /// # Errors
     /// Invalid analysis resource bounds.
     pub fn physical_pass(&self) -> Result<BodyBuilder<'a>, MathError> {
-        Self::type_checking(self.registry, self.checker, self.limits)
+        Self::type_checking(self.context, self.registry, self.checker, self.limits)
     }
 
     /// Validate smoothness and available provider derivatives independently of value execution.

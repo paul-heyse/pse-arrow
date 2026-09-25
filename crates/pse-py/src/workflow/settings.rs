@@ -3,8 +3,7 @@
 //! Thin option projection; native adapters own validation and effective-option reporting.
 use super::invalid;
 use pse_backend_native::{
-    presolve::{Policy, Scaling},
-    quality::Tolerances,
+    presolve::Policy,
     solve::{
         Backend, Controls, HessianMode, OptionValue, Options, ReusePolicy, SolveIntent,
         SolverSelection,
@@ -16,8 +15,7 @@ use pyo3::{
     types::{PyBool, PyDict, PyFloat, PyInt, PyString},
 };
 use std::{collections::BTreeMap, time::Duration};
-/// Explicit physical tolerances and native common controls. Array order is the admitted
-/// case's canonical semantic-ID order, never source insertion order.
+/// ID-keyed numerical requirements and native algorithm controls.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct SolveSettings {
@@ -30,11 +28,10 @@ impl SolveSettings {
         clippy::too_many_arguments,
         reason = "mechanical keyword-only native controls"
     )]
-    #[pyo3(signature=(*,variable_tolerances,row_tolerances,intent="optimize",backend="auto",presolve="auto",presolve_options: "dict[str, bool | int | float | str] | None"=None,required_passes=None,time_limit: "float"=300.0,iterations: "int"=3000,tolerance: "float"=1e-8,threads: "int"=1,history: "int"=256,hessian="exact",reuse="fresh",integrality_tolerance: "float"=1e-8,options: "dict[str, bool | int | float | str] | None"=None,objective_scale=None,variable_scales=None,row_scales=None))]
+    #[pyo3(signature=(*,numerics: "dict[str, object] | None"=None,intent="optimize",backend="auto",presolve="auto",presolve_options: "dict[str, bool | int | float | str] | None"=None,required_passes=None,time_limit: "float"=300.0,iterations: "int"=3000,threads: "int"=1,history: "int"=256,hessian="exact",reuse="fresh",start="no_prior_start",options: "dict[str, bool | int | float | str] | None"=None,convexity_absolute=None,convexity_relative=None))]
     fn new(
         py: Python<'_>,
-        variable_tolerances: Vec<f64>,
-        row_tolerances: Vec<f64>,
+        numerics: Option<&Bound<'_, PyDict>>,
         intent: &str,
         backend: &str,
         presolve: &str,
@@ -42,16 +39,14 @@ impl SolveSettings {
         required_passes: Option<Vec<String>>,
         #[pyo3(from_py_with = crate::inspection::inputs::extract)] time_limit: f64,
         #[pyo3(from_py_with = crate::inspection::inputs::extract)] iterations: u32,
-        #[pyo3(from_py_with = crate::inspection::inputs::extract)] tolerance: f64,
         #[pyo3(from_py_with = crate::inspection::inputs::extract)] threads: usize,
         #[pyo3(from_py_with = crate::inspection::inputs::extract)] history: usize,
         hessian: &str,
         reuse: &str,
-        #[pyo3(from_py_with = crate::inspection::inputs::extract)] integrality_tolerance: f64,
+        start: &str,
         options: Option<&Bound<'_, PyDict>>,
-        objective_scale: Option<f64>,
-        variable_scales: Option<Vec<f64>>,
-        row_scales: Option<Vec<f64>>,
+        convexity_absolute: Option<f64>,
+        convexity_relative: Option<f64>,
     ) -> PyResult<Self> {
         let intent = match intent {
             "optimize" => SolveIntent::Optimize,
@@ -60,18 +55,13 @@ impl SolveSettings {
             "initialize" => SolveIntent::Initialize,
             _ => return Err(invalid(py, "unknown native solve intent")),
         };
-        let selection = match backend {
-            "auto" => SolverSelection::Auto,
-            "ipopt" => SolverSelection::Explicit(Backend::Ipopt),
-            "pounce" => SolverSelection::Explicit(Backend::Pounce),
-            "kinsol" => SolverSelection::Explicit(Backend::Kinsol),
-            "highs" => SolverSelection::Explicit(Backend::Highs),
-            _ => {
-                return Err(invalid(
-                    py,
-                    "unknown algebraic solver; cones require the conic representation",
-                ));
-            }
+        let selection = if backend == "auto" {
+            SolverSelection::Auto
+        } else {
+            let selected: Backend = backend
+                .parse()
+                .map_err(|_| invalid(py, "unknown native backend"))?;
+            SolverSelection::Explicit(selected)
         };
         let required = required_passes
             .unwrap_or_default()
@@ -121,49 +111,44 @@ impl SolveSettings {
         let controls = Controls {
             time_limit,
             iterations,
-            tolerance,
+            accuracy: Default::default(),
             threads,
             history,
             hessian,
             reuse,
+            start: start
+                .parse()
+                .map_err(|_| invalid(py, "unknown start policy"))?,
             options: native_options,
         };
         controls.validate().map_err(|e| errors(py, &e))?;
-        let tolerances = Tolerances {
-            variables: variable_tolerances,
-            rows: row_tolerances,
-            integrality: integrality_tolerance,
-        };
-        tolerances
-            .validate(tolerances.variables.len(), tolerances.rows.len())
-            .map_err(|e| errors(py, &e))?;
-        let scaling = match (objective_scale, variable_scales, row_scales) {
-            (None, None, None) => None,
-            (Some(objective), Some(variables), Some(constraints)) => Some(Scaling {
-                objective,
-                variables,
-                constraints,
-            }),
+        let numerics = numerical_policy(py, numerics)?;
+        let convexity = match (convexity_absolute, convexity_relative) {
+            (None, None) => pse_runtime::math::solves::ConvexityPolicy::Exact,
+            (Some(absolute), Some(relative))
+                if absolute.is_finite()
+                    && relative.is_finite()
+                    && absolute >= 0.0
+                    && relative >= 0.0 =>
+            {
+                pse_runtime::math::solves::ConvexityPolicy::Numerical { absolute, relative }
+            }
             _ => {
                 return Err(invalid(
                     py,
-                    "numerical scaling requires objective, variable and row scales together",
+                    "numerical convexity requires both finite nonnegative tolerances",
                 ));
             }
         };
-        if let Some(s) = &scaling {
-            s.validate(tolerances.variables.len(), tolerances.rows.len())
-                .map_err(|e| errors(py, &e))?;
-        }
         Ok(Self {
             profile: SolverProfile {
                 presolve,
-                scaling,
+                numerics,
+                convexity,
                 intent,
                 selection,
                 controls,
                 backend: BackendSettings::Default,
-                tolerances,
             },
         })
     }
@@ -192,4 +177,25 @@ fn options_from_py(py: Python<'_>, options: Option<&Bound<'_, PyDict>>) -> PyRes
         }
     }
     Ok(native_options)
+}
+
+pub(super) fn numerical_policy(
+    py: Python<'_>,
+    value: Option<&Bound<'_, PyDict>>,
+) -> PyResult<pse_model::numerics::NumericalPolicy> {
+    let policy = match value {
+        None => pse_model::numerics::NumericalPolicy::default(),
+        Some(value) => {
+            let json: String = py
+                .import("json")?
+                .call_method1("dumps", (value,))?
+                .extract()?;
+            if json.len() > 1 << 20 {
+                return Err(invalid(py, "numerical policy extent"));
+            }
+            serde_json::from_str(&json).map_err(|e| invalid(py, e.to_string()))?
+        }
+    };
+    policy.validate().map_err(|e| invalid(py, e.to_string()))?;
+    Ok(policy)
 }

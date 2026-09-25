@@ -26,6 +26,7 @@ fn fixture(domain: VariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
         unit: registry.quantity_type(quantity).unwrap().canonical_unit,
     };
     let mut builder = BodyBuilder::new(
+        pse_math::initialize().unwrap(),
         &registry,
         &StandardInvariantChecker,
         1,
@@ -94,6 +95,7 @@ fn fixture(domain: VariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
 }
 #[test]
 fn split_native_callbacks_and_equality_root_views() {
+    pse_math::initialize().unwrap();
     let (a, values) = fixture(VariableDomain::Continuous);
     let worker = a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
     let mut oracle = assembled::AlgebraicOracle::new(worker, values).unwrap();
@@ -113,6 +115,7 @@ fn split_native_callbacks_and_equality_root_views() {
 }
 #[test]
 fn integrality_is_explicit_and_continuous_oracles_reject_it() {
+    pse_math::initialize().unwrap();
     let (a, v) = fixture(VariableDomain::Integer);
     let c = a
         .coefficients(
@@ -135,6 +138,7 @@ fn integrality_is_explicit_and_continuous_oracles_reject_it() {
 }
 #[test]
 fn explicit_cones_validate_storage_dimensions_parameters_and_psd() {
+    pse_math::initialize().unwrap();
     let (a, _) = fixture(VariableDomain::Continuous);
     let q = faer::sparse::SparseColMat::try_new_from_triplets(
         1,

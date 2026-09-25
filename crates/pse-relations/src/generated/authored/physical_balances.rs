@@ -9,20 +9,20 @@ pub use pse_model::generated::r#authored::r#physical_balances::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    27u8, 62u8, 133u8, 206u8, 66u8, 207u8, 85u8, 122u8, 113u8, 227u8, 28u8, 62u8, 204u8,
-    156u8, 230u8, 179u8,
+    235u8, 209u8, 31u8, 55u8, 38u8, 111u8, 91u8, 183u8, 31u8, 239u8, 133u8, 140u8, 114u8,
+    103u8, 148u8, 134u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "physical_balances";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    158u8, 190u8, 163u8, 168u8, 182u8, 239u8, 251u8, 244u8, 33u8, 19u8, 67u8, 229u8,
-    106u8, 164u8, 4u8, 251u8, 33u8, 15u8, 137u8, 240u8, 122u8, 218u8, 160u8, 130u8, 62u8,
-    48u8, 125u8, 77u8, 120u8, 252u8, 109u8, 217u8,
+    111u8, 36u8, 9u8, 46u8, 152u8, 165u8, 60u8, 173u8, 61u8, 4u8, 35u8, 218u8, 179u8,
+    82u8, 24u8, 250u8, 33u8, 16u8, 50u8, 117u8, 21u8, 111u8, 216u8, 39u8, 217u8, 139u8,
+    131u8, 172u8, 233u8, 144u8, 93u8, 216u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredPhysicalBalancesFieldTermsItem {
     fn append(
@@ -39,15 +39,19 @@ impl crate::columnar::ArrowValue for AuthoredPhysicalBalancesFieldTermsItem {
         )?;
         crate::columnar::ArrowValue::append(&self.r#role, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#transfer_id,
+            &self.r#multiplier,
             children[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#mode, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#transfer_id,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#mode, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#instance_id,
-            children[4usize].as_mut(),
+            children[5usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#output, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#output, children[6usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -64,16 +68,17 @@ impl crate::columnar::ArrowValue for AuthoredPhysicalBalancesFieldTermsItem {
         <crate::generated::enums::BalanceRole as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
             pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
             i64,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
-            children[4usize].as_mut(),
+            children[5usize].as_mut(),
         )?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -92,24 +97,28 @@ impl crate::columnar::ArrowValue for AuthoredPhysicalBalancesFieldTermsItem {
                 input.column(1usize).as_ref(),
                 index,
             )?,
+            r#multiplier: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
             r#transfer_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(2usize).as_ref(),
+                input.column(3usize).as_ref(),
                 index,
             )?,
             r#mode: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
-                index,
-            )?,
-            r#instance_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#output: <i64 as crate::columnar::ArrowValue>::read(
+            r#instance_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#output: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
                 index,
             )?,
         })
@@ -411,10 +420,10 @@ impl crate::columnar::RelationRow for AuthoredPhysicalBalancesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        46_080_usize + size_of::<Self::Builder>()
+        48_128_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        360usize
+        376usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -484,6 +493,10 @@ impl crate::columnar::RelationRow for AuthoredPhysicalBalancesRow {
                                     8,
                                     ((item).r#role).as_str().len(),
                                 )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(8usize)?,
                             )?;
                             bytes = crate::columnar::allocation_add(
                                 bytes,

@@ -206,14 +206,41 @@ fn cancellation_and_step_budget_are_distinct() {
     assert_eq!(r.termination, Termination::StepLimit);
 }
 #[test]
-fn hybrid_sensitivities_and_invalid_native_controls_are_refused() {
+fn unsupported_recovery_and_invalid_native_controls_are_refused() {
     let t = Toy::new(false, true);
     let mut p = profile(false);
     p.sensitivities = true;
+    p.method = Method::Diffsol;
+    p.trial_failures = TrialPolicy::Recoverable;
     assert!(p.validate(&t.c, &[2.0]).is_err());
+    p.trial_failures = TrialPolicy::Terminal;
     p.sensitivities = false;
     Arc::get_mut(&mut p.native).unwrap().min_timestep = f64::NAN;
     assert!(p.validate(&t.c, &[2.0]).is_err());
+}
+#[test]
+fn unsupported_hybrid_sensitivity_profiles_fail_before_native_entry() {
+    let mut t = Toy::new(false, true);
+    let mut p = profile(false);
+    p.sensitivities = true;
+    t.c.events[0][0].terminal = true;
+    assert!(
+        p.validate(&t.c, &[2.0])
+            .unwrap_err()
+            .to_string()
+            .contains("terminal-event")
+    );
+    t.c.events[0][0].terminal = false;
+    p.method = Method::Idas;
+    assert!(p.validate(&t.c, &[2.0]).is_err());
+    t.c.events = vec![vec![]];
+    Arc::get_mut(&mut p.native).unwrap().min_timestep *= 2.0;
+    assert!(
+        p.validate(&t.c, &[2.0])
+            .unwrap_err()
+            .to_string()
+            .contains("Diffsol-specific")
+    );
 }
 #[test]
 fn complete_native_options_round_trip_and_affect_identity() {
@@ -301,4 +328,201 @@ fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
     }
     profile.out_rtol = None;
     assert!(profile.validate(&oracle.c, &[1.0]).is_err());
+}
+
+#[cfg(feature = "idas")]
+#[test]
+fn idas_consistent_dae_and_analytic_forward_sensitivities() {
+    for dae in [false, true] {
+        let mut toy = Toy::new(dae, false);
+        let mut p = profile(dae);
+        p.method = Method::Idas;
+        p.sensitivities = true;
+        let r = run(&mut toy, &p);
+        assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
+        assert_eq!(r.samples.len(), p.samples.len());
+        for s in &r.samples {
+            let y = 2.0 * (-2.0 * s.time).exp();
+            let dy = (1.0 - 2.0 * s.time) * (-2.0 * s.time).exp();
+            assert!((s.state[0] - y).abs() < 1e-6, "{s:?}");
+            assert!((s.output_sensitivities[0] - dy - 1.0).abs() < 1e-5, "{s:?}");
+            if dae {
+                assert!((s.state[1] - 2.0 * y).abs() < 1e-6);
+                assert!((s.state_sensitivities[1] - 2.0 * dy).abs() < 1e-5);
+            }
+        }
+    }
+}
+
+#[test]
+fn scheduled_changes_preserve_history_sensitivity_and_replace_direct_parameter_terms() {
+    let mut p = profile(false);
+    p.sensitivities = true;
+    p.changes = vec![InputChange {
+        time: 0.5,
+        parameters: vec![3.0],
+    }];
+    let r = run(&mut Toy::new(false, false), &p);
+    assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
+    for s in &r.samples {
+        let (y, dy, direct) = if s.time < 0.5 {
+            (
+                2.0 * (-2.0 * s.time).exp(),
+                (1.0 - 2.0 * s.time) * (-2.0 * s.time).exp(),
+                1.0,
+            )
+        } else {
+            (2.0 * (-1.0 - 3.0 * (s.time - 0.5)).exp(), 0.0, 0.0)
+        };
+        assert!((s.state[0] - y).abs() < 1e-6, "{s:?}");
+        assert!(
+            (s.output_sensitivities[0] - dy - direct).abs() < 1e-5,
+            "{s:?}"
+        );
+    }
+}
+#[derive(Debug)]
+struct ResetToy(Toy);
+impl Oracle for ResetToy {
+    fn contract(&self) -> &Contract {
+        self.0.contract()
+    }
+    fn support(&self, m: usize, f: Function) -> Vec<(usize, usize)> {
+        match f {
+            Function::Roots => {
+                if m == 0 {
+                    vec![(0, 0)]
+                } else {
+                    vec![]
+                }
+            }
+            Function::Reset(_) => vec![],
+            _ => self.0.support(m, f),
+        }
+    }
+    fn evaluate(
+        &mut self,
+        m: usize,
+        f: Function,
+        t: f64,
+        x: &[f64],
+        p: &[f64],
+        d: bool,
+    ) -> Result<Evaluation, ProblemError> {
+        if matches!(f, Function::Roots | Function::Reset(_)) {
+            let values = if f == Function::Roots {
+                if m == 0 { vec![x[0] - 1.0] } else { vec![] }
+            } else {
+                (0..x.len())
+                    .map(|i| if i == 0 { 3.0 } else { 0.0 })
+                    .collect()
+            };
+            let pairs = if f == Function::Roots && m == 0 {
+                vec![faer::sparse::Triplet::new(0, 0, 1.0)]
+            } else {
+                vec![]
+            };
+            let jacobian = d.then(|| {
+                faer::sparse::SparseColMat::try_new_from_triplets(
+                    values.len(),
+                    x.len() + p.len(),
+                    &pairs,
+                )
+                .unwrap()
+            });
+            Ok(Evaluation { values, jacobian })
+        } else {
+            self.0.evaluate(m, f, t, x, p, d)
+        }
+    }
+}
+#[test]
+fn state_triggered_reset_sensitivity_includes_moving_event_and_dae_consistency() {
+    for dae in [false, true] {
+        let mut p = profile(dae);
+        p.sensitivities = true;
+        p.samples = vec![0.0, 1.0];
+        let mut toy = ResetToy(Toy::new(dae, true));
+        let r = integrate(&mut toy, &p, &[2.0], Arc::default()).unwrap();
+        assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
+        let last = r.samples.last().unwrap();
+        assert!(
+            (last.state[0] - 6.0 * (-2.0f64).exp()).abs() < 1e-5,
+            "{last:?}"
+        );
+        assert!(
+            (last.output_sensitivities[0] - (1.0 - 3.0 * (-2.0f64).exp())).abs() < 1e-4,
+            "{last:?}"
+        );
+        if dae {
+            assert!(
+                (last.state_sensitivities[1] + 6.0 * (-2.0f64).exp()).abs() < 1e-4,
+                "{last:?}"
+            );
+        }
+    }
+}
+#[cfg(feature = "idas")]
+#[derive(Debug)]
+struct TrialToy {
+    toy: Toy,
+    rejected: bool,
+}
+#[cfg(feature = "idas")]
+impl Oracle for TrialToy {
+    fn contract(&self) -> &Contract {
+        self.toy.contract()
+    }
+    fn support(&self, m: usize, f: Function) -> Vec<(usize, usize)> {
+        self.toy.support(m, f)
+    }
+    fn evaluate(
+        &mut self,
+        m: usize,
+        f: Function,
+        t: f64,
+        x: &[f64],
+        p: &[f64],
+        d: bool,
+    ) -> Result<Evaluation, ProblemError> {
+        if f == Function::Rhs && t > 0.01 && !self.rejected {
+            self.rejected = true;
+            return Err(pse_math::MathError::Domain {
+                source_id: id(9),
+                requirement: "intentional recoverable trial",
+            }
+            .into());
+        }
+        self.toy.evaluate(m, f, t, x, p, d)
+    }
+}
+#[cfg(feature = "idas")]
+#[test]
+fn idas_recovers_typed_trial_and_terminal_policy_stops() {
+    for policy in [TrialPolicy::Recoverable, TrialPolicy::Terminal] {
+        let mut p = profile(false);
+        p.method = Method::Idas;
+        p.trial_failures = policy;
+        let mut toy = TrialToy {
+            toy: Toy::new(false, false),
+            rejected: false,
+        };
+        let r = integrate(&mut toy, &p, &[2.0], Arc::default()).unwrap();
+        assert!(toy.rejected);
+        assert_eq!(
+            r.termination,
+            if policy == TrialPolicy::Recoverable {
+                Termination::Completed
+            } else {
+                Termination::Failed
+            },
+            "{:?}",
+            r.error
+        );
+        assert!(
+            r.progress
+                .iter()
+                .any(|e| e.phase == "idas.evaluation.failure")
+        );
+    }
 }

@@ -1,0 +1,13 @@
+{
+  "invariant": "authored.directional_valve_laws:unique:pk",
+  "rows": {
+    "authored.directional_valve_laws": [
+      {
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "transition_width_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

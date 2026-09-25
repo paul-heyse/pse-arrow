@@ -1907,7 +1907,7 @@
       "quantity_type_id": "cb905230d9dd566381859e5cb4905d71",
       "quantity_kind_id": "e8c45e3669245b82a965af465cf2e8db",
       "basis_id": "10c73313d89e5e04b745bb126a9213a1",
-      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "reference_state_id": "4fe08189a9f85cf4b66e9f2e33f9d556",
       "scale_kind": "point",
       "shape": [],
       "subject_kind": null,
@@ -1919,7 +1919,7 @@
       "quantity_type_id": "a6f3f15cdff75d4b942ebc2c639ffca0",
       "quantity_kind_id": "e8c45e3669245b82a965af465cf2e8db",
       "basis_id": "10c73313d89e5e04b745bb126a9213a1",
-      "reference_state_id": "ef3687c693e5526abbabb3026b53ed1e",
+      "reference_state_id": "4fe08189a9f85cf4b66e9f2e33f9d556",
       "scale_kind": "difference",
       "shape": [],
       "subject_kind": null,
@@ -2066,6 +2066,15 @@
       "include_enthalpy_of_formation": false,
       "phase_id": null,
       "doc": "DIPPR100 integral origin."
+    },
+    {
+      "reference_state_id": "4fe08189a9f85cf4b66e9f2e33f9d556",
+      "kind": "custom",
+      "temperature": 298.15,
+      "pressure": 100000.0,
+      "include_enthalpy_of_formation": false,
+      "phase_id": null,
+      "doc": "DIPPR ideal-gas entropy origin at 298.15 K and 1 bar."
     }
   ],
   "bases": [
@@ -2218,6 +2227,33 @@
       "precondition_invariant_ids": [
         "9df462b110635270bdd29fe38f54fd5a",
         "15faa2ecb9095c068b720a918fe77581"
+      ]
+    },
+    {
+      "operation_id": "96821afeb1a5591c9d8915c21c8c00ba",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "15cdc8a7bc455437a891b4f4bed57f69",
+        "15cdc8a7bc455437a891b4f4bed57f69"
+      ],
+      "result_kind_id": "15151515151515151515151515151515",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "1835b03413ad5aff80546df9f63bf4ea",
+        "b6b83d1a06435ad7aff1398550c411ee"
       ]
     },
     {
@@ -2420,6 +2456,26 @@
       ],
       "required_basis_id": null,
       "required_quantity_type_id": "b49a0967029d5fb2b2346dd05f138d81",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "1835b03413ad5aff80546df9f63bf4ea",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
+      "match_shape": true
+    },
+    {
+      "invariant_id": "b6b83d1a06435ad7aff1398550c411ee",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
       "match_shape": true
     },
     {

@@ -1,0 +1,24 @@
+{
+  "invariant": "authored.reaction_applications:unique:pk",
+  "rows": {
+    "authored.reaction_applications": [
+      {
+        "application_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "element_tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "energy_balance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "heat_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "heat_output": "[\"i64\",1]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "provenance": "[\"text\",\"value-1\"]",
+        "rate_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rate_output": "[\"i64\",1]",
+        "reaction_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_balances": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

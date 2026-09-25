@@ -26,6 +26,8 @@ struct Shared<'o> {
     mode: Cell<usize>,
     integrals: RefCell<Vec<f64>>,
     seed: RefCell<Option<Vec<f64>>>,
+    seed_sens: RefCell<Option<Vec<V>>>,
+    parameter_active: Cell<bool>,
     failure: RefCell<Option<(Termination, ProblemError)>>,
     cancel: Cancellation,
     deadline: Instant,
@@ -50,18 +52,24 @@ impl Shared<'_> {
         }
     }
     fn evaluate(&self, f: Function, t: f64, x: &[f64], derivative: bool) -> Evaluation {
+        self.evaluate_mode(self.mode.get(), f, t, x, derivative)
+    }
+    fn evaluate_mode(
+        &self,
+        mode: usize,
+        f: Function,
+        t: f64,
+        x: &[f64],
+        derivative: bool,
+    ) -> Evaluation {
         self.check();
-        let result = self.oracle.borrow_mut().evaluate(
-            self.mode.get(),
-            f,
-            t,
-            x,
-            &self.parameters.borrow(),
-            derivative,
-        );
+        let result =
+            self.oracle
+                .borrow_mut()
+                .evaluate(mode, f, t, x, &self.parameters.borrow(), derivative);
         match result {
             Ok(v) => {
-                let n = self.nout(f);
+                let n = self.nout_mode(mode, f);
                 if v.values.len() != n
                     || v.values.iter().any(|x| !x.is_finite())
                     || derivative
@@ -82,11 +90,11 @@ impl Shared<'_> {
             Err(e) => self.abort(Termination::Failed, e),
         }
     }
-    fn nout(&self, f: Function) -> usize {
+    fn nout_mode(&self, mode: usize, f: Function) -> usize {
         match f {
             Function::BalanceFlux => self.contract.balances.len(),
             Function::Output => self.contract.outputs.len(),
-            Function::Roots => self.contract.events[self.mode.get()].len(),
+            Function::Roots => self.contract.events[mode].len(),
             _ => self.contract.states.len(),
         }
     }
@@ -95,15 +103,27 @@ impl Shared<'_> {
 struct Operator<'o> {
     shared: Rc<Shared<'o>>,
     function: Function,
+    mode: usize,
     state_pattern: Pattern,
     parameter_pattern: Pattern,
 }
 impl<'o> Operator<'o> {
     fn new(shared: Rc<Shared<'o>>, function: Function) -> Result<Self, ProblemError> {
+        let mode = shared.mode.get();
+        Self::for_mode(shared, function, mode)
+    }
+    fn for_mode(
+        shared: Rc<Shared<'o>>,
+        function: Function,
+        mode: usize,
+    ) -> Result<Self, ProblemError> {
         let n = shared.contract.states.len();
         let np = shared.contract.parameters.len();
-        let m = shared.nout(function);
-        let pairs = shared.oracle.borrow().support(shared.mode.get(), function);
+        let m = shared.nout_mode(mode, function);
+        let mut pairs = shared.oracle.borrow().support(mode, function);
+        if function == Function::Initial {
+            pairs.extend((0..n).flat_map(|r| (n..n + np).map(move |c| (r, c))));
+        }
         if pairs.iter().any(|&(r, c)| r >= m || c >= n + np) {
             return Err(contract("dynamic support bounds"));
         }
@@ -129,10 +149,13 @@ impl<'o> Operator<'o> {
             parameter_pattern: pattern(true)?,
             shared,
             function,
+            mode,
         })
     }
     fn partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
-        let result = self.shared.evaluate(self.function, t, x.as_slice(), true);
+        let result = self
+            .shared
+            .evaluate_mode(self.mode, self.function, t, x.as_slice(), true);
         let Some(j) = result.jacobian else {
             self.shared
                 .abort(Termination::Failed, contract("missing dynamic partials"));
@@ -143,7 +166,11 @@ impl<'o> Operator<'o> {
             let rows = target.symbolic().row_idx()[target.col_range(c)].to_vec();
             let start = target.col_range(c).start;
             for (k, r) in rows.into_iter().enumerate() {
-                target.val_mut()[start + k] = j.get(r, c + offset).copied().unwrap_or(0.0);
+                target.val_mut()[start + k] = if parameter && !self.shared.parameter_active.get() {
+                    0.0
+                } else {
+                    j.get(r, c + offset).copied().unwrap_or(0.0)
+                };
             }
         }
     }
@@ -178,7 +205,7 @@ impl Op for Operator<'_> {
         self.shared.contract.parameters.len()
     }
     fn nout(&self) -> usize {
-        self.shared.nout(self.function)
+        self.shared.nout_mode(self.mode, self.function)
     }
 }
 impl NonLinearOp for Operator<'_> {
@@ -186,7 +213,7 @@ impl NonLinearOp for Operator<'_> {
         y.as_mut_slice().copy_from_slice(
             &self
                 .shared
-                .evaluate(self.function, t, x.as_slice(), false)
+                .evaluate_mode(self.mode, self.function, t, x.as_slice(), false)
                 .values,
         );
     }
@@ -226,6 +253,12 @@ impl ConstantOp for Operator<'_> {
 }
 impl ConstantOpSens for Operator<'_> {
     fn sens_mul_inplace(&self, t: f64, v: &V, y: &mut V) {
+        if let Some(seed) = self.shared.seed_sens.borrow().as_ref() {
+            for i in 0..self.nstates() {
+                y[i] = seed.iter().enumerate().map(|(j, s)| s[i] * v[j]).sum();
+            }
+            return;
+        }
         self.product(
             &V::zeros(self.nstates(), self.shared.context),
             t,
@@ -235,6 +268,17 @@ impl ConstantOpSens for Operator<'_> {
         );
     }
     fn sens_inplace(&self, t: f64, y: &mut M) {
+        if let Some(seed) = self.shared.seed_sens.borrow().as_ref() {
+            let target = y.inner_mut();
+            for (c, col) in seed.iter().enumerate() {
+                let rows = target.symbolic().row_idx()[target.col_range(c)].to_vec();
+                let start = target.col_range(c).start;
+                for (k, r) in rows.into_iter().enumerate() {
+                    target.val_mut()[start + k] = col[r];
+                }
+            }
+            return;
+        }
         self.partials(&V::zeros(self.nstates(), self.shared.context), t, y, true);
     }
     fn sens_sparsity(&self) -> Option<Pattern> {
@@ -279,6 +323,7 @@ struct Equation<'o> {
     out: Operator<'o>,
     root: Operator<'o>,
     mass: Mass<'o>,
+    reset: Option<Operator<'o>>,
 }
 impl Op for Equation<'_> {
     type T = f64;
@@ -319,6 +364,9 @@ impl<'o> OdeEquations for Equation<'o> {
     fn root(&self) -> Option<Operator<'o>> {
         (self.root.nout() > 0).then(|| self.root.clone())
     }
+    fn reset(&self) -> Option<Operator<'o>> {
+        self.reset.clone()
+    }
     fn mass(&self) -> Option<Mass<'o>> {
         self.mass
             .0
@@ -339,23 +387,8 @@ fn native(error: diffsol::DiffsolError) -> ProblemError {
     pse_math::MathError::Library(error.to_string()).into()
 }
 
-/// Integrate one admitted attempt. The returned report owns only completed outputs.
-pub fn integrate(
-    oracle: &mut dyn Oracle,
-    profile: &Profile,
-    parameters: &[f64],
-    cancel: Cancellation,
-) -> Result<Report, ProblemError> {
-    integrate_with_progress(
-        oracle,
-        profile,
-        parameters,
-        cancel,
-        Arc::new(crate::solve::Progress::new(256)),
-    )
-}
 /// Same owned integration using the caller's bounded progress source.
-pub fn integrate_with_progress(
+pub(super) fn integrate_with_progress(
     oracle: &mut dyn Oracle,
     profile: &Profile,
     parameters: &[f64],
@@ -371,6 +404,8 @@ pub fn integrate_with_progress(
         integrals: RefCell::new(vec![0.0; contract_value.balances.len()]),
         mode: Cell::new(0),
         seed: RefCell::new(None),
+        seed_sens: RefCell::new(None),
+        parameter_active: Cell::new(true),
         failure: RefCell::new(None),
         cancel,
         deadline: Instant::now()
@@ -429,6 +464,7 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
             )?,
             root: Operator::new(shared.clone(), Function::Roots)?,
             mass: Mass(shared.clone()),
+            reset: None,
         };
         let params = shared.parameters.borrow().clone();
         let mut builder = OdeBuilder::<M>::new()
@@ -472,10 +508,26 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
                 serde_json::to_value(solver.get_statistics())
                     .map_err(|e| contract(&e.to_string()))?,
             );
-            match attempt {
+            if let Some(statistics) = r
+                .statistics
+                .last_mut()
+                .and_then(serde_json::Value::as_object_mut)
+            {
+                statistics.insert("sensitivity_partials".into(), serde_json::json!({"state":"analytic", "parameter":"analytic", "event_time":"Diffsol finite-difference root/reset time partials", "reset":"Diffsol event-time correction and consistent mass reset"}));
+            }
+            let result = match attempt {
                 Ok(result) => result?,
                 Err(payload) => resume_unwind(payload),
+            };
+            if let Some(index) = result.0 {
+                let event = &shared.contract.events[shared.mode.get()][index];
+                if !event.terminal {
+                    reset_sens(&shared, &mut solver, p, index)?;
+                    *shared.seed.borrow_mut() = Some(solver.state().y.as_slice().to_vec());
+                }
             }
+            *shared.seed_sens.borrow_mut() = Some(solver.state().s.to_vec());
+            result
         } else {
             let mut solver = problem.bdf::<FaerSparseLU<f64>>().map_err(native)?;
             record_start(&shared, &solver, p, r, time)?;
@@ -545,11 +597,14 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
                 r.termination = Termination::Event;
                 return Ok(());
             }
-            let reset = shared
-                .evaluate(Function::Reset(index), time, &state, false)
-                .values;
+            if !p.sensitivities {
+                *shared.seed.borrow_mut() = Some(
+                    shared
+                        .evaluate(Function::Reset(index), time, &state, false)
+                        .values,
+                );
+            }
             shared.mode.set(e.next_mode);
-            *shared.seed.borrow_mut() = Some(reset);
         } else {
             *shared.seed.borrow_mut() = Some(state);
         }
@@ -567,6 +622,7 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
                 after: None,
             });
             *shared.parameters.borrow_mut() = p.changes[change].parameters.clone();
+            shared.parameter_active.set(false);
             change += 1;
         }
         if time >= p.end && event.is_none() && !changed {
@@ -574,6 +630,90 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
             return Ok(());
         }
     }
+}
+// The transition equation combines pre-event root/reset derivatives with post-event rates.
+// Diffsol owns the saltation and mass-matrix consistency operations.
+fn reset_sens<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
+    shared: &Rc<Shared<'o>>,
+    solver: &mut S,
+    p: &Profile,
+    index: usize,
+) -> Result<(), ProblemError> {
+    let mode = shared.mode.get();
+    let event = &shared.contract.events[mode][index];
+    let state = solver.state();
+    let roots = shared.evaluate(Function::Roots, state.t, state.y.as_slice(), true);
+    if roots
+        .values
+        .iter()
+        .zip(&shared.contract.events[mode])
+        .filter(|(g, e)| g.abs() <= e.tolerance)
+        .count()
+        != 1
+    {
+        return Err(contract("ambiguous simultaneous sensitivity events"));
+    }
+    if p.samples
+        .iter()
+        .any(|t| (*t - state.t).abs() <= 8.0 * f64::EPSILON * (1.0 + state.t.abs()))
+    {
+        let j = roots
+            .jacobian
+            .ok_or_else(|| contract("missing root derivatives"))?;
+        for (k, s) in state.s.iter().enumerate() {
+            let moving = (0..state.y.len())
+                .map(|i| j.get(index, i).copied().unwrap_or(0.0) * s[i])
+                .sum::<f64>()
+                + if shared.parameter_active.get() {
+                    j.get(index, state.y.len() + k).copied().unwrap_or(0.0)
+                } else {
+                    0.0
+                };
+            if moving.abs() > 100.0 * f64::EPSILON {
+                return Err(contract(
+                    "fixed-time observation coincides with a parameter-dependent jump",
+                ));
+            }
+        }
+    }
+    let eq = Equation {
+        rhs: Operator::for_mode(shared.clone(), Function::Rhs, event.next_mode)?,
+        root: Operator::for_mode(shared.clone(), Function::Roots, mode)?,
+        reset: Some(Operator::for_mode(
+            shared.clone(),
+            Function::Reset(index),
+            mode,
+        )?),
+        init: Operator::for_mode(shared.clone(), Function::Initial, mode)?,
+        out: Operator::for_mode(shared.clone(), Function::Output, event.next_mode)?,
+        mass: Mass(shared.clone()),
+    };
+    let parameters = shared.parameters.borrow().clone();
+    let mut transition = OdeBuilder::<M>::new()
+        .context(shared.context)
+        .t0(state.t)
+        .h0(p.initial_step)
+        .rtol(p.rtol)
+        .atol(p.atol.clone())
+        .sens_rtol(p.rtol)
+        .sens_atol(p.atol.clone())
+        .p(parameters)
+        .param_scales(p.parameter_scales.clone())
+        .build_from_eqn(eq)
+        .map_err(native)?;
+    transition.ic_options = copy_initial(&p.initialization);
+    if shared.contract.differential.contains(&false) {
+        solver
+            .state_mut()
+            .apply_reset_with_sens_mass::<FaerSparseLU<f64>, _>(&transition, index)
+            .map_err(native)?;
+    } else {
+        solver
+            .state_mut()
+            .apply_reset_with_sens(&transition, index)
+            .map_err(native)?;
+    }
+    Ok(())
 }
 fn record_start<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     shared: &Rc<Shared<'o>>,
@@ -706,7 +846,7 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             if i < n {
                 states[(i, j)]
             } else {
-                f64::from(i - n == j)
+                f64::from(shared.parameter_active.get() && i - n == j)
             }
         });
         let mut result = faer::Mat::zeros(jac.nrows(), chain.ncols());

@@ -19,6 +19,7 @@ workspace = true
 [dependencies]
 pse-ids.workspace = true
 pse-quantity.workspace = true
+pse-model.workspace = true
 pse-diagnostics.workspace = true
 thiserror.workspace = true
 miette.workspace = true

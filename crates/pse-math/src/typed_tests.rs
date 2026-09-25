@@ -20,8 +20,10 @@ fn source() -> SemanticId {
 
 #[test]
 fn physical_point_subtraction_precedes_normalization() {
+    crate::initialize().unwrap();
     let registry = standard_registry().unwrap();
     let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
         &registry,
         &StandardInvariantChecker,
         2,
@@ -78,8 +80,10 @@ fn physical_point_subtraction_precedes_normalization() {
 
 #[test]
 fn nested_domain_dependencies_execute_before_division_and_log() {
+    crate::initialize().unwrap();
     let registry = standard_registry().unwrap();
     let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
         &registry,
         &StandardInvariantChecker,
         2,
@@ -129,6 +133,7 @@ fn nested_domain_dependencies_execute_before_division_and_log() {
 
 #[test]
 fn datum_mismatch_is_not_a_representation_conversion() {
+    crate::initialize().unwrap();
     let registry = standard_registry().unwrap();
     let absolute = Port {
         id: source(),
@@ -144,6 +149,7 @@ fn datum_mismatch_is_not_a_representation_conversion() {
 
 #[test]
 fn semantic_domains_reject_duplicates_and_preserve_empty_sets() {
+    crate::initialize().unwrap();
     let a = SemanticId::from_bytes([1; 16]);
     let b = SemanticId::from_bytes([2; 16]);
     assert!(FiniteDomain::new(a, vec![a, a], 2).is_err());
@@ -162,6 +168,7 @@ fn semantic_domains_reject_duplicates_and_preserve_empty_sets() {
 
 #[test]
 fn body_identity_tracks_semantics_not_symbol_registration_or_values() {
+    crate::initialize().unwrap();
     let h = ContentHash::from_bytes([1; 32]);
     let spec = BodySpec {
         definition: h,
@@ -183,6 +190,7 @@ fn body_identity_tracks_semantics_not_symbol_registration_or_values() {
 
 #[test]
 fn aliases_and_affine_unit_bindings_preserve_body_reuse() {
+    crate::initialize().unwrap();
     let registry = standard_registry().unwrap();
     let quantity = ids::quantity("temperature.point");
     let source_port = Port {
@@ -268,6 +276,7 @@ fn aliases_and_affine_unit_bindings_preserve_body_reuse() {
 
 #[test]
 fn connection_equation_binds_distinct_units_before_point_subtraction() {
+    crate::initialize().unwrap();
     let registry = standard_registry().unwrap();
     let quantity = ids::quantity("temperature.point");
     let hot = Port {
@@ -295,6 +304,7 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
         }],
     };
     let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
         &registry,
         &StandardInvariantChecker,
         2,
@@ -349,8 +359,10 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
 
 #[test]
 fn integral_power_growth_is_bounded_before_cas_construction() {
+    crate::initialize().unwrap();
     let registry = standard_registry().unwrap();
     let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
         &registry,
         &StandardInvariantChecker,
         2,
@@ -368,4 +380,124 @@ fn integral_power_growth_is_bounded_before_cas_construction() {
         builder.binary(Binary::Pow, a, b, Some(exponent), source()),
         Err(crate::MathError::Limit("integral power degree"))
     ));
+}
+
+#[test]
+fn symbolic_context_registers_complete_vocabulary_before_concurrent_jobs() {
+    let context = crate::initialize().unwrap();
+    assert!(!context.environment.gmp.is_empty());
+    assert!(!context.environment.mpfr.is_empty());
+    let identity = context.environment.identity();
+    let jobs: Vec<_> = [false, true]
+        .into_iter()
+        .map(|reverse| {
+            std::thread::spawn(move || {
+                let slots: Vec<_> = if reverse {
+                    vec![4095, 0, 1]
+                } else {
+                    vec![0, 1, 4095]
+                };
+                let mut symbols = BTreeMap::new();
+                for slot in slots {
+                    symbols.insert(slot, crate::library::formal(slot).unwrap());
+                }
+                symbols
+            })
+        })
+        .collect();
+    let results: Vec<_> = jobs.into_iter().map(|job| job.join().unwrap()).collect();
+    assert_eq!(results[0], results[1]);
+    assert_eq!(identity, crate::context().unwrap().environment.identity());
+    assert!(crate::library::formal(crate::library::MAX_FORMAL_SYMBOLS).is_err());
+}
+
+#[test]
+fn symbolic_order_child() {
+    let Ok(order) = std::env::var("PSE_SYMBOLIC_TEST_ORDER") else {
+        return;
+    };
+    let context = crate::initialize().unwrap();
+    let registry = standard_registry().unwrap();
+    let mut outcomes = BTreeMap::new();
+    for n in if order == "reverse" {
+        vec![3, 2]
+    } else {
+        vec![2, 3]
+    } {
+        let mut builder = BodyBuilder::new(
+            context,
+            &registry,
+            &StandardInvariantChecker,
+            1,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let x = builder
+            .input(0, ids::quantity("neutral"), IndexSet::new(), source())
+            .unwrap();
+        let mut y = x.clone();
+        for _ in 1..n {
+            y = builder
+                .binary(Binary::Mul, y, x.clone(), None, source())
+                .unwrap();
+        }
+        let body = builder.prepare(&[y]).unwrap();
+        let compiled = body
+            .compile(
+                &[0],
+                &[0],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                Default::default(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        let jet = compiled
+            .worker()
+            .evaluate(
+                &[2.0],
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        outcomes.insert(
+            n,
+            (
+                body.expression(0).unwrap().to_string(),
+                jet.values,
+                jet.jacobian,
+                jet.hessians,
+            ),
+        );
+    }
+    println!(
+        "SYMBOLIC_CONTROL:{}",
+        serde_json::to_string(&outcomes).unwrap()
+    );
+}
+#[test]
+fn symbolic_admission_order_agrees_across_fresh_processes() {
+    let run = |order| {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "typed_tests::symbolic_order_child",
+                "--nocapture",
+            ])
+            .env("PSE_SYMBOLIC_TEST_ORDER", order)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .lines()
+            .find_map(|s| s.strip_prefix("SYMBOLIC_CONTROL:").map(str::to_owned))
+            .unwrap()
+    };
+    assert_eq!(run("forward"), run("reverse"));
 }

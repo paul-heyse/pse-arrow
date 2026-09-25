@@ -461,6 +461,14 @@ impl CasePlan {
         &self.columns
     }
     /// Compiled derivative ceiling.
+    pub fn available_order(&self) -> DerivativeOrder {
+        self.requests
+            .iter()
+            .map(|r| self.bodies[&r.body].available_order_for(&r.coordinates))
+            .min()
+            .unwrap_or(DerivativeOrder::Second)
+    }
+    /// Derivative order requested in the prepared artifact demands.
     pub fn order(&self) -> DerivativeOrder {
         self.order
     }

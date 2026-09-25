@@ -7,6 +7,9 @@ use crate::workflow::{
     tests::{compiler_profile, id, physical, runtime},
 };
 pub(in crate::workflow) fn source() -> ModelBuilder {
+    source_with_runtime(runtime())
+}
+pub(in crate::workflow) fn source_with_runtime(runtime: crate::workflow::Runtime) -> ModelBuilder {
     use pse_quantity::*;
     let mut physical = physical();
     let q = physical.quantities.as_ref();
@@ -69,7 +72,7 @@ pub(in crate::workflow) fn source() -> ModelBuilder {
     let definitions=[("rate","parameter",neutral.id),("initial","initial",time.id),("output","state + time",time.id)].into_iter().enumerate().map(|(i,(_,expr,_))|serde_json::json!({"definition_id":id(10+i as u8),"sources":[expr],"formals":ports.iter().zip(["state","time","parameter","initial"]).map(|((_,q,_),path)|serde_json::json!({"path":path,"quantity_id":q.as_id()})).collect::<Vec<_>>(),"domains":[],"groups":[],"providers":[],"units":[],"literals":[]})).collect::<Vec<_>>();
     let slots=ports.iter().map(|(s,q,_)|serde_json::json!({"source_id":s,"formal_quantity_id":q.as_id(),"formal_unit_id":physical.quantities.quantity_type(*q).unwrap().canonical_unit.as_id()})).collect::<Vec<_>>();
     let row:crate::workflow::ModelDeclaration=serde_json::from_value(serde_json::json!({"model_id":id(20),"name":"unit-coordinate control","domains":[],"groups":[],"definitions":definitions,"cases":[{"case_id":id(5),"name":"functions","variables":[{"port":{"symbol_id":id(1),"quantity_id":time.id.as_id(),"unit_id":minute.id.as_id()},"fixed":false,"domain":"continuous","lower":null,"upper":null}],"parameters":ports[1..].iter().map(|(s,q,u)|serde_json::json!({"symbol_id":s,"quantity_id":q.as_id(),"unit_id":u.as_id()})).collect::<Vec<_>>(),"instances":(0..3).map(|i|serde_json::json!({"instance_id":id(30+i),"definition_id":id(10+i),"slots":slots,"contributions":[{"output":0,"row_id":id(40+i),"scale":1.0}]})).collect::<Vec<_>>(),"rows":[{"row_id":id(40),"quantity_id":neutral.id.as_id(),"lower":null,"upper":null},{"row_id":id(41),"quantity_id":time.id.as_id(),"lower":null,"upper":null},{"row_id":id(42),"quantity_id":time.id.as_id(),"lower":null,"upper":null}],"objective":null,"values":[{"symbol_id":id(1),"value":0.0},{"symbol_id":id(2),"value":0.0},{"symbol_id":id(3),"value":2.0},{"symbol_id":id(4),"value":10.0}]}]})).unwrap();
-    let mut b = ModelBuilder::from_declaration(runtime(), row, physical);
+    let mut b = ModelBuilder::from_declaration(runtime, row, physical);
     b.dynamics(serde_json::from_value(serde_json::json!({"dynamic_id":id(50),"model_id":id(20),"case_id":id(5),"time_id":id(2),"states":[{"symbol_id":id(1),"differential":true,"initial_row":id(41),"offset":10.0,"scale":2.0,"residual_scale":1.0}],"parameters":[id(3)],"outputs":[id(42)],"modes":[{"rhs_rows":[id(40)],"events":[]}]})).unwrap());
     b
 }

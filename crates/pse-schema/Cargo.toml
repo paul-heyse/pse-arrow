@@ -17,7 +17,6 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-pse-math.workspace = true
 pse-columnar.workspace = true
 arrow-array.workspace = true
 arrow-buffer.workspace = true

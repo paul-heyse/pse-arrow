@@ -1,0 +1,22 @@
+{
+  "invariant": "runtime.resolved_numerics:unique:pk",
+  "rows": {
+    "runtime.resolved_numerics": [
+      {
+        "absolute": "[\"f64\",\"3ff0000000000000\"]",
+        "budget": "[\"f64\",\"3ff0000000000000\"]",
+        "coordinate_scale": "[\"f64\",\"3ff0000000000000\"]",
+        "nominal": "[\"f64\",\"3ff0000000000000\"]",
+        "provenance": "[\"list\",[]]",
+        "quantity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "relative": "[\"f64\",\"3ff0000000000000\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "step": "[\"i64\",1]",
+        "target_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_kind": "[\"enum\",\"variable\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

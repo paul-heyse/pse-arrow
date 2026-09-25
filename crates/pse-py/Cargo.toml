@@ -41,6 +41,7 @@ solver-diffsol = ["pse-runtime/solver-diffsol"]
 force-validate = ["pse-relations/force-validate"]
 
 [dependencies]
+pse-model.workspace = true
 pyo3-async-runtimes.workspace = true
 pse-backend-native.workspace = true
 pse-authoring.workspace = true

@@ -31,6 +31,8 @@ pub mod r#datasets;
 ///Generated relation contract.
 pub mod r#default_scaling;
 ///Generated relation contract.
+pub mod r#directional_valve_laws;
+///Generated relation contract.
 pub mod r#document_edits;
 ///Generated relation contract.
 pub mod r#documents;
@@ -59,7 +61,11 @@ pub mod r#material_systems;
 ///Generated relation contract.
 pub mod r#method_selections;
 ///Generated relation contract.
+pub mod r#model_compositions;
+///Generated relation contract.
 pub mod r#native_providers;
+///Generated relation contract.
+pub mod r#numerical_requirements;
 ///Generated relation contract.
 pub mod r#observation_targets;
 ///Generated relation contract.
@@ -80,6 +86,10 @@ pub mod r#phases;
 pub mod r#physical_balances;
 ///Generated relation contract.
 pub mod r#property_packages;
+///Generated relation contract.
+pub mod r#provider_scaling_bindings;
+///Generated relation contract.
+pub mod r#reaction_applications;
 ///Generated relation contract.
 pub mod r#reaction_methods;
 ///Generated relation contract.

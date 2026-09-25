@@ -132,6 +132,13 @@ pub struct MathService {
     hits: AtomicUsize,
     misses: AtomicUsize,
 }
+impl MathService {
+    /// Admitted worker stack, also used by nested native pools.
+    #[cfg(feature = "solver-pounce")]
+    pub(crate) fn stack_bytes(&self) -> usize {
+        self.policy.stack_bytes
+    }
+}
 impl std::fmt::Debug for MathService {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MathService")
@@ -277,7 +284,6 @@ impl MathService {
         id: SemanticId,
         order: DerivativeOrder,
         profile: Profile,
-        coefficients: bool,
         driver: &crate::CancelSource,
     ) -> Result<Preparation, MathRuntimeError> {
         let control = FlightCancellation::default();
@@ -292,7 +298,20 @@ impl MathService {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
                 })?;
                 compiler.publish(inputs)?;
-                Ok(compiler.prepare_cancellable(id, order, profile, coefficients, flag)?)
+                let prepared =
+                    compiler.prepare_cancellable(id, order, profile, false, flag.clone())?;
+                if prepared.facts.affine_rows.iter().all(|v| *v)
+                    && prepared.facts.objective_degree.is_some_and(|d| d <= 2)
+                    && prepared
+                        .presolve
+                        .obligations
+                        .values()
+                        .all(|s| *s == pse_math::presolve::ObligationStatus::Discharged)
+                {
+                    Ok(compiler.prepare_cancellable(id, order, profile, true, flag)?)
+                } else {
+                    Ok(prepared)
+                }
             },
         );
         tokio::pin!(operation);

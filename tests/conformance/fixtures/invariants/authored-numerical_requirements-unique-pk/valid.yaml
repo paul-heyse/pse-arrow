@@ -1,0 +1,24 @@
+{
+  "invariant": "authored.numerical_requirements:unique:pk",
+  "rows": {
+    "authored.numerical_requirements": [
+      {
+        "absolute_tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "coordinates": "[\"enum\",\"physical\"]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "nominal": "[\"f64\",\"3ff0000000000000\"]",
+        "priority": "[\"i64\",1]",
+        "provenance": "[\"text\",\"value-1\"]",
+        "relative_tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "required": "[\"bool\",true]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scaling_factor": "[\"f64\",\"3ff0000000000000\"]",
+        "target_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_kind": "[\"enum\",\"variable\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

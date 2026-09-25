@@ -41,8 +41,44 @@ async fn physical_nlp() {
             1
         );
     }
-    for backend in [Backend::Ipopt, Backend::Pounce] {
-        let result = solve(&revision, sid(&f["optimization"]), backend, true).await;
+    for (backend, presolve, assurance) in [
+        (
+            Backend::Ipopt,
+            pse_backend_native::presolve::Policy::Off,
+            Assurance::LocalStationary,
+        ),
+        (
+            Backend::Pounce,
+            pse_backend_native::presolve::Policy::Off,
+            Assurance::LocalStationary,
+        ),
+        (
+            Backend::Ipopt,
+            pse_backend_native::presolve::Policy::Auto,
+            Assurance::Feasible,
+        ),
+        (
+            Backend::Pounce,
+            pse_backend_native::presolve::Policy::Auto,
+            Assurance::Feasible,
+        ),
+    ] {
+        let mut settings = profile(backend, true);
+        settings.presolve = presolve;
+        let result = revision
+            .prepare(
+                sid(&f["optimization"]),
+                settings,
+                compiler(),
+                &pse_runtime::CancelSource::new(),
+            )
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         success(&result);
         let RunReport::Solves(report) = result.report().unwrap() else {
             panic!("expected optimization result")
@@ -55,7 +91,19 @@ async fn physical_nlp() {
             report.termination.category,
             Termination::Success | Termination::Acceptable
         ));
-        assert_eq!(report.termination.assurance, Assurance::LocalStationary);
+        assert_eq!(report.termination.assurance, assurance, "{report:?}");
+        if assurance == Assurance::Feasible {
+            // The pinned presolver tightens a bound from an inequality without
+            // recovering that row's multiplier. Original complementarity catches it.
+            assert_eq!(
+                report.metrics.get("quality.complementarity.accepted"),
+                Some(&pse_backend_native::solve::Metric::Bool(false))
+            );
+            assert_eq!(
+                report.qualification,
+                pse_backend_native::solve::Qualification::Feasible
+            );
+        }
         let temperature = revision
             .declaration()
             .cases
@@ -132,9 +180,8 @@ async fn physical_nlp() {
         revision
             .prepare(
                 case.case_id,
-                profile(Backend::Kinsol, 2, 3, false),
+                profile(Backend::Kinsol, false),
                 compiler(),
-                false,
                 &pse_runtime::CancelSource::new()
             )
             .await

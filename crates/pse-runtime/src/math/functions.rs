@@ -9,6 +9,10 @@ use pse_kernels::DerivativeOrder;
 use std::sync::Arc;
 impl MathService {
     /// Atomically prepare selected outputs/coordinates from an immutable model revision.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "selected function projection binds ordered outputs and coordinates atomically"
+    )]
     pub async fn prepare_functions_revision(
         self: &Arc<Self>,
         workspace: Workspace,

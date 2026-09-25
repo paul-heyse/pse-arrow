@@ -2,6 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Mechanical public workflow projection; all mathematical policy remains native.
 mod settings;
+mod strategies;
+pub(crate) use strategies::{
+    NativeAttempt, NativePreparedFlow, NativePreparedStrategy, NativeStrategyResult,
+};
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ModelEnvelope {
@@ -72,6 +76,9 @@ pub(crate) struct SolverCapability {
     reuse: String,
     cancellation: String,
     diagnostics: String,
+    general_bounds: bool,
+    sign_bounds: bool,
+    parallel: bool,
 }
 /// Borrow the same budget, services and executor as exact publication inspection.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -82,6 +89,32 @@ pub(crate) struct NativeRuntime {
 }
 #[pymethods]
 impl NativeRuntime {
+    fn prepare_conic(
+        &self,
+        py: Python<'_>,
+        request: &[u8],
+        physical: &NativePhysicalContext,
+        settings: &SolveSettings,
+    ) -> PyResult<NativePreparedStrategy> {
+        if request.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
+            return Err(invalid(py, "cone request exceeds workspace allowance"));
+        }
+        let request =
+            serde_json::from_slice::<strategies::AnalysisDocument<native::ConicRequest>>(request)
+                .map_err(|e| invalid(py, e.to_string()))?
+                .payload;
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .prepare_conic(request, &physical.inner, settings.profile.clone()),
+            || {},
+        )?;
+        Ok(NativePreparedStrategy {
+            owner: self.owner.clone(),
+            inner: strategies::Strategy::Cone(inner),
+        })
+    }
     #[new]
     fn new(py: Python<'_>, settings: &inspection::EngineSettings) -> PyResult<Self> {
         let owner = py
@@ -126,34 +159,22 @@ impl NativeRuntime {
         Ok(NativePhysicalContext { inner })
     }
     fn capabilities(&self) -> Vec<SolverCapability> {
-        let mut capabilities: Vec<_> = self
-            .inner
+        self.inner
             .capabilities()
             .into_iter()
             .map(|(b, c)| SolverCapability {
-                backend: format!("{b:?}"),
-                classes: c.classes.iter().map(|v| format!("{v:?}")).collect(),
-                derivatives: format!("{:?}", c.derivatives),
-                warm: format!("{:?}", c.warm),
+                backend: b.as_str().into(),
+                classes: c.classes.iter().map(|v| v.as_str().into()).collect(),
+                derivatives: c.derivatives.as_str().into(),
+                warm: c.warm.as_str().into(),
                 reuse: c.reuse.into(),
                 cancellation: c.cancellation.into(),
                 diagnostics: c.diagnostics.into(),
+                general_bounds: c.general_bounds,
+                sign_bounds: c.sign_bounds,
+                parallel: c.parallel,
             })
-            .collect();
-        if self.inner.simulation_available() {
-            capabilities.push(SolverCapability {
-                backend: "Diffsol".into(),
-                classes: vec!["Ode".into(), "SemiExplicitIndex1".into()],
-                derivatives: "First; smooth forward sensitivities".into(),
-                warm: "None".into(),
-                reuse: "worker-local BDF state".into(),
-                cancellation: "cooperative callbacks and step boundaries".into(),
-                diagnostics:
-                    "native statistics, consistent starts, partial samples and root transitions"
-                        .into(),
-            });
-        }
-        capabilities
+            .collect()
     }
     fn model(
         &self,
@@ -249,6 +270,124 @@ pub(crate) struct NativeModelRevision {
 }
 #[pymethods]
 impl NativeModelRevision {
+    fn prepare_flow(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        flow_id: &str,
+    ) -> PyResult<NativePreparedFlow> {
+        let (case, flow) = (id(py, case_id)?, id(py, flow_id)?);
+        let inner = blocking(py, &self.owner, self.inner.prepare_flow(case, flow), || {})?;
+        Ok(NativePreparedFlow {
+            owner: self.owner.clone(),
+            math: self.owner.shared.math().clone(),
+            inner,
+        })
+    }
+    fn prepare_recycle(
+        &self,
+        py: Python<'_>,
+        request: &[u8],
+        settings: &SolveSettings,
+    ) -> PyResult<NativePreparedStrategy> {
+        #[cfg(feature = "native-solvers")]
+        {
+            if request.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
+                return Err(invalid(py, "recycle request exceeds workspace allowance"));
+            }
+            let request = serde_json::from_slice::<
+                strategies::AnalysisDocument<native::RecycleRequest>,
+            >(request)
+            .map_err(|e| invalid(py, e.to_string()))?
+            .payload;
+            let cancel = CancelSource::new();
+            let inner = blocking(
+                py,
+                &self.owner,
+                self.inner.prepare_recycle(
+                    request,
+                    settings.profile.clone(),
+                    Default::default(),
+                    &cancel,
+                ),
+                || cancel.cancel(),
+            )?;
+            Ok(NativePreparedStrategy {
+                owner: self.owner.clone(),
+                inner: strategies::Strategy::Recycle(inner),
+            })
+        }
+        #[cfg(not(feature = "native-solvers"))]
+        {
+            let _ = (request, settings);
+            Err(invalid(py, "KINSOL strategy workflow is not linked"))
+        }
+    }
+    fn prepare_initialization(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SolveSettings,
+        stages: Vec<std::collections::BTreeMap<String, f64>>,
+    ) -> PyResult<NativePreparedStrategy> {
+        #[cfg(feature = "native-solvers")]
+        {
+            let case = id(py, case_id)?;
+            if !matches!(
+                settings.profile.intent,
+                pse_backend_native::solve::SolveIntent::Initialize
+                    | pse_backend_native::solve::SolveIntent::Root
+            ) || matches!(
+                settings.profile.presolve,
+                pse_backend_native::presolve::Policy::Explicit { .. }
+            ) || !matches!(
+                settings.profile.convexity,
+                pse_runtime::math::solves::ConvexityPolicy::Exact
+            ) || !matches!(
+                settings.profile.backend,
+                pse_runtime::math::solves::BackendSettings::Default
+            ) {
+                return Err(invalid(
+                    py,
+                    "initialization requires root/initialize intent and has no explicit preprocessing or convexity strategy",
+                ));
+            }
+            if stages.len() > 4096 {
+                return Err(invalid(py, "continuation stage allowance"));
+            }
+            let stages = stages
+                .into_iter()
+                .map(|s| {
+                    s.into_iter()
+                        .map(|(k, v)| id(py, &k).map(|k| (k, v)))
+                        .collect::<PyResult<_>>()
+                })
+                .collect::<PyResult<_>>()?;
+            let profile = pse_runtime::math::initialization::InitializationProfile {
+                selection: settings.profile.selection,
+                controls: settings.profile.controls.clone(),
+                linear: pse_backend_native::kinsol::Linear::Klu,
+                numerics: settings.profile.numerics.clone(),
+                stages,
+            };
+            let inner = blocking(
+                py,
+                &self.owner,
+                self.inner
+                    .prepare_initialization(case, profile, Default::default()),
+                || {},
+            )?;
+            Ok(NativePreparedStrategy {
+                owner: self.owner.clone(),
+                inner: strategies::Strategy::Initialization(inner),
+            })
+        }
+        #[cfg(not(feature = "native-solvers"))]
+        {
+            let _ = (case_id, settings, stages);
+            Err(invalid(py, "initialization workflow is not linked"))
+        }
+    }
     fn prepare_simulation(
         &self,
         py: Python<'_>,
@@ -346,26 +485,20 @@ impl NativeModelRevision {
             inner,
         })
     }
-    #[pyo3(signature=(case_id, settings, *, coefficients=false))]
+    #[pyo3(signature=(case_id, settings))]
     fn prepare(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &SolveSettings,
-        coefficients: bool,
     ) -> PyResult<NativePreparedCase> {
         let case = id(py, case_id)?;
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
             &self.owner,
-            self.inner.prepare(
-                case,
-                settings.profile.clone(),
-                Default::default(),
-                coefficients,
-                &cancel,
-            ),
+            self.inner
+                .prepare(case, settings.profile.clone(), Default::default(), &cancel),
             || cancel.cancel(),
         )?;
         Ok(NativePreparedCase {
@@ -383,6 +516,44 @@ pub(crate) struct NativePreparedCase {
 }
 #[pymethods]
 impl NativePreparedCase {
+    fn with_primal_start(
+        &self,
+        py: Python<'_>,
+        values: std::collections::BTreeMap<String, f64>,
+    ) -> PyResult<Self> {
+        let values = values
+            .into_iter()
+            .map(|(key, v)| id(py, &key).map(|key| (key, v)))
+            .collect::<PyResult<_>>()?;
+        let inner = self
+            .inner
+            .clone()
+            .with_primal_start(values)
+            .map_err(|e| errors::diagnostic(py, &e))?;
+        Ok(Self {
+            owner: self.owner.clone(),
+            inner,
+        })
+    }
+    #[getter]
+    fn eligibility(&self) -> Vec<(String, Vec<String>)> {
+        self.inner
+            .eligibility()
+            .iter()
+            .map(|e| (e.backend.as_str().into(), e.reasons.clone()))
+            .collect()
+    }
+    fn with_start(&self, py: Python<'_>, seed: &NativeStart) -> PyResult<Self> {
+        let inner = self
+            .inner
+            .clone()
+            .with_start(seed.inner.clone())
+            .map_err(|e| errors::diagnostic(py, &e))?;
+        Ok(Self {
+            owner: self.owner.clone(),
+            inner,
+        })
+    }
     #[getter]
     fn route(&self) -> String {
         format!("{:?}", self.inner.route())
@@ -398,6 +569,18 @@ impl NativePreparedCase {
             owner: self.owner.clone(),
             inner,
         })
+    }
+}
+/// Immutable portable numerical seed. Native allocation state never crosses this boundary.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeStart {
+    inner: pse_backend_native::solve::WarmStart,
+}
+#[pymethods]
+impl NativeStart {
+    fn snapshot_json(&self) -> String {
+        self.inner.snapshot().to_string()
     }
 }
 /// Public handle remains usable after any individual asyncio waiter is cancelled.
@@ -468,6 +651,28 @@ pub(crate) struct NativeRunResult {
 }
 #[pymethods]
 impl NativeRunResult {
+    #[pyo3(signature=(step=0))]
+    fn available_start(&self, step: usize) -> Option<NativeStart> {
+        match self.inner.report().ok()? {
+            native::RunReport::Solves(r) => match r.outcomes.get(step)? {
+                pse_runtime::math::solves::Outcome::Native(r) => {
+                    r.warm_start.clone().map(|inner| NativeStart { inner })
+                }
+                _ => None,
+            },
+            native::RunReport::Fit(r) if step == 0 => r
+                .solve
+                .as_ref()?
+                .warm_start
+                .clone()
+                .map(|inner| NativeStart { inner }),
+            _ => None,
+        }
+    }
+    #[getter]
+    fn usable(&self) -> bool {
+        self.inner.usable()
+    }
     #[getter]
     fn run_id(&self) -> String {
         self.inner.run_id.to_hex()
@@ -603,7 +808,7 @@ impl ProgressEvent {
     fn elapsed_seconds(&self) -> f64 {
         self.0.elapsed.as_secs_f64()
     }
-    #[pyo3(signature=() -> "dict[str, bool | int | float | str]")]
+    #[pyo3(signature=() -> "dict[str, bool | int | float | str | dict[str, str]]")]
     fn values<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
         use pse_backend_native::solve::Metric;
         let dict = pyo3::types::PyDict::new(py);
@@ -613,6 +818,12 @@ impl ProgressEvent {
                 Metric::Integer(v) => dict.set_item(k, v)?,
                 Metric::Bool(v) => dict.set_item(k, v)?,
                 Metric::Text(v) => dict.set_item(k, v)?,
+                Metric::Unavailable(reason) => {
+                    let unavailable = pyo3::types::PyDict::new(py);
+                    unavailable.set_item("kind", v.kind().as_str())?;
+                    unavailable.set_item("reason", reason.as_str())?;
+                    dict.set_item(k, unavailable)?;
+                }
             }
         }
         Ok(dict)
@@ -628,7 +839,11 @@ pub(crate) struct SimulationSettings {
 #[pymethods]
 impl SimulationSettings {
     #[new]
-    #[pyo3(signature=(*, start, end, samples, atol, parameter_scales, sensitivities=false, rtol=1e-6, out_rtol=None, out_atol=None, initial_step=1e-4, max_steps=100000, max_events=1000, time_limit=300.0, max_cells=1000000))]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "mechanical keyword-only projection of native integration controls"
+    )]
+    #[pyo3(signature=(*, start, end, samples, atol, parameter_scales, sensitivities=false, rtol=1e-6, out_rtol=None, out_atol=None, initial_step=1e-4, max_steps=100000, max_events=1000, time_limit=300.0, max_cells=1000000,method="auto",trial_failures="terminal",numerics: "dict[str, object] | None"=None))]
     fn new(
         py: Python<'_>,
         start: f64,
@@ -645,11 +860,26 @@ impl SimulationSettings {
         max_events: usize,
         time_limit: f64,
         max_cells: usize,
+        method: &str,
+        trial_failures: &str,
+        numerics: Option<&Bound<'_, pyo3::types::PyDict>>,
     ) -> PyResult<Self> {
         let time_limit =
             Duration::try_from_secs_f64(time_limit).map_err(|e| invalid(py, e.to_string()))?;
         Ok(Self {
             profile: native::SimulationProfile {
+                method: match method {
+                    "auto" => pse_backend_native::dynamics::Method::Auto,
+                    "diffsol" => pse_backend_native::dynamics::Method::Diffsol,
+                    "idas" => pse_backend_native::dynamics::Method::Idas,
+                    _ => return Err(invalid(py, "unknown dynamics method")),
+                },
+                trial_failures: match trial_failures {
+                    "terminal" => pse_backend_native::dynamics::TrialPolicy::Terminal,
+                    "recoverable" => pse_backend_native::dynamics::TrialPolicy::Recoverable,
+                    _ => return Err(invalid(py, "unknown trial failure policy")),
+                },
+                numerics: settings::numerical_policy(py, numerics)?,
                 start,
                 end,
                 samples,

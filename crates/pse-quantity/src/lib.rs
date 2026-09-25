@@ -97,3 +97,6 @@ pub use crate::unit_set::{DerivedUnit, UnitSet};
 
 mod preconditions;
 pub use preconditions::PhysicalPreconditions;
+
+/// Authored scalar-function and physical-admission handler vocabulary.
+pub mod functions;

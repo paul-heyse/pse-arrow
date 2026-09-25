@@ -7,12 +7,20 @@ use super::{FitDeclaration, ModelRevision, PreparedSimulation, WorkflowError, co
 use crate::math::{ExecutableCase, solves::SolverProfile};
 use pse_backend_native::{
     self as native, OracleContract, Variable,
-    solve::{Backend, HessianMode, SolveIntent, SolverSelection},
+    solve::{HessianMode, SolveIntent},
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, Port};
-use pse_math::binding::CaseValues;
+use pse_math::{
+    binding::CaseValues,
+    normalization::Normalization,
+    numerics::{SourcedRequirement, TargetSpec},
+};
 use pse_model::SemanticFrame;
+use pse_model::{
+    generated::enums::{NumericalCoordinates, NumericalSource, NumericalTarget},
+    numerics::{NumericalRequirement, ResolvedNumericalPolicy},
+};
 use pse_quantity::UnitId;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -36,6 +44,14 @@ struct Measurement {
     experiment: usize,
     row: usize,
     time: Option<f64>,
+    #[cfg_attr(
+        not(feature = "solver-diffsol"),
+        expect(
+            dead_code,
+            reason = "prepared sample binding is consumed by the linked dynamic fit oracle"
+        )
+    )]
+    sample_index: Option<usize>,
     included: bool,
     value: Option<f64>,
     sigma: Option<f64>,
@@ -53,7 +69,7 @@ struct Steady {
 #[derive(Clone, Debug)]
 enum Experiment {
     Steady(Steady),
-    Transient(PreparedSimulation),
+    Transient(Box<PreparedSimulation>),
 }
 /// Immutable fitting product; mutable evaluators and native sessions are attempt-owned.
 #[derive(Clone, Debug)]
@@ -63,6 +79,9 @@ pub(crate) struct FitProblem {
     pub(crate) profile: FitProfile,
     pub(crate) key: ContentHash,
     pub(crate) profile_key: ContentHash,
+    pub(crate) numerics: Arc<ResolvedNumericalPolicy>,
+    pub(crate) normalization: Normalization,
+    pub(crate) tolerances: native::quality::Tolerances,
     pub(crate) bytes: usize,
     contract: OracleContract,
     bounds: Vec<(f64, f64)>,
@@ -104,6 +123,33 @@ pub struct FitReport {
     /// Why prediction or local sensitivity qualification is unavailable.
     pub diagnostic: Option<String>,
 }
+impl FitReport {
+    /// A stationary feasible estimate with locally identifiable free parameters.
+    /// This establishes neither global optimality nor a statistical confidence interval.
+    pub fn estimate_qualified(&self) -> bool {
+        self.solve.as_ref().is_some_and(|s| {
+            matches!(
+                s.qualification,
+                native::solve::Qualification::Stationary
+                    | native::solve::Qualification::OptimalWithinTolerance
+            )
+        }) && self
+            .quality
+            .as_ref()
+            .is_some_and(native::quality::Quality::feasible)
+            && self
+                .responses
+                .as_ref()
+                .is_some_and(|j| j.ncols() > 0 && self.rank == Some(j.ncols()))
+    }
+    /// Spectral condition estimate of the weighted, parameter-scaled response at the candidate.
+    pub fn response_condition(&self) -> Option<f64> {
+        let largest = self.singular_values.first()?;
+        let smallest = self.singular_values.last()?;
+        let ratio = largest / smallest;
+        (*smallest > 0.0 && ratio.is_finite()).then_some(ratio)
+    }
+}
 impl PreparedFit {
     /// Complete immutable source/execution identity.
     pub fn identity(&self) -> ContentHash {
@@ -135,20 +181,20 @@ impl ModelRevision {
         let problem = self
             .prepare_fit_problem(id, profile, compiler, cancel)
             .await?;
-        let route = if problem.contract.variables.is_empty() {
-            native::routing::Route::Constant
-        } else {
-            let backend = match problem.profile.solver.selection {
-                SolverSelection::Auto if cfg!(feature = "solver-ipopt") => Backend::Ipopt,
-                SolverSelection::Auto => Backend::Pounce,
-                SolverSelection::Explicit(b @ (Backend::Ipopt | Backend::Pounce)) => b,
-                _ => return Err(contract("fitting requires a native continuous NLP backend")),
-            };
-            if !backend.available() {
-                return Err(contract("selected fitting adapter is not linked"));
-            }
-            native::routing::Route::Native(backend)
-        };
+        let facts = native::routing::oracle_facts(
+            &problem.contract,
+            true,
+            problem.bounds.iter().all(|(a, b)| a.is_finite() && a == b),
+        );
+        let route = native::routing::Requirements {
+            available: Some(crate::math::solves::ALGEBRAIC_BACKENDS),
+            facts: &facts,
+            intent: problem.profile.solver.intent,
+            convex: false,
+            controls: &problem.profile.solver.controls,
+        }
+        .select(problem.profile.solver.selection)
+        .map_err(crate::math::MathRuntimeError::from)?;
         crate::math::solves::admit_profile(&problem.profile.solver, route)
             .map_err(crate::math::MathRuntimeError::from)?;
         Ok(PreparedFit { problem, route })
@@ -157,7 +203,7 @@ impl ModelRevision {
     async fn prepare_fit_problem(
         &self,
         id: SemanticId,
-        profile: FitProfile,
+        mut profile: FitProfile,
         compiler: pse_compiler::workspace::Profile,
         cancel: &crate::CancelSource,
     ) -> Result<FitProblem, WorkflowError> {
@@ -174,6 +220,13 @@ impl ModelRevision {
             .controls
             .validate()
             .map_err(crate::math::MathRuntimeError::from)?;
+        if profile.solver.controls.start != native::solve::StartPolicy::NoPriorStart
+            || profile.solver.controls.reuse != native::solve::ReusePolicy::Fresh
+        {
+            return Err(contract(
+                "fitting consumes declared parameter guesses; retained allocation and external seeds require a separate fitting-start contract",
+            ));
+        }
         if profile.solver.intent != SolveIntent::Optimize
             || !profile.rank_tolerance.is_finite()
             || profile.rank_tolerance <= 0.0
@@ -208,6 +261,8 @@ impl ModelRevision {
             ));
         }
         let q = &self.0.physical.quantities;
+        let mut targets = Vec::new();
+        let mut declarations = Vec::new();
         let mut vars = Vec::new();
         let mut initial = Vec::new();
         let mut parameter_columns = Vec::new();
@@ -242,6 +297,36 @@ impl ModelRevision {
             {
                 return Err(contract("parameter bounds, scale or fixed decision"));
             }
+            targets.push(TargetSpec {
+                id: p.symbol_id,
+                kind: NumericalTarget::Variable,
+                quantity: port.quantity,
+                unit: port.unit,
+                integer: false,
+                declared_tolerance: None,
+            });
+            declarations.push(SourcedRequirement {
+                source: NumericalSource::Model,
+                declaration: NumericalRequirement {
+                    requirement_id: pse_ids::named_id(
+                        d.fit_id,
+                        &format!("nominal.{}", p.symbol_id),
+                    ),
+                    model_id: d.model_id,
+                    case_id: None,
+                    target_id: p.symbol_id,
+                    target_kind: NumericalTarget::Variable,
+                    nominal: Some(p.scale),
+                    scaling_factor: None,
+                    absolute_tolerance: None,
+                    relative_tolerance: None,
+                    unit_id: Some(port.unit.as_id()),
+                    coordinates: NumericalCoordinates::Physical,
+                    priority: 0,
+                    required: true,
+                    provenance: "authored fitting parameter nominal".into(),
+                },
+            });
             parameter_columns.push(if p.fixed {
                 None
             } else {
@@ -285,6 +370,43 @@ impl ModelRevision {
                 .get(&e.case_id)
                 .ok_or_else(|| contract("unknown experiment case"))?;
             let source = &inputs.cases[&e.case_id].structure;
+            if e.dynamic_id.is_none() {
+                let mut local_targets = source
+                    .variables()
+                    .iter()
+                    .filter(|v| !v.fixed)
+                    .map(|v| TargetSpec {
+                        id: v.port.id,
+                        kind: NumericalTarget::Variable,
+                        quantity: v.port.quantity,
+                        unit: v.port.unit,
+                        integer: false,
+                        declared_tolerance: None,
+                    })
+                    .collect::<Vec<_>>();
+                for row in source
+                    .rows()
+                    .iter()
+                    .filter(|r| r.lower.is_finite() || r.upper.is_finite())
+                {
+                    local_targets.push(TargetSpec {
+                        id: row.id,
+                        kind: NumericalTarget::Row,
+                        quantity: row.quantity,
+                        unit: q.quantity_type(row.quantity).map_err(math)?.canonical_unit,
+                        integer: false,
+                        declared_tolerance: None,
+                    });
+                }
+                for mut requirement in self.property_numerics(e.case_id, &local_targets)? {
+                    requirement.declaration.target_id =
+                        alias(e.experiment_id, requirement.declaration.target_id);
+                    requirement.declaration.requirement_id =
+                        alias(e.experiment_id, requirement.declaration.requirement_id);
+                    declarations.push(requirement);
+                }
+            }
+
             if source.objective().is_some() {
                 return Err(contract(
                     "fit experiment must expose physical constraints and outputs without an objective",
@@ -307,28 +429,13 @@ impl ModelRevision {
                 .iter()
                 .filter(|o| o.experiment_id == e.experiment_id)
                 .collect::<Vec<_>>();
+            let mut bound_times = BTreeMap::new();
             let experiment = if let Some(dynamic) = e.dynamic_id {
                 let mut integration = profile
                     .simulations
                     .get(&e.experiment_id)
                     .cloned()
                     .ok_or_else(|| contract("transient experiment profile missing"))?;
-                let mut times = local_bindings
-                    .iter()
-                    .filter(|o| o.included)
-                    .map(|o| {
-                        o.time
-                            .ok_or_else(|| contract("transient observation needs elapsed seconds"))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                if times.iter().any(|t| !t.is_finite()) {
-                    return Err(contract("nonfinite observation time"));
-                }
-                times.sort_by(f64::total_cmp);
-                times.dedup();
-                if !times.is_empty() {
-                    integration.samples = times;
-                }
                 let dynamic_source = self
                     .0
                     .sources
@@ -336,6 +443,47 @@ impl ModelRevision {
                     .iter()
                     .find(|d| d.dynamic_id == dynamic)
                     .ok_or_else(|| contract("unknown dynamic experiment"))?;
+                for o in &local_bindings {
+                    let raw = o
+                        .time
+                        .ok_or_else(|| contract("transient observation needs a time coordinate"))?;
+                    let scale = if let Some(id) = o.time_unit_id {
+                        let unit = q.unit(UnitId::from_id(id)).map_err(math)?;
+                        if unit.is_affine
+                            || unit.dimension
+                                != pse_quantity::DimensionVector::base(
+                                    pse_quantity::BaseDimension::Time,
+                                )
+                        {
+                            return Err(contract(
+                                "observation time requires a non-affine time unit",
+                            ));
+                        }
+                        unit.scale_to_canonical
+                    } else {
+                        1.0
+                    };
+                    let time = super::time::observation(
+                        raw,
+                        scale,
+                        o.time_basis.unwrap_or(
+                            pse_relations::generated::enums::ObservationTimeBasis::Elapsed,
+                        ),
+                        dynamic_source.time_origin.unwrap_or(0.0),
+                        integration.start,
+                    )?;
+                    bound_times.insert(o.observation_id, time);
+                }
+                let mut times: Vec<_> = local_bindings
+                    .iter()
+                    .filter(|o| o.included)
+                    .map(|o| bound_times[&o.observation_id])
+                    .collect();
+                times.sort_by(f64::total_cmp);
+                times.dedup();
+                if !times.is_empty() {
+                    integration.samples = times;
+                }
                 integration.sensitivities = !dynamic_source.parameters.is_empty();
                 if d.parameters.iter().any(|p| {
                     source.parameters().iter().any(|s| s.id == p.symbol_id)
@@ -344,11 +492,6 @@ impl ModelRevision {
                     return Err(contract(
                         "fitted dynamic parameters must be selected sensitivity coordinates",
                     ));
-                }
-                if !integration.changes.is_empty()
-                    || dynamic_source.modes.iter().any(|m| !m.events.is_empty())
-                {
-                    return Err(contract("fitting admits smooth transient experiments only"));
                 }
                 let simulation = self
                     .prepare_simulation(dynamic, integration, compiler, cancel)
@@ -359,7 +502,7 @@ impl ModelRevision {
                 bytes = bytes
                     .checked_add(simulation.bytes)
                     .ok_or_else(|| contract("fit storage extent"))?;
-                Experiment::Transient(simulation)
+                Experiment::Transient(Box::new(simulation))
             } else {
                 if profile.simulations.contains_key(&e.experiment_id) {
                     return Err(contract("steady experiment has an integration profile"));
@@ -372,6 +515,14 @@ impl ModelRevision {
                     if v.domain != pse_math::binding::VariableDomain::Continuous {
                         return Err(contract("fitting requires continuous state variables"));
                     }
+                    targets.push(TargetSpec {
+                        id: alias(e.experiment_id, v.port.id),
+                        kind: NumericalTarget::Variable,
+                        quantity: v.port.quantity,
+                        unit: v.port.unit,
+                        integer: false,
+                        declared_tolerance: None,
+                    });
                     let col = vars.len();
                     vars.push(Variable {
                         id: alias(e.experiment_id, v.port.id),
@@ -413,6 +564,17 @@ impl ModelRevision {
                 let mut constraints = Vec::new();
                 for (i, r) in case.assembly.structure().rows().iter().enumerate() {
                     if r.lower.is_finite() || r.upper.is_finite() {
+                        targets.push(TargetSpec {
+                            id: alias(e.experiment_id, r.id),
+                            kind: NumericalTarget::Row,
+                            quantity: r.quantity,
+                            unit: q
+                                .quantity_type(r.quantity)
+                                .map_err(|e| contract(e.to_string()))?
+                                .canonical_unit,
+                            integer: false,
+                            declared_tolerance: None,
+                        });
                         constraints.push((i, rows.len()));
                         rows.push(alias(e.experiment_id, r.id));
                         bounds.push((r.lower, r.upper));
@@ -439,7 +601,10 @@ impl ModelRevision {
                     .ok_or_else(|| contract("missing authored observation"))?;
                 let (row, port) = match &experiment {
                     Experiment::Steady(s) => {
-                        if binding.time.is_some() {
+                        if binding.time.is_some()
+                            || binding.time_basis.is_some()
+                            || binding.time_unit_id.is_some()
+                        {
                             return Err(contract("steady observation has elapsed time"));
                         }
                         let r = source
@@ -499,7 +664,18 @@ impl ModelRevision {
                     id: binding.observation_id,
                     experiment: ei,
                     row,
-                    time: binding.time,
+                    time: bound_times.get(&binding.observation_id).copied(),
+                    sample_index: match &experiment {
+                        Experiment::Transient(s) if binding.included => Some(
+                            s.profile
+                                .samples
+                                .binary_search_by(|t| {
+                                    t.total_cmp(&bound_times[&binding.observation_id])
+                                })
+                                .map_err(|_| contract("unbound observation sample"))?,
+                        ),
+                        _ => None,
+                    },
                     included: binding.included,
                     value,
                     sigma,
@@ -532,7 +708,7 @@ impl ModelRevision {
                     };
                     let balances = self
                         .0
-                        .sources
+                        .resolved_sources
                         .balances
                         .iter()
                         .filter(|b| b.case_id == d.experiments[i].case_id)
@@ -567,16 +743,137 @@ impl ModelRevision {
                     .ok_or_else(|| contract("fit derivative storage"))?,
             )
             .ok_or_else(|| contract("fit storage"))?;
-        profile
-            .solver
-            .tolerances
-            .validate(vars.len(), rows.len())
-            .map_err(crate::math::MathRuntimeError::from)?;
-        if let Some(scales) = &profile.solver.scaling {
-            scales
-                .validate(vars.len(), rows.len())
-                .map_err(crate::math::MathRuntimeError::from)?;
+        let neutral = q
+            .neutral_dimensionless()
+            .ok_or_else(|| contract("fitting requires the bound neutral quantity"))?;
+        targets.push(TargetSpec {
+            id: SemanticId::NIL,
+            kind: NumericalTarget::Objective,
+            quantity: neutral,
+            unit: q
+                .quantity_type(neutral)
+                .map_err(|e| contract(e.to_string()))?
+                .canonical_unit,
+            integer: false,
+            declared_tolerance: None,
+        });
+        declarations.extend(
+            self.0
+                .resolved_sources
+                .numerics
+                .iter()
+                .filter(|r| {
+                    r.target_kind == NumericalTarget::Variable
+                        && d.parameters.iter().any(|p| p.symbol_id == r.target_id)
+                        && r.case_id
+                            .is_none_or(|id| d.experiments.iter().any(|e| e.case_id == id))
+                })
+                .cloned()
+                .map(|declaration| SourcedRequirement {
+                    source: if declaration.case_id.is_some() {
+                        NumericalSource::Case
+                    } else {
+                        NumericalSource::Model
+                    },
+                    declaration,
+                }),
+        );
+        for experiment in &d.experiments {
+            for source in self
+                .0
+                .resolved_sources
+                .numerics
+                .iter()
+                .filter(|r| r.case_id.is_none_or(|c| c == experiment.case_id))
+            {
+                if !matches!(
+                    source.target_kind,
+                    NumericalTarget::Variable | NumericalTarget::Row
+                ) {
+                    continue;
+                }
+                let mut declaration = source.clone();
+                let target = alias(experiment.experiment_id, source.target_id);
+                if !targets
+                    .iter()
+                    .any(|t| t.id == target && t.kind == source.target_kind)
+                {
+                    continue;
+                }
+                declaration.target_id = target;
+                declaration.requirement_id = alias(experiment.experiment_id, source.requirement_id);
+                declarations.push(SourcedRequirement {
+                    source: if source.case_id.is_some() {
+                        NumericalSource::Case
+                    } else {
+                        NumericalSource::Model
+                    },
+                    declaration,
+                });
+            }
         }
+        for b in self
+            .0
+            .resolved_sources
+            .balances
+            .iter()
+            .filter(|b| d.experiments.iter().any(|e| e.case_id == b.case_id))
+        {
+            let quantity = if let Some(state) = b.accumulation {
+                self.0.cases[&b.case_id].cases[&b.case_id]
+                    .structure
+                    .variables()
+                    .iter()
+                    .find(|v| v.port.id == state)
+                    .ok_or_else(|| contract("fit conserved state missing"))?
+                    .port
+                    .quantity
+            } else {
+                b.quantity_id.into()
+            };
+            targets.push(TargetSpec {
+                id: b.balance_id,
+                kind: NumericalTarget::Closure,
+                quantity,
+                unit: q.quantity_type(quantity).map_err(math)?.canonical_unit,
+                integer: false,
+                declared_tolerance: if b.accumulation.is_some() {
+                    b.integral_tolerance
+                } else {
+                    Some(b.tolerance)
+                },
+            });
+        }
+        for r in self.0.resolved_sources.numerics.iter().filter(|r| {
+            r.target_kind == NumericalTarget::Closure
+                && r.case_id
+                    .is_none_or(|id| d.experiments.iter().any(|e| e.case_id == id))
+        }) {
+            declarations.push(SourcedRequirement {
+                source: if r.case_id.is_some() {
+                    NumericalSource::Case
+                } else {
+                    NumericalSource::Model
+                },
+                declaration: r.clone(),
+            });
+        }
+        let numerics = Arc::new(
+            pse_math::numerics::resolve(q, &targets, &declarations, &profile.solver.numerics)
+                .map_err(math)?,
+        );
+        let columns: Vec<_> = vars.iter().map(|v| v.id).collect();
+        let normalization = Normalization::from_policy(&numerics, &columns, &rows).map_err(math)?;
+        let tolerances = native::quality::Tolerances::from_policy(&numerics, &columns, &rows)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        if profile.solver.controls.accuracy != native::solve::Accuracy::default() {
+            return Err(contract(
+                "fitting accuracy is owned by the numerical policy",
+            ));
+        }
+        profile.solver.controls.accuracy =
+            native::solve::Accuracy::resolve(&numerics.policy, &tolerances, &normalization)
+                .map_err(crate::math::MathRuntimeError::from)?;
         if vars.is_empty()
             && matches!(&profile.solver.presolve, native::presolve::Policy::Explicit { required, .. } if !required.is_empty())
         {
@@ -600,7 +897,7 @@ impl ModelRevision {
         }
         let profile_key = h.finish_hash();
         let mut h = FramedHasher::new("pse.fit.prepared.v1");
-        h.hash(&source).hash(&profile_key);
+        h.hash(&source).hash(&profile_key).hash(&numerics.key);
         let contract = OracleContract {
             identity: source,
             variables: vars,
@@ -614,6 +911,9 @@ impl ModelRevision {
             profile,
             key: h.finish_hash(),
             profile_key,
+            numerics,
+            normalization,
+            tolerances,
             bytes,
             contract,
             bounds,

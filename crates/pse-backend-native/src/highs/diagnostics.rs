@@ -411,16 +411,7 @@ impl Session {
             indices.push(index(i)?);
             x.push(*v);
         }
-        check(
-            unsafe {
-                ffi::Highs_setSparseSolution(
-                    self.model()?.as_mut_ptr(),
-                    index(indices.len())?,
-                    indices.as_ptr(),
-                    x.as_ptr(),
-                )
-            },
-            "sparse start",
-        )
+        self.pending_sparse = Some(values.clone());
+        Ok(())
     }
 }

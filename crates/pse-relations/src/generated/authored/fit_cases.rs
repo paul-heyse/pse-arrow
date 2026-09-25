@@ -9,20 +9,20 @@ pub use pse_model::generated::r#authored::r#fit_cases::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    125u8, 153u8, 165u8, 138u8, 192u8, 46u8, 19u8, 105u8, 238u8, 183u8, 7u8, 219u8, 95u8,
-    164u8, 79u8, 117u8,
+    219u8, 244u8, 5u8, 89u8, 58u8, 96u8, 190u8, 124u8, 237u8, 233u8, 93u8, 57u8, 234u8,
+    223u8, 60u8, 185u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "fit_cases";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    124u8, 229u8, 190u8, 127u8, 98u8, 150u8, 114u8, 185u8, 243u8, 226u8, 186u8, 195u8,
-    206u8, 99u8, 103u8, 40u8, 88u8, 199u8, 238u8, 126u8, 5u8, 7u8, 108u8, 95u8, 205u8,
-    164u8, 63u8, 188u8, 20u8, 215u8, 183u8, 90u8,
+    24u8, 106u8, 137u8, 132u8, 34u8, 94u8, 192u8, 207u8, 224u8, 194u8, 200u8, 120u8,
+    47u8, 138u8, 69u8, 147u8, 207u8, 166u8, 2u8, 145u8, 56u8, 205u8, 101u8, 35u8, 18u8,
+    62u8, 218u8, 149u8, 33u8, 211u8, 192u8, 56u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredFitCasesFieldParametersItem {
     fn append(
@@ -192,12 +192,20 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
         )?;
         crate::columnar::ArrowValue::append(&self.r#time, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#included,
+            &self.r#time_basis,
             children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#importance,
+            &self.r#time_unit_id,
             children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#included,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#importance,
+            children[7usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -221,8 +229,14 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
         <Option<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            crate::generated::enums::ObservationTimeBasis,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -251,12 +265,24 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#included: <bool as crate::columnar::ArrowValue>::read(
+            r#time_basis: <Option<
+                crate::generated::enums::ObservationTimeBasis,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#importance: <f64 as crate::columnar::ArrowValue>::read(
+            r#time_unit_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#included: <bool as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#importance: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
                 index,
             )?,
         })
@@ -445,10 +471,10 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        50_176_usize + size_of::<Self::Builder>()
+        55_296_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        392usize
+        432usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -575,6 +601,28 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
                                     crate::columnar::allocation_add(
                                         1,
                                         Ok::<usize, crate::RelationError>(8usize)?,
+                                    )
+                                } else {
+                                    Ok::<usize, crate::RelationError>(1)
+                                }?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                if let Some(value) = ((item).r#time_basis).as_ref() {
+                                    crate::columnar::allocation_add(
+                                        1,
+                                        crate::columnar::allocation_add(8, (value).as_str().len())?,
+                                    )
+                                } else {
+                                    Ok::<usize, crate::RelationError>(1)
+                                }?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                if ((item).r#time_unit_id).is_some() {
+                                    crate::columnar::allocation_add(
+                                        1,
+                                        Ok::<usize, crate::RelationError>(16usize)?,
                                     )
                                 } else {
                                     Ok::<usize, crate::RelationError>(1)

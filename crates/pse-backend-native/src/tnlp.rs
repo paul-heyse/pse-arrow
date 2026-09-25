@@ -12,6 +12,8 @@ use pounce_nlp::tnlp::{
     SparsityRequest, StartingPoint, TNLP,
 };
 pub(crate) struct Adapter {
+    pub(crate) normalization: pse_math::normalization::Normalization,
+    pub(crate) certification_budget: Option<crate::quality::Tolerances>,
     pub(crate) normalize_affine: bool,
     pub(crate) oracle: Box<dyn NlpOracle>,
     pub(crate) state: CallbackState,
@@ -36,7 +38,7 @@ impl pounce_nlp::expression_provider::ExpressionProvider for Adapter {
             tape.ops.push(FbbtOp::Const(row.constant));
             tape.ops.push(FbbtOp::Sub(n - 1, n));
         }
-        Some(tape)
+        self.normalization.tape(&tape, i, 1_000_000).ok()
     }
 }
 pub(crate) fn copy<T: Copy>(from: &[T], to: &mut [T]) -> Result<(), ProblemError> {
@@ -182,8 +184,67 @@ impl TNLP for Adapter {
                 {
                     for (r, row) in f.affine.iter().enumerate() {
                         if let Some(row) = row {
-                            b.g_l[r] -= row.constant;
-                            b.g_u[r] -= row.constant;
+                            for bound in [&mut b.g_l[r], &mut b.g_u[r]] {
+                                let shifted = *bound - row.constant;
+                                if bound.is_finite() && !shifted.is_finite() {
+                                    return Err(ProblemError::Contract(
+                                        "affine bound transport overflow".into(),
+                                    ));
+                                }
+                                *bound = shifted;
+                            }
+                        }
+                    }
+                }
+                for (i, (l, u)) in b.x_l.iter_mut().zip(b.x_u.iter_mut()).enumerate() {
+                    for value in [l, u] {
+                        if value.is_finite() {
+                            *value = pse_math::normalization::checked_ratio(
+                                *value,
+                                self.normalization.variables[i],
+                            )?;
+                        }
+                    }
+                }
+                for (i, (l, u)) in b.g_l.iter_mut().zip(b.g_u.iter_mut()).enumerate() {
+                    for value in [l, u] {
+                        if value.is_finite() {
+                            *value = pse_math::normalization::checked_ratio(
+                                *value,
+                                self.normalization.rows[i],
+                            )?;
+                        }
+                    }
+                }
+                if b.x_l
+                    .iter()
+                    .chain(&*b.x_u)
+                    .chain(&*b.g_l)
+                    .chain(&*b.g_u)
+                    .any(|v| v.is_finite() && v.abs() >= 1e19)
+                {
+                    return Err(ProblemError::Contract(
+                        "normalized finite bound reaches native infinity sentinel".into(),
+                    ));
+                }
+                if let Some(t) = &self.certification_budget {
+                    for (lower, upper, budgets) in [
+                        (&mut *b.x_l, &mut *b.x_u, &t.variables),
+                        (&mut *b.g_l, &mut *b.g_u, &t.rows),
+                    ] {
+                        for ((l, u), budget) in lower.iter_mut().zip(upper).zip(budgets) {
+                            for (bound, delta) in [(l, -budget), (u, *budget)] {
+                                if bound.is_finite() {
+                                    let expanded = *bound + delta;
+                                    if !expanded.is_finite() || expanded.abs() >= 1e19 {
+                                        return Err(ProblemError::Contract(
+                                            "tolerance expansion reaches native infinity sentinel"
+                                                .into(),
+                                        ));
+                                    }
+                                    *bound = expanded;
+                                }
+                            }
                         }
                     }
                 }
@@ -204,7 +265,7 @@ impl TNLP for Adapter {
                     ));
                 }
                 if s.init_x {
-                    copy(&self.initial, s.x)?;
+                    copy(&self.normalization.normalized_point(&self.initial)?, s.x)?;
                 }
                 if s.init_z || s.init_lambda {
                     let (l, u, r) = self.duals.as_ref().ok_or_else(|| {
@@ -213,9 +274,34 @@ impl TNLP for Adapter {
                     if s.init_z {
                         copy(l, s.z_l)?;
                         copy(u, s.z_u)?;
+                        for (i, (l, u)) in s.z_l.iter_mut().zip(s.z_u.iter_mut()).enumerate() {
+                            *l = pse_math::normalization::checked_ratio(
+                                pse_math::normalization::checked_product(
+                                    *l,
+                                    self.normalization.variables[i],
+                                )?,
+                                self.normalization.objective,
+                            )?;
+                            *u = pse_math::normalization::checked_ratio(
+                                pse_math::normalization::checked_product(
+                                    *u,
+                                    self.normalization.variables[i],
+                                )?,
+                                self.normalization.objective,
+                            )?;
+                        }
                     }
                     if s.init_lambda {
                         copy(r, s.lambda)?;
+                        for (i, v) in s.lambda.iter_mut().enumerate() {
+                            *v = pse_math::normalization::checked_ratio(
+                                pse_math::normalization::checked_product(
+                                    *v,
+                                    self.normalization.rows[i],
+                                )?,
+                                self.normalization.objective,
+                            )?;
+                        }
                     }
                 }
                 Ok(())
@@ -224,7 +310,11 @@ impl TNLP for Adapter {
     }
     fn eval_f(&mut self, x: &[f64], _: bool) -> Option<f64> {
         self.state.evaluate("objective", || {
-            let v = self.oracle.objective(x)?;
+            let point = self.normalization.physical_point(x)?;
+            let v = pse_math::normalization::checked_ratio(
+                self.oracle.objective(&point)?,
+                self.normalization.objective,
+            )?;
             finite(&[v])?;
             Ok(v)
         })
@@ -233,7 +323,17 @@ impl TNLP for Adapter {
         self.state
             .evaluate("gradient", || {
                 let mut v = vec![0.0; out.len()];
-                self.oracle.gradient(x, &mut v)?;
+                self.oracle
+                    .gradient(&self.normalization.physical_point(x)?, &mut v)?;
+                for (i, value) in v.iter_mut().enumerate() {
+                    *value = pse_math::normalization::checked_ratio(
+                        pse_math::normalization::checked_product(
+                            *value,
+                            self.normalization.variables[i],
+                        )?,
+                        self.normalization.objective,
+                    )?;
+                }
                 finite(&v)?;
                 copy(&v, out)
             })
@@ -243,7 +343,8 @@ impl TNLP for Adapter {
         self.state
             .evaluate("constraints", || {
                 let mut v = vec![0.0; out.len()];
-                self.oracle.constraints(x, &mut v)?;
+                self.oracle
+                    .constraints(&self.normalization.physical_point(x)?, &mut v)?;
                 if self.normalize_affine
                     && let Some(f) = self.oracle.presolve_facts()
                 {
@@ -252,6 +353,10 @@ impl TNLP for Adapter {
                             *v -= row.constant;
                         }
                     }
+                }
+                for (i, value) in v.iter_mut().enumerate() {
+                    *value =
+                        pse_math::normalization::checked_ratio(*value, self.normalization.rows[i])?;
                 }
                 finite(&v)?;
                 copy(&v, out)
@@ -272,7 +377,17 @@ impl TNLP for Adapter {
                 }
                 SparsityRequest::Values { values } => {
                     let mut v = vec![0.0; values.len()];
-                    self.oracle.jacobian(point(x)?, &mut v)?;
+                    self.oracle
+                        .jacobian(&self.normalization.physical_point(point(x)?)?, &mut v)?;
+                    for (i, value) in v.iter_mut().enumerate() {
+                        *value = pse_math::normalization::checked_ratio(
+                            pse_math::normalization::checked_product(
+                                *value,
+                                self.normalization.variables[self.jac.columns[i] as usize],
+                            )?,
+                            self.normalization.rows[self.jac.rows[i] as usize],
+                        )?;
+                    }
                     finite(&v)?;
                     copy(&v, values)
                 }
@@ -301,16 +416,37 @@ impl TNLP for Adapter {
                 }
                 SparsityRequest::Values { values } => {
                     let mut v = vec![0.0; values.len()];
+                    let lambda = if self.oracle.contract().rows.is_empty() {
+                        &[][..]
+                    } else {
+                        point(lambda)?
+                    };
+                    if lambda.len() != self.normalization.rows.len() {
+                        return Err(ProblemError::Contract("normalized multipliers".into()));
+                    }
+                    let lambda = lambda
+                        .iter()
+                        .zip(&self.normalization.rows)
+                        .map(|(v, s)| pse_math::normalization::checked_ratio(*v, *s))
+                        .collect::<Result<Vec<_>, _>>()?;
                     self.oracle.hessian(
-                        point(x)?,
-                        weight,
-                        if self.oracle.contract().rows.is_empty() {
-                            &[]
-                        } else {
-                            point(lambda)?
-                        },
+                        &self.normalization.physical_point(point(x)?)?,
+                        pse_math::normalization::checked_ratio(
+                            weight,
+                            self.normalization.objective,
+                        )?,
+                        &lambda,
                         &mut v,
                     )?;
+                    for (i, value) in v.iter_mut().enumerate() {
+                        *value = pse_math::normalization::checked_product(
+                            pse_math::normalization::checked_product(
+                                *value,
+                                self.normalization.variables[self.hess.columns[i] as usize],
+                            )?,
+                            self.normalization.variables[self.hess.rows[i] as usize],
+                        )?;
+                    }
                     finite(&v)?;
                     copy(&v, values)
                 }
@@ -318,13 +454,59 @@ impl TNLP for Adapter {
             .is_some()
     }
     fn finalize_solution(&mut self, s: Solution<'_>, _: &IpoptData, _: &IpoptCq) {
-        self.solution = Some(Candidate {
-            primal: s.x.to_vec(),
-            objective: Some(s.obj_value),
-            row_dual: Some(s.lambda.to_vec()),
-            bound_dual: Some((s.z_l.to_vec(), s.z_u.to_vec())),
-            reduced_costs: None,
-            slacks: None,
+        self.solution = self.state.evaluate("original coordinate recovery", || {
+            if s.lambda.len() != self.normalization.rows.len()
+                || s.z_l.len() != self.normalization.variables.len()
+                || s.z_u.len() != self.normalization.variables.len()
+            {
+                return Err(ProblemError::Contract(
+                    "native multiplier recovery dimensions".into(),
+                ));
+            }
+            let row_dual = s
+                .lambda
+                .iter()
+                .zip(&self.normalization.rows)
+                .map(|(v, scale)| {
+                    pse_math::normalization::checked_ratio(
+                        pse_math::normalization::checked_product(*v, self.normalization.objective)?,
+                        *scale,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let bounds = |values: &[f64]| {
+                values
+                    .iter()
+                    .zip(&self.normalization.variables)
+                    .map(|(v, scale)| {
+                        pse_math::normalization::checked_ratio(
+                            pse_math::normalization::checked_product(
+                                *v,
+                                self.normalization.objective,
+                            )?,
+                            *scale,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            };
+            Ok(Candidate {
+                kind: crate::solve::CandidateKind::FinalIterate,
+                primal: self.normalization.physical_point(s.x)?,
+                objective: s
+                    .obj_value
+                    .is_finite()
+                    .then(|| {
+                        pse_math::normalization::checked_product(
+                            s.obj_value,
+                            self.normalization.objective,
+                        )
+                    })
+                    .transpose()?,
+                row_dual: Some(row_dual),
+                bound_dual: Some((bounds(s.z_l)?, bounds(s.z_u)?)),
+                reduced_costs: None,
+                slacks: None,
+            })
         });
     }
     fn get_var_con_metadata(&mut self, v: &mut MetaData, r: &mut MetaData) -> bool {

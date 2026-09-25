@@ -25,6 +25,121 @@ def identity(n: int) -> SemanticId:
     return SemanticId(bytes([n]) * 16)
 
 
+@pytest.mark.unit
+def test_explicit_cone_strategy_preserves_native_qualification(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    def port(n: int) -> dict[str, str]:
+        return {
+            "symbol_id": identity(n).to_hex(),
+            "quantity_id": identity(31).to_hex(),
+            "unit_id": identity(10).to_hex(),
+        }
+
+    request: dict[str, object] = {
+        "variables": [port(201)],
+        "rows": [port(202)],
+        "objective_port": port(0),
+        "quadratic": {"m": 1, "n": 1, "colptr": [0, 0], "rowval": [], "nzval": []},
+        "objective": [1.0],
+        "constraints": {
+            "m": 1,
+            "n": 1,
+            "colptr": [0, 1],
+            "rowval": [0],
+            "nzval": [-1.0],
+        },
+        "rhs": [-2.0],
+        "cones": [{"NonnegativeConeT": 1}],
+        "objective_constant": 3.0,
+        "gram_factors": [],
+        "gram_weights": [],
+    }
+    prepared = runtime.prepare_conic(
+        request, physical, pse.SolveSettings(backend="clarabel")
+    )
+    assert prepared.routes == ("Native(Clarabel)",)
+    result = prepared.run()
+    assert not result.failures()
+    (attempt,) = result.attempts()
+    assert attempt.qualification == "optimal_within_tolerance"
+    assert attempt.objective == pytest.approx(5.0, abs=1e-6)
+    assert dict(attempt.primal())[identity(201).to_hex()] == pytest.approx(
+        2.0, abs=1e-6
+    )
+    assert attempt.normalized_violation is not None
+    assert attempt.normalized_violation <= 1.0
+
+
+@pytest.mark.unit
+def test_explicit_primal_seed_and_transactional_initialization(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    model = runtime.model(identity(210), "two roots", physical)
+    model.definition(
+        w.Definition(
+            definition_id=identity(211),
+            sources=("x*x",),
+            formals=(w.Formal(path="x", quantity_id=identity(31)),),
+            domains=(),
+            groups=(),
+            providers=(),
+            units=(),
+            literals=(),
+        )
+    )
+    case = pse.CaseBuilder.create(identity(212), "roots")
+    case.variable(
+        w.Variable(
+            port=w.Port(
+                symbol_id=identity(213), quantity_id=identity(31), unit_id=identity(10)
+            ),
+            fixed=False,
+            domain=NativeVariableDomain.CONTINUOUS,
+            lower=None,
+            upper=None,
+        ),
+        -1.0,
+    )
+    case.row(
+        w.Row(row_id=identity(214), quantity_id=identity(31), lower=4.0, upper=4.0)
+    )
+    case.instance(
+        w.Instance(
+            instance_id=identity(215),
+            definition_id=identity(211),
+            slots=(
+                w.Slot(
+                    source_id=identity(213),
+                    formal_quantity_id=identity(31),
+                    formal_unit_id=identity(10),
+                ),
+            ),
+            contributions=(w.Contribution(output=0, row_id=identity(214), scale=1.0),),
+        )
+    )
+    revision = model.case(case).freeze()
+    settings = pse.SolveSettings(intent="root", backend="kinsol", presolve="off")
+    prepared = revision.prepare(identity(212), settings)
+    assert prepared.eligibility
+    explicit = prepared.with_primal_start({identity(213): 1.0}).start().wait()
+    seed = explicit.available_start()
+    assert seed is not None
+    snapshot = json.loads(seed.snapshot_json())
+    assert snapshot["payload"]["primal"][0] == pytest.approx(2.0, abs=1e-6)
+    assert snapshot["origin"]["run"] == explicit.run_id.to_hex()
+    result = revision.prepare_initialization(
+        identity(212), pse.SolveSettings(intent="initialize", backend="kinsol"), [{}]
+    ).run()
+    stage = result.initialization()
+    assert stage is not None
+    assert stage["completed_stages"] == 1
+    assert cast("dict[str, float]", stage["original"])[identity(213).to_hex()] == -1.0
+    assert cast("dict[str, float]", stage["solved_unknowns"])[
+        identity(213).to_hex()
+    ] == pytest.approx(-2.0, abs=1e-6)
+
+
 @pytest.fixture(scope="module")
 def runtime(inspection_settings: pse.EngineSettings) -> pse.Runtime:
     return pse.Runtime(inspection_settings)
@@ -80,10 +195,64 @@ def test_document_frontdoor_refuses_packages_without_native_declarations(
 def test_native_capability_discovery_and_hard_cut(runtime: pse.Runtime) -> None:
     capabilities = runtime.capabilities()
     assert capabilities
-    assert "Clarabel" in {c.backend for c in capabilities}
+    assert "clarabel" in {c.backend for c in capabilities}
     assert all(c.classes and c.reuse and c.cancellation for c in capabilities)
+    for capability in capabilities:
+        pse.SolveSettings(backend=capability.backend)
     assert not hasattr(pse, "probe_host")
     assert not hasattr(pse, "HostCapabilities")
+
+
+@pytest.mark.unit
+def test_selected_admission_preserves_structured_source_diagnostics(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    manifest = (
+        Path(__file__).resolve().parents[3]
+        / "tests/fixtures/packages/minimal_explicit/package.toml"
+    ).read_text()
+    model_id = "01010101010101010101010101010101"
+    root_id = "03030303030303030303030303030303"
+    document = json.dumps(
+        {
+            "computation_models": [
+                {
+                    "model_id": model_id,
+                    "name": "missing root",
+                    "definitions": [],
+                    "domains": [],
+                    "groups": [],
+                    "cases": [
+                        {
+                            "case_id": "02020202020202020202020202020202",
+                            "name": "selected",
+                            "variables": [],
+                            "parameters": [],
+                            "instances": [],
+                            "rows": [],
+                            "objective": None,
+                            "values": [],
+                        }
+                    ],
+                }
+            ],
+            "model_compositions": [{"model_id": model_id, "root_instance_id": root_id}],
+        }
+    )
+    with pytest.raises(pse.InspectionError) as error:
+        runtime.models_from_documents(
+            {
+                "package.toml": manifest,
+                "computation_models/model.yaml": document,
+            },
+            physical,
+        )
+    report = error.value.report
+    assert report.boundary_class == "invalid_model"
+    assert report.stage == "selected_admission"
+    assert report.rule is not None
+    assert root_id in report.source_ids
+    assert report.observations == ()
 
 
 @pytest.mark.unit
@@ -106,9 +275,7 @@ def test_blocking_async_share_terminal_report_and_last_array_owner(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
     model = revision(runtime, physical)
-    settings = pse.SolveSettings(
-        variable_tolerances=[], row_tolerances=[], intent="root"
-    )
+    settings = pse.SolveSettings(intent="root")
     prepared = model.prepare(identity(101), settings)
     assert prepared.route == "Constant"
     handle = prepared.start()
@@ -124,7 +291,9 @@ def test_blocking_async_share_terminal_report_and_last_array_owner(
         .read_all()
         .to_pylist()
     )
-    assert runs[0]["termination"] == "constant_evaluation"
+    assert runs[0]["state"] == "constant_evaluation"
+    assert runs[0]["termination"] is None
+    assert runs[0]["candidate_kind"] == "constant_evaluation"
     assert runs[0]["backend"] is None
     stream = result.table("runtime.solve_variables")
     table = pa.RecordBatchReader.from_stream(stream).read_all()
@@ -139,18 +308,10 @@ def test_blocking_async_share_terminal_report_and_last_array_owner(
 @pytest.mark.parametrize(
     "construct",
     [
+        lambda: pse.SolveSettings(presolve="magic"),
+        lambda: pse.SolveSettings(time_limit=-1.0),
+        lambda: pse.SolveSettings(numerics={"integrality": -1.0}),
         lambda: pse.SolveSettings(
-            variable_tolerances=[], row_tolerances=[], presolve="magic"
-        ),
-        lambda: pse.SolveSettings(
-            variable_tolerances=[], row_tolerances=[], time_limit=-1.0
-        ),
-        lambda: pse.SolveSettings(
-            variable_tolerances=[], row_tolerances=[], variable_scales=[1.0]
-        ),
-        lambda: pse.SolveSettings(
-            variable_tolerances=[],
-            row_tolerances=[],
             options={"invalid": cast("str", object())},
         ),
     ],
@@ -168,7 +329,7 @@ def test_cancelled_async_waiter_does_not_consume_terminal_result(
 ) -> None:
     prepared = revision(runtime, physical).prepare(
         identity(101),
-        pse.SolveSettings(variable_tolerances=[], row_tolerances=[], intent="root"),
+        pse.SolveSettings(intent="root"),
     )
     handle = runtime.start([prepared] * 20)
 
@@ -202,7 +363,7 @@ def test_simulation_controls_round_trip_exact_native_options(
     wire["native"]["pi_control_proportional"] = 0.4
     restored = pse.SimulationSettings.from_json(json.dumps(wire))
     assert json.loads(restored.to_json())["native"]["pi_control_proportional"] == 0.4
-    assert "Diffsol" in {c.backend for c in runtime.capabilities()}
+    assert "diffsol" in {c.backend for c in runtime.capabilities()}
     wire["native"]["misspelled_option"] = 1
     with pytest.raises(pse.InspectionError):
         pse.SimulationSettings.from_json(json.dumps(wire))
@@ -297,6 +458,8 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
                     experiment_id=identity(159),
                     output_id=identity(154),
                     time=None,
+                    time_basis=None,
+                    time_unit_id=None,
                     included=True,
                     importance=1.0,
                 ),
@@ -307,7 +470,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     assert revision.edit().freeze().identity == revision.identity
     job = revision.prepare_fit(
         identity(158),
-        pse.SolveSettings(variable_tolerances=[], row_tolerances=[], intent="optimize"),
+        pse.SolveSettings(intent="optimize"),
     ).start()
     result = job.wait()
     rows = (

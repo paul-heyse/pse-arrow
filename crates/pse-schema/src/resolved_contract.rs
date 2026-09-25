@@ -29,7 +29,8 @@ pub struct ResolvedExtensionContract {
 /// Native local declaration plus edges into shared resolved definitions.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedRelationContract {
-    /// Semantic declaration: prose and the derived fingerprint are excluded.
+    /// Complete native declaration, including prose and its legacy fingerprint.
+    /// The separate semantic projection lives in fingerprint::semantic_relation.
     pub declaration: RelationSpec,
     /// Resolved native execution fields, with semantic metadata.
     pub fields: Vec<FieldContract>,

@@ -10,6 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 /// A conditional equality block, not an independent optimization problem.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
+    /// Stable identity inherited from the structural owner.
+    pub id: crate::incidence::BlockId,
     /// Original rows and variables solved together.
     pub members: Part,
     /// Explicit predecessor variable inputs.
@@ -39,8 +41,6 @@ impl Plan {
         }
         let mut columns = BTreeMap::new();
         let mut rows = BTreeMap::new();
-        let mut graph = petgraph::Graph::<usize, ()>::new();
-        let mut nodes = Vec::new();
         for (b, block) in a.blocks.iter().enumerate() {
             if block.members.rows.len() != block.members.columns.len()
                 || block.members.rows.is_empty()
@@ -49,7 +49,6 @@ impl Plan {
                     "non-square initialization block".into(),
                 ));
             }
-            nodes.push(graph.add_node(b));
             for c in &block.members.columns {
                 if columns.insert(*c, b).is_some() {
                     return Err(ProjectionError::Invalid("duplicate block variable".into()));
@@ -71,7 +70,6 @@ impl Plan {
             ));
         }
         let mut inputs = vec![BTreeSet::new(); a.blocks.len()];
-        let mut edges = BTreeSet::new();
         for edge in &a.contributions {
             let Some(&consumer) = rows.get(&edge.row) else {
                 continue;
@@ -81,24 +79,23 @@ impl Plan {
                 .ok_or(ProjectionError::Missing(edge.column))?;
             if consumer != producer {
                 inputs[consumer].insert(edge.column);
-                if edges.insert((producer, consumer)) {
-                    graph.add_edge(nodes[producer], nodes[consumer], ());
+                if producer >= consumer {
+                    return Err(ProjectionError::Invalid(
+                        "structural block order violates a dependency".into(),
+                    ));
                 }
             }
         }
-        let order = petgraph::algo::toposort(&graph, None).map_err(|_| {
-            ProjectionError::Invalid("cyclic dependency between purported BTF blocks".into())
-        })?;
         Ok(Self {
             scope: a.scope.clone(),
-            blocks: order
-                .into_iter()
-                .map(|node| {
-                    let b = graph[node];
-                    Block {
-                        members: a.blocks[b].members.clone(),
-                        inputs: inputs[b].iter().copied().collect(),
-                    }
+            blocks: a
+                .blocks
+                .iter()
+                .enumerate()
+                .map(|(b, block)| Block {
+                    id: block.id,
+                    members: block.members.clone(),
+                    inputs: inputs[b].iter().copied().collect(),
                 })
                 .collect(),
         })
@@ -111,6 +108,56 @@ mod tests {
     use crate::incidence::{CaseIncidence, Constraint, Incidence};
     fn id(n: u8) -> SemanticId {
         SemanticId::from_bytes([n; 16])
+    }
+    #[test]
+    fn structural_identity_preserves_independent_block_order() {
+        use crate::incidence::{Block as StructuralBlock, BlockId, StructuralAnalysis};
+        let scope = Scope::Whole(id(40));
+        let parts = [
+            Part {
+                rows: vec![id(2)],
+                columns: vec![id(12)],
+            },
+            Part {
+                rows: vec![id(1)],
+                columns: vec![id(11)],
+            },
+        ];
+        let blocks = parts
+            .iter()
+            .map(|members| StructuralBlock {
+                id: BlockId::new(&scope, members),
+                members: members.clone(),
+                coupling: pounce_presolve::coupling::AuxiliaryCouplingClass::PureEquality,
+            })
+            .collect();
+        let a = StructuralAnalysis {
+            scope,
+            provenance: crate::incidence::PROVENANCE,
+            matching: vec![],
+            over: Part::default(),
+            under: Part::default(),
+            square: Part {
+                rows: vec![id(1), id(2)],
+                columns: vec![id(11), id(12)],
+            },
+            blocks,
+            contributions: vec![],
+        };
+        let first = Plan::from_analysis(&a).unwrap();
+        assert_eq!(first.blocks[0].id, a.blocks[0].id);
+        assert_eq!(first.blocks[0].members, parts[0]);
+        let mut reordered = a.clone();
+        reordered.blocks.reverse();
+        let second = Plan::from_analysis(&reordered).unwrap();
+        assert_eq!(second.blocks[1].id, first.blocks[0].id);
+        reordered.contributions.push(Incidence {
+            row: id(1),
+            column: id(12),
+            instance: id(30),
+            output: 0,
+        });
+        assert!(Plan::from_analysis(&reordered).is_err());
     }
     #[test]
     fn conditional_schedule_keeps_predecessors_and_refuses_deficiency() {

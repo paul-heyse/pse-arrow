@@ -17,7 +17,10 @@ use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{authored::computation_models as wire, enums},
 };
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 /// The generated model row, including finite/ragged lexical context.
 pub type ModelDeclaration = wire::Row;
 /// One generated selected-case declaration.
@@ -72,6 +75,7 @@ pub struct ModelBuilder {
     physical: PhysicalContext,
     providers: BTreeMap<String, ProviderBinding>,
     workspace: Option<Workspace>,
+    document_inventory: BTreeMap<SemanticId, FieldCheckedBatch>,
 }
 impl ModelBuilder {
     pub(crate) fn physical_context(&self) -> &PhysicalContext {
@@ -114,6 +118,7 @@ impl ModelBuilder {
             physical,
             providers: BTreeMap::new(),
             workspace: None,
+            document_inventory: BTreeMap::new(),
             sources: Default::default(),
         }
     }
@@ -145,9 +150,35 @@ impl ModelBuilder {
     }
     /// Validate generated fields, identities, bindings and values before publishing an immutable revision.
     pub fn freeze(mut self) -> Result<ModelRevision, WorkflowError> {
+        let case_ids = self.row.cases.iter().map(|c| c.case_id).collect();
+        let (mut selected, mut admission) = self.sources.composition.select(
+            self.row.model_id,
+            &case_ids,
+            &self
+                .sources
+                .providers
+                .iter()
+                .filter_map(|p| p.material_system_id)
+                .collect(),
+        )?;
+        selected.extend(self.row.definitions.iter().map(|d| d.definition_id));
+        for c in &self.row.cases {
+            selected.extend(c.variables.iter().map(|v| v.port.symbol_id));
+            selected.extend(c.parameters.iter().map(|p| p.symbol_id));
+            selected.extend(c.instances.iter().map(|i| i.instance_id));
+            selected.extend(c.rows.iter().map(|r| r.row_id));
+        }
+        super::composition::classify_documents(
+            &self.document_inventory,
+            &selected,
+            &self.physical,
+            &self.runtime.registry,
+            &mut admission,
+        )?;
         self.sources.canonicalize(self.row.model_id)?;
         for row in &self.sources.providers {
-            let provider = super::sources::factory(row, &self.physical.quantities)?;
+            let provider =
+                super::sources::factory(row, &self.physical.quantities, &self.sources.composition)?;
             if self.providers.get(&row.name).is_some_and(|old| {
                 old.registration.spec().key() != provider.registration.spec().key()
                     || old.output != provider.output
@@ -157,6 +188,36 @@ impl ModelBuilder {
                 ));
             }
             self.providers.insert(row.name.clone(), provider);
+        }
+        for law in &self.sources.valve_laws {
+            let neutral = self
+                .physical
+                .quantities
+                .neutral_dimensionless()
+                .ok_or_else(|| {
+                    contract("directional valve requires an explicitly designated neutral quantity")
+                })?;
+            let package = pse_kernels::valve::DirectionalValve::new(
+                pse_ids::named_id(law.model_id, &law.name),
+                neutral,
+                &self.physical.quantities,
+            )
+            .map_err(|e| contract(e.to_string()))?;
+            let registration = Registration::new(Arc::new(package), &self.physical.quantities)
+                .map_err(|e| contract(e.to_string()))?;
+            if self
+                .providers
+                .insert(
+                    law.name.clone(),
+                    ProviderBinding {
+                        registration,
+                        output: 0,
+                    },
+                )
+                .is_some()
+            {
+                return Err(contract("duplicate valve provider binding"));
+            }
         }
         let bytes = self
             .row
@@ -171,9 +232,14 @@ impl ModelBuilder {
         reservation
             .try_grow(bytes.saturating_mul(4).saturating_add(4096))
             .map_err(|e| WorkflowError::Math(e.into()))?;
-        let owner = pse_columnar::AllocationLease::new(reservation);
         // Validate every added generated source family before publishing a revision.
-        drop(self.sources.tables(&self.runtime.registry)?);
+        let source_relations: BTreeSet<_> = self
+            .sources
+            .tables(&self.runtime.registry)?
+            .keys()
+            .copied()
+            .chain([wire::RELATION_ID])
+            .collect();
         let mut builder =
             wire::Builder::with_registry(&self.runtime.registry, 1).map_err(relation)?;
         builder.push(self.row.clone()).map_err(relation)?;
@@ -189,11 +255,106 @@ impl ModelBuilder {
             return Err(contract("model must declare at least one selected case"));
         }
         let mut projection = self.row.clone();
-        super::balances::project(&mut projection, &self.sources)?;
+        let lowered = super::composition::lower(
+            &self.sources.composition,
+            &mut projection,
+            &self.physical,
+            &self.providers,
+            &self.runtime.registry,
+        )?;
+        let mut resolved_sources = self.sources.clone();
+        resolved_sources.balances.extend(lowered.balances.clone());
+        resolved_sources.numerics.extend(lowered.numerics.clone());
+        super::reactions::project(&mut projection, &mut resolved_sources, &self.physical)?;
+        resolved_sources.canonicalize(self.row.model_id)?;
+        super::balances::project(&mut projection, &resolved_sources)?;
+        for case in &mut projection.cases {
+            let before = case.instances.len();
+            case.instances.retain(|i| !i.contributions.is_empty());
+            admission.push(super::AdmissionEntry {
+                relation: format!(
+                    "authored.computation_models.instances:{}",
+                    case.case_id.to_hex()
+                ),
+                selected: case.instances.len(),
+                nonexecuting: before - case.instances.len(),
+            });
+        }
+        let projection_bytes = projection
+            .owned_bytes()
+            .saturating_add(resolved_sources.bytes());
+        if projection_bytes > self.runtime.shared.budget().math.workspace_bytes / 2 {
+            return Err(contract("expanded model exceeds workspace allowance"));
+        }
+
+        let retained_bytes = bytes
+            .saturating_mul(4)
+            .saturating_add(projection_bytes)
+            .saturating_add(4096);
+        if retained_bytes > reservation.size() {
+            reservation
+                .try_grow(retained_bytes - reservation.size())
+                .map_err(|e| WorkflowError::Math(e.into()))?;
+        }
+        let owner = pse_columnar::AllocationLease::new(reservation);
         let mut cases = BTreeMap::new();
+        let mut case_keys = BTreeMap::new();
         let mut workspace = self.workspace;
         for case in &projection.cases {
-            let inputs = project(&projection, case, &self.physical, &self.providers)?;
+            let mut inputs = project(&projection, case, &self.physical, &self.providers)?;
+            for law in &self.sources.valve_laws {
+                if case.instances.iter().any(|i| {
+                    projection.definitions.iter().any(|d| {
+                        d.definition_id == i.definition_id && d.providers.contains(&law.name)
+                    })
+                }) {
+                    use pse_quantity::{BaseDimension, DimensionVector};
+                    let pressure = DimensionVector::base(BaseDimension::Mass)
+                        .div(&DimensionVector::base(BaseDimension::Length))
+                        .and_then(|d| d.div(&DimensionVector::base(BaseDimension::Time)))
+                        .and_then(|d| d.div(&DimensionVector::base(BaseDimension::Time)))
+                        .map_err(|e| contract(e.to_string()))?;
+                    let width = case
+                        .parameters
+                        .iter()
+                        .find(|p| p.symbol_id == law.transition_width_id)
+                        .and_then(|p| self.physical.quantities.unit(p.unit_id.into()).ok());
+                    if width.is_none_or(|u| u.dimension != pressure || u.is_affine)
+                        || case
+                            .instances
+                            .iter()
+                            .filter(|i| {
+                                projection.definitions.iter().any(|d| {
+                                    d.definition_id == i.definition_id
+                                        && d.providers.contains(&law.name)
+                                })
+                            })
+                            .any(|i| {
+                                !i.slots
+                                    .iter()
+                                    .any(|s| s.source_id == law.transition_width_id)
+                            })
+                    {
+                        return Err(contract(
+                            "directional valve width must be a pressure interval bound to each law instance",
+                        ));
+                    }
+                    if !case
+                        .parameters
+                        .iter()
+                        .any(|p| p.symbol_id == law.transition_width_id)
+                        || inputs
+                            .values
+                            .get(&law.transition_width_id)
+                            .is_none_or(|v| !v.is_finite() || *v <= 0.0)
+                    {
+                        return Err(contract(
+                            "directional valve transition width must be an authored fixed positive pressure input",
+                        ));
+                    }
+                }
+            }
+            inputs.flows = lowered.flows.clone();
             if cases
                 .insert(case.case_id, Arc::new(inputs.clone()))
                 .is_some()
@@ -201,11 +362,18 @@ impl ModelBuilder {
                 return Err(contract("duplicate case identity"));
             }
             // Same input admission used by the incremental compiler, without compiling an evaluator.
-            pse_compiler::workspace::CompilerWorkspace::new(
+            let mut admission_workspace = pse_compiler::workspace::CompilerWorkspace::new(
                 inputs.clone(),
                 WorkspaceLimits::default(),
             )
             .map_err(|e| WorkflowError::Math(e.into()))?;
+            let plan = admission_workspace
+                .admit_selected_case(case.case_id)
+                .map_err(|e| WorkflowError::Math(e.into()))?;
+            let mut case_hash = FramedHasher::new("pse.native.selected-case.v1");
+            case_hash.id(&case.case_id).hash(&plan.structure().key());
+            inputs.values.frame(&mut case_hash);
+            case_keys.insert(case.case_id, case_hash.finish_hash());
             if workspace.is_none() {
                 workspace = Some(
                     self.runtime
@@ -214,11 +382,37 @@ impl ModelBuilder {
                 );
             }
         }
-        let mut h = FramedHasher::new("pse.native.model-revision.v1");
-        self.row.frame(&mut h);
-        self.sources.frame(&mut h);
-        h.hash(&self.physical.key)
-            .hash(&self.runtime.registry.fingerprint());
+        let mut h = FramedHasher::new("pse.native.model-revision.v2");
+        h.id(&self.row.model_id).hash(&self.physical.key);
+        for (id, key) in &case_keys {
+            h.id(id).hash(key);
+        }
+        for (id, flow) in &lowered.flows {
+            let graph = pse_structural::flowsheet::FlowGraph::admit(
+                flow.clone(),
+                &self.physical.quantities,
+                pse_structural::projection::GraphLimits {
+                    nodes: 4096,
+                    edges: 16384,
+                },
+            )
+            .map_err(|e| super::composition::invalid([*id], e.to_string()))?;
+            h.id(id).hash(&graph.key());
+        }
+        resolved_sources.balances.frame(&mut h);
+        resolved_sources.numerics.frame(&mut h);
+        resolved_sources.scaling_bindings.frame(&mut h);
+        resolved_sources.scaling_defaults.frame(&mut h);
+        self.sources.composition.frame_material_contract(&mut h);
+        self.sources.dynamics.frame(&mut h);
+        self.sources.fits.frame(&mut h);
+        self.sources.observations.frame(&mut h);
+        self.sources.datasets.frame(&mut h);
+        h.hash(
+            &pse_schema::fingerprint::semantic_product(&self.runtime.registry, &source_relations)
+                .map_err(pse_relations::RelationError::from)
+                .map_err(relation)?,
+        );
         for (name, p) in &self.providers {
             h.str(name)
                 .hash(&p.registration.spec().identity())
@@ -228,9 +422,14 @@ impl ModelBuilder {
             runtime: self.runtime,
             row: self.row,
             sources: self.sources,
+            resolved_sources,
+            admission,
+            projection,
+            bindings: lowered.bindings,
             physical: self.physical,
             providers: self.providers,
             cases,
+            case_keys,
             key: h.finish_hash(),
             workspace: workspace.ok_or_else(|| contract("missing compiler workspace"))?,
             batch,
@@ -270,7 +469,12 @@ impl CaseBuilder {
 }
 #[derive(Debug)]
 pub(crate) struct Revision {
+    pub case_keys: BTreeMap<SemanticId, ContentHash>,
+    pub admission: Vec<super::AdmissionEntry>,
+    pub projection: ModelDeclaration,
+    pub bindings: Vec<super::composition::lower::Binding>,
     pub sources: super::sources::Sources,
+    pub resolved_sources: super::sources::Sources,
     pub runtime: Runtime,
     pub row: ModelDeclaration,
     pub physical: PhysicalContext,
@@ -285,9 +489,90 @@ pub(crate) struct Revision {
 #[derive(Clone, Debug)]
 pub struct ModelRevision(pub(crate) Arc<Revision>);
 impl ModelRevision {
+    /// Selected values and physical structure, excluding display names and source prose.
+    pub fn case_identity(&self, case: SemanticId) -> Option<ContentHash> {
+        self.0.case_keys.get(&case).copied()
+    }
+    /// Exhaustive declaration accounting at selected admission.
+    pub fn admission(&self) -> &[super::AdmissionEntry] {
+        &self.0.admission
+    }
+    /// Inspect the derived scalar declarations without replacing authored templates.
+    pub fn projection(&self) -> &ModelDeclaration {
+        &self.0.projection
+    }
+    /// Inspect the binding of every active template scalar.
+    pub fn scalar_bindings(&self) -> &[super::ScalarBinding] {
+        &self.0.bindings
+    }
+    /// Prepare initialization using this immutable revision under the shared workspace lock.
+    #[cfg(feature = "solver-kinsol")]
+    pub async fn prepare_initialization(
+        &self,
+        case: SemanticId,
+        profile: crate::math::initialization::InitializationProfile,
+        compiler: pse_compiler::workspace::Profile,
+    ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
+        let inputs = self
+            .0
+            .cases
+            .get(&case)
+            .ok_or_else(|| super::composition::invalid([case], "unknown selected case"))?;
+        let order = if profile.controls.hessian == pse_backend_native::solve::HessianMode::Exact {
+            pse_kernels::DerivativeOrder::Second
+        } else {
+            pse_kernels::DerivativeOrder::First
+        };
+        let prepared = self
+            .0
+            .runtime
+            .native()
+            .prepare_initialization(
+                self.0.workspace.clone(),
+                inputs.as_ref().clone(),
+                case,
+                compiler,
+                order,
+            )
+            .await?;
+        prepared.validate_profile(
+            &CaseValues {
+                scalars: inputs.values.clone(),
+            },
+            &profile,
+        )?;
+        Ok(super::PreparedInitializationStrategy {
+            revision: self.clone(),
+            case,
+            prepared,
+            profile,
+        })
+    }
+    /// Prepare this revision's flow, independent of the last use of a shared workspace.
+    pub async fn prepare_flow(
+        &self,
+        case: SemanticId,
+        flow: SemanticId,
+    ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
+        let inputs = self
+            .0
+            .cases
+            .get(&case)
+            .ok_or_else(|| super::composition::invalid([case], "unknown selected case"))?;
+        Ok(self
+            .0
+            .runtime
+            .native()
+            .prepare_flow(self.0.workspace.clone(), inputs.as_ref().clone(), flow)
+            .await?)
+    }
     /// Checked retained source row for Arrow consumers and durable publication.
     pub fn declaration_batch(&self) -> FieldCheckedBatch {
         self.0.batch.clone()
+    }
+    /// Physical balances derived solely from the retained declarations.
+    pub fn resolved_balances(&self) -> &[super::BalanceDeclaration] {
+        &self.0.resolved_sources.balances
     }
     /// Complete current-format declaration identity.
     pub fn identity(&self) -> ContentHash {
@@ -311,6 +596,7 @@ impl ModelRevision {
             physical: self.0.physical.clone(),
             providers: self.0.providers.clone(),
             workspace: Some(self.0.workspace.clone()),
+            document_inventory: BTreeMap::new(),
         }
     }
 }
@@ -580,11 +866,26 @@ impl Runtime {
                 }
                 let model = builder.row.model_id;
                 load!(physical_balances, balances, |r| r.model_id == model);
+                load!(numerical_requirements, numerics, |r| r.model_id == model);
+                load!(provider_scaling_bindings, scaling_bindings, |r| r.model_id
+                    == model);
+                let packages: BTreeSet<_> = builder
+                    .sources
+                    .scaling_bindings
+                    .iter()
+                    .map(|b| b.property_package_id)
+                    .collect();
+                load!(default_scaling, scaling_defaults, |r| packages
+                    .contains(&r.property_package_id));
                 load!(dynamic_cases, dynamics, |r| r.model_id == model);
                 load!(fit_cases, fits, |r| r.model_id == model);
                 load!(native_providers, providers, |r| r.model_id == model);
+                load!(directional_valve_laws, valve_laws, |r| r.model_id == model);
                 load!(observations, observations, |_| true);
                 load!(datasets, datasets, |_| true);
+                builder.sources.composition =
+                    super::composition::CompositionDeclarations::load(&batches)?;
+                builder.document_inventory = batches.clone();
                 Ok(builder)
             })
             .collect()

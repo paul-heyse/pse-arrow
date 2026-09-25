@@ -116,7 +116,36 @@ pub struct Report {
     /// Original indices of retained constraint rows.
     pub rows: Vec<usize>,
     /// Library-certified infeasibility; raw propagation crossings do not set this.
-    pub certified_infeasible: bool,
+    pub proof: Option<PresolveProof>,
+}
+/// Retained library proof plus the original scope and the budget it survived.
+#[derive(Clone, Debug)]
+pub struct PresolveProof {
+    /// Original row, producing instance and output mappings within this proof scope.
+    pub contributions: Vec<(pse_ids::SemanticId, pse_ids::SemanticId, usize)>,
+    /// Library-owned proof kind, retaining its original row ordinal if supplied.
+    pub native: pounce_nlp::tnlp::InfeasibilityProof,
+    /// Original row identity for an interval witness; absent for coarse propagation.
+    pub witness_row: Option<pse_ids::SemanticId>,
+    /// Complete original row scope, not a claimed minimal conflicting set.
+    pub rows: Vec<pse_ids::SemanticId>,
+    /// Complete original variable scope.
+    pub columns: Vec<pse_ids::SemanticId>,
+    /// Exact coordinate transformation used for confirmation.
+    pub normalization: ContentHash,
+    /// Per-bound normalized acceptance budgets used in confirmation.
+    pub budgets: Tolerances,
+}
+impl PresolveProof {
+    /// Stable interpretation of the retained library proof, without reconstructing it.
+    pub fn kind(&self) -> &'static str {
+        match self.native {
+            pounce_nlp::tnlp::InfeasibilityProof::IntervalArithmetic { .. } => {
+                "interval_arithmetic"
+            }
+            pounce_nlp::tnlp::InfeasibilityProof::BoundPropagation => "bound_propagation",
+        }
+    }
 }
 impl Policy {
     /// Complete option identity; no Debug strings or library fingerprint alone.
@@ -213,7 +242,18 @@ impl Policy {
                 "unsupported or unbounded native presolve controls".into(),
             ));
         }
-        let facts = oracle.presolve_facts();
+        let normalization = oracle
+            .normalization()
+            .cloned()
+            .unwrap_or_else(|| pse_math::normalization::Normalization::identity(n, m));
+        normalization.validate(n, m)?;
+        let normalized_tolerances = t.normalized(&normalization)?;
+        let t = &normalized_tolerances;
+        let normalized_facts = oracle
+            .presolve_facts()
+            .map(|f| normalization.facts(f, 1_000_000))
+            .transpose()?;
+        let facts = normalized_facts.as_ref();
         let affine = facts.is_some_and(|f| f.affine.iter().any(Option::is_some));
         let has_tape = facts.is_some_and(|f| f.complete.iter().any(|v| *v));
         // The wrapper fixes eq_tol/coeff_tol at 1e-12. Decline rather than turn
@@ -221,7 +261,8 @@ impl Policy {
         let exact_rows = oracle
             .constraint_bounds()
             .iter()
-            .all(|(l, u)| l == u || (u - l).abs() > 1e-12);
+            .zip(&normalization.rows)
+            .all(|((l, u), s)| l == u || ((u - l) / s).abs() > 1e-12);
         let safe_coefficients = facts.is_some_and(|f| {
             f.affine.iter().flatten().all(|r| {
                 let scale = r.entries.values().map(|v| v.abs()).fold(1.0, f64::max);
@@ -294,17 +335,11 @@ impl Policy {
         o.fbbt = passes[&Pass::Fbbt].applied;
         o.licq_check = passes[&Pass::RankDiagnostics].applied;
         o.auxiliary = passes[&Pass::Auxiliary].applied;
-        // A certificate must exceed every caller's allowed physical violation.
-        o.certify_tol = o.certify_tol.max(
-            t.rows
-                .iter()
-                .chain(&t.variables)
-                .copied()
-                .fold(0.0, f64::max),
-        );
+        // Native margins are normalized algorithm controls. A terminal certificate
+        // separately survives each original bound's own acceptance budget.
         Ok(Report{requested:self.clone(),effective:o,passes,facts:facts.map(|f|f.key),transformation:self.key(),dimensions:(n,m,n,m),
             diagnostics:BTreeMap::from([("native.qualification".into(),"pounce-presolve 0.12.0: equality/coefficient tolerance 1e-12; bound-dual recovery activity tolerance 1e-6; LICQ diagnostics only".into())]),
-            columns:(0..n).collect(),rows:(0..m).collect(),certified_infeasible:false})
+            columns:(0..n).collect(),rows:(0..m).collect(),proof:None})
     }
 }
 

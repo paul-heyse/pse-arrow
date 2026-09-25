@@ -5,10 +5,16 @@ use crate::ProviderError;
 use pse_ids::FramedHasher;
 
 /// A finite closed interval in the physical port's canonical units.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub struct Interval {
     lower: f64,
     upper: f64,
+}
+impl PartialEq for Interval {
+    fn eq(&self, other: &Self) -> bool {
+        pse_ids::canonical_f64_bits(self.lower) == pse_ids::canonical_f64_bits(other.lower)
+            && pse_ids::canonical_f64_bits(self.upper) == pse_ids::canonical_f64_bits(other.upper)
+    }
 }
 impl Eq for Interval {}
 impl Interval {
@@ -21,10 +27,7 @@ impl Interval {
                 "finite increasing envelope bounds required".into(),
             ));
         }
-        Ok(Self {
-            lower: if lower == 0.0 { 0.0 } else { lower },
-            upper: if upper == 0.0 { 0.0 } else { upper },
-        })
+        Ok(Self { lower, upper })
     }
     /// Canonical interval endpoints.
     pub fn bounds(self) -> [f64; 2] {
@@ -45,11 +48,12 @@ impl Interval {
         Ok(())
     }
     fn frame(self, h: &mut FramedHasher) {
-        h.u64(self.lower.to_bits()).u64(self.upper.to_bits());
+        h.u64(pse_ids::canonical_f64_bits(self.lower))
+            .u64(pse_ids::canonical_f64_bits(self.upper));
     }
 }
 
-/// SI operating envelope for the admitted homogeneous ternary state.
+/// SI operating envelope for the admitted homogeneous composition.
 /// These declarations are not a certificate of empirical accuracy or phase stability.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StateEnvelope {
@@ -60,7 +64,7 @@ pub struct StateEnvelope {
     /// Pascals, checked even when pressure is not an output demand.
     pub pressure: Interval,
     /// Ordered component mole fractions, including the dependent complement.
-    pub composition: [Interval; 3],
+    pub composition: Vec<Interval>,
     /// Authored basis for choosing this operating window.
     pub provenance: String,
 }
@@ -74,6 +78,7 @@ impl StateEnvelope {
             || self.temperature.lower <= 0.0
             || self.density.lower < 0.0
             || self.pressure.lower < 0.0
+            || self.composition.is_empty()
             || self
                 .composition
                 .iter()
@@ -91,11 +96,14 @@ impl StateEnvelope {
     pub fn thermal_composition(
         &self,
         temperature: f64,
-        fractions: [f64; 3],
+        fractions: &[f64],
     ) -> Result<(), ProviderError> {
+        if fractions.len() != self.composition.len() {
+            return Err(ProviderError::Contract("composition envelope arity".into()));
+        }
         self.temperature.check("temperature", temperature)?;
         for (i, (range, value)) in self.composition.iter().zip(fractions).enumerate() {
-            range.check(&format!("composition[{i}]"), value)?;
+            range.check(&format!("composition[{i}]"), *value)?;
         }
         Ok(())
     }
@@ -105,7 +113,8 @@ impl StateEnvelope {
         self.temperature.frame(h);
         self.density.frame(h);
         self.pressure.frame(h);
-        for range in self.composition {
+        h.u64(self.composition.len() as u64);
+        for range in &self.composition {
             range.frame(h);
         }
     }

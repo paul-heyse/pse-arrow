@@ -35,6 +35,10 @@ pub enum FactBatch {
     r#AuthoredDatasets(Vec<super::r#authored::r#datasets::Row>),
     #[doc = stringify!(r#AuthoredDefaultScaling)]
     r#AuthoredDefaultScaling(Vec<super::r#authored::r#default_scaling::Row>),
+    #[doc = stringify!(r#AuthoredDirectionalValveLaws)]
+    r#AuthoredDirectionalValveLaws(
+        Vec<super::r#authored::r#directional_valve_laws::Row>,
+    ),
     #[doc = stringify!(r#AuthoredDocumentEdits)]
     r#AuthoredDocumentEdits(Vec<super::r#authored::r#document_edits::Row>),
     #[doc = stringify!(r#AuthoredDocuments)]
@@ -65,8 +69,14 @@ pub enum FactBatch {
     r#AuthoredMaterialSystems(Vec<super::r#authored::r#material_systems::Row>),
     #[doc = stringify!(r#AuthoredMethodSelections)]
     r#AuthoredMethodSelections(Vec<super::r#authored::r#method_selections::Row>),
+    #[doc = stringify!(r#AuthoredModelCompositions)]
+    r#AuthoredModelCompositions(Vec<super::r#authored::r#model_compositions::Row>),
     #[doc = stringify!(r#AuthoredNativeProviders)]
     r#AuthoredNativeProviders(Vec<super::r#authored::r#native_providers::Row>),
+    #[doc = stringify!(r#AuthoredNumericalRequirements)]
+    r#AuthoredNumericalRequirements(
+        Vec<super::r#authored::r#numerical_requirements::Row>,
+    ),
     #[doc = stringify!(r#AuthoredObservationTargets)]
     r#AuthoredObservationTargets(Vec<super::r#authored::r#observation_targets::Row>),
     #[doc = stringify!(r#AuthoredObservations)]
@@ -89,6 +99,12 @@ pub enum FactBatch {
     r#AuthoredPhysicalBalances(Vec<super::r#authored::r#physical_balances::Row>),
     #[doc = stringify!(r#AuthoredPropertyPackages)]
     r#AuthoredPropertyPackages(Vec<super::r#authored::r#property_packages::Row>),
+    #[doc = stringify!(r#AuthoredProviderScalingBindings)]
+    r#AuthoredProviderScalingBindings(
+        Vec<super::r#authored::r#provider_scaling_bindings::Row>,
+    ),
+    #[doc = stringify!(r#AuthoredReactionApplications)]
+    r#AuthoredReactionApplications(Vec<super::r#authored::r#reaction_applications::Row>),
     #[doc = stringify!(r#AuthoredReactionMethods)]
     r#AuthoredReactionMethods(Vec<super::r#authored::r#reaction_methods::Row>),
     #[doc = stringify!(r#AuthoredReactionPackages)]
@@ -323,6 +339,8 @@ pub enum FactBatch {
     r#RuntimeCacheEntryStatistics(Vec<super::r#runtime::r#cache_entry_statistics::Row>),
     #[doc = stringify!(r#RuntimeCacheStatistics)]
     r#RuntimeCacheStatistics(Vec<super::r#runtime::r#cache_statistics::Row>),
+    #[doc = stringify!(r#RuntimeCandidateAssessments)]
+    r#RuntimeCandidateAssessments(Vec<super::r#runtime::r#candidate_assessments::Row>),
     #[doc = stringify!(r#RuntimeChangeEvents)]
     r#RuntimeChangeEvents(Vec<super::r#runtime::r#change_events::Row>),
     #[doc = stringify!(r#RuntimeComputationRuns)]
@@ -349,6 +367,8 @@ pub enum FactBatch {
     r#RuntimePublications(Vec<super::r#runtime::r#publications::Row>),
     #[doc = stringify!(r#RuntimeReleaseCheckpoints)]
     r#RuntimeReleaseCheckpoints(Vec<super::r#runtime::r#release_checkpoints::Row>),
+    #[doc = stringify!(r#RuntimeResolvedNumerics)]
+    r#RuntimeResolvedNumerics(Vec<super::r#runtime::r#resolved_numerics::Row>),
     #[doc = stringify!(r#RuntimeResponseSensitivities)]
     r#RuntimeResponseSensitivities(Vec<super::r#runtime::r#response_sensitivities::Row>),
     #[doc = stringify!(r#RuntimeRetainedVersions)]
@@ -434,8 +454,8 @@ impl FactBatch {
             }
             Self::r#AuthoredConnections(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    72u8, 172u8, 225u8, 1u8, 174u8, 72u8, 189u8, 62u8, 163u8, 23u8,
-                    110u8, 157u8, 248u8, 238u8, 81u8, 151u8,
+                    72u8, 47u8, 11u8, 48u8, 135u8, 197u8, 158u8, 219u8, 30u8, 17u8,
+                    190u8, 90u8, 66u8, 117u8, 108u8, 152u8,
                 ])
             }
             Self::r#AuthoredContinuousDomains(_) => {
@@ -454,6 +474,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     180u8, 85u8, 90u8, 243u8, 119u8, 73u8, 183u8, 196u8, 254u8, 81u8,
                     111u8, 244u8, 1u8, 123u8, 149u8, 160u8,
+                ])
+            }
+            Self::r#AuthoredDirectionalValveLaws(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    44u8, 170u8, 115u8, 220u8, 75u8, 44u8, 194u8, 13u8, 238u8, 93u8,
+                    163u8, 159u8, 29u8, 182u8, 241u8, 213u8,
                 ])
             }
             Self::r#AuthoredDocumentEdits(_) => {
@@ -482,8 +508,8 @@ impl FactBatch {
             }
             Self::r#AuthoredDynamicCases(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    79u8, 169u8, 221u8, 143u8, 53u8, 165u8, 97u8, 41u8, 78u8, 135u8,
-                    172u8, 155u8, 154u8, 167u8, 151u8, 135u8,
+                    214u8, 251u8, 45u8, 253u8, 216u8, 170u8, 204u8, 220u8, 119u8, 159u8,
+                    15u8, 213u8, 244u8, 233u8, 207u8, 186u8,
                 ])
             }
             Self::r#AuthoredEntities(_) => {
@@ -494,8 +520,8 @@ impl FactBatch {
             }
             Self::r#AuthoredFitCases(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    125u8, 153u8, 165u8, 138u8, 192u8, 46u8, 19u8, 105u8, 238u8, 183u8,
-                    7u8, 219u8, 95u8, 164u8, 79u8, 117u8,
+                    219u8, 244u8, 5u8, 89u8, 58u8, 96u8, 190u8, 124u8, 237u8, 233u8,
+                    93u8, 57u8, 234u8, 223u8, 60u8, 185u8,
                 ])
             }
             Self::r#AuthoredFlowsheets(_) => {
@@ -540,10 +566,22 @@ impl FactBatch {
                     95u8, 26u8, 180u8, 24u8, 160u8, 219u8,
                 ])
             }
+            Self::r#AuthoredModelCompositions(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    154u8, 5u8, 143u8, 200u8, 110u8, 98u8, 78u8, 159u8, 57u8, 164u8,
+                    252u8, 205u8, 171u8, 181u8, 216u8, 149u8,
+                ])
+            }
             Self::r#AuthoredNativeProviders(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    35u8, 109u8, 109u8, 30u8, 13u8, 74u8, 86u8, 55u8, 113u8, 5u8, 232u8,
-                    8u8, 228u8, 105u8, 191u8, 82u8,
+                    29u8, 157u8, 198u8, 180u8, 213u8, 206u8, 150u8, 73u8, 2u8, 5u8,
+                    207u8, 45u8, 74u8, 111u8, 229u8, 223u8,
+                ])
+            }
+            Self::r#AuthoredNumericalRequirements(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    120u8, 247u8, 12u8, 179u8, 43u8, 44u8, 114u8, 41u8, 196u8, 139u8,
+                    14u8, 205u8, 146u8, 223u8, 180u8, 183u8,
                 ])
             }
             Self::r#AuthoredObservationTargets(_) => {
@@ -596,14 +634,26 @@ impl FactBatch {
             }
             Self::r#AuthoredPhysicalBalances(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    27u8, 62u8, 133u8, 206u8, 66u8, 207u8, 85u8, 122u8, 113u8, 227u8,
-                    28u8, 62u8, 204u8, 156u8, 230u8, 179u8,
+                    235u8, 209u8, 31u8, 55u8, 38u8, 111u8, 91u8, 183u8, 31u8, 239u8,
+                    133u8, 140u8, 114u8, 103u8, 148u8, 134u8,
                 ])
             }
             Self::r#AuthoredPropertyPackages(_) => {
                 pse_ids::SemanticId::from_bytes([
                     52u8, 195u8, 59u8, 7u8, 75u8, 171u8, 222u8, 148u8, 189u8, 16u8,
                     140u8, 160u8, 226u8, 41u8, 21u8, 58u8,
+                ])
+            }
+            Self::r#AuthoredProviderScalingBindings(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    185u8, 137u8, 113u8, 218u8, 42u8, 229u8, 62u8, 18u8, 198u8, 74u8,
+                    73u8, 25u8, 42u8, 65u8, 243u8, 13u8,
+                ])
+            }
+            Self::r#AuthoredReactionApplications(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    84u8, 27u8, 22u8, 242u8, 123u8, 102u8, 216u8, 24u8, 204u8, 156u8,
+                    237u8, 34u8, 89u8, 36u8, 208u8, 152u8,
                 ])
             }
             Self::r#AuthoredReactionMethods(_) => {
@@ -1182,6 +1232,12 @@ impl FactBatch {
                     127u8, 155u8, 10u8, 189u8, 175u8, 253u8,
                 ])
             }
+            Self::r#RuntimeCandidateAssessments(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    88u8, 113u8, 61u8, 37u8, 158u8, 145u8, 213u8, 109u8, 107u8, 117u8,
+                    243u8, 181u8, 17u8, 248u8, 61u8, 184u8,
+                ])
+            }
             Self::r#RuntimeChangeEvents(_) => {
                 pse_ids::SemanticId::from_bytes([
                     200u8, 216u8, 166u8, 205u8, 85u8, 203u8, 69u8, 175u8, 158u8, 124u8,
@@ -1260,6 +1316,12 @@ impl FactBatch {
                     208u8, 39u8, 189u8, 241u8, 239u8, 26u8,
                 ])
             }
+            Self::r#RuntimeResolvedNumerics(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    235u8, 132u8, 190u8, 98u8, 165u8, 69u8, 41u8, 119u8, 173u8, 161u8,
+                    174u8, 241u8, 101u8, 122u8, 240u8, 211u8,
+                ])
+            }
             Self::r#RuntimeResponseSensitivities(_) => {
                 pse_ids::SemanticId::from_bytes([
                     243u8, 207u8, 201u8, 0u8, 238u8, 117u8, 82u8, 85u8, 118u8, 240u8,
@@ -1292,14 +1354,14 @@ impl FactBatch {
             }
             Self::r#RuntimeSolveMetrics(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    248u8, 84u8, 100u8, 2u8, 156u8, 146u8, 133u8, 230u8, 156u8, 46u8,
-                    192u8, 44u8, 165u8, 190u8, 222u8, 205u8,
+                    133u8, 1u8, 112u8, 132u8, 219u8, 139u8, 70u8, 210u8, 81u8, 178u8,
+                    59u8, 132u8, 172u8, 182u8, 116u8, 218u8,
                 ])
             }
             Self::r#RuntimeSolveRuns(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    83u8, 190u8, 251u8, 194u8, 82u8, 88u8, 77u8, 24u8, 137u8, 91u8, 59u8,
-                    136u8, 165u8, 22u8, 186u8, 108u8,
+                    16u8, 32u8, 107u8, 213u8, 82u8, 252u8, 243u8, 186u8, 180u8, 193u8,
+                    205u8, 152u8, 24u8, 239u8, 120u8, 42u8,
                 ])
             }
             Self::r#RuntimeSolveVariables(_) => {
@@ -1333,6 +1395,7 @@ impl FactBatch {
             Self::r#AuthoredContinuousDomains(rows) => rows.len(),
             Self::r#AuthoredDatasets(rows) => rows.len(),
             Self::r#AuthoredDefaultScaling(rows) => rows.len(),
+            Self::r#AuthoredDirectionalValveLaws(rows) => rows.len(),
             Self::r#AuthoredDocumentEdits(rows) => rows.len(),
             Self::r#AuthoredDocuments(rows) => rows.len(),
             Self::r#AuthoredDomainMembers(rows) => rows.len(),
@@ -1347,7 +1410,9 @@ impl FactBatch {
             Self::r#AuthoredInstances(rows) => rows.len(),
             Self::r#AuthoredMaterialSystems(rows) => rows.len(),
             Self::r#AuthoredMethodSelections(rows) => rows.len(),
+            Self::r#AuthoredModelCompositions(rows) => rows.len(),
             Self::r#AuthoredNativeProviders(rows) => rows.len(),
+            Self::r#AuthoredNumericalRequirements(rows) => rows.len(),
             Self::r#AuthoredObservationTargets(rows) => rows.len(),
             Self::r#AuthoredObservations(rows) => rows.len(),
             Self::r#AuthoredPackageUnitSets(rows) => rows.len(),
@@ -1358,6 +1423,8 @@ impl FactBatch {
             Self::r#AuthoredPhases(rows) => rows.len(),
             Self::r#AuthoredPhysicalBalances(rows) => rows.len(),
             Self::r#AuthoredPropertyPackages(rows) => rows.len(),
+            Self::r#AuthoredProviderScalingBindings(rows) => rows.len(),
+            Self::r#AuthoredReactionApplications(rows) => rows.len(),
             Self::r#AuthoredReactionMethods(rows) => rows.len(),
             Self::r#AuthoredReactionPackages(rows) => rows.len(),
             Self::r#AuthoredReactions(rows) => rows.len(),
@@ -1454,6 +1521,7 @@ impl FactBatch {
             Self::r#RuntimeArtifactDescriptors(rows) => rows.len(),
             Self::r#RuntimeCacheEntryStatistics(rows) => rows.len(),
             Self::r#RuntimeCacheStatistics(rows) => rows.len(),
+            Self::r#RuntimeCandidateAssessments(rows) => rows.len(),
             Self::r#RuntimeChangeEvents(rows) => rows.len(),
             Self::r#RuntimeComputationRuns(rows) => rows.len(),
             Self::r#RuntimeDiagnosticsFindings(rows) => rows.len(),
@@ -1467,6 +1535,7 @@ impl FactBatch {
             Self::r#RuntimePhysicalChecks(rows) => rows.len(),
             Self::r#RuntimePublications(rows) => rows.len(),
             Self::r#RuntimeReleaseCheckpoints(rows) => rows.len(),
+            Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
             Self::r#RuntimeResponseSensitivities(rows) => rows.len(),
             Self::r#RuntimeRetainedVersions(rows) => rows.len(),
             Self::r#RuntimeSimulationEvents(rows) => rows.len(),
@@ -1558,6 +1627,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#AuthoredDirectionalValveLaws(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#AuthoredDocumentEdits(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1628,7 +1702,17 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#AuthoredModelCompositions(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#AuthoredNativeProviders(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#AuthoredNumericalRequirements(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1679,6 +1763,16 @@ impl FactBatch {
                 }
             }
             Self::r#AuthoredPropertyPackages(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#AuthoredProviderScalingBindings(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#AuthoredReactionApplications(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2163,6 +2257,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeCandidateAssessments(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeChangeEvents(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -2224,6 +2323,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeReleaseCheckpoints(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeResolvedNumerics(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2330,6 +2434,10 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredDefaultScaling(vec![row.clone()]))
             }
+            Self::r#AuthoredDirectionalValveLaws(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredDirectionalValveLaws(vec![row.clone()]))
+            }
             Self::r#AuthoredDocumentEdits(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredDocumentEdits(vec![row.clone()]))
@@ -2380,9 +2488,17 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredMethodSelections(vec![row.clone()]))
             }
+            Self::r#AuthoredModelCompositions(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredModelCompositions(vec![row.clone()]))
+            }
             Self::r#AuthoredNativeProviders(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredNativeProviders(vec![row.clone()]))
+            }
+            Self::r#AuthoredNumericalRequirements(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredNumericalRequirements(vec![row.clone()]))
             }
             Self::r#AuthoredObservationTargets(rows) => {
                 rows.get(index)
@@ -2421,6 +2537,16 @@ impl FactBatch {
             Self::r#AuthoredPropertyPackages(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredPropertyPackages(vec![row.clone()]))
+            }
+            Self::r#AuthoredProviderScalingBindings(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredProviderScalingBindings(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#AuthoredReactionApplications(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredReactionApplications(vec![row.clone()]))
             }
             Self::r#AuthoredReactionMethods(rows) => {
                 rows.get(index)
@@ -2812,6 +2938,10 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCacheStatistics(vec![row.clone()]))
             }
+            Self::r#RuntimeCandidateAssessments(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCandidateAssessments(vec![row.clone()]))
+            }
             Self::r#RuntimeChangeEvents(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimeChangeEvents(vec![row.clone()]))
             }
@@ -2860,6 +2990,10 @@ impl FactBatch {
             Self::r#RuntimeReleaseCheckpoints(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeReleaseCheckpoints(vec![row.clone()]))
+            }
+            Self::r#RuntimeResolvedNumerics(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeResolvedNumerics(vec![row.clone()]))
             }
             Self::r#RuntimeResponseSensitivities(rows) => {
                 rows.get(index)
@@ -3037,6 +3171,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#AuthoredDirectionalValveLaws(left),
+                Self::r#AuthoredDirectionalValveLaws(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#AuthoredDocumentEdits(left),
                 Self::r#AuthoredDocumentEdits(right),
             ) => {
@@ -3170,8 +3315,30 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#AuthoredModelCompositions(left),
+                Self::r#AuthoredModelCompositions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#AuthoredNativeProviders(left),
                 Self::r#AuthoredNativeProviders(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredNumericalRequirements(left),
+                Self::r#AuthoredNumericalRequirements(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3270,6 +3437,28 @@ impl FactBatch {
             (
                 Self::r#AuthoredPropertyPackages(left),
                 Self::r#AuthoredPropertyPackages(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredProviderScalingBindings(left),
+                Self::r#AuthoredProviderScalingBindings(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredReactionApplications(left),
+                Self::r#AuthoredReactionApplications(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4274,6 +4463,17 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeCandidateAssessments(left),
+                Self::r#RuntimeCandidateAssessments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeChangeEvents(left), Self::r#RuntimeChangeEvents(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4397,6 +4597,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeReleaseCheckpoints(left),
                 Self::r#RuntimeReleaseCheckpoints(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeResolvedNumerics(left),
+                Self::r#RuntimeResolvedNumerics(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4602,6 +4813,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#AuthoredDirectionalValveLaws(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#AuthoredDocumentEdits(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -4700,7 +4918,21 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#AuthoredModelCompositions(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#AuthoredNativeProviders(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#AuthoredNumericalRequirements(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4771,6 +5003,20 @@ impl FactBatch {
                     })
             }
             Self::r#AuthoredPropertyPackages(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#AuthoredProviderScalingBindings(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#AuthoredReactionApplications(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5449,6 +5695,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeCandidateAssessments(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeChangeEvents(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -5534,6 +5787,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeReleaseCheckpoints(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeResolvedNumerics(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5796,6 +6056,20 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#AuthoredDirectionalValveLaws(left),
+                Self::r#AuthoredDirectionalValveLaws(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#model_id,
+                            &right.r#model_id,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#AuthoredDocumentEdits(left),
                 Self::r#AuthoredDocumentEdits(right),
             ) => {
@@ -5976,6 +6250,20 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#AuthoredModelCompositions(left),
+                Self::r#AuthoredModelCompositions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#model_id,
+                            &right.r#model_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#AuthoredNativeProviders(left),
                 Self::r#AuthoredNativeProviders(right),
             ) => {
@@ -5985,6 +6273,20 @@ impl FactBatch {
                             &left.r#model_id,
                             &right.r#model_id,
                         ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredNumericalRequirements(left),
+                Self::r#AuthoredNumericalRequirements(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#requirement_id,
+                            &right.r#requirement_id,
+                        )
                     }
                     _ => false,
                 }
@@ -6136,6 +6438,34 @@ impl FactBatch {
                         crate::SemanticEq::semantic_eq(
                             &left.r#property_package_id,
                             &right.r#property_package_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredProviderScalingBindings(left),
+                Self::r#AuthoredProviderScalingBindings(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#binding_id,
+                            &right.r#binding_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredReactionApplications(left),
+                Self::r#AuthoredReactionApplications(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#application_id,
+                            &right.r#application_id,
                         )
                     }
                     _ => false,
@@ -7525,6 +7855,21 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeCandidateAssessments(left),
+                Self::r#RuntimeCandidateAssessments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeChangeEvents(left), Self::r#RuntimeChangeEvents(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -7723,6 +8068,29 @@ impl FactBatch {
                             &left.r#consumer_id,
                             &right.r#consumer_id,
                         )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeResolvedNumerics(left),
+                Self::r#RuntimeResolvedNumerics(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#target_kind,
+                                &right.r#target_kind,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#target_id,
+                                &right.r#target_id,
+                            )
                     }
                     _ => false,
                 }
@@ -7974,6 +8342,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#property_kind_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#index, &mut hash);
             }
+            Self::r#AuthoredDirectionalValveLaws(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#model_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#name, &mut hash);
+            }
             Self::r#AuthoredDocumentEdits(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#document_id, &mut hash);
@@ -8032,10 +8405,18 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#selection_id, &mut hash);
             }
+            Self::r#AuthoredModelCompositions(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#model_id, &mut hash);
+            }
             Self::r#AuthoredNativeProviders(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#model_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#name, &mut hash);
+            }
+            Self::r#AuthoredNumericalRequirements(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#requirement_id, &mut hash);
             }
             Self::r#AuthoredObservationTargets(rows) => {
                 let row = rows.get(index)?;
@@ -8082,6 +8463,14 @@ impl FactBatch {
             Self::r#AuthoredPropertyPackages(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#property_package_id, &mut hash);
+            }
+            Self::r#AuthoredProviderScalingBindings(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#binding_id, &mut hash);
+            }
+            Self::r#AuthoredReactionApplications(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#application_id, &mut hash);
             }
             Self::r#AuthoredReactionMethods(rows) => {
                 let row = rows.get(index)?;
@@ -8514,6 +8903,11 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#name, &mut hash);
             }
+            Self::r#RuntimeCandidateAssessments(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+            }
             Self::r#RuntimeChangeEvents(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#table_uri, &mut hash);
@@ -8579,6 +8973,13 @@ impl FactBatch {
             Self::r#RuntimeReleaseCheckpoints(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#consumer_id, &mut hash);
+            }
+            Self::r#RuntimeResolvedNumerics(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+                crate::SemanticFrame::frame(&row.r#target_kind, &mut hash);
+                crate::SemanticFrame::frame(&row.r#target_id, &mut hash);
             }
             Self::r#RuntimeResponseSensitivities(rows) => {
                 let row = rows.get(index)?;
@@ -8732,6 +9133,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#AuthoredDirectionalValveLaws(left),
+                Self::r#AuthoredDirectionalValveLaws(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#AuthoredDocumentEdits(left),
                 Self::r#AuthoredDocumentEdits(mut right),
             ) => {
@@ -8815,8 +9223,22 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#AuthoredModelCompositions(left),
+                Self::r#AuthoredModelCompositions(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#AuthoredNativeProviders(left),
                 Self::r#AuthoredNativeProviders(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#AuthoredNumericalRequirements(left),
+                Self::r#AuthoredNumericalRequirements(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -8881,6 +9303,20 @@ impl FactBatch {
             (
                 Self::r#AuthoredPropertyPackages(left),
                 Self::r#AuthoredPropertyPackages(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#AuthoredProviderScalingBindings(left),
+                Self::r#AuthoredProviderScalingBindings(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#AuthoredReactionApplications(left),
+                Self::r#AuthoredReactionApplications(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -9525,6 +9961,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeCandidateAssessments(left),
+                Self::r#RuntimeCandidateAssessments(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeChangeEvents(left),
                 Self::r#RuntimeChangeEvents(mut right),
             ) => {
@@ -9616,6 +10059,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeResolvedNumerics(left),
+                Self::r#RuntimeResolvedNumerics(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeResponseSensitivities(left),
                 Self::r#RuntimeResponseSensitivities(mut right),
             ) => {
@@ -9698,6 +10148,9 @@ impl crate::HeapUsage for FactBatch {
             Self::r#AuthoredContinuousDomains(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredDatasets(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredDefaultScaling(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#AuthoredDirectionalValveLaws(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#AuthoredDocumentEdits(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredDocuments(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredDomainMembers(rows) => crate::HeapUsage::heap_bytes(rows),
@@ -9714,7 +10167,11 @@ impl crate::HeapUsage for FactBatch {
             Self::r#AuthoredInstances(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredMaterialSystems(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredMethodSelections(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#AuthoredModelCompositions(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredNativeProviders(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#AuthoredNumericalRequirements(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#AuthoredObservationTargets(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
@@ -9729,6 +10186,12 @@ impl crate::HeapUsage for FactBatch {
             Self::r#AuthoredPhases(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredPhysicalBalances(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredPropertyPackages(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#AuthoredProviderScalingBindings(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#AuthoredReactionApplications(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#AuthoredReactionMethods(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredReactionPackages(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredReactions(rows) => crate::HeapUsage::heap_bytes(rows),
@@ -9897,6 +10360,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCacheStatistics(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeCandidateAssessments(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeChangeEvents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeComputationRuns(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeDiagnosticsFindings(rows) => {
@@ -9916,6 +10382,7 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimePhysicalChecks(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimePublications(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeReleaseCheckpoints(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeResolvedNumerics(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResponseSensitivities(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }

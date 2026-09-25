@@ -58,7 +58,7 @@ fn coefficient_conic() {
             integrality: 1e-7,
         };
         let mut session = highs::Session::new(&p, None, stamp(Backend::Highs)).unwrap();
-        let r = session
+        let mut r = session
             .solve(
                 &p,
                 &controls,
@@ -68,6 +68,8 @@ fn coefficient_conic() {
                 None,
             )
             .unwrap();
+        assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
+        quality::qualify(&mut r, &controls.accuracy);
         assert_eq!(r.termination.category, Termination::Success, "{r:?}");
         assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
         assert!(r.quality.as_ref().unwrap().feasible());
@@ -115,7 +117,7 @@ fn coefficient_conic() {
             stamp(Backend::Clarabel),
         )
         .unwrap();
-        let r = session
+        let mut r = session
             .solve(
                 &p,
                 &controls,
@@ -128,6 +130,8 @@ fn coefficient_conic() {
                 },
             )
             .unwrap();
+        assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
+        quality::qualify(&mut r, &controls.accuracy);
         assert_eq!(r.termination.category, Termination::Success, "{r:?}");
         assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
         assert!(r.quality.as_ref().unwrap().feasible(), "{r:?}");
@@ -148,7 +152,7 @@ fn coefficient_conic() {
         hessian: Some(q),
         bounds: vec![],
     };
-    let r = highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs))
+    let mut r = highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs))
         .unwrap()
         .solve(
             &p,
@@ -163,9 +167,42 @@ fn coefficient_conic() {
             None,
         )
         .unwrap();
+    assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
+    quality::qualify(&mut r, &controls.accuracy);
     assert_eq!(r.termination.category, Termination::Success, "{r:?}");
-    assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
+    // Native QP regularization can satisfy native stopping while missing the
+    // requested original objective gap. The default candidate is only feasible.
+    assert_eq!(r.qualification, Qualification::Feasible, "{r:?}");
+    assert!(
+        matches!(r.metrics.get("primal_dual_objective_error"), Some(Metric::Real(v)) if *v > controls.accuracy.gap_relative)
+    );
     near(r.candidate.unwrap().primal[0], 2., 1e-5);
+    let mut precise = controls.clone();
+    precise
+        .options
+        .insert("qp_regularization_value".into(), OptionValue::Real(1e-12));
+    let mut r = highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs))
+        .unwrap()
+        .solve(
+            &p,
+            &precise,
+            highs::Method::Choose,
+            execution(&precise),
+            &Tolerances {
+                variables: vec![1e-6],
+                rows: vec![],
+                integrality: 1e-7,
+            },
+            None,
+        )
+        .unwrap();
+    quality::qualify(&mut r, &precise.accuracy);
+    assert_eq!(
+        r.qualification,
+        Qualification::OptimalWithinTolerance,
+        "{r:?}"
+    );
+    near(r.candidate.unwrap().primal[0], 2., 1e-8);
     p.domains[0] = VariableDomain::Integer;
     assert!(highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs)).is_err());
     p.domains[0] = VariableDomain::Continuous;

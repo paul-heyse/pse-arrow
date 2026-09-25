@@ -38,7 +38,7 @@ pub enum Policy {
     Forbidden,
 }
 /// One decision may group several occurrences, but grouping is always declared.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Decision {
     /// Stable decision identity.
     pub id: SemanticId,
@@ -46,6 +46,13 @@ pub struct Decision {
     pub cost: f64,
     /// Mandatory/forbidden/free selection.
     pub policy: Policy,
+}
+impl PartialEq for Decision {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.policy == other.policy
+            && pse_ids::canonical_f64_bits(self.cost) == pse_ids::canonical_f64_bits(other.cost)
+    }
 }
 /// Complete source declaration, safe to store in the semantic compiler.
 #[derive(Clone, Debug, PartialEq)]
@@ -173,8 +180,8 @@ impl FlowGraph {
                 })?;
                 h.id(source)
                     .id(target)
-                    .u64(binding.conversion.scale.to_bits())
-                    .u64(binding.conversion.offset.to_bits());
+                    .u64(pse_ids::canonical_f64_bits(binding.conversion.scale))
+                    .u64(pse_ids::canonical_f64_bits(binding.conversion.offset));
                 bindings.entry(e.id).or_insert_with(Vec::new).push(binding);
             }
             graph.add_edge(from, to, i);
@@ -183,7 +190,29 @@ impl FlowGraph {
             return Err(ProjectionError::Invalid("unused tear decision".into()));
         }
         for g in &d.decisions {
-            h.id(&g.id).u64(g.cost.to_bits()).u64(g.policy as u64);
+            h.id(&g.id)
+                .u64(pse_ids::canonical_f64_bits(g.cost))
+                .u64(g.policy as u64);
+        }
+        let mut forbidden = graph.clone();
+        forbidden.retain_edges(|g, e| {
+            d.decisions.iter().any(|decision| {
+                decision.id == d.connections[g[e]].decision && decision.policy == Policy::Forbidden
+            })
+        });
+        let cycle = cycle_connections(&forbidden, &d.connections);
+        if !cycle.is_empty() {
+            let decisions = cycle
+                .iter()
+                .filter_map(|id| d.connections.iter().find(|e| e.id == *id))
+                .map(|e| e.decision)
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            return Err(ProjectionError::ForbiddenTearCycle {
+                connections: cycle,
+                decisions,
+            });
         }
         Ok(Self {
             declaration: d,
@@ -209,23 +238,34 @@ impl FlowGraph {
         &self,
         selected: &BTreeSet<SemanticId>,
     ) -> Result<Vec<SemanticId>, ProjectionError> {
-        if selected.iter().any(|id| {
+        let mut conflicts: BTreeSet<_> = selected
+            .iter()
+            .filter(|id| {
+                self.declaration
+                    .decisions
+                    .binary_search_by_key(*id, |g| g.id)
+                    .is_err()
+            })
+            .copied()
+            .collect();
+        conflicts.extend(
             self.declaration
                 .decisions
-                .binary_search_by_key(id, |g| g.id)
-                .is_err()
-        }) || self.declaration.decisions.iter().any(|g| {
-            g.policy == Policy::Mandatory && !selected.contains(&g.id)
-                || g.policy == Policy::Forbidden && selected.contains(&g.id)
-        }) {
-            return Err(ProjectionError::Invalid(
-                "tear decision violates declared policy".into(),
-            ));
+                .iter()
+                .filter(|g| {
+                    g.policy == Policy::Mandatory && !selected.contains(&g.id)
+                        || g.policy == Policy::Forbidden && selected.contains(&g.id)
+                })
+                .map(|g| g.id),
+        );
+        if !conflicts.is_empty() {
+            return Err(ProjectionError::TearPolicy(conflicts.into_iter().collect()));
         }
         let mut graph = self.graph.clone();
         graph.retain_edges(|g, e| !selected.contains(&self.declaration.connections[g[e]].decision));
-        let order = petgraph::algo::toposort(&graph, None)
-            .map_err(|_| ProjectionError::Invalid("selected tears leave a cycle".into()))?;
+        let order = petgraph::algo::toposort(&graph, None).map_err(|_| {
+            ProjectionError::Cycle(cycle_connections(&graph, &self.declaration.connections))
+        })?;
         Ok(order.into_iter().map(|n| graph[n]).collect())
     }
     /// Native library SCC decomposition, with complete original unit identities.
@@ -252,12 +292,59 @@ impl FlowGraph {
             .collect();
         let mut graph = self.graph.clone();
         graph.retain_edges(|g, e| !selected.contains(&self.declaration.connections[g[e]].decision));
-        for edge in petgraph::algo::greedy_feedback_arc_set(&graph) {
-            selected.insert(self.declaration.connections[*edge.weight()].decision);
+        if self
+            .declaration
+            .decisions
+            .iter()
+            .any(|d| d.policy == Policy::Forbidden)
+        {
+            let forbidden: BTreeSet<_> = self
+                .declaration
+                .decisions
+                .iter()
+                .filter(|d| d.policy == Policy::Forbidden)
+                .map(|d| d.id)
+                .collect();
+            let mut backbone = graph.clone();
+            backbone.retain_edges(|g, e| {
+                forbidden.contains(&self.declaration.connections[g[e]].decision)
+            });
+            let order = petgraph::algo::toposort(&backbone, None).map_err(|_| {
+                ProjectionError::Cycle(cycle_connections(&backbone, &self.declaration.connections))
+            })?;
+            let rank: BTreeMap<_, _> = order
+                .into_iter()
+                .enumerate()
+                .map(|(i, n)| (backbone[n], i))
+                .collect();
+            for e in &self.declaration.connections {
+                if !forbidden.contains(&e.decision) && rank[&e.from] >= rank[&e.to] {
+                    selected.insert(e.decision);
+                }
+            }
+        } else {
+            for edge in petgraph::algo::greedy_feedback_arc_set(&graph) {
+                selected.insert(self.declaration.connections[*edge.weight()].decision);
+            }
         }
         self.witness(&selected)?;
         Ok(selected)
     }
+}
+
+fn cycle_connections(
+    graph: &Graph<SemanticId, usize, Directed>,
+    connections: &[Connection],
+) -> Vec<SemanticId> {
+    rustworkx_core::connectivity::find_cycle(graph, None)
+        .into_iter()
+        .filter_map(|(from, to)| {
+            graph
+                .edges_connecting(from, to)
+                .map(|e| connections[*e.weight()].id)
+                .min()
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -265,6 +352,79 @@ mod tests {
     use super::*;
     fn id(n: u8) -> SemanticId {
         SemanticId::from_bytes([n; 16])
+    }
+    #[test]
+    fn forbidden_cycles_retain_actual_connection_and_decision_identities() {
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = pse_quantity::standard::ids::quantity("neutral");
+        let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+        let port = |n| pse_kernels::Port {
+            id: id(n),
+            quantity,
+            unit,
+        };
+        let declaration = Declaration {
+            nodes: vec![
+                Node {
+                    id: id(1),
+                    ports: vec![port(10)],
+                },
+                Node {
+                    id: id(2),
+                    ports: vec![port(11)],
+                },
+            ],
+            connections: vec![
+                Connection {
+                    id: id(20),
+                    from: id(1),
+                    to: id(2),
+                    decision: id(30),
+                    bindings: vec![(id(10), id(11))],
+                },
+                Connection {
+                    id: id(21),
+                    from: id(2),
+                    to: id(1),
+                    decision: id(31),
+                    bindings: vec![(id(11), id(10))],
+                },
+            ],
+            decisions: vec![
+                Decision {
+                    id: id(30),
+                    cost: 1.0,
+                    policy: Policy::Forbidden,
+                },
+                Decision {
+                    id: id(31),
+                    cost: 1.0,
+                    policy: Policy::Forbidden,
+                },
+            ],
+        };
+        let mut mixed = declaration.clone();
+        mixed.decisions[1].policy = Policy::Free;
+        let admitted =
+            FlowGraph::admit(mixed, &registry, GraphLimits { nodes: 8, edges: 8 }).unwrap();
+        let selected = admitted.unweighted_heuristic().unwrap();
+        assert_eq!(selected, BTreeSet::from([id(31)]));
+        assert_eq!(admitted.witness(&selected).unwrap(), vec![id(1), id(2)]);
+        let Err(ProjectionError::ForbiddenTearCycle {
+            connections,
+            decisions,
+        }) = FlowGraph::admit(declaration, &registry, GraphLimits { nodes: 8, edges: 8 })
+        else {
+            panic!("missing forbidden cycle witness")
+        };
+        assert_eq!(
+            connections.into_iter().collect::<BTreeSet<_>>(),
+            BTreeSet::from([id(20), id(21)])
+        );
+        assert_eq!(
+            decisions.into_iter().collect::<BTreeSet<_>>(),
+            BTreeSet::from([id(30), id(31)])
+        );
     }
     #[test]
     fn physical_connections_retain_affine_conversion_and_original_occurrences() {

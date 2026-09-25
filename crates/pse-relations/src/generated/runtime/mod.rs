@@ -9,6 +9,8 @@ pub mod r#cache_entry_statistics;
 ///Generated relation contract.
 pub mod r#cache_statistics;
 ///Generated relation contract.
+pub mod r#candidate_assessments;
+///Generated relation contract.
 pub mod r#change_events;
 ///Generated relation contract.
 pub mod r#computation_runs;
@@ -34,6 +36,8 @@ pub mod r#physical_checks;
 pub mod r#publications;
 ///Generated relation contract.
 pub mod r#release_checkpoints;
+///Generated relation contract.
+pub mod r#resolved_numerics;
 ///Generated relation contract.
 pub mod r#response_sensitivities;
 ///Generated relation contract.

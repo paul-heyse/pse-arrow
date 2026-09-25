@@ -14,6 +14,8 @@ pub struct AuthoredPhysicalBalancesFieldTermsItem {
     pub r#source_id: pse_ids::SemanticId,
     ///role
     pub r#role: crate::generated::enums::BalanceRole,
+    ///multiplier
+    pub r#multiplier: f64,
     ///transfer_id
     pub r#transfer_id: Option<pse_ids::SemanticId>,
     ///mode
@@ -27,6 +29,7 @@ impl crate::SemanticEq for AuthoredPhysicalBalancesFieldTermsItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
             && crate::SemanticEq::semantic_eq(&self.r#role, &other.r#role)
+            && crate::SemanticEq::semantic_eq(&self.r#multiplier, &other.r#multiplier)
             && crate::SemanticEq::semantic_eq(&self.r#transfer_id, &other.r#transfer_id)
             && crate::SemanticEq::semantic_eq(&self.r#mode, &other.r#mode)
             && crate::SemanticEq::semantic_eq(&self.r#instance_id, &other.r#instance_id)
@@ -122,6 +125,8 @@ impl crate::SemanticFrame for AuthoredPhysicalBalancesFieldTermsItem {
         crate::SemanticFrame::frame(&self.r#source_id, hash);
         hash.str(stringify!(r#role));
         crate::SemanticFrame::frame(&self.r#role, hash);
+        hash.str(stringify!(r#multiplier));
+        crate::SemanticFrame::frame(&self.r#multiplier, hash);
         hash.str(stringify!(r#transfer_id));
         crate::SemanticFrame::frame(&self.r#transfer_id, hash);
         hash.str(stringify!(r#mode));
@@ -137,6 +142,7 @@ impl crate::HeapUsage for AuthoredPhysicalBalancesFieldTermsItem {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#role))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#multiplier))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#transfer_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#mode))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#instance_id))

@@ -20,6 +20,10 @@ pub struct AuthoredConnectionsRow {
     pub r#rule_template_id: pse_ids::SemanticId,
     ///tear_cost
     pub r#tear_cost: Option<f64>,
+    ///tear_policy
+    pub r#tear_policy: Option<crate::generated::enums::TearPolicy>,
+    ///tear_group
+    pub r#tear_group: Option<pse_ids::SemanticId>,
     ///doc
     pub r#doc: String,
 }
@@ -34,6 +38,8 @@ impl crate::SemanticEq for AuthoredConnectionsRow {
                 &self.r#rule_template_id,
                 &other.r#rule_template_id,
             ) && crate::SemanticEq::semantic_eq(&self.r#tear_cost, &other.r#tear_cost)
+            && crate::SemanticEq::semantic_eq(&self.r#tear_policy, &other.r#tear_policy)
+            && crate::SemanticEq::semantic_eq(&self.r#tear_group, &other.r#tear_group)
             && crate::SemanticEq::semantic_eq(&self.r#doc, &other.r#doc)
     }
 }
@@ -56,6 +62,10 @@ impl crate::SemanticFrame for AuthoredConnectionsRow {
         crate::SemanticFrame::frame(&self.r#rule_template_id, hash);
         hash.str(stringify!(r#tear_cost));
         crate::SemanticFrame::frame(&self.r#tear_cost, hash);
+        hash.str(stringify!(r#tear_policy));
+        crate::SemanticFrame::frame(&self.r#tear_policy, hash);
+        hash.str(stringify!(r#tear_group));
+        crate::SemanticFrame::frame(&self.r#tear_group, hash);
         hash.str(stringify!(r#doc));
         crate::SemanticFrame::frame(&self.r#doc, hash);
     }
@@ -68,6 +78,8 @@ impl crate::HeapUsage for AuthoredConnectionsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#to_port_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rule_template_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tear_cost))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tear_policy))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tear_group))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#doc))
     }
 }

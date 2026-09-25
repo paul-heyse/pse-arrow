@@ -114,6 +114,20 @@ class RuntimeCacheStatisticsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeCandidateAssessmentsRow:
+    """Declared relation row or nested value."""
+
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    native_termination: e.NativeTermination | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeTermination)))
+    numerically_feasible: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+    closure: e.ClosureAssessment = attrs.field(validator=attrs.validators.instance_of(e.ClosureAssessment))
+    policy: e.ClosurePolicy = attrs.field(validator=attrs.validators.instance_of(e.ClosurePolicy))
+    usability: e.CandidateUse = attrs.field(validator=attrs.validators.instance_of(e.CandidateUse))
+    reason: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeChangeEventsRow:
     """Declared relation row or nested value."""
 
@@ -595,6 +609,36 @@ class RuntimeReleaseCheckpointsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeResolvedNumericsFieldProvenanceItem:
+    """Declared relation row or nested value."""
+
+    declaration: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    source: e.NumericalSource = attrs.field(validator=attrs.validators.instance_of(e.NumericalSource))
+    field: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    selected: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    value: b.float = attrs.field(validator=v.finite_float)
+    description: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeResolvedNumericsRow:
+    """Declared relation row or nested value."""
+
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_kind: e.NumericalTarget = attrs.field(validator=attrs.validators.instance_of(e.NumericalTarget))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    nominal: b.float = attrs.field(validator=v.finite_float)
+    coordinate_scale: b.float = attrs.field(validator=v.finite_float)
+    absolute: b.float = attrs.field(validator=v.finite_float)
+    relative: b.float = attrs.field(validator=v.finite_float)
+    budget: b.float = attrs.field(validator=v.finite_float)
+    provenance: b.tuple[RuntimeResolvedNumericsFieldProvenanceItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeResolvedNumericsFieldProvenanceItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeResponseSensitivitiesRow:
     """Declared relation row or nested value."""
 
@@ -678,6 +722,7 @@ class RuntimeSolveMetricsRow:
     integer: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
     boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    unavailable: e.EvidenceUnavailableReason | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.EvidenceUnavailableReason)))
 
 
 @attrs.frozen(kw_only=True)
@@ -689,12 +734,13 @@ class RuntimeSolveRunsRow:
     model_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     case_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    backend: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    backend: e.NativeBackend | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBackend)))
     native_code: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
     native_status: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    termination: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    assurance: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    candidate_present: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    state: e.NativeRunState = attrs.field(validator=attrs.validators.instance_of(e.NativeRunState))
+    termination: e.NativeTermination | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeTermination)))
+    assurance: e.NativeAssurance = attrs.field(validator=attrs.validators.instance_of(e.NativeAssurance))
+    candidate_kind: e.NativeCandidateKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeCandidateKind)))
     feasible: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     objective: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     objective_sense: e.NativeObjectiveSense | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeObjectiveSense)))

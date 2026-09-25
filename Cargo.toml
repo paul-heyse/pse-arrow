@@ -187,6 +187,9 @@ proc-macro2 = { version = "=1.0.107", features = ["span-locations"] }
 prettyplease = { version = "=0.3.0", features = ["verbatim"] }
 
 # ---- graphs, numerics, identity ----
+gmp-mpfr-sys = { version = "=1.7.1", default-features = false, features = [
+  "mpfr",
+] }
 symbolica = { version = "=3.0.0", default-features = false, features = [
   "integer-gmp",
   "float-mpfr",
@@ -357,6 +360,7 @@ delta-kernel-revision = "8ba063f8f84fec222000f66d40d70911d7c79675"
 # Passed to every test invocation by the justfile and CI; never a default feature.
 validate-features = ["pse-relations/force-validate"]
 unsafe-allowlist = [
+  "pse-math",           # ADR-0088: immutable linked GMP/MPFR version strings only.
   "pse-ipopt-sys",
   "pse-backend-native",
   "pse-py",

@@ -49,6 +49,7 @@ fn block(expressions: Vec<Atom>, outputs: Vec<usize>) -> Stage {
 
 #[test]
 fn numerica_raw_diagonal_mixed_and_multi_output_derivatives() {
+    crate::initialize().unwrap();
     let x = library::formal(0).unwrap();
     let y = library::formal(1).unwrap();
     let body = compile(
@@ -158,6 +159,7 @@ fn provider() -> (ProviderSpec, Box<dyn Provider>, Arc<AtomicUsize>) {
 }
 #[test]
 fn symbolica_composes_provider_partials_after_arithmetic_barriers() {
+    crate::initialize().unwrap();
     let (spec, provider, calls) = provider();
     let x = library::formal(0).unwrap();
     let stages = vec![
@@ -203,6 +205,7 @@ fn symbolica_composes_provider_partials_after_arithmetic_barriers() {
 
 #[test]
 fn derivative_budget_cancellation_and_numeric_zero_support() {
+    crate::initialize().unwrap();
     let x = library::formal(0).unwrap();
     let p = PreparedBody::new(
         1,
@@ -266,6 +269,7 @@ fn derivative_budget_cancellation_and_numeric_zero_support() {
 
 #[test]
 fn parameter_only_switches_preserve_all_branch_support() {
+    crate::initialize().unwrap();
     let x = library::formal(0).unwrap();
     let p = library::formal(1).unwrap();
     let body = PreparedBody::new(
@@ -333,6 +337,7 @@ fn parameter_only_switches_preserve_all_branch_support() {
 }
 #[test]
 fn multi_input_provider_lift_preserves_mixed_raw_partials() {
+    crate::initialize().unwrap();
     #[derive(Debug)]
     struct Product {
         spec: ProviderSpec,
@@ -402,6 +407,7 @@ fn multi_input_provider_lift_preserves_mixed_raw_partials() {
 }
 #[test]
 fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
+    crate::initialize().unwrap();
     use crate::typed::{Binary, BodyBuilder, BodyLimits};
     use pse_quantity::{
         IndexSet,
@@ -482,6 +488,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     )
     .unwrap();
     let mut b = BodyBuilder::new(
+        crate::initialize().unwrap(),
         &registry,
         &StandardInvariantChecker,
         1,

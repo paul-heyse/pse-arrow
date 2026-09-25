@@ -91,3 +91,36 @@ fn invalid(reaction: ReactionId, detail: &str) -> MaterialError {
         detail: detail.to_owned(),
     }
 }
+
+/// Admit a selected homogeneous molar reaction for execution. Storage diagnostics
+/// remain permissive; this boundary requires both sides and declared element closure.
+/// # Errors
+/// Invalid stoichiometry, multiple phases, absent compositions or unclosed elements.
+pub fn admit_homogeneous(
+    elements: &ElementTable,
+    reaction: ReactionId,
+    phase: PhaseId,
+    terms: &[Stoichiometry],
+    compositions: &BTreeMap<SpeciesId, Vec<ElementCount>>,
+    tolerance: f64,
+) -> Result<BTreeMap<ElementId, f64>, MaterialError> {
+    if !tolerance.is_finite()
+        || tolerance < 0.0
+        || !terms.iter().any(|t| t.coefficient < 0.0)
+        || !terms.iter().any(|t| t.coefficient > 0.0)
+        || terms.iter().any(|t| t.phase != phase)
+    {
+        return Err(invalid(
+            reaction,
+            "homogeneous reaction needs one phase, both sides and a finite nonnegative element tolerance",
+        ));
+    }
+    let residuals = element_balance(elements, reaction, BasisKind::Molar, terms, compositions)?;
+    if residuals.is_empty() || residuals.values().any(|v| v.abs() > tolerance) {
+        return Err(invalid(
+            reaction,
+            "selected reaction fails declared element closure",
+        ));
+    }
+    Ok(residuals)
+}

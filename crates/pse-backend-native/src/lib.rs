@@ -26,9 +26,35 @@ pub mod solve;
 pub mod structural;
 pub mod tears;
 mod tnlp;
+pub mod transport;
 pub use convexity::GramCertificate;
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::DerivativeOrder;
+
+#[cfg(any(feature = "kinsol", feature = "idas"))]
+#[expect(
+    unsafe_code,
+    reason = "one linked SUNDIALS query writes bounded caller-owned version storage"
+)]
+fn sundials_version() -> String {
+    let (mut major, mut minor, mut patch) = (0, 0, 0);
+    let mut label = [0_i8; 128];
+    // SAFETY: all output pointers reference writable, correctly sized storage.
+    let code = unsafe {
+        sundials_sys::SUNDIALSGetVersionNumber(
+            &mut major,
+            &mut minor,
+            &mut patch,
+            label.as_mut_ptr(),
+            128,
+        )
+    };
+    if code == 0 {
+        format!("SUNDIALS {major}.{minor}.{patch}")
+    } else {
+        format!("SUNDIALS version unavailable ({code})")
+    }
+}
 #[cfg(test)]
 use std::sync::{Arc, atomic::AtomicBool};
 
@@ -133,6 +159,11 @@ impl OracleContract {
 }
 /// Square nonlinear equations, with a residual Jacobian or Jacobian-vector product.
 pub trait NleOracle: std::fmt::Debug {
+    /// Admitted original sign guards; absent entries do not imply a sign restriction.
+    fn guard_signs(&self) -> std::collections::BTreeMap<SemanticId, pse_math::presolve::GuardSign> {
+        Default::default()
+    }
+
     /// Recover authored row observations from independently evaluated residuals.
     /// Generic root oracles declare zero-equality residual functions.
     fn observe(&self, residual: Vec<f64>) -> Result<quality::Observation, ProblemError> {
@@ -168,6 +199,10 @@ pub struct DerivativeFacts {
 }
 /// Nonlinear optimization shared only by compatible NLP adapters.
 pub trait NlpOracle: std::fmt::Debug {
+    /// Resolved model coordinates, distinct from optional native algorithmic scaling.
+    fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
+        None
+    }
     /// Original compiled source terms after constraint evaluation; opaque oracles expose none.
     fn constraint_sources(&self) -> Result<Vec<pse_math::assembly::OutputValue>, ProblemError> {
         Ok(vec![])
@@ -312,7 +347,10 @@ pub struct ConicProblem {
 }
 impl ConicProblem {
     /// Validate library CSC storage, explicit cone parameters, and PSD evidence.
-    pub fn validate(&self, certificate: &GramCertificate) -> Result<(), ProblemError> {
+    pub fn validate(
+        &self,
+        certificate: &dyn pse_math::convexity::QuadraticEvidence,
+    ) -> Result<(), ProblemError> {
         use clarabel::solver::SupportedConeT::{
             ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT,
             ZeroConeT,
@@ -376,6 +414,12 @@ impl ConicProblem {
                 "cone rows differ from constraint inventory".into(),
             ));
         }
+        certificate.validate(&self.full_quadratic()?, 1.0)?;
+        Ok(())
+    }
+    /// Symmetric quadratic represented by native upper-triangle storage.
+    pub fn full_quadratic(&self) -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
+        let n = self.contract.variables.len();
         let mut entries = Vec::with_capacity(self.quadratic.nzval.len() * 2);
         for c in 0..n {
             for k in self.quadratic.colptr[c]..self.quadratic.colptr[c + 1] {
@@ -394,8 +438,7 @@ impl ConicProblem {
         }
         let q = faer::sparse::SparseColMat::try_new_from_triplets(n, n, &entries)
             .map_err(|e| ProblemError::Contract(e.to_string()))?;
-        certificate.validate(&q, 1.0)?;
-        Ok(())
+        Ok(q)
     }
 }
 #[cfg(test)]

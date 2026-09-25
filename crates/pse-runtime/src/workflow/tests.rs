@@ -2,13 +2,16 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 use crate::math::solves::{BackendSettings, SolverProfile};
-use pse_backend_native::{quality::Tolerances, solve::*};
+use pse_backend_native::solve::*;
 use pse_ids::SemanticId;
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 pub(super) fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
 pub(super) fn runtime() -> Runtime {
+    runtime_with_workspace(16 << 20)
+}
+pub(super) fn runtime_with_workspace(workspace_bytes: usize) -> Runtime {
     let n = |v| NonZeroUsize::new(v).unwrap();
     let shared = SharedRuntime::build(crate::ResourceBudget {
         memory_limit_bytes: n(512 << 20),
@@ -23,7 +26,7 @@ pub(super) fn runtime() -> Runtime {
         cache: crate::DeltaCacheBudget::disabled(1024),
         math: crate::math::MathPolicy {
             worker_bytes: 8 << 20,
-            workspace_bytes: 16 << 20,
+            workspace_bytes,
             foreign_bytes: 1 << 20,
             ..Default::default()
         },
@@ -73,16 +76,12 @@ pub(super) fn declaration() -> ModelDeclaration {
 fn profile() -> SolverProfile {
     SolverProfile {
         presolve: Default::default(),
-        scaling: None,
+        numerics: Default::default(),
+        convexity: Default::default(),
         intent: SolveIntent::Root,
         selection: SolverSelection::Auto,
         controls: Controls::default(),
         backend: BackendSettings::Default,
-        tolerances: Tolerances {
-            variables: vec![],
-            rows: vec![1e-8],
-            integrality: 1e-8,
-        },
     }
 }
 pub(super) fn compiler_profile() -> pse_compiler::workspace::Profile {
@@ -117,7 +116,6 @@ async fn immutable_revisions_atomic_edit_and_repeatable_owned_completion() {
             id(5),
             profile(),
             compiler_profile(),
-            false,
             &crate::CancelSource::new(),
         )
         .await
@@ -127,7 +125,6 @@ async fn immutable_revisions_atomic_edit_and_repeatable_owned_completion() {
             id(5),
             profile(),
             compiler_profile(),
-            false,
             &crate::CancelSource::new(),
         )
         .await
@@ -215,4 +212,66 @@ fn typed_and_document_declarations_have_identical_admission() {
         .unwrap();
     assert_eq!(typed.identity(), document.identity());
     assert_eq!(typed.declaration(), document.declaration());
+}
+
+#[tokio::test]
+async fn numerical_policy_and_closure_assessment_survive_public_result_encoding() {
+    use pse_model::generated::enums::{CandidateUse, ClosurePolicy};
+    let mut model = declaration();
+    model.cases[0].rows.clear();
+    model.cases[0].instances[0].contributions.clear();
+    let mut builder = ModelBuilder::from_declaration(runtime(), model, physical());
+    builder.balance(serde_json::from_value(serde_json::json!({"model_id":id(20),"case_id":id(5),"balance_id":id(4),"quantity_id":pse_quantity::standard::ids::quantity("neutral").as_id(),"accumulation":null,"tolerance":1e-5,"integral_tolerance":null,"provenance":"independent original physical closure","impulses":[],"terms":[{"source_id":id(30),"instance_id":id(3),"output":0,"role":"outlet","multiplier":1.0,"mode":null,"transfer_id":null}]})).unwrap());
+    builder.numerical_requirement(serde_json::from_value(serde_json::json!({"requirement_id":id(31),"model_id":id(20),"case_id":id(5),"target_id":id(4),"target_kind":"row","nominal":null,"scaling_factor":null,"absolute_tolerance":10.0,"relative_tolerance":0.0,"unit_id":null,"coordinates":"physical","priority":0,"required":true,"provenance":"deliberately loose numerical feasibility"})).unwrap());
+    let revision = builder.freeze().unwrap();
+    for (policy, expected) in [
+        (ClosurePolicy::RequireClosed, CandidateUse::Unusable),
+        (
+            ClosurePolicy::AllowUnclosed,
+            CandidateUse::QualifiedUnclosed,
+        ),
+    ] {
+        let mut settings = profile();
+        settings.numerics.closure = policy;
+        let result = revision
+            .prepare(
+                id(5),
+                settings,
+                compiler_profile(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        assert_eq!(result.assessments()[0].numerically_feasible, Some(true));
+        assert_eq!(result.assessments()[0].usability, expected);
+        assert_eq!(result.usable(), policy == ClosurePolicy::AllowUnclosed);
+        let table = result.table("runtime.candidate_assessments").unwrap();
+        let row =
+            pse_relations::generated::runtime::candidate_assessments::View::from_checked(&table)
+                .unwrap()
+                .row(0)
+                .unwrap();
+        assert_eq!(row.usability, expected);
+        let physical = result.table("runtime.physical_checks").unwrap();
+        let row = pse_relations::generated::runtime::physical_checks::View::from_checked(&physical)
+            .unwrap()
+            .row(0)
+            .unwrap();
+        assert_eq!(row.closure, Some(-4.0));
+        assert_eq!(row.accepted, Some(false));
+        assert!(
+            result
+                .table("runtime.resolved_numerics")
+                .unwrap()
+                .batch()
+                .num_rows()
+                > 0
+        );
+        assert_eq!(result.assessments()[0].usability, expected);
+    }
 }

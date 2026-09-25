@@ -146,10 +146,23 @@ impl DiagnosticAnnotation {
     }
 }
 
+/// One typed observed value associated with a boundary refusal.
+#[pyclass(frozen, skip_from_py_object, get_all, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct DiagnosticObservation {
+    name: String,
+    kind: String,
+    real: Option<f64>,
+    integer: Option<i64>,
+    boolean: Option<bool>,
+    text: Option<String>,
+}
+
 /// Structured native diagnostics, separate from the transport's textual message.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct DiagnosticReport {
+    boundary: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     #[pyo3(get)]
     code: Option<String>,
     #[pyo3(get)]
@@ -171,6 +184,23 @@ impl DiagnosticReport {
         };
         let mut report = Self::record(error);
         report.contexts = contexts;
+        let mut current = Some(source);
+        while let Some(cause) = current {
+            if let Some(boundary) =
+                cause.downcast_ref::<pse_model::diagnostic::BoundaryDiagnostic>()
+            {
+                report.boundary = Some(boundary.clone());
+                break;
+            }
+            // Transparent domain wrappers still expose their typed variant directly.
+            if let Some(pse_runtime::workflow::WorkflowError::Boundary(boundary)) =
+                cause.downcast_ref::<pse_runtime::workflow::WorkflowError>()
+            {
+                report.boundary = Some(boundary.clone());
+                break;
+            }
+            current = cause.source();
+        }
         match source.downcast_ref::<pse_engine::EngineError>() {
             Some(pse_engine::EngineError::Multiple { errors }) => {
                 report.related = errors.iter().map(|error| Self::observe(error)).collect();
@@ -192,6 +222,7 @@ impl DiagnosticReport {
             source = cause.source();
         }
         Self {
+            boundary: None,
             code: error.code().map(|code| code.to_string()),
             message: error.to_string(),
             help: error.help().map(|help| help.to_string()),
@@ -208,6 +239,67 @@ impl DiagnosticReport {
 }
 #[pymethods]
 impl DiagnosticReport {
+    #[getter]
+    fn boundary_class(&self) -> Option<&str> {
+        self.boundary.as_ref().map(|b| b.class.as_str())
+    }
+    #[getter]
+    fn stage(&self) -> Option<&str> {
+        self.boundary.as_ref().map(|b| b.stage.as_str())
+    }
+    #[getter]
+    fn rule(&self) -> Option<&str> {
+        self.boundary.as_ref().map(|b| b.rule.as_str())
+    }
+    #[getter]
+    fn source_ids(&self) -> Tuple<String> {
+        Tuple(
+            self.boundary
+                .iter()
+                .flat_map(|b| &b.sources)
+                .map(ToString::to_string)
+                .collect(),
+        )
+    }
+    #[getter]
+    fn observations(&self) -> Tuple<DiagnosticObservation> {
+        use pse_model::diagnostic::Observation;
+        Tuple(
+            self.boundary
+                .iter()
+                .flat_map(|b| &b.observations)
+                .map(|(name, value)| {
+                    let mut observation = DiagnosticObservation {
+                        name: name.clone(),
+                        kind: String::new(),
+                        real: None,
+                        integer: None,
+                        boolean: None,
+                        text: None,
+                    };
+                    match value {
+                        Observation::Real(v) => {
+                            observation.kind = "real".into();
+                            observation.real = Some(*v);
+                        }
+                        Observation::Integer(v) => {
+                            observation.kind = "integer".into();
+                            observation.integer = Some(*v);
+                        }
+                        Observation::Boolean(v) => {
+                            observation.kind = "boolean".into();
+                            observation.boolean = Some(*v);
+                        }
+                        Observation::Text(v) => {
+                            observation.kind = "text".into();
+                            observation.text = Some(v.clone());
+                        }
+                    }
+                    observation
+                })
+                .collect(),
+        )
+    }
     #[getter]
     fn causes(&self) -> Tuple<DiagnosticCause> {
         Tuple(self.causes.clone())

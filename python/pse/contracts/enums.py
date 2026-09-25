@@ -36,6 +36,8 @@ class BalanceRole(StrEnum):
     OUTLET = "outlet"
     GENERATION = "generation"
     CONSUMPTION = "consumption"
+    HEAT_IN = "heat_in"
+    HEAT_OUT = "heat_out"
     WORK_IN = "work_in"
     WORK_OUT = "work_out"
     INTERNAL_IN = "internal_in"
@@ -96,6 +98,14 @@ class BoundStatus(StrEnum):
     VIOLATED = "violated"
 
 
+class CandidateUse(StrEnum):
+    """The declared CandidateUse enumeration."""
+
+    USABLE = "usable"
+    QUALIFIED_UNCLOSED = "qualified_unclosed"
+    UNUSABLE = "unusable"
+
+
 class CapabilityRequirement(StrEnum):
     """The declared CapabilityRequirement enumeration."""
 
@@ -125,6 +135,22 @@ class ChangeKind(StrEnum):
     DELETE = "delete"
     UPDATE_PREIMAGE = "update_preimage"
     UPDATE_POSTIMAGE = "update_postimage"
+
+
+class ClosureAssessment(StrEnum):
+    """The declared ClosureAssessment enumeration."""
+
+    NOT_REQUIRED = "not_required"
+    CLOSED = "closed"
+    UNCLOSED = "unclosed"
+    UNAVAILABLE = "unavailable"
+
+
+class ClosurePolicy(StrEnum):
+    """The declared ClosurePolicy enumeration."""
+
+    REQUIRE_CLOSED = "require_closed"
+    ALLOW_UNCLOSED = "allow_unclosed"
 
 
 class ColumnRole(StrEnum):
@@ -539,6 +565,18 @@ class EquationSyntax(StrEnum):
     CONDITIONAL = "conditional"
 
 
+class EvidenceUnavailableReason(StrEnum):
+    """The declared EvidenceUnavailableReason enumeration."""
+
+    NOT_REQUESTED = "not_requested"
+    NOT_COMPUTED = "not_computed"
+    NOT_APPLICABLE = "not_applicable"
+    UNSUPPORTED = "unsupported"
+    FAILED = "failed"
+    UNKNOWN = "unknown"
+    NONFINITE = "nonfinite"
+
+
 class ExpressionFamily(StrEnum):
     """The declared ExpressionFamily enumeration."""
 
@@ -903,6 +941,13 @@ class MigrationOp(StrEnum):
     CHANGE_NULLABLE = "change_nullable"
 
 
+class MissingInteractionPolicy(StrEnum):
+    """The declared MissingInteractionPolicy enumeration."""
+
+    REQUIRE_EXPLICIT = "require_explicit"
+    ZERO = "zero"
+
+
 class MixingType(StrEnum):
     """The declared MixingType enumeration."""
 
@@ -941,6 +986,52 @@ class Namespace(StrEnum):
     PROVENANCE = "provenance"
 
 
+class NativeAssurance(StrEnum):
+    """The declared NativeAssurance enumeration."""
+
+    NONE = "none"
+    FEASIBLE = "feasible"
+    LOCAL_STATIONARY = "local_stationary"
+    NATIVE_OPTIMAL = "native_optimal"
+    CERTIFICATE = "certificate"
+
+
+class NativeBackend(StrEnum):
+    """The declared NativeBackend enumeration."""
+
+    IPOPT = "ipopt"
+    POUNCE = "pounce"
+    KINSOL = "kinsol"
+    HIGHS = "highs"
+    CLARABEL = "clarabel"
+    DIFFSOL = "diffsol"
+    IDAS = "idas"
+
+
+class NativeBoundaryClass(StrEnum):
+    """The declared NativeBoundaryClass enumeration."""
+
+    INVALID_MODEL = "invalid_model"
+    UNSUPPORTED = "unsupported"
+    RESOURCE_LIMIT = "resource_limit"
+    TRIAL_REJECTED = "trial_rejected"
+    NONFINITE = "nonfinite"
+    INFRASTRUCTURE = "infrastructure"
+    CANCELLED = "cancelled"
+    CONFLICT = "conflict"
+    INCOMPATIBLE = "incompatible"
+    INTERNAL = "internal"
+
+
+class NativeCandidateKind(StrEnum):
+    """The declared NativeCandidateKind enumeration."""
+
+    FINAL_ITERATE = "final_iterate"
+    BEST_ITERATE = "best_iterate"
+    FEASIBLE_POINT = "feasible_point"
+    CONSTANT_EVALUATION = "constant_evaluation"
+
+
 class NativeDependencyEvidenceKind(StrEnum):
     """The declared NativeDependencyEvidenceKind enumeration."""
 
@@ -969,6 +1060,15 @@ class NativeDependencyKind(StrEnum):
     OBSERVATION = "observation"
 
 
+class NativeDerivativeCapability(StrEnum):
+    """The declared NativeDerivativeCapability enumeration."""
+
+    EXACT_HESSIAN_OR_LIMITED_MEMORY = "exact_hessian_or_limited_memory"
+    JACOBIAN_OR_PRODUCT = "jacobian_or_product"
+    COEFFICIENTS = "coefficients"
+    FIRST_WITH_SMOOTH_SENSITIVITIES = "first_with_smooth_sensitivities"
+
+
 class NativeMetricKind(StrEnum):
     """The declared NativeMetricKind enumeration."""
 
@@ -976,6 +1076,7 @@ class NativeMetricKind(StrEnum):
     INTEGER = "integer"
     BOOLEAN = "boolean"
     TEXT = "text"
+    UNAVAILABLE = "unavailable"
 
 
 class NativeObjectiveSense(StrEnum):
@@ -983,6 +1084,70 @@ class NativeObjectiveSense(StrEnum):
 
     MINIMIZE = "minimize"
     MAXIMIZE = "maximize"
+
+
+class NativeProblemClass(StrEnum):
+    """The declared NativeProblemClass enumeration."""
+
+    SMOOTH_NLP = "smooth_nlp"
+    SQUARE_ROOT = "square_root"
+    DECLARED_FIXED_POINT = "declared_fixed_point"
+    LINEAR = "linear"
+    MIXED_LINEAR = "mixed_linear"
+    CONVEX_QUADRATIC = "convex_quadratic"
+    CONTINUOUS_CONE = "continuous_cone"
+    ODE = "ode"
+    SEMI_EXPLICIT_INDEX1 = "semi_explicit_index1"
+
+
+class NativeQualification(StrEnum):
+    """The declared NativeQualification enumeration."""
+
+    UNQUALIFIED = "unqualified"
+    FEASIBLE = "feasible"
+    STATIONARY = "stationary"
+    OPTIMAL_WITHIN_TOLERANCE = "optimal_within_tolerance"
+    GAP_QUALIFIED = "gap_qualified"
+
+
+class NativeRunState(StrEnum):
+    """The declared NativeRunState enumeration."""
+
+    NATIVE = "native"
+    CONSTANT_EVALUATION = "constant_evaluation"
+    REJECTED = "rejected"
+    UNATTEMPTED = "unattempted"
+
+
+class NativeStartPolicy(StrEnum):
+    """The declared NativeStartPolicy enumeration."""
+
+    NO_PRIOR_START = "no_prior_start"
+    PREVIOUS_ACCEPTED = "previous_accepted"
+    EXPLICIT = "explicit"
+
+
+class NativeTermination(StrEnum):
+    """The declared NativeTermination enumeration."""
+
+    SUCCESS = "success"
+    ACCEPTABLE = "acceptable"
+    FEASIBLE_ONLY = "feasible_only"
+    INFEASIBLE = "infeasible"
+    UNBOUNDED = "unbounded"
+    INFEASIBLE_OR_UNBOUNDED = "infeasible_or_unbounded"
+    LIMIT = "limit"
+    ITERATION_LIMIT = "iteration_limit"
+    RESOURCE_EXHAUSTED = "resource_exhausted"
+    INCONCLUSIVE = "inconclusive"
+    OBJECTIVE_LIMIT = "objective_limit"
+    SOLUTION_LIMIT = "solution_limit"
+    TIME_LIMIT = "time_limit"
+    CANCELLED = "cancelled"
+    NUMERICAL = "numerical"
+    EVALUATION = "evaluation"
+    PANIC = "panic"
+    INVALID = "invalid"
 
 
 class NativeVariableDomain(StrEnum):
@@ -993,6 +1158,51 @@ class NativeVariableDomain(StrEnum):
     BINARY = "binary"
     SEMI_CONTINUOUS = "semi_continuous"
     SEMI_INTEGER = "semi_integer"
+
+
+class NativeWarmCapability(StrEnum):
+    """The declared NativeWarmCapability enumeration."""
+
+    NONE = "none"
+    PRIMAL = "primal"
+    PRIMAL_DUAL = "primal_dual"
+    PRIMAL_DUAL_AND_WORKING_SET = "primal_dual_and_working_set"
+    PRIMAL_DUAL_AND_BASIS = "primal_dual_and_basis"
+
+
+class NumericalCoordinates(StrEnum):
+    """The declared NumericalCoordinates enumeration."""
+
+    PHYSICAL = "physical"
+    NORMALIZED = "normalized"
+
+
+class NumericalSource(StrEnum):
+    """The declared NumericalSource enumeration."""
+
+    ANALYSIS = "analysis"
+    CASE = "case"
+    MODEL = "model"
+    PROPERTY_DEFAULT = "property_default"
+    QUANTITY_NOMINAL = "quantity_nominal"
+    CANONICAL_FALLBACK = "canonical_fallback"
+
+
+class NumericalTarget(StrEnum):
+    """The declared NumericalTarget enumeration."""
+
+    VARIABLE = "variable"
+    ROW = "row"
+    OBJECTIVE = "objective"
+    OBSERVABLE = "observable"
+    CLOSURE = "closure"
+
+
+class ObservationTimeBasis(StrEnum):
+    """The declared ObservationTimeBasis enumeration."""
+
+    ELAPSED = "elapsed"
+    MODEL_CLOCK = "model_clock"
 
 
 class Opcode(StrEnum):
@@ -1398,6 +1608,23 @@ class Stability(StrEnum):
     INTERNAL = "internal"
 
 
+class StabilityPolicy(StrEnum):
+    """The declared StabilityPolicy enumeration."""
+
+    UNCHECKED = "unchecked"
+    MECHANICAL = "mechanical"
+    GLOBAL = "global"
+
+
+class StabilityStatus(StrEnum):
+    """The declared StabilityStatus enumeration."""
+
+    NOT_REQUESTED = "not_requested"
+    STABLE = "stable"
+    UNSTABLE = "unstable"
+    FAILED = "failed"
+
+
 class StateIndex(StrEnum):
     """The declared StateIndex enumeration."""
 
@@ -1443,6 +1670,14 @@ class TargetKind(StrEnum):
     INSTANCE_WILDCARD = "instance_wildcard"
 
 
+class TearPolicy(StrEnum):
+    """The declared TearPolicy enumeration."""
+
+    FREE = "free"
+    MANDATORY = "mandatory"
+    FORBIDDEN = "forbidden"
+
+
 class TemplateKind(StrEnum):
     """The declared TemplateKind enumeration."""
 
@@ -1481,6 +1716,20 @@ class ThermodynamicAssumption(StrEnum):
     ISENTROPIC = "isentropic"
     PUMP = "pump"
     ADIABATIC = "adiabatic"
+
+
+class ThermodynamicFormulation(StrEnum):
+    """The declared ThermodynamicFormulation enumeration."""
+
+    HOMOGENEOUS_DENSITY = "homogeneous_density"
+    PHASE_EQUILIBRIUM = "phase_equilibrium"
+
+
+class TimeCoordinateKind(StrEnum):
+    """The declared TimeCoordinateKind enumeration."""
+
+    ABSOLUTE_ORIGIN = "absolute_origin"
+    ELAPSED_DURATION = "elapsed_duration"
 
 
 class TrayMaterial(StrEnum):

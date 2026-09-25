@@ -24,6 +24,8 @@
       "experiment_id": "d4707c205bac53e6b43e0644984734d8",
       "output_id": "0de2475a468a53f1bec6bc0f7e37fbc5",
       "time": 1.0,
+      "time_basis": null,
+      "time_unit_id": null,
       "included": true,
       "importance": 1.0
     }

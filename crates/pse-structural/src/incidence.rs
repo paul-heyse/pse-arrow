@@ -59,9 +59,29 @@ pub struct Part {
     /// Free variables.
     pub columns: Vec<SemanticId>,
 }
+/// Stable identity of semantic block membership within an admitted scope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BlockId(pub pse_ids::ContentHash);
+impl BlockId {
+    /// Canonicalize membership before framing; layout order is not identity.
+    pub fn new(scope: &Scope, part: &Part) -> Self {
+        let mut h = pse_ids::FramedHasher::new("pse.structural.block.v1");
+        h.hash(&scope.key());
+        for group in [&part.rows, &part.columns] {
+            let members: BTreeSet<_> = group.iter().collect();
+            h.u64(members.len() as u64);
+            for id in members {
+                h.id(id);
+            }
+        }
+        Self(h.finish_hash())
+    }
+}
 /// One equality BTF block; coupling does not establish independent eliminability.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
+    /// Stable scoped identity, independent of execution position.
+    pub id: BlockId,
     /// Semantic members.
     pub members: Part,
     /// Conservative external objective/inequality coupling.
@@ -125,6 +145,20 @@ impl CaseIncidence {
             return Err(ProjectionError::Invalid("invalid row bounds".into()));
         }
         let row_ids: BTreeSet<_> = rows.iter().map(|r| r.id).collect();
+        if let Scope::Conditional {
+            rows: selected,
+            columns: free,
+            inputs,
+            ..
+        } = &scope
+            && (selected != &row_ids
+                || free != &columns.iter().copied().collect()
+                || !free.is_disjoint(inputs))
+        {
+            return Err(ProjectionError::Invalid(
+                "conditional incidence inventory differs from scope".into(),
+            ));
+        }
         for e in &edges {
             if !row_ids.contains(&e.row) {
                 return Err(ProjectionError::Missing(e.row));
@@ -154,7 +188,7 @@ impl CaseIncidence {
     ) -> Result<Self, ProjectionError> {
         let model = match self.scope {
             Scope::Whole(id) | Scope::Independent { model: id, .. } => id,
-            Scope::Partial(_) => return Err(ProjectionError::Partial),
+            Scope::Partial(_) | Scope::Conditional { .. } => return Err(ProjectionError::Partial),
         };
         if !rows.iter().all(|r| self.rows.iter().any(|x| x.id == *r))
             || !columns.iter().all(|c| self.columns.contains(c))
@@ -464,8 +498,10 @@ impl CaseIncidence {
                 .iter()
                 .map(|node| {
                     let b = &blocks[graph[*node]];
+                    let members = part(&b.eq_rows, &b.cols);
                     Block {
-                        members: part(&b.eq_rows, &b.cols),
+                        id: BlockId::new(&self.scope, &members),
+                        members,
                         coupling: classify_block(b, &ineq, &objective),
                     }
                 })

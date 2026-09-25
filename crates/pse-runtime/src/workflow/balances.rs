@@ -14,10 +14,12 @@ pub(crate) fn sign(role: BalanceRole) -> f64 {
     match role {
         BalanceRole::Inlet
         | BalanceRole::Generation
+        | BalanceRole::HeatIn
         | BalanceRole::WorkIn
         | BalanceRole::InternalIn => 1.0,
         BalanceRole::Outlet
         | BalanceRole::Consumption
+        | BalanceRole::HeatOut
         | BalanceRole::WorkOut
         | BalanceRole::InternalOut => -1.0,
     }
@@ -148,6 +150,8 @@ pub(crate) fn project(
         for t in &b.terms {
             if !ids.insert(t.source_id)
                 || !outputs.insert((t.instance_id, t.output, t.mode))
+                || !t.multiplier.is_finite()
+                || t.multiplier <= 0.0
                 || t.output < 0
                 || t.mode
                     .is_some_and(|m| b.accumulation.is_none() || m < 0 || m as usize >= modes)
@@ -167,7 +171,7 @@ pub(crate) fn project(
                     t.instance_id,
                     t.output,
                     t.mode,
-                    sign(t.role),
+                    sign(t.role) * t.multiplier,
                 ));
             }
             let instance = case
@@ -185,7 +189,7 @@ pub(crate) fn project(
             }
             for mode in 0..modes {
                 if t.mode.is_none_or(|m| m as usize == mode) {
-                    instance.contributions.push(model::AuthoredComputationModelsFieldCasesItemInstancesItemContributionsItem { output:t.output, row_id:Some(mode_row(b.balance_id,mode)), scale:sign(t.role) });
+                    instance.contributions.push(model::AuthoredComputationModelsFieldCasesItemInstancesItemContributionsItem { output:t.output, row_id:Some(mode_row(b.balance_id,mode)), scale:sign(t.role)*t.multiplier });
                 }
             }
         }
@@ -246,7 +250,7 @@ pub(crate) fn closure(
         let value = values
             .get(&(term.instance_id, term.output as usize))
             .ok_or_else(|| contract("physical source output unavailable"))?;
-        sum += sign(term.role) * value;
+        sum += sign(term.role) * term.multiplier * value;
     }
     if !sum.is_finite() {
         return Err(contract("nonfinite physical closure"));
@@ -294,12 +298,11 @@ pub(crate) fn dynamic_closure(
 }
 
 impl super::RunResult {
-    pub(super) fn physical_checks(
+    pub(super) fn evaluate_physical_checks(
         &self,
-    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+    ) -> Result<Vec<pse_relations::generated::runtime::physical_checks::Row>, WorkflowError> {
         use pse_relations::generated::runtime::physical_checks as checks;
-        let mut out =
-            checks::Builder::with_registry(&self.runtime.registry, 0).map_err(super::relation)?;
+        let mut out = Vec::new();
         let mut push = |revision: &super::ModelRevision,
                         b: &BalanceDeclaration,
                         step: usize,
@@ -325,7 +328,25 @@ impl super::RunResult {
                 .quantity_type(quantity)
                 .map_err(super::math)?
                 .canonical_unit;
-            let tolerance = b.integral_tolerance.unwrap_or(b.tolerance);
+            let default = if b.accumulation.is_some() {
+                b.integral_tolerance
+                    .ok_or_else(|| contract("cumulative closure requires its own tolerance"))?
+            } else {
+                b.tolerance
+            };
+            let resolved = match &self.request {
+                super::RunRequest::Solves(steps) => steps.get(step).map(|s| s.solve.numerics()),
+                super::RunRequest::Fit(p) => Some(p.problem.numerics.as_ref()),
+                super::RunRequest::Simulation(p) => Some(p.numerics.as_ref()),
+            };
+            let tolerance = resolved
+                .and_then(|n| {
+                    n.targets.iter().find(|t| {
+                        t.id == b.balance_id
+                            && t.kind == pse_model::generated::enums::NumericalTarget::Closure
+                    })
+                })
+                .map_or(default, |t| t.budget);
             out.push(checks::Row {
                 run_id: self.run_id,
                 step: step as i64,
@@ -339,8 +360,8 @@ impl super::RunResult {
                 accepted: result.as_ref().ok().map(|v| v.abs() <= tolerance),
                 error: result.err().map(|e| e.to_string()),
                 provenance: b.provenance.clone(),
-            })
-            .map_err(super::relation)
+            });
+            Ok::<(), WorkflowError>(())
         };
         match &self.request {
             super::RunRequest::Solves(steps) => {
@@ -356,7 +377,7 @@ impl super::RunResult {
                     for b in s
                         .revision
                         .0
-                        .sources
+                        .resolved_sources
                         .balances
                         .iter()
                         .filter(|b| b.case_id == s.case)
@@ -377,7 +398,7 @@ impl super::RunResult {
                     let b = p
                         .revision
                         .0
-                        .sources
+                        .resolved_sources
                         .balances
                         .iter()
                         .find(|b| b.balance_id == balance.id)
@@ -415,7 +436,7 @@ impl super::RunResult {
                         .problem
                         .revision
                         .0
-                        .sources
+                        .resolved_sources
                         .balances
                         .iter()
                         .filter(|b| b.case_id == experiment.case_id)
@@ -452,7 +473,7 @@ impl super::RunResult {
                 }
             }
         }
-        out.finish().map_err(super::relation)
+        Ok(out)
     }
 }
 
@@ -476,6 +497,7 @@ mod tests {
             integral_tolerance: None,
             provenance: "unit physical declaration".into(),
             terms: vec![wire::AuthoredPhysicalBalancesFieldTermsItem {
+                multiplier: 1.0,
                 source_id: instance,
                 role: BalanceRole::Outlet,
                 mode: None,

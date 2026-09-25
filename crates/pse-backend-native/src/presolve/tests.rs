@@ -22,6 +22,7 @@ struct Mixed {
     fail: bool,
     sign: f64,
     linear_second: bool,
+    normalization: Option<pse_math::normalization::Normalization>,
 }
 impl Mixed {
     fn new() -> Self {
@@ -46,6 +47,9 @@ impl Mixed {
                 smoothness: pse_kernels::DerivativeOrder::Second,
             },
             facts: Facts {
+                obligations: BTreeMap::new(),
+                signs: BTreeMap::new(),
+                has_guards: false,
                 key,
                 structure: key,
                 values: BTreeMap::new(),
@@ -71,6 +75,8 @@ impl Mixed {
                     },
                 ],
                 complete: vec![true, false],
+                row_sources: vec![vec![]; 2],
+                objective_degree: None,
                 objective_linear: vec![false, false],
             },
             j: AssemblyMatrix::new(2, 2, &[(0, 0), (1, 0), (0, 1), (1, 1)], 100).unwrap(),
@@ -79,10 +85,14 @@ impl Mixed {
             fail: false,
             sign: 1.0,
             linear_second: false,
+            normalization: None,
         }
     }
 }
 impl NlpOracle for Mixed {
+    fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
+        self.normalization.as_ref()
+    }
     fn presolve_facts(&self) -> Option<&Facts> {
         Some(&self.facts)
     }
@@ -174,7 +184,12 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
         .unwrap();
         let mut oracle = pipeline.take_oracle().unwrap();
         let controls = Controls {
-            tolerance: 1e-10,
+            accuracy: Accuracy {
+                feasibility: 1e-10,
+                stationarity: 1e-10,
+                complementarity: 1e-10,
+                ..Default::default()
+            },
             ..Default::default()
         };
         let report = match backend {
@@ -201,10 +216,17 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                 pipeline.warm(),
                 pipeline.native_compatibility().clone(),
             ),
-            _ => unreachable!(),
+            _ => panic!("test helper supports only the two shared NLP adapters"),
         }
         .unwrap();
-        pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize)
+        let mut report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize);
+        crate::quality::record_kkt(
+            &mut report,
+            &pse_math::normalization::Normalization::identity(2, 2),
+            &controls.accuracy,
+        );
+        crate::quality::qualify(&mut report, &controls.accuracy);
+        report
     }
     for backend in [Backend::Ipopt, Backend::Pounce] {
         for policy in [Policy::Off, Policy::Auto] {
@@ -310,6 +332,7 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         &execution(),
     );
     report.candidate = Some(Candidate {
+        kind: CandidateKind::FinalIterate,
         primal: vec![2.0],
         objective: Some(8.0),
         row_dual: Some(vec![0.0]),
@@ -397,7 +420,10 @@ fn off_is_identity_and_tape_edits_invalidate_native_reuse() {
         1000,
     )
     .unwrap();
-    assert_ne!(a.native_compatibility().layout, b.native_compatibility().layout);
+    assert_ne!(
+        a.native_compatibility().layout,
+        b.native_compatibility().layout
+    );
 }
 #[test]
 fn failed_observation_preserves_native_status_and_candidate() {
@@ -416,6 +442,7 @@ fn failed_observation_preserves_native_status_and_candidate() {
         &execution(),
     );
     report.candidate = Some(Candidate {
+        kind: CandidateKind::FinalIterate,
         primal: vec![2.0, 2.0],
         objective: Some(8.0),
         row_dual: None,
@@ -460,6 +487,7 @@ fn maximization_scales_and_original_warm_seed_preserve_conventions() {
     let mut source = Mixed::new();
     source.sign = -1.0;
     let warm = WarmStart {
+        origin: None,
         compatibility: stamp(),
         payload: WarmPayload::Nlp {
             primal: vec![2.0, 2.0],
@@ -500,6 +528,7 @@ fn maximization_scales_and_original_warm_seed_preserve_conventions() {
         &execution(),
     );
     report.candidate = Some(Candidate {
+        kind: CandidateKind::FinalIterate,
         primal: vec![2.0, 2.0],
         objective: Some(8.0),
         row_dual: Some(vec![4.0, 0.0]),
@@ -559,4 +588,134 @@ fn fully_determined_library_standdown_preserves_the_original_problem() {
     let mut g = vec![0.0; 2];
     oracle.constraints(&[2.0, 2.0], &mut g).unwrap();
     assert_eq!(g, vec![4.0, 0.0]); // normalized affine constant, same feasible set
+}
+
+#[test]
+fn normalization_callbacks_and_original_duals_round_trip() {
+    let mut source = Mixed::new();
+    source.normalization = Some(pse_math::normalization::Normalization {
+        variables: vec![2.0, 4.0],
+        rows: vec![10.0, 5.0],
+        objective: 8.0,
+    });
+    let warm = WarmStart {
+        origin: None,
+        compatibility: stamp(),
+        payload: WarmPayload::Nlp {
+            primal: vec![2.0, 2.0],
+            bounds: Some((vec![0.0; 2], vec![0.0; 2])),
+            rows: Some(vec![-4.0, 0.0]),
+        },
+    };
+    let mut pipeline = Pipeline::new(
+        Box::new(source),
+        &[2.0, 2.0],
+        &Policy::Off,
+        &tolerances(),
+        None,
+        execution(),
+        Some(&warm),
+        stamp(),
+        1000,
+    )
+    .unwrap();
+    assert_eq!(pipeline.initial(), &[1.0, 0.5]);
+    let mut oracle = pipeline.take_oracle().unwrap();
+    assert_eq!(oracle.objective(&[1.0, 0.5]).unwrap(), 1.0);
+    let mut v = vec![0.0; 2];
+    oracle.gradient(&[1.0, 0.5], &mut v).unwrap();
+    assert_eq!(v, vec![1.0, 2.0]);
+    oracle.constraints(&[1.0, 0.5], &mut v).unwrap();
+    assert_eq!(v, vec![0.7, 1.6]);
+    let mut j = vec![0.0; 4];
+    oracle.jacobian(&[1.0, 0.5], &mut j).unwrap();
+    assert_eq!(j, vec![0.2, 1.6, 0.4, 3.2]);
+    oracle
+        .hessian(&[1.0, 0.5], 3.0, &[5.0, 7.0], &mut v)
+        .unwrap();
+    assert!((v[0] - 14.2).abs() < 1e-12 && (v[1] - 56.8).abs() < 1e-12);
+    let mut report = SolveReport::new(
+        Backend::Ipopt,
+        oracle.contract(),
+        NativeTermination {
+            code: 0,
+            name: "coordinate-unit-test".into(),
+            message: None,
+            category: Termination::Success,
+            assurance: Assurance::LocalStationary,
+        },
+        &execution(),
+    );
+    report.candidate = Some(Candidate {
+        kind: CandidateKind::FinalIterate,
+        primal: vec![1.0, 0.5],
+        objective: Some(1.0),
+        row_dual: Some(vec![-5.0, 0.0]),
+        bound_dual: Some((vec![0.0; 2], vec![0.0; 2])),
+        reduced_costs: None,
+        slacks: None,
+    });
+    let report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize);
+    let c = report.candidate.unwrap();
+    assert_eq!(c.primal, vec![2.0, 2.0]);
+    assert_eq!(c.objective, Some(8.0));
+    assert_eq!(c.row_dual, Some(vec![-4.0, 0.0]));
+    assert!(report.quality.unwrap().feasible());
+    assert_eq!(
+        report.observation.unwrap().stationarity,
+        Some(vec![0.0, 0.0])
+    );
+}
+#[test]
+fn presolve_certificate_respects_each_bound_budget() {
+    let source = || {
+        let mut s = Mixed::new();
+        s.linear_second = true;
+        s.bounds[1] = (100.0, 100.0);
+        s.facts.affine[1] = Some(AffineRow {
+            entries: BTreeMap::from([(0, 1.0), (1, -1.0)]),
+            constant: 0.0,
+        });
+        s
+    };
+    let mut allowed = tolerances();
+    allowed.rows[1] = 500.0;
+    let p = Pipeline::new(
+        Box::new(source()),
+        &[2.0, 2.0],
+        &Policy::Auto,
+        &allowed,
+        None,
+        execution(),
+        None,
+        stamp(),
+        1000,
+    )
+    .unwrap();
+    assert!(p.report().proof.is_none());
+    assert!(!p.report().effective.enabled);
+    let mut distinct = tolerances();
+    distinct.rows[0] = 500.0;
+    let p = Pipeline::new(
+        Box::new(source()),
+        &[2.0, 2.0],
+        &Policy::Auto,
+        &distinct,
+        None,
+        execution(),
+        None,
+        stamp(),
+        1000,
+    )
+    .unwrap();
+    assert!(p.report().proof.is_some());
+    assert_eq!(p.report().proof.as_ref().unwrap().rows, vec![id(3), id(4)]);
+    assert_eq!(
+        p.terminal_report(ObjectiveSense::Minimize)
+            .unwrap()
+            .unwrap()
+            .termination
+            .category,
+        Termination::Infeasible
+    );
 }

@@ -8,6 +8,10 @@
 pub mod generated;
 /// Exact durable artifact validity, independent of storage and incremental handles.
 pub mod artifact;
+/// Source-attributed public failure structure.
+pub mod diagnostic;
+/// Resolved numerical meaning, independent of native solver implementations.
+pub mod numerics;
 /// An invalid declared semantic enum member.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ModelError {
@@ -85,6 +89,16 @@ impl<T: SemanticEq> SemanticEq for Vec<T> {
 impl<T: SemanticEq, const N: usize> SemanticEq for [T; N] {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.iter().zip(other).all(|(a, b)| a.semantic_eq(b))
+    }
+}
+
+impl<K: Ord, V: SemanticEq> SemanticEq for std::collections::BTreeMap<K, V> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.len() == other.len()
+            && self
+                .iter()
+                .zip(other)
+                .all(|((ka, va), (kb, vb))| ka == kb && va.semantic_eq(vb))
     }
 }
 
@@ -193,6 +207,15 @@ impl<T: SemanticFrame> SemanticFrame for Vec<T> {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.u64(self.len() as u64);
         for value in self {
+            value.frame(hash);
+        }
+    }
+}
+impl<K: Ord + SemanticFrame, V: SemanticFrame> SemanticFrame for std::collections::BTreeMap<K, V> {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.u64(self.len() as u64);
+        for (key, value) in self {
+            key.frame(hash);
             value.frame(hash);
         }
     }

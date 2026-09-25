@@ -27,6 +27,8 @@ pub struct RuntimeSolveMetricsRow {
     pub r#boolean: Option<bool>,
     ///text
     pub r#text: Option<String>,
+    ///unavailable
+    pub r#unavailable: Option<crate::generated::enums::EvidenceUnavailableReason>,
 }
 impl crate::SemanticEq for RuntimeSolveMetricsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -39,6 +41,7 @@ impl crate::SemanticEq for RuntimeSolveMetricsRow {
             && crate::SemanticEq::semantic_eq(&self.r#integer, &other.r#integer)
             && crate::SemanticEq::semantic_eq(&self.r#boolean, &other.r#boolean)
             && crate::SemanticEq::semantic_eq(&self.r#text, &other.r#text)
+            && crate::SemanticEq::semantic_eq(&self.r#unavailable, &other.r#unavailable)
     }
 }
 impl PartialEq for RuntimeSolveMetricsRow {
@@ -68,6 +71,8 @@ impl crate::SemanticFrame for RuntimeSolveMetricsRow {
         crate::SemanticFrame::frame(&self.r#boolean, hash);
         hash.str(stringify!(r#text));
         crate::SemanticFrame::frame(&self.r#text, hash);
+        hash.str(stringify!(r#unavailable));
+        crate::SemanticFrame::frame(&self.r#unavailable, hash);
     }
 }
 impl crate::HeapUsage for RuntimeSolveMetricsRow {
@@ -82,5 +87,6 @@ impl crate::HeapUsage for RuntimeSolveMetricsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integer))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#boolean))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#text))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unavailable))
     }
 }

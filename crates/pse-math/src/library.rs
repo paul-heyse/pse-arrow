@@ -14,17 +14,35 @@ pub const MAX_FORMAL_SYMBOLS: usize = 4096;
 /// # Errors
 /// Exceeds the process-wide symbol bound or a symbol has incompatible registration.
 pub fn formal(slot: usize) -> Result<Atom, MathError> {
-    crate::initialize()?;
-    if slot >= MAX_FORMAL_SYMBOLS {
-        return Err(MathError::Limit("formal symbols"));
+    crate::context()?
+        .formals
+        .get(slot)
+        .cloned()
+        .ok_or(MathError::Limit("formal symbols"))
+}
+
+pub(crate) fn register_symbols() -> Result<crate::SymbolicContext, String> {
+    let register = |name: String| {
+        let name = NamespacedSymbol::try_from(name.as_str())?;
+        SymbolBuilder::new(name)
+            .build()
+            .map_err(|error| error.to_string())
+    };
+    let mut formals = Vec::with_capacity(MAX_FORMAL_SYMBOLS);
+    let mut functions = Vec::with_capacity(MAX_FORMAL_SYMBOLS);
+    // Symbolica registers built-ins as part of its global State initialization.
+    // Complete each family in a fixed order, independent of model arrival order.
+    for slot in 0..MAX_FORMAL_SYMBOLS {
+        formals.push(Atom::var(register(format!("pse_math::slot_{slot}"))?));
     }
-    let text = format!("pse_math::slot_{slot}");
-    let name =
-        NamespacedSymbol::try_from(text.as_str()).map_err(|e| MathError::Library(e.clone()))?;
-    SymbolBuilder::new(name)
-        .build()
-        .map(Atom::var)
-        .map_err(|e| MathError::Library(e.to_string()))
+    for slot in 0..MAX_FORMAL_SYMBOLS {
+        functions.push(register(format!("pse_math::function_{slot}"))?);
+    }
+    Ok(crate::SymbolicContext {
+        formals,
+        functions,
+        environment: crate::linked_environment()?,
+    })
 }
 /// Explicit optimizer controls; no target-dependent or unbounded defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -63,7 +81,7 @@ fn exact_evaluator(
     options: Optimization,
     cancelled: &std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<ExpressionEvaluator<Complex<Rational>>, MathError> {
-    crate::initialize()?;
+    crate::context()?;
     if options.cores == 0
         || options.cores > 64
         || options.horner_iterations > 1000
@@ -120,15 +138,10 @@ pub(crate) fn jet_evaluator(
 /// Bounded reusable function symbols for Symbolica-generated provider lifts.
 pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathError> {
     use symbolica::atom::FunctionBuilder;
-    if slot >= MAX_FORMAL_SYMBOLS {
-        return Err(MathError::Limit("provider function symbols"));
-    }
-    let text = format!("pse_math::function_{slot}");
-    let name =
-        NamespacedSymbol::try_from(text.as_str()).map_err(|e| MathError::Library(e.clone()))?;
-    let symbol = SymbolBuilder::new(name)
-        .build()
-        .map_err(|e| MathError::Library(e.to_string()))?;
+    let symbol = *crate::context()?
+        .functions
+        .get(slot)
+        .ok_or(MathError::Limit("provider function symbols"))?;
     Ok(FunctionBuilder::new(symbol)
         .add_args(arguments.iter())
         .finish())

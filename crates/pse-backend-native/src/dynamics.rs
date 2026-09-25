@@ -9,10 +9,72 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "idas")]
+mod idas;
 #[cfg(feature = "diffsol")]
 mod integrator;
-#[cfg(feature = "diffsol")]
-pub use integrator::{integrate, integrate_with_progress};
+
+/// Requested native integration algorithm. Auto resolves from trial requirements.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Method {
+    /// Diffsol normally; IDAS when native trial recovery is required.
+    #[default]
+    Auto,
+    /// Rust BDF with library-owned hybrid reset sensitivities.
+    Diffsol,
+    /// Residual BDF with recoverable trial callbacks.
+    Idas,
+}
+/// Explicit contract for domain errors at internal trial points.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TrialPolicy {
+    /// A trial failure terminates this attempt.
+    #[default]
+    Terminal,
+    /// The native method must support rejecting and retrying a trial.
+    Recoverable,
+}
+
+/// Dispatch only after checking the complete integration requirements.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub fn integrate(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cancel: Cancellation,
+) -> Result<Report, ProblemError> {
+    integrate_with_progress(
+        oracle,
+        profile,
+        parameters,
+        cancel,
+        Arc::new(crate::solve::Progress::new(256)),
+    )
+}
+/// Execute with the caller-owned bounded progress sink.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub fn integrate_with_progress(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cancel: Cancellation,
+    progress: Arc<crate::solve::Progress>,
+) -> Result<Report, ProblemError> {
+    profile.validate(oracle.contract(), parameters)?;
+    match profile.resolved_method()? {
+        #[cfg(feature = "diffsol")]
+        Method::Diffsol => {
+            integrator::integrate_with_progress(oracle, profile, parameters, cancel, progress)
+        }
+        #[cfg(feature = "idas")]
+        Method::Idas => {
+            idas::integrate_with_progress(oracle, profile, parameters, cancel, progress)
+        }
+        _ => Err(contract("requested dynamic backend is not linked")),
+    }
+}
 
 /// One compiled function role, not a second expression representation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -113,6 +175,15 @@ impl Contract {
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
+    /// Native method selected from the required trial semantics.
+    #[serde(default)]
+    pub method: Method,
+    /// Behavior required for internal domain failures.
+    #[serde(default)]
+    pub trial_failures: TrialPolicy,
+    /// Physical acceptance and ID-keyed nominal requests, distinct from integration error controls.
+    #[serde(default)]
+    pub numerics: pse_model::numerics::NumericalPolicy,
     /// Initial physical time in seconds.
     pub start: f64,
     /// Requested final physical time in seconds.
@@ -141,7 +212,7 @@ pub struct Profile {
     pub sensitivities: bool,
     /// Positive characteristic parameter scales, also used for sensitivity tolerances.
     pub parameter_scales: Vec<f64>,
-    /// Fixed-time exogenous parameter changes; disallowed for sensitivities.
+    /// Fixed-time replacement of all parameters; carried-state sensitivities remain active.
     pub changes: Vec<InputChange>,
     /// Native initialization controls, available in the linked profile.
     #[cfg(feature = "diffsol")]
@@ -162,9 +233,48 @@ pub struct InputChange {
     pub parameters: Vec<f64>,
 }
 impl Profile {
+    /// Resolve algorithm and trial semantics without acquiring a worker.
+    pub fn resolved_method(&self) -> Result<Method, ProblemError> {
+        let method = match self.method {
+            Method::Auto if self.trial_failures == TrialPolicy::Recoverable => Method::Idas,
+            Method::Auto => Method::Diffsol,
+            m => m,
+        };
+        if method == Method::Diffsol && self.trial_failures == TrialPolicy::Recoverable {
+            return Err(contract(
+                "Diffsol cannot recover typed trial failures; request IDAS",
+            ));
+        }
+        if (method == Method::Idas && !cfg!(feature = "idas"))
+            || (method == Method::Diffsol && !cfg!(feature = "diffsol"))
+        {
+            return Err(contract("requested dynamic backend is not linked"));
+        }
+        Ok(method)
+    }
     /// Validate before allocation or native construction; arithmetic overflow is a refusal.
     pub fn validate(&self, c: &Contract, p: &[f64]) -> Result<usize, ProblemError> {
         c.validate()?;
+        #[cfg(feature = "diffsol")]
+        if self.resolved_method()? == Method::Idas
+            && settings_identity(self) != settings_identity(&Self::default())
+        {
+            return Err(contract(
+                "Diffsol-specific controls cannot be applied to IDAS",
+            ));
+        }
+        if self.resolved_method()? == Method::Idas
+            && (!self.changes.is_empty() || c.events.iter().any(|e| !e.is_empty()))
+        {
+            return Err(contract(
+                "IDAS currently admits smooth fixed-mass systems only",
+            ));
+        }
+        if self.sensitivities && c.events.iter().flatten().any(|e| e.terminal) {
+            return Err(contract(
+                "terminal-event sensitivities require a declared event-time output contract",
+            ));
+        }
         if c.balances.is_empty() {
             if self.out_rtol.is_some() || !self.out_atol.is_empty() {
                 return Err(contract(
@@ -251,8 +361,10 @@ impl Profile {
                     || x.parameters.iter().any(|v| !v.is_finite())
             })
             || self.changes.windows(2).any(|w| w[0].time >= w[1].time)
+            || (self.sensitivities && np == 0)
             || (self.sensitivities
-                && (np == 0 || !self.changes.is_empty() || c.events.iter().any(|e| !e.is_empty())))
+                && !c.balances.is_empty()
+                && c.events.iter().any(|e| !e.is_empty()))
         {
             return Err(contract(
                 "dynamic horizon, tolerances, budget or smooth sensitivity profile",
@@ -384,7 +496,7 @@ pub struct Report {
     pub dropped_progress: u64,
 }
 impl Report {
-    #[cfg(feature = "diffsol")]
+    #[cfg(any(feature = "diffsol", feature = "idas"))]
     pub(crate) fn new(start: f64) -> Self {
         Self {
             termination: Termination::Failed,
@@ -428,11 +540,13 @@ pub fn settings_identity(p: &Profile) -> String {
 
 /// All effective finite integration controls for durable provenance.
 pub fn profile_json(p: &Profile) -> serde_json::Value {
-    let value = serde_json::json!({"start":p.start,"end":p.end,"samples":p.samples,"rtol":p.rtol,"out_rtol":p.out_rtol,"out_atol":p.out_atol,"atol":p.atol,"initial_step":p.initial_step,"max_steps":p.max_steps,"max_events":p.max_events,"time_limit_seconds":p.time_limit.as_secs_f64(),"max_cells":p.max_cells,"sensitivities":p.sensitivities,"parameter_scales":p.parameter_scales,"changes":p.changes.iter().map(|c|serde_json::json!({"time":c.time,"parameters":c.parameters})).collect::<Vec<_>>()});
+    let value = serde_json::json!({"method":p.method,"resolved_method":p.resolved_method().ok(),"trial_failures":p.trial_failures,"start":p.start,"end":p.end,"samples":p.samples,"rtol":p.rtol,"out_rtol":p.out_rtol,"out_atol":p.out_atol,"atol":p.atol,"initial_step":p.initial_step,"max_steps":p.max_steps,"max_events":p.max_events,"time_limit_seconds":p.time_limit.as_secs_f64(),"max_cells":p.max_cells,"sensitivities":p.sensitivities,"parameter_scales":p.parameter_scales,"changes":p.changes.iter().map(|c|serde_json::json!({"time":c.time,"parameters":c.parameters})).collect::<Vec<_>>()});
     #[cfg(feature = "diffsol")]
     let value = {
         let mut value = value;
-        value["native"] = serde_json::Value::String(settings_identity(p));
+        if p.resolved_method().ok() == Some(Method::Diffsol) {
+            value["native"] = serde_json::Value::String(settings_identity(p));
+        }
         value
     };
     value
@@ -505,6 +619,9 @@ mod ode_options {
 impl Default for Profile {
     fn default() -> Self {
         Self {
+            method: Method::default(),
+            trial_failures: TrialPolicy::default(),
+            numerics: Default::default(),
             start: 0.0,
             end: 1.0,
             samples: vec![0.0, 1.0],

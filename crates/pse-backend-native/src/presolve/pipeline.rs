@@ -43,17 +43,21 @@ impl std::fmt::Debug for Pipeline {
     }
 }
 impl Pipeline {
+    /// Inspect qualified passes and retained proof without consuming callback ownership.
+    pub fn report(&self) -> &Report {
+        &self.report
+    }
     /// A library certificate or zero-dimensional projection needs no native solve.
     /// The result names that fact explicitly and is still independently observed.
     pub fn terminal_report(
         &self,
         sense: ObjectiveSense,
     ) -> Result<Option<SolveReport>, ProblemError> {
-        if !self.report.certified_infeasible && !self.initial.is_empty() {
+        if self.report.proof.is_none() && !self.initial.is_empty() {
             return Ok(None);
         }
         let original = self.original.borrow();
-        let certified = self.report.certified_infeasible;
+        let certified = self.report.proof.is_some();
         let mut report = SolveReport::new(
             self.compatibility.backend,
             original.oracle.contract(),
@@ -86,6 +90,7 @@ impl Pipeline {
                 .eval_f(&[], true)
                 .ok_or_else(|| failure(&self.original))?;
             report.candidate = Some(Candidate {
+                kind: crate::solve::CandidateKind::FinalIterate,
                 primal: vec![],
                 objective: Some(objective * sense.sign()),
                 row_dual: None,
@@ -112,6 +117,16 @@ impl Pipeline {
         compatibility: Compatibility,
         limit: usize,
     ) -> Result<Self, ProblemError> {
+        let normalization = oracle.normalization().cloned().unwrap_or_else(|| {
+            pse_math::normalization::Normalization::identity(
+                oracle.contract().variables.len(),
+                oracle.contract().rows.len(),
+            )
+        });
+        normalization.validate(
+            oracle.contract().variables.len(),
+            oracle.contract().rows.len(),
+        )?;
         let mut report = policy.qualify(oracle.as_ref(), tolerance)?;
         let (n, m, _, _) = report.dimensions;
         if n > limit || m > limit || initial.len() != n || initial.iter().any(|v| !v.is_finite()) {
@@ -152,6 +167,8 @@ impl Pipeline {
         let source_contract = oracle.contract().clone();
         let want_duals = duals.is_some();
         let original = Rc::new(RefCell::new(Adapter {
+            normalization,
+            certification_budget: None,
             oracle,
             state: CallbackState::new(execution),
             jac,
@@ -198,6 +215,101 @@ impl Pipeline {
                 "presolve native dimensions/index style/cap".into(),
             ));
         }
+        let detected = row_wrapper.as_ref().is_some_and(|p| {
+            let p = p.borrow();
+            p.certified_infeasible().is_some()
+                || p.tighten_report().infeasible
+                || p.fbbt_report()
+                    .is_some_and(|r| r.infeasibility_witness.is_some())
+        });
+        if detected {
+            let budgets = tolerance.normalized(&original.borrow().normalization)?;
+            let can_confirm = original
+                .borrow()
+                .oracle
+                .presolve_facts()
+                .is_some_and(|f| !f.has_guards);
+            let proof = if can_confirm {
+                original.borrow_mut().certification_budget = Some(budgets.clone());
+                let mut confirmation = PresolveTnlp::with_expression_provider(
+                    original.clone(),
+                    original.clone(),
+                    pounce_presolve::PresolveOptions {
+                        auxiliary: false,
+                        linear_eq_reduction: false,
+                        redundant_constraint_removal: false,
+                        licq_check: false,
+                        ..report.effective
+                    },
+                );
+                let ok = confirmation.get_nlp_info().is_some();
+                let proof = ok.then(|| confirmation.certified_infeasible()).flatten();
+                drop(confirmation);
+                original.borrow_mut().certification_budget = None;
+                proof
+            } else {
+                None
+            };
+            if let Some(native) = proof {
+                let witness_row = match native {
+                    pounce_nlp::tnlp::InfeasibilityProof::IntervalArithmetic { witness } => {
+                        source_contract.rows.get(witness).copied()
+                    }
+                    pounce_nlp::tnlp::InfeasibilityProof::BoundPropagation => None,
+                };
+                report.proof = Some(super::PresolveProof {
+                    contributions: original
+                        .borrow()
+                        .oracle
+                        .presolve_facts()
+                        .map(|f| {
+                            source_contract
+                                .rows
+                                .iter()
+                                .zip(&f.row_sources)
+                                .flat_map(|(r, s)| s.iter().map(move |(i, o)| (*r, *i, *o)))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    native,
+                    witness_row,
+                    rows: source_contract.rows.clone(),
+                    columns: source_contract.variables.iter().map(|v| v.id).collect(),
+                    normalization: original.borrow().normalization.key(),
+                    budgets,
+                });
+            } else {
+                if matches!(policy, Policy::Explicit { required, .. } if !required.is_empty()) {
+                    return Err(ProblemError::Contract("required presolve reduction lacks a tolerance-compatible infeasibility proof".into()));
+                }
+                drop(outer);
+                drop(row_wrapper);
+                drop(affine);
+                let adapter = Rc::try_unwrap(original)
+                    .map_err(|_| {
+                        ProblemError::Contract(
+                            "presolve confirmation retained callback owner".into(),
+                        )
+                    })?
+                    .into_inner();
+                let execution = adapter.state.execution.clone();
+                let mut fallback = Self::new(
+                    adapter.oracle,
+                    initial,
+                    &Policy::Off,
+                    tolerance,
+                    scaling,
+                    execution,
+                    warm,
+                    compatibility,
+                    limit,
+                )?;
+                fallback.report.requested = policy.clone();
+                fallback.report.diagnostics.insert("infeasibility.confirmation".into(),
+                    "not established after per-bound acceptance expansion; unreduced normalized problem retained".into());
+                return Ok(fallback);
+            }
+        }
         let nr = info.n as usize;
         let mr = info.m as usize;
         let map = match &row_wrapper {
@@ -230,7 +342,7 @@ impl Pipeline {
         report.dimensions = (n, m, nr, mr);
         if let Some(p) = &row_wrapper {
             let p = p.borrow();
-            report.certified_infeasible = p.certified_infeasible().is_some();
+
             report
                 .diagnostics
                 .insert("bounds".into(), format!("{:?}", p.tighten_report()));
@@ -290,7 +402,8 @@ impl Pipeline {
             variables: report.columns.iter().map(|i| s.variables[*i]).collect(),
             constraints: report.rows.iter().map(|i| s.constraints[*i]).collect(),
         });
-        let mut h = pse_ids::FramedHasher::new("pse.presolve.transformation.v1");
+        let mut h = pse_ids::FramedHasher::new("pse.presolve.transformation.v2");
+        h.hash(&original.borrow().normalization.key());
         h.hash(&compatibility.layout)
             .hash(&policy.key())
             .u64(nr as u64)
@@ -344,6 +457,7 @@ impl Pipeline {
             backend: compatibility.backend,
         };
         let warm = want_duals.then(|| WarmStart {
+            origin: None,
             compatibility: native.clone(),
             payload: WarmPayload::Nlp {
                 primal: x.clone(),
@@ -408,9 +522,14 @@ impl Pipeline {
                 .report
                 .columns
                 .iter()
-                .map(|i| t.variables[*i])
+                .map(|i| t.variables[*i] / self.original.borrow().normalization.variables[*i])
                 .collect(),
-            rows: self.report.rows.iter().map(|i| t.rows[*i]).collect(),
+            rows: self
+                .report
+                .rows
+                .iter()
+                .map(|i| t.rows[*i] / self.original.borrow().normalization.rows[*i])
+                .collect(),
             integrality: t.integrality,
         }
     }
@@ -447,7 +566,7 @@ impl Pipeline {
                 Termination::Success => SolverReturn::Success,
                 Termination::Acceptable => SolverReturn::StopAtAcceptablePoint,
                 Termination::Cancelled => SolverReturn::UserRequestedStop,
-                Termination::Limit => SolverReturn::MaxiterExceeded,
+                Termination::Limit | Termination::IterationLimit => SolverReturn::MaxiterExceeded,
                 Termination::TimeLimit => SolverReturn::WallTimeExceeded,
                 _ => SolverReturn::Unassigned,
             };
@@ -505,12 +624,14 @@ impl Pipeline {
             original.state.finish(&mut report);
         }
         if let Some(c) = &report.candidate {
-            // A failed KKT check never exports unqualified duals as a warm seed.
+            // Recovered multipliers must have valid dimensions and signs to be seeds.
+            // Their numerical KKT qualification remains a separate completion decision.
             let qualified = report
                 .observation
                 .as_ref()
                 .is_some_and(|o| o.dual_error.is_none());
             report.warm_start = Some(WarmStart {
+                origin: None,
                 compatibility: self.compatibility,
                 payload: WarmPayload::Nlp {
                     primal: c.primal.clone(),

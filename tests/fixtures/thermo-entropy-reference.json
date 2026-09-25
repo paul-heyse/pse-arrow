@@ -1,0 +1,92 @@
+{
+  "generator": {
+    "library": "teqp",
+    "version": "0.23.1",
+    "python": "3.12.3",
+    "caloric_precision": 60
+  },
+  "reference": "Pure ideal gas S=0 at 298.15 K and 100000 Pa; mixture includes ideal mixing; no third-law claim",
+  "residual_formula": "R*(Ar10-Ar00) at identical T, molar density and composition",
+  "feos_reference_pressure_pa": "1.380649E+7",
+  "feos_raw_minus_reference_j_per_mol_k": "40.9713758636398037690126106781148571585339594333462660596466",
+  "parameters": {
+    "crates/pse-kernels/data/pcsaft-light-hydrocarbons.json": "8bcb949ed51a0f9b6856841b3d44dd0cc04299b04f70fcd5d6446e80aa808e5e",
+    "crates/pse-kernels/data/ideal-gas-light-hydrocarbons.json": "1a685ecbec24f25fa710bec55cc2fa8c280973394027af2a1b7ea2e7fb65b090"
+  },
+  "cases": [
+    {
+      "cas": [
+        "74-82-8"
+      ],
+      "input": [
+        298.15,
+        0.0001
+      ],
+      "entropy": 107.32036158511305,
+      "ideal_entropy": 107.3203616428624,
+      "residual_entropy": -5.7749350508822924e-08
+    },
+    {
+      "cas": [
+        "74-84-0",
+        "74-82-8"
+      ],
+      "input": [
+        350.0,
+        30.0,
+        0.3
+      ],
+      "entropy": 12.999171540612435,
+      "ideal_entropy": 13.019623370248542,
+      "residual_entropy": -0.020451829636107005
+    },
+    {
+      "cas": [
+        "74-82-8",
+        "74-84-0",
+        "74-98-6"
+      ],
+      "input": [
+        300.0,
+        10.0,
+        0.2,
+        0.3
+      ],
+      "entropy": 20.46084499616503,
+      "ideal_entropy": 20.47691672598135,
+      "residual_entropy": -0.016071729816320556
+    },
+    {
+      "cas": [
+        "74-82-8",
+        "74-84-0",
+        "74-98-6"
+      ],
+      "input": [
+        350.0,
+        34.565566349336066,
+        0.2,
+        0.3
+      ],
+      "entropy": 18.627487039757778,
+      "ideal_entropy": 18.675405730126165,
+      "residual_entropy": -0.04791869036838718
+    },
+    {
+      "cas": [
+        "74-82-8",
+        "74-84-0",
+        "74-98-6"
+      ],
+      "input": [
+        400.0,
+        1000.0,
+        0.6,
+        0.25
+      ],
+      "entropy": -7.435603353836935,
+      "ideal_entropy": -6.682200330622495,
+      "residual_entropy": -0.7534030232144402
+    }
+  ]
+}

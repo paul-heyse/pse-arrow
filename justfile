@@ -1007,6 +1007,7 @@ unit-dynamics-fitting:
 plan14-reference:
     UV_PROJECT_ENVIRONMENT=build/plan14-reference uv sync --locked --python 3.12 --only-group thermo-reference
     build/plan14-reference/bin/python scripts/plan14_reference.py
+    build/plan14-reference/bin/python -m scripts.feos_entropy_reference
 
 [group('local')]
 [doc('Bit-exact source-to-generated physical fixture equivalence; no solver workflow')]

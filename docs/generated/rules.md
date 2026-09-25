@@ -42,6 +42,7 @@
 | `authored.datasets` | `closure:entity_registered` | `SELECT s."dataset_id" FROM "authored"."datasets" s WHERE NOT EXISTS (SELECT 1 FROM authored.entities e WHERE e.entity_id = s."dataset_id" AND e.kind = 'dataset')` |
 | `authored.datasets` | `unique:pk` | `SELECT s."dataset_id" FROM "authored"."datasets" s GROUP BY s."dataset_id" HAVING COUNT(*) > 1` |
 | `authored.default_scaling` | `unique:pk` | `SELECT s."property_package_id", s."property_kind_id", s."index" FROM "authored"."default_scaling" s GROUP BY s."property_package_id", s."property_kind_id", s."index" HAVING COUNT(*) > 1` |
+| `authored.directional_valve_laws` | `unique:pk` | `SELECT s."model_id", s."name" FROM "authored"."directional_valve_laws" s GROUP BY s."model_id", s."name" HAVING COUNT(*) > 1` |
 | `authored.document_edits` | `unique:pk` | `SELECT s."document_id" FROM "authored"."document_edits" s GROUP BY s."document_id" HAVING COUNT(*) > 1` |
 | `authored.documents` | `foreign_key:package_id` | `SELECT DISTINCT s."document_id" FROM "authored"."documents" s WHERE s."package_id" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."packages" t WHERE s."package_id" = t."package_id")` |
 | `authored.documents` | `unique:pk` | `SELECT s."document_id" FROM "authored"."documents" s GROUP BY s."document_id" HAVING COUNT(*) > 1` |
@@ -85,7 +86,9 @@
 | `authored.material_systems` | `foreign_key:package_id` | `SELECT DISTINCT s."material_system_id" FROM "authored"."material_systems" s WHERE s."package_id" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."packages" t WHERE s."package_id" = t."package_id")` |
 | `authored.material_systems` | `unique:pk` | `SELECT s."material_system_id" FROM "authored"."material_systems" s GROUP BY s."material_system_id" HAVING COUNT(*) > 1` |
 | `authored.method_selections` | `unique:pk` | `SELECT s."selection_id" FROM "authored"."method_selections" s GROUP BY s."selection_id" HAVING COUNT(*) > 1` |
+| `authored.model_compositions` | `unique:pk` | `SELECT s."model_id" FROM "authored"."model_compositions" s GROUP BY s."model_id" HAVING COUNT(*) > 1` |
 | `authored.native_providers` | `unique:pk` | `SELECT s."model_id", s."name" FROM "authored"."native_providers" s GROUP BY s."model_id", s."name" HAVING COUNT(*) > 1` |
+| `authored.numerical_requirements` | `unique:pk` | `SELECT s."requirement_id" FROM "authored"."numerical_requirements" s GROUP BY s."requirement_id" HAVING COUNT(*) > 1` |
 | `authored.observation_targets` | `closure:target_owner:equation` | `SELECT s."observation_id", s."ordinal" FROM (SELECT *, member.equation.equation_decl_id AS target_id FROM "authored"."observation_targets" WHERE member.kind = 'equation') s JOIN authored.instances i ON s.instance_id = i.instance_id WHERE NOT EXISTS (SELECT 1 FROM authored.template_equations d WHERE d.equation_decl_id = s.target_id AND d.template_id = i.template_id)` |
 | `authored.observation_targets` | `closure:target_owner:group` | `SELECT s."observation_id", s."ordinal" FROM (SELECT *, member.group.symbol_decl_id AS target_id FROM "authored"."observation_targets" WHERE member.kind = 'group') s JOIN authored.instances i ON s.instance_id = i.instance_id WHERE NOT EXISTS (SELECT 1 FROM authored.template_symbols d WHERE d.symbol_decl_id = s.target_id AND d.template_id = i.template_id)` |
 | `authored.observation_targets` | `closure:target_owner:symbol` | `SELECT s."observation_id", s."ordinal" FROM (SELECT *, member.symbol.symbol_decl_id AS target_id FROM "authored"."observation_targets" WHERE member.kind = 'symbol') s JOIN authored.instances i ON s.instance_id = i.instance_id WHERE NOT EXISTS (SELECT 1 FROM authored.template_symbols d WHERE d.symbol_decl_id = s.target_id AND d.template_id = i.template_id)` |
@@ -114,6 +117,8 @@
 | `authored.property_packages` | `closure:entity_registered` | `SELECT s."property_package_id" FROM "authored"."property_packages" s WHERE NOT EXISTS (SELECT 1 FROM authored.entities e WHERE e.entity_id = s."property_package_id" AND e.kind = 'property_package')` |
 | `authored.property_packages` | `foreign_key:package_id` | `SELECT DISTINCT s."property_package_id" FROM "authored"."property_packages" s WHERE s."package_id" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."packages" t WHERE s."package_id" = t."package_id")` |
 | `authored.property_packages` | `unique:pk` | `SELECT s."property_package_id" FROM "authored"."property_packages" s GROUP BY s."property_package_id" HAVING COUNT(*) > 1` |
+| `authored.provider_scaling_bindings` | `unique:pk` | `SELECT s."binding_id" FROM "authored"."provider_scaling_bindings" s GROUP BY s."binding_id" HAVING COUNT(*) > 1` |
+| `authored.reaction_applications` | `unique:pk` | `SELECT s."application_id" FROM "authored"."reaction_applications" s GROUP BY s."application_id" HAVING COUNT(*) > 1` |
 | `authored.reaction_methods` | `foreign_key:reaction_id` | `SELECT DISTINCT s."reaction_id" FROM "authored"."reaction_methods" s WHERE s."reaction_id" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."reactions" t WHERE s."reaction_id" = t."reaction_id")` |
 | `authored.reaction_methods` | `unique:pk` | `SELECT s."reaction_id" FROM "authored"."reaction_methods" s GROUP BY s."reaction_id" HAVING COUNT(*) > 1` |
 | `authored.reaction_packages` | `closure:entity_fields` | `SELECT s."reaction_package_id" FROM "authored"."reaction_packages" s JOIN authored.entities e ON s."reaction_package_id" = e.entity_id WHERE (s."name" IS DISTINCT FROM e.name) OR (NULL IS DISTINCT FROM e.parent_entity_id) OR (s.package_id IS DISTINCT FROM e.package_id)` |
@@ -347,6 +352,7 @@
 | `runtime.artifact_descriptors` | `unique:pk` | `SELECT s."artifact_id" FROM "runtime"."artifact_descriptors" s GROUP BY s."artifact_id" HAVING COUNT(*) > 1` |
 | `runtime.cache_entry_statistics` | `unique:pk` | `SELECT s."cache", s."key" FROM "runtime"."cache_entry_statistics" s GROUP BY s."cache", s."key" HAVING COUNT(*) > 1` |
 | `runtime.cache_statistics` | `unique:pk` | `SELECT s."name" FROM "runtime"."cache_statistics" s GROUP BY s."name" HAVING COUNT(*) > 1` |
+| `runtime.candidate_assessments` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."candidate_assessments" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.change_events` | `unique:pk` | `SELECT s."table_uri", s."commit_version", s."kind", s."row_key" FROM "runtime"."change_events" s GROUP BY s."table_uri", s."commit_version", s."kind", s."row_key" HAVING COUNT(*) > 1` |
 | `runtime.computation_runs` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."computation_runs" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.diagnostics_findings` | `unique:pk` | `SELECT s."finding_id" FROM "runtime"."diagnostics_findings" s GROUP BY s."finding_id" HAVING COUNT(*) > 1` |
@@ -360,6 +366,7 @@
 | `runtime.physical_checks` | `unique:pk` | `SELECT s."run_id", s."step", s."sample", s."balance_id" FROM "runtime"."physical_checks" s GROUP BY s."run_id", s."step", s."sample", s."balance_id" HAVING COUNT(*) > 1` |
 | `runtime.publications` | `unique:pk` | `SELECT s."workspace_id" FROM "runtime"."publications" s GROUP BY s."workspace_id" HAVING COUNT(*) > 1` |
 | `runtime.release_checkpoints` | `unique:pk` | `SELECT s."consumer_id" FROM "runtime"."release_checkpoints" s GROUP BY s."consumer_id" HAVING COUNT(*) > 1` |
+| `runtime.resolved_numerics` | `unique:pk` | `SELECT s."run_id", s."step", s."target_kind", s."target_id" FROM "runtime"."resolved_numerics" s GROUP BY s."run_id", s."step", s."target_kind", s."target_id" HAVING COUNT(*) > 1` |
 | `runtime.response_sensitivities` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id" FROM "runtime"."response_sensitivities" s GROUP BY s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id" HAVING COUNT(*) > 1` |
 | `runtime.retained_versions` | `unique:pk` | `SELECT s."table_uri", s."from_version", s."through_version", s."reason" FROM "runtime"."retained_versions" s GROUP BY s."table_uri", s."from_version", s."through_version", s."reason" HAVING COUNT(*) > 1` |
 | `runtime.simulation_events` | `unique:pk` | `SELECT s."run_id", s."ordinal", s."symbol_id" FROM "runtime"."simulation_events" s GROUP BY s."run_id", s."ordinal", s."symbol_id" HAVING COUNT(*) > 1` |

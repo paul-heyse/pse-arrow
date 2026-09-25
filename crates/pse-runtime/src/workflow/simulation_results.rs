@@ -240,10 +240,7 @@ impl RunResult {
         &self,
         batches: &mut BTreeMap<SemanticId, FieldCheckedBatch>,
     ) -> Result<(), WorkflowError> {
-        batches.insert(
-            pse_relations::generated::runtime::physical_checks::RELATION_ID,
-            self.physical_checks()?,
-        );
+        self.numerical_tables(batches)?;
         let mut sources = super::SourceDeclarations::default();
         for revision in self.request.revisions() {
             sources.merge(&revision.0.sources)?;

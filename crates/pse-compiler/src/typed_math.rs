@@ -63,6 +63,8 @@ struct Coordinate {
 pub struct Occurrence {
     /// Stable source occurrence identity.
     pub id: SemanticId,
+    /// Authored definition owning this local occurrence.
+    pub definition: SemanticId,
     /// Byte range in the authored definition.
     pub span: dsl::Span,
 }
@@ -78,7 +80,7 @@ pub struct ProviderCall {
 
 /// One authored local body and the exact physical/specialization context it consumes.
 #[derive(Debug)]
-pub(crate) struct Request<'a> {
+pub struct Request<'a> {
     /// Definition identity for diagnostics, not arithmetic interning.
     pub definition: SemanticId,
     /// Source-bearing syntax from the authoring parser.
@@ -153,6 +155,7 @@ impl Request<'_> {
         options: Optimization,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Body, MathError> {
+        pse_math::initialize()?;
         let prepared = Arc::new(self.admit(registry, checker, cancelled)?);
         let artifact = Arc::new(prepared.math.compile(
             &(0..prepared.math.output_count()).collect::<Vec<_>>(),
@@ -165,7 +168,7 @@ impl Request<'_> {
         Ok(Body { prepared, artifact })
     }
     /// Admit ordered outputs and consumed contracts without constructing numeric artifacts.
-    pub(crate) fn admit(
+    pub fn admit(
         &self,
         registry: &QuantityRegistry,
         checker: &dyn InvariantChecker,
@@ -193,10 +196,16 @@ impl Request<'_> {
         {
             return Err(MathError::Limit("preparation inputs"));
         }
-        let mut builder = BodyBuilder::new(registry, checker, self.formals.len(), self.limits)?;
+        let mut builder = BodyBuilder::new(
+            pse_math::context()?,
+            registry,
+            checker,
+            self.formals.len(),
+            self.limits,
+        )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new("pse.math.typed-definition.v1");
-        hash.id(&self.definition).u64(self.formals.len() as u64);
+        let mut hash = FramedHasher::new("pse.math.typed-definition.v2");
+        hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {
                 return Err(MathError::Contract("duplicate formal path".into()));
@@ -265,12 +274,12 @@ impl Lower<'_, '_> {
         if depth > 128 || self.occurrences.len() >= self.request.limits.occurrences {
             return Err(MathError::Limit("authored syntax depth or occurrences"));
         }
-        let mut h = FramedHasher::new("pse.math.source-occurrence.v1");
-        h.id(&self.request.definition)
-            .u64(self.occurrences.len() as u64);
+        let mut h = FramedHasher::new("pse.math.local-occurrence.v2");
+        h.u64(self.occurrences.len() as u64);
         let id = h.finish_id();
         self.occurrences.push(Occurrence {
             id,
+            definition: self.request.definition,
             span: expr.span,
         });
         Ok(id)
@@ -348,7 +357,7 @@ impl Lower<'_, '_> {
                 let left = self.expression(lhs, builder, depth + 1)?;
                 let right = self.expression(rhs, builder, depth + 1)?;
                 let exponent = if *op == BinaryOp::Pow {
-                    integer_exponent(rhs)
+                    literal_exponent(rhs)
                 } else {
                     None
                 };
@@ -816,7 +825,7 @@ impl Lower<'_, '_> {
         }
     }
 }
-fn integer_exponent(expression: &Expr) -> Option<Ratio> {
+fn literal_exponent(expression: &Expr) -> Option<Ratio> {
     match &expression.kind {
         ExprKind::Number(number)
             if number.unit.is_none()
@@ -827,8 +836,21 @@ fn integer_exponent(expression: &Expr) -> Option<Ratio> {
             Ratio::new(number.value as i32, 1).ok()
         }
         ExprKind::Neg(inner) => {
-            let positive = integer_exponent(inner)?;
-            Ratio::new(-i32::from(positive.num()), 1).ok()
+            let positive = literal_exponent(inner)?;
+            Ratio::new(-i32::from(positive.num()), i32::from(positive.den())).ok()
+        }
+        ExprKind::Binary {
+            op: BinaryOp::Div,
+            lhs,
+            rhs,
+        } => {
+            let numerator = literal_exponent(lhs)?;
+            let denominator = literal_exponent(rhs)?;
+            // Only explicit signed ratios of integers are exact authored facts.
+            if numerator.den() != 1 || denominator.den() != 1 {
+                return None;
+            }
+            Ratio::new(i32::from(numerator.num()), i32::from(denominator.num())).ok()
         }
         _ => None,
     }
@@ -852,15 +874,24 @@ mod tests {
     use super::*;
     use pse_quantity::standard::{StandardInvariantChecker, ids, standard_registry};
     fn compile(text: &str, formals: &[Formal], order: DerivativeOrder) -> Result<Body, MathError> {
+        compile_literals(text, formals, order, &BTreeMap::new())
+    }
+    fn compile_literals(
+        text: &str,
+        formals: &[Formal],
+        order: DerivativeOrder,
+        literals: &BTreeMap<(u32, u32), QuantityTypeId>,
+    ) -> Result<Body, MathError> {
         let expression = dsl::parse_expr(text).unwrap();
         let registry = standard_registry().unwrap();
-        let units = BTreeMap::from([(
+        let mut units = BTreeMap::from([(
             "1".into(),
             registry
                 .quantity_type(ids::quantity("neutral"))
                 .unwrap()
                 .canonical_unit,
         )]);
+        units.insert("K".into(), ids::unit("K"));
         let h = ContentHash::from_bytes([1; 32]);
         Request {
             definition: SemanticId::from_bytes([1; 16]),
@@ -870,7 +901,7 @@ mod tests {
             providers: &BTreeMap::new(),
             groups: &BTreeMap::new(),
             units: &units,
-            literals: &BTreeMap::new(),
+            literals,
             physical: h,
             structure: h,
 
@@ -885,7 +916,85 @@ mod tests {
         )
     }
     #[test]
+    fn authored_power_literals_preserve_exact_facts_and_analytic_jets() {
+        let formals = [Formal {
+            path: "x".into(),
+            quantity: ids::quantity("neutral"),
+        }];
+        let cancel = Arc::new(AtomicBool::new(false));
+        for (text, x, value, first, second) in [
+            ("x^2", 3.0, 9.0, 6.0, 2.0),
+            ("x^-1", 2.0, 0.5, -0.25, 0.25),
+            ("x^(1/2)", 4.0, 2.0, 0.25, -0.03125),
+            ("x^(-1/2)", 4.0, 0.5, -0.0625, 0.0234375),
+            ("x^(2/4)", 4.0, 2.0, 0.25, -0.03125),
+        ] {
+            let body = compile(text, &formals, DerivativeOrder::Second).unwrap();
+            let jet = body
+                .worker()
+                .evaluate(&[x], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel)
+                .unwrap();
+            for (actual, expected) in [
+                (jet.values[0], value),
+                (jet.jacobian[0], first),
+                (jet.hessians[0], second),
+            ] {
+                assert!(
+                    (actual - expected).abs() < 1e-12,
+                    "{text}: {actual} != {expected}"
+                );
+            }
+        }
+        assert!(literal_exponent(&dsl::parse_expr("0.5").unwrap()).is_none());
+        for text in ["x^-1", "x^(1/2)"] {
+            let body = compile(text, &formals, DerivativeOrder::Second).unwrap();
+            assert!(
+                body.worker()
+                    .evaluate(
+                        &[0.0],
+                        DerivativeOrder::Second,
+                        &mut BTreeMap::new(),
+                        &cancel
+                    )
+                    .is_err()
+            );
+        }
+        assert!(compile("x^1025", &formals, DerivativeOrder::Value).is_err());
+    }
+
+    #[test]
+    fn normalized_temperature_cubic_has_analytic_jets() {
+        let formals = [Formal {
+            path: "T".into(),
+            quantity: ids::quantity("temperature.point"),
+        }];
+        let text = "(T/1000{K})^3";
+        let start = text.find("1000").unwrap() as u32;
+        let registry = standard_registry().unwrap();
+        let scale = registry
+            .quantity_types()
+            .find(|q| q.key.kind == ids::kind("temperature_scale") && q.key.shape.is_empty())
+            .unwrap()
+            .id;
+        let literals = BTreeMap::from([((start, start + 7), scale)]);
+        let body = compile_literals(text, &formals, DerivativeOrder::Second, &literals).unwrap();
+        let jet = body
+            .worker()
+            .evaluate(
+                &[500.0],
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert!((jet.values[0] - 0.125).abs() < 1e-12);
+        assert!((jet.jacobian[0] - 0.00075).abs() < 1e-12);
+        assert!((jet.hessians[0] - 0.000003).abs() < 1e-12);
+    }
+
+    #[test]
     fn source_compilation_preserves_obligations_erased_by_cas() {
+        pse_math::initialize().unwrap();
         let formals = [Formal {
             path: "x".into(),
             quantity: ids::quantity("neutral"),
@@ -916,6 +1025,7 @@ mod tests {
     }
     #[test]
     fn typed_source_identity_excludes_whitespace_and_occurrence_spans() {
+        pse_math::initialize().unwrap();
         let formals = [Formal {
             path: "x".into(),
             quantity: ids::quantity("neutral"),
@@ -927,6 +1037,7 @@ mod tests {
     }
     #[test]
     fn physically_invalid_point_addition_fails_before_execution() {
+        pse_math::initialize().unwrap();
         let formals = [Formal {
             path: "t".into(),
             quantity: ids::quantity("temperature.point"),
@@ -1032,6 +1143,7 @@ mod tests {
     }
     #[test]
     fn finite_filtered_and_empty_reductions_preserve_multiplicity() {
+        pse_math::initialize().unwrap();
         let mut sum = indexed(
             "sum(i in species | flow[i] + flow[i])",
             &[2, 1],
@@ -1055,6 +1167,7 @@ mod tests {
     }
     #[test]
     fn empty_reductions_still_validate_physics_and_filter_declarations() {
+        pse_math::initialize().unwrap();
         assert!(indexed("sum(i in species | flow[i])", &[], &[], "temperature.point").is_err());
         assert!(
             indexed(
@@ -1069,6 +1182,7 @@ mod tests {
     }
     #[test]
     fn ragged_members_are_explicit_and_never_defaulted() {
+        pse_math::initialize().unwrap();
         assert!(indexed("sum(i in species | flow[i])", &[1, 2], &[2], "neutral").is_err());
         let mut filtered = indexed(
             "sum(i in species where i in selected | flow[i])",
@@ -1081,6 +1195,7 @@ mod tests {
     }
     #[test]
     fn short_circuit_guards_do_not_touch_unsafe_predicates_or_values() {
+        pse_math::initialize().unwrap();
         let formals = [Formal {
             path: "x".into(),
             quantity: ids::quantity("neutral"),
@@ -1127,6 +1242,7 @@ mod tests {
     }
     #[test]
     fn ordered_outputs_share_semantics_across_artifact_profiles() {
+        pse_math::initialize().unwrap();
         let registry = standard_registry().unwrap();
         let quantity = ids::quantity("neutral");
         let expressions = [
@@ -1208,6 +1324,7 @@ mod tests {
 
     #[test]
     fn executable_provider_admission_preserves_physics_phase_and_recoverable_errors() {
+        pse_math::initialize().unwrap();
         use pse_kernels::{
             Phase, Port, Provider, ProviderError, ProviderFactory, ProviderSpec, ProviderValues,
             Registration,

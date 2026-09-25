@@ -31,6 +31,7 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
         unit: registry.quantity_type(quantity).unwrap().canonical_unit,
     };
     let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
         &registry,
         &StandardInvariantChecker,
         2,
@@ -133,6 +134,7 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
 }
 #[test]
 fn aliases_repeated_rows_isolates_and_stable_refill() {
+    crate::initialize().unwrap();
     let (a, mut x) = fixture(true, false);
     let mut w = a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
     assert_eq!(a.columns(), &[id(1), id(2)]);
@@ -159,6 +161,7 @@ fn aliases_repeated_rows_isolates_and_stable_refill() {
 }
 #[test]
 fn presolve_projection_keeps_alias_coefficients_and_parameter_identity() {
+    crate::initialize().unwrap();
     let (a, mut values) = fixture(true, false);
     let cancel = Arc::new(AtomicBool::new(false));
     let f = a.presolve_facts(&values, 1000, &cancel).unwrap();
@@ -168,6 +171,11 @@ fn presolve_projection_keeps_alias_coefficients_and_parameter_identity() {
     );
     assert_eq!(f.affine[1].as_ref().unwrap().constant, 0.0);
     assert_eq!(f.objective_linear, vec![false, true]);
+    assert!(
+        f.obligations
+            .values()
+            .all(|s| *s == crate::presolve::ObligationStatus::Discharged)
+    );
     assert!(f.complete.iter().all(|v| *v));
     assert!(f.tapes.iter().all(|t| t.first_invalid_slot().is_none()));
     values.scalars.insert(id(1), 9.0);
@@ -184,6 +192,7 @@ fn presolve_projection_keeps_alias_coefficients_and_parameter_identity() {
 }
 #[test]
 fn distinct_columns_keep_one_off_diagonal_and_coefficient_views() {
+    crate::initialize().unwrap();
     let (a, x) = fixture(false, false);
     let mut w = a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
     assert_eq!(w.gradient(&x).unwrap(), vec![3.0, 2.0]);
@@ -204,8 +213,101 @@ fn distinct_columns_keep_one_off_diagonal_and_coefficient_views() {
     let factors = faer::Mat::from_fn(1, 2, |_, _| 1.0);
     assert!(GramCertificate::new(&c.hessian, 1.0, &factors, &[1.0], 100).is_err());
 }
+
+#[test]
+fn convexity_distinguishes_exact_numerical_indefinite_and_inconclusive() {
+    use crate::convexity::*;
+    let (a, values) = fixture(false, false);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut c = a
+        .coefficients(&values, Optimization::default(), 1000, &cancel)
+        .unwrap();
+    let limits = ConvexityLimits {
+        bytes: 1 << 20,
+        exact_operations: 1000,
+    };
+    let numerical = ConvexityPolicy::Numerical {
+        absolute: 1e-12,
+        relative: 1e-12,
+    };
+    let negative = c
+        .convexity(1.0, &[1.0, 1.0], 1.0, numerical, limits, &cancel)
+        .unwrap();
+    assert!(matches!(
+        negative.assessment(),
+        ConvexityAssessment::Indefinite { .. }
+    ));
+    let mut q =
+        crate::sparse::AssemblyMatrix::new(2, 2, &[(0, 0), (0, 1), (1, 0), (1, 1)], 10).unwrap();
+    for (i, v) in [3.0, 1.0, 1.0, 3.0].into_iter().enumerate() {
+        q.add(i, v).unwrap();
+    }
+    c.hessian = q.matrix().clone();
+    assert!(negative.validate_matrix(&c.hessian, 1.0).is_err());
+    let exact = c
+        .convexity(
+            1.0,
+            &[1.0, 1.0],
+            1.0,
+            ConvexityPolicy::Exact,
+            limits,
+            &cancel,
+        )
+        .unwrap();
+    assert!(matches!(
+        exact.assessment(),
+        ConvexityAssessment::Inconclusive(InconclusiveReason::NoExactWitness)
+    ));
+    let approx = c
+        .convexity(1.0, &[1.0, 1.0], 1.0, numerical, limits, &cancel)
+        .unwrap();
+    assert!(matches!(
+        approx.assessment(),
+        ConvexityAssessment::NumericalPsd { .. }
+    ));
+    assert!(approx.validate_policy(numerical, &[1.0, 1.0], 1.0).is_ok());
+    assert!(
+        approx
+            .validate_policy(ConvexityPolicy::Exact, &[1.0, 1.0], 1.0)
+            .is_err()
+    );
+    assert!(approx.validate_policy(numerical, &[2.0, 1.0], 1.0).is_err());
+    let limited = c
+        .convexity(
+            1.0,
+            &[1.0, 1.0],
+            1.0,
+            numerical,
+            ConvexityLimits { bytes: 1, ..limits },
+            &cancel,
+        )
+        .unwrap();
+    assert!(matches!(
+        limited.assessment(),
+        ConvexityAssessment::Inconclusive(InconclusiveReason::ResourceLimit)
+    ));
+    assert_ne!(limited.key(), approx.key());
+    q.clear();
+    q.add(0, 2.0).unwrap();
+    c.hessian = q.matrix().clone();
+    let rank_deficient = c
+        .convexity(
+            1.0,
+            &[1.0, 1.0],
+            1.0,
+            ConvexityPolicy::Exact,
+            limits,
+            &cancel,
+        )
+        .unwrap();
+    assert!(matches!(
+        rank_deficient.assessment(),
+        ConvexityAssessment::Exact(_)
+    ));
+}
 #[test]
 fn all_fixed_uses_constant_math_and_parameter_changes_reclassify() {
+    crate::initialize().unwrap();
     let (a, mut x) = fixture(true, true);
     let mut w = a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
     assert!(a.columns().is_empty());
@@ -225,6 +327,7 @@ fn all_fixed_uses_constant_math_and_parameter_changes_reclassify() {
 }
 #[test]
 fn gram_evidence_is_exact_nonnegative_and_current() {
+    crate::initialize().unwrap();
     let (a, x) = fixture(true, false);
     let mut c = a
         .coefficients(
@@ -244,11 +347,13 @@ fn gram_evidence_is_exact_nonnegative_and_current() {
 }
 #[test]
 fn sparse_limits_fail_before_library_allocation() {
+    crate::initialize().unwrap();
     assert!(crate::sparse::AssemblyMatrix::new(2, 2, &[(2, 0)], 100).is_err());
     assert!(crate::sparse::AssemblyMatrix::new(usize::MAX, 1, &[], i32::MAX as usize).is_err());
 }
 #[test]
 fn coefficient_projection_preserves_erased_domain_obligations() {
+    crate::initialize().unwrap();
     let registry = standard_registry().unwrap();
     let quantity = ids::quantity("neutral");
     let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
@@ -258,6 +363,7 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
         unit,
     };
     let mut b = BodyBuilder::new(
+        crate::initialize().unwrap(),
         &registry,
         &StandardInvariantChecker,
         1,
@@ -320,6 +426,20 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
         scalars: BTreeMap::from([(id(1), 2.0)]),
     };
     let cancel = Arc::new(AtomicBool::new(false));
+    assert_eq!(
+        prepare(0.0)
+            .presolve_facts(&values, 100, &cancel)
+            .unwrap()
+            .obligations[&id(9)],
+        crate::presolve::ObligationStatus::Unestablished
+    );
+    assert_eq!(
+        prepare(1.0)
+            .presolve_facts(&values, 100, &cancel)
+            .unwrap()
+            .obligations[&id(9)],
+        crate::presolve::ObligationStatus::Discharged
+    );
     assert!(
         prepare(0.0)
             .coefficients(&values, Optimization::default(), 100, &cancel)
@@ -336,6 +456,7 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
 
 #[test]
 fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
+    crate::initialize().unwrap();
     use pse_quantity::UnitId;
     let standard = standard_registry().unwrap();
     let quantity = ids::quantity("neutral");
@@ -363,6 +484,7 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
         ..formal.clone()
     };
     let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
         &registry,
         &StandardInvariantChecker,
         2,
@@ -472,4 +594,143 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
         worker.hessian(&values, 1.0, &[0.0]).unwrap().val(),
         &[-18.0]
     );
+}
+
+#[test]
+fn mathematical_facts_are_independent_of_requested_artifacts() {
+    crate::initialize().unwrap();
+    let (assembly, values) = fixture(false, false);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let registry = standard_registry().unwrap();
+    let plan = CasePlan::prepare(
+        assembly.structure().clone().into(),
+        assembly.bodies().clone(),
+        &registry,
+        DerivativeOrder::First,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let bound = plan.presolve_facts(&values, 1000, &cancel).unwrap();
+    let facts = crate::facts::ProblemFacts::from_plan(&plan, None, &bound).unwrap();
+    assert_eq!(facts.derivatives, DerivativeOrder::Second);
+    assert_eq!(facts.prepared_derivatives, DerivativeOrder::First);
+    assert_eq!(facts.objective_degree, Some(2));
+    assert_eq!(facts.affine_rows, vec![true, true]);
+    assert!(!facts.coefficients);
+}
+
+#[test]
+fn admitted_transcendentals_and_strict_guards_feed_library_fbbt() {
+    use crate::Function;
+    crate::initialize().unwrap();
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+    let port = Port {
+        id: id(1),
+        quantity,
+        unit,
+    };
+    let mut b = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = b.input(0, quantity, IndexSet::new(), id(20)).unwrap();
+    let logarithm = b.unary(Function::Log, x.clone(), id(21)).unwrap();
+    let exponential = b.unary(Function::Exp, x, id(22)).unwrap();
+    let body = Arc::new(b.prepare(&[logarithm, exponential]).unwrap());
+    let key = ContentHash::from_bytes([5; 32]);
+    let structure = Arc::new(
+        CaseStructure::new(
+            vec![Variable {
+                port: port.clone(),
+                fixed: false,
+                domain: VariableDomain::Continuous,
+                lower: Some(0.0),
+                upper: Some(3.0),
+            }],
+            vec![],
+            vec![InstanceBinding {
+                instance: id(9),
+                body: key,
+                slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],
+                contributions: vec![
+                    Contribution {
+                        output: 0,
+                        target: Target::Row(id(10)),
+                        scale: 1.0,
+                    },
+                    Contribution {
+                        output: 1,
+                        target: Target::Row(id(11)),
+                        scale: 1.0,
+                    },
+                ],
+            }],
+            vec![
+                Row {
+                    id: id(10),
+                    quantity,
+                    lower: 0.0,
+                    upper: 1.0,
+                },
+                Row {
+                    id: id(11),
+                    quantity,
+                    lower: 0.0,
+                    upper: 10.0,
+                },
+            ],
+            None,
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare(
+        structure,
+        BTreeMap::from([(key, body)]),
+        &registry,
+        DerivativeOrder::First,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let facts = plan
+        .presolve_facts(
+            &CaseValues {
+                scalars: BTreeMap::new(),
+            },
+            1000,
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(facts.complete, vec![true, true]);
+    assert_eq!(
+        facts.signs[&id(1)],
+        crate::presolve::GuardSign {
+            positive: true,
+            strict: true
+        }
+    );
+    assert!(
+        facts.tapes[0]
+            .ops
+            .iter()
+            .any(|op| matches!(op, pounce_nlp::expression_provider::FbbtOp::Ln(_)))
+    );
+    assert!(
+        facts.tapes[1]
+            .ops
+            .iter()
+            .any(|op| matches!(op, pounce_nlp::expression_provider::FbbtOp::Exp(_)))
+    );
+    let interval = pounce_presolve::fbbt::forward_pass(&facts.tapes[1], &[1.0], &[2.0]).unwrap();
+    let bound = pounce_presolve::fbbt::forward_result(&interval);
+    assert!(bound.lo <= std::f64::consts::E && bound.hi >= 2.0_f64.exp());
 }

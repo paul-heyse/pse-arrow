@@ -102,6 +102,12 @@
   - [ADR-0085: Adopt a layered design standard with a process-simulator profile](adr/0085-layered-design-standard.md)
   - [ADR-0086: Retire orphaned rule execution and check structural governance contracts](adr/0086-retire-orphaned-rule-execution.md)
   - [ADR-0087: Close Plan 14 through local Linux qualification](adr/0087-local-linux-plan14-qualification.md)
+  - [ADR-0088: Selected model admission and physical provider contracts](adr/0088-selected-model-and-physical-contracts.md)
+  - [ADR-0089: Versioned semantic identity projections and compatibility](adr/0089-semantic-identity-projections.md)
+  - [ADR-0090: Shared execution vocabulary and structured boundaries](adr/0090-shared-execution-vocabulary.md)
+  - [ADR-0091: Immutable publication and retention contract](adr/0091-immutable-publication-contract.md)
+  - [ADR-0092: Ordinary execution evidence and qualification](adr/0092-ordinary-execution-evidence.md)
+  - [ADR-0093: Qualify native strategies and residual dynamics](adr/0093-qualified-native-strategies.md)
 <!-- adr:end -->
 
 # Plans

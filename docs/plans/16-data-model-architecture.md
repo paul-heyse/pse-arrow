@@ -1,10 +1,10 @@
 ---
 title: Data-model architecture and consolidated review remediation
-status: draft
+status: in-progress
 date: 2026-09-24
-adrs: [ADR-0082, ADR-0083, ADR-0084, ADR-0085, ADR-0086]
+adrs: [ADR-0082, ADR-0083, ADR-0084, ADR-0085, ADR-0086, ADR-0088, ADR-0089, ADR-0090, ADR-0091, ADR-0092, ADR-0093]
 phase: 1
-evidence: Proposed — implementation and qualification have not started
+evidence: Implemented — P00–P09 scoped packets; P10–P18 and full-plan qualification pending
 ---
 
 # Data-model architecture and consolidated review remediation
@@ -37,13 +37,18 @@ this plan neither reopens M22 nor treats its passing cases as proof of these new
 paths. The original review's pending-M22/proposed-ADR statements are stale, as the
 follow-up explains. Plan 15 remains the separate build-performance workstream.
 
-**Planning status.** All packets below are pending. The reviews provide source
+**Execution status.** P00–P04 are implemented under the scoped
+[execution packet](16-p00-p04-execution.md); its verification and supported boundary
+are recorded there. P05–P06 are implemented and scoped-qualified in the
+[numerics/facts packet](16-p05-p06-execution.md). P07–P09 are implemented and scoped-qualified
+in the [native strategies/dynamics packet](16-p07-p09-execution.md). P10–P18 remain pending.
+The original reviews provide source
 analysis and selected prior observations, not executed acceptance of this target.
 A packet must resolve any unverified library claim that matters to its change
 before depending on it. If a reported defect is disproved by the current source,
 record the concrete reason in its coverage row; do not implement a speculative fix
 merely to match the review. No implementation, test campaign or environment repair
-is part of creating this plan.
+was part of initially creating this plan.
 
 ## Target and completion boundary
 
@@ -221,11 +226,10 @@ runtime's symbolic job boundary; F03/F04.
 - Preserve exact literal/rational facts when constructing exponent atoms; check
   numerical agreement without comparing incompatible float and rational encodings.
   Keep dimensioned-power and domain obligations intact.
-- Capture licensed/restricted execution capabilities and effective concurrency
-  before any symbolic work that can trigger process-global effects. Select typed
-  refusal for an unsupported execution mode; support a restricted single-owner
-  mode only if the pinned library contract establishes it as safe. Never persist
-  a license secret. Library/license eligibility is separate from safe execution.
+- Use the existing personal Symbolica license configuration. The P00–P04 scope
+  explicitly excludes additional license management, a restricted execution mode
+  and process isolation. Initialize the symbolic context before tracked work and
+  never persist a license secret. Library eligibility is unchanged.
 - Move initialization and symbol/function registration out of apparently pure
   tracked derivations. Resolve stable names/registration and effective environment
   dependencies. Specify the reproducibility class by operation and build/profile;
@@ -235,10 +239,9 @@ runtime's symbolic job boundary; F03/F04.
   proves what the loader used. Reuse this environment identity in P02/P10/P11.
 
 **Targeted checks:** authored `x^2`, `x^-1` and normalized-temperature cubics through
-public compiler admission, with analytic values/derivatives; isolated subprocess
-tests for absent/restricted licensing and two jobs without interpreter abort;
-reversed model admission order across processes under the declared determinism
-profile. Probe uncertain failure behavior in a disposable subprocess.
+public compiler admission, with analytic values/derivatives; concurrent initialized
+jobs and reversed model admission order across fresh processes under the declared
+determinism profile. No absent/restricted-license behavior is claimed.
 
 **Delete:** the mismatched exact-literal comparison and hidden initialization path
 when the corrected entry boundary is in use.
@@ -1029,19 +1032,34 @@ planning or ask for approval of unfinished work.
 
 ### What was built
 
-**Proposed:** P00–P18 are pending. Populate this section at closure with the actual
-implemented boundaries and the named **Tested**/**Measured** evidence. The creation
-of this plan does not advance any implementation packet.
+**Implemented:** P00–P04 foundations and their supported boundary are recorded in
+[the execution packet](16-p00-p04-execution.md). P05–P06 numerical policy and shared
+mathematical/structural facts are recorded in the
+[numerics/facts packet](16-p05-p06-execution.md). P07–P09 contextual native qualification,
+explicit starts/strategies and shared dynamics/fitting are recorded in the
+[native strategies/dynamics packet](16-p07-p09-execution.md).
+**Proposed:** P10–P18 remain pending.
+Full-plan qualification and performance evidence belong to P18; the scoped packet's
+regressions do not establish whole-plan acceptance.
 
 ### A mistake made and corrected
 
-Not yet applicable; record an actual implementation or validation correction.
+The P00–P04 packet records corrections to multi-case balance identities, material
+policy dependencies, vessel coordinate ordering and generated invariant fixtures.
+The P05–P06 packet records the builtin-constant projection fix, final caller migration
+and corrected native/generation qualification environment.
+The P07–P09 packet records native-status overclaims replaced by original KKT/gap
+qualification, complete fixture generation and final feature/boundary repairs.
 
 ### Deviations from the plan, deliberate
 
-None recorded. Any later change to accepted semantics follows its ADR route;
-rejected speculative optimizations and retained deletion candidates state the
-concrete contract/evidence that justified their disposition.
+P01 uses the existing personal license configuration without a new licensing or
+process-isolation framework. P04 admits homogeneous explicit-density providers and
+explicit-heat molar reactions; unsupported formulations are refused. See the scoped
+packets and proposed ADR-0088–0093 for the detailed boundaries and decision PR route.
+P09 admits a narrow smooth IDAS recovery profile alongside Diffsol's qualified hybrid
+route. Presolve multiplier recovery and QP regularization can leave feasible candidates
+without stronger optimality qualification; the explicit alternatives are tested.
 
 [R1]: ../design_review/reviews/design_review_comprehensive-codebase_2026-09-24.md
 [R2]: ../design_review/reviews/design_review_data-model-architecture-followup_2026-09-24.md

@@ -18,6 +18,7 @@ pub struct AlgebraicOracle {
     contract: OracleContract,
     bounds: Vec<(f64, f64)>,
     facts: crate::DerivativeFacts,
+    normalization: Option<pse_math::normalization::Normalization>,
     presolve: Option<std::sync::Arc<pse_math::presolve::Facts>>,
 }
 impl AlgebraicOracle {
@@ -49,8 +50,18 @@ impl AlgebraicOracle {
             contract,
             bounds,
             facts: Default::default(),
+            normalization: None,
             presolve: None,
         })
+    }
+    /// Attach the immutable resolved coordinate projection before native preparation.
+    pub fn with_normalization(
+        mut self,
+        normalization: pse_math::normalization::Normalization,
+    ) -> Result<Self, ProblemError> {
+        normalization.validate(self.contract.variables.len(), self.contract.rows.len())?;
+        self.normalization = Some(normalization);
+        Ok(self)
     }
     /// Attach library-proved coefficient facts only for the exact current structure
     /// and fixed/parameter values. Replacing values clears these assumptions.
@@ -123,6 +134,9 @@ fn copy(source: &[f64], target: &mut [f64]) -> Result<(), ProblemError> {
     Ok(())
 }
 impl NlpOracle for AlgebraicOracle {
+    fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
+        self.normalization.as_ref()
+    }
     fn constraint_sources(&self) -> Result<Vec<pse_math::assembly::OutputValue>, ProblemError> {
         Ok(self.worker.constraint_sources()?)
     }
@@ -178,6 +192,13 @@ impl NlpOracle for AlgebraicOracle {
     }
 }
 impl NleOracle for AlgebraicOracle {
+    fn guard_signs(
+        &self,
+    ) -> std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign> {
+        self.presolve
+            .as_ref()
+            .map_or_else(Default::default, |p| p.signs.clone())
+    }
     fn observe(&self, mut residual: Vec<f64>) -> Result<crate::quality::Observation, ProblemError> {
         self.admit_nle()?;
         if residual.len() != self.bounds.len() {
@@ -249,7 +270,7 @@ pub fn contract(assembly: &CasePlan) -> OracleContract {
             .collect(),
         rows: assembly.structure().rows().iter().map(|r| r.id).collect(),
         derivatives: assembly.order(),
-        smoothness: assembly.order(),
+        smoothness: assembly.available_order(),
     }
 }
 impl CoefficientProblem {
@@ -286,8 +307,18 @@ impl CoefficientProblem {
                 .rows()
                 .iter()
                 .zip(coefficients.row_constants)
-                .map(|(r, c)| (r.lower - c, r.upper - c))
-                .collect(),
+                .map(|(r, c)| {
+                    let shifted = (r.lower - c, r.upper - c);
+                    if r.lower.is_finite() && !shifted.0.is_finite()
+                        || r.upper.is_finite() && !shifted.1.is_finite()
+                    {
+                        return Err(ProblemError::Contract(
+                            "affine coefficient bound shift overflow".into(),
+                        ));
+                    }
+                    Ok(shifted)
+                })
+                .collect::<Result<_, ProblemError>>()?,
         };
         problem.validate()?;
         Ok(problem)
@@ -299,6 +330,9 @@ impl CoefficientProblem {
 #[derive(Debug)]
 pub struct FeasibilityOracle(pub Box<dyn NlpOracle>);
 impl NlpOracle for FeasibilityOracle {
+    fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
+        self.0.normalization()
+    }
     fn constraint_sources(&self) -> Result<Vec<pse_math::assembly::OutputValue>, ProblemError> {
         self.0.constraint_sources()
     }

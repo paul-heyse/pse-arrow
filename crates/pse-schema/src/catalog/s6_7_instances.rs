@@ -110,10 +110,12 @@ fn declare_authored_selector_terms(builder: &mut RegistryBuilder) {
 }
 
 fn declare_authored_connections(builder: &mut RegistryBuilder) {
-    relation(
+    super::declarations::enumeration(builder, "TearPolicy", ["free", "mandatory", "forbidden"]);
+    relation_version(
         builder,
         N::Authored,
         "connections",
+        2,
         S::Model,
         &["connection_id"],
         vec![
@@ -122,6 +124,8 @@ fn declare_authored_connections(builder: &mut RegistryBuilder) {
             column("to_port_id", T::id()),
             column("rule_template_id", T::id()),
             column("tear_cost", T::native(arrow_schema::DataType::Float64)).optional(),
+            column("tear_policy", T::enumeration("TearPolicy")).optional(),
+            column("tear_group", T::id()).optional(),
             column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.7 instance: connections.",

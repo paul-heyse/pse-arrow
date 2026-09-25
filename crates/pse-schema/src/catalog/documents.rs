@@ -55,9 +55,14 @@ pub fn declare(builder: &mut RegistryBuilder) {
         "computation_models/*.yaml",
         &[
             "authored.computation_models",
+            "authored.model_compositions",
             "authored.dynamic_cases",
             "authored.native_providers",
+            "authored.directional_valve_laws",
             "authored.physical_balances",
+            "authored.numerical_requirements",
+            "authored.provider_scaling_bindings",
+            "authored.reaction_applications",
             "authored.fit_cases",
         ],
     );

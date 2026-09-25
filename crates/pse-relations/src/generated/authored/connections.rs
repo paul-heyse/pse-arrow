@@ -6,20 +6,20 @@
 pub use pse_model::generated::r#authored::r#connections::{AuthoredConnectionsRow, Row};
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    72u8, 172u8, 225u8, 1u8, 174u8, 72u8, 189u8, 62u8, 163u8, 23u8, 110u8, 157u8, 248u8,
-    238u8, 81u8, 151u8,
+    72u8, 47u8, 11u8, 48u8, 135u8, 197u8, 158u8, 219u8, 30u8, 17u8, 190u8, 90u8, 66u8,
+    117u8, 108u8, 152u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "connections";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    101u8, 156u8, 20u8, 26u8, 52u8, 29u8, 109u8, 211u8, 202u8, 2u8, 159u8, 124u8, 92u8,
-    13u8, 160u8, 76u8, 209u8, 141u8, 125u8, 47u8, 101u8, 209u8, 119u8, 159u8, 29u8, 36u8,
-    24u8, 6u8, 240u8, 207u8, 75u8, 113u8,
+    160u8, 60u8, 166u8, 125u8, 110u8, 109u8, 249u8, 73u8, 124u8, 88u8, 2u8, 60u8, 64u8,
+    46u8, 69u8, 247u8, 214u8, 159u8, 255u8, 243u8, 38u8, 22u8, 103u8, 60u8, 22u8, 214u8,
+    91u8, 120u8, 246u8, 220u8, 235u8, 29u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredConnectionsRow {
     fn append(
@@ -50,7 +50,15 @@ impl crate::columnar::ArrowValue for AuthoredConnectionsRow {
             &self.r#tear_cost,
             children[4usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#doc, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#tear_policy,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#tear_group,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#doc, children[7usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -76,7 +84,13 @@ impl crate::columnar::ArrowValue for AuthoredConnectionsRow {
         <Option<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            crate::generated::enums::TearPolicy,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -109,8 +123,20 @@ impl crate::columnar::ArrowValue for AuthoredConnectionsRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#doc: <String as crate::columnar::ArrowValue>::read(
+            r#tear_policy: <Option<
+                crate::generated::enums::TearPolicy,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#tear_group: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#doc: <String as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
                 index,
             )?,
         })
@@ -181,7 +207,15 @@ impl crate::columnar::RelationRow for AuthoredConnectionsRow {
             &self.r#tear_cost,
             columns[4usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#doc, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#tear_policy,
+            columns[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#tear_group,
+            columns[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#doc, columns[7usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -216,10 +250,10 @@ impl crate::columnar::RelationRow for AuthoredConnectionsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        16_384_usize + size_of::<Self::Builder>()
+        21_504_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        128usize
+        168usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -252,6 +286,28 @@ impl crate::columnar::RelationRow for AuthoredConnectionsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            if let Some(value) = (self.r#tear_policy).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#tear_group).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             crate::columnar::allocation_add(8, (self.r#doc).len())?,
         )?;
         Ok(bytes)
@@ -264,7 +320,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "connection_id",
@@ -292,8 +348,18 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "doc",
+        name: "tear_policy",
         position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "tear_group",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "doc",
+        position: 7usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -308,8 +374,12 @@ pub mod columns {
     pub const RULE_TEMPLATE_ID: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///tear_cost
     pub const TEAR_COST: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///tear_policy
+    pub const TEAR_POLICY: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///tear_group
+    pub const TEAR_GROUP: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///doc
-    pub const DOC: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const DOC: crate::columnar::ColumnReference = super::COLUMNS[7usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -321,6 +391,8 @@ pub struct AuthoredConnectionsView<'a> {
     to_port_id_column: &'a arrow_array::FixedSizeBinaryArray,
     rule_template_id_column: &'a arrow_array::FixedSizeBinaryArray,
     tear_cost_column: &'a arrow_array::Float64Array,
+    tear_policy_column: &'a arrow_array::StringArray,
+    tear_group_column: &'a arrow_array::FixedSizeBinaryArray,
     doc_column: &'a arrow_array::StringArray,
 }
 impl<'a> AuthoredConnectionsView<'a> {
@@ -376,9 +448,15 @@ impl<'a> AuthoredConnectionsView<'a> {
             tear_cost_column: crate::columnar::array::<
                 arrow_array::Float64Array,
             >(batch.column(4usize).as_ref())?,
-            doc_column: crate::columnar::array::<
+            tear_policy_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(5usize).as_ref())?,
+            tear_group_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(6usize).as_ref())?,
+            doc_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -465,6 +543,30 @@ impl<'a> AuthoredConnectionsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "tear_policy",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn tear_policy_column(&self) -> &'a arrow_array::StringArray {
+        self.tear_policy_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "tear_policy", "`.")]
+    pub fn tear_policy_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "tear_group",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn tear_group_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.tear_group_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "tear_group", "`.")]
+    pub fn tear_group_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "doc",
         "`, including its offsets and validity bitmap.",
     )]
@@ -473,7 +575,7 @@ impl<'a> AuthoredConnectionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "doc", "`.")]
     pub fn doc_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -505,6 +607,14 @@ impl<'a> AuthoredConnectionsView<'a> {
             )?,
             r#tear_cost: crate::columnar::ArrowValue::read(
                 self.tear_cost_column,
+                index,
+            )?,
+            r#tear_policy: crate::columnar::ArrowValue::read(
+                self.tear_policy_column,
+                index,
+            )?,
+            r#tear_group: crate::columnar::ArrowValue::read(
+                self.tear_group_column,
                 index,
             )?,
             r#doc: crate::columnar::ArrowValue::read(self.doc_column, index)?,

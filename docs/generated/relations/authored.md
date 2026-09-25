@@ -265,7 +265,7 @@ Version: 2. Snapshot class: `model`. Primary key: `model_id`.
 
 blueprint §6.7 instance: connections.
 
-Version: 1. Snapshot class: `model`. Primary key: `connection_id`.
+Version: 2. Snapshot class: `model`. Primary key: `connection_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -274,6 +274,8 @@ Version: 1. Snapshot class: `model`. Primary key: `connection_id`.
 | `to_port_id` | `semantic_id` | false | `payload` | — | — |
 | `rule_template_id` | `semantic_id` | false | `payload` | — | — |
 | `tear_cost` | `Float64` | true | `payload` | — | — |
+| `tear_policy` | `enum:TearPolicy` | true | `payload` | — | — |
+| `tear_group` | `semantic_id` | true | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `continuous_domains`
@@ -323,6 +325,18 @@ Version: 1. Snapshot class: `model`. Primary key: `property_package_id, property
 | `property_kind_id` | `semantic_id` | false | `key` | — | — |
 | `index` | `index_tuple` | false | `key` | — | — |
 | `scaling_factor` | `Float64` | false | `payload` | — | — |
+
+## `directional_valve_laws`
+
+Declared nonreversing C2 valve closure: zero at nonpositive pressure difference, square-root law above the positive authored pressure transition width, and the unique quintic matching values and first two derivatives between. Width is a fixed positive pressure coordinate, never an implicit numerical tolerance.
+
+Version: 1. Snapshot class: `model`. Primary key: `model_id, name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `model_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `transition_width_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `document_edits`
 
@@ -383,9 +397,9 @@ Version: 1. Snapshot class: `model`. Primary key: `domain_id`.
 
 ## `dynamic_cases`
 
-Semi-explicit dynamics over existing compiled case functions. States use canonical physical offsets/scales; algebraic rows use explicit residual scales; time is seconds.
+Semi-explicit dynamics over existing compiled functions. Integration time is canonical seconds; model time is (integration time - time_origin) divided by the time port unit scale. An absent origin is zero.
 
-Version: 1. Snapshot class: `model`. Primary key: `dynamic_id`.
+Version: 2. Snapshot class: `model`. Primary key: `dynamic_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -393,6 +407,7 @@ Version: 1. Snapshot class: `model`. Primary key: `dynamic_id`.
 | `model_id` | `semantic_id` | false | `payload` | — | — |
 | `case_id` | `semantic_id` | false | `payload` | — | — |
 | `time_id` | `semantic_id` | false | `payload` | — | — |
+| `time_origin` | `Float64` | true | `payload` | — | — |
 | `states` | `List` | false | `payload` | — | — |
 | `states.item` | `Struct` | false | `payload` | — | — |
 | `states.item.symbol_id` | `semantic_id` | false | `payload` | — | — |
@@ -437,9 +452,9 @@ Version: 1. Snapshot class: `model`. Primary key: `entity_id`.
 
 ## `fit_cases`
 
-Native simultaneous steady and smooth transient fitting. Measurement values, units and uncertainty remain authored.observations; elapsed time is seconds.
+Native simultaneous fitting. Observation time defaults to elapsed seconds from the integration start; model_clock uses the declared dynamic time origin. Explicit time units must be non-affine time units. Measurement values, units and uncertainty remain authored.observations.
 
-Version: 1. Snapshot class: `case`. Primary key: `fit_id`.
+Version: 2. Snapshot class: `case`. Primary key: `fit_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -464,6 +479,8 @@ Version: 1. Snapshot class: `case`. Primary key: `fit_id`.
 | `observations.item.experiment_id` | `semantic_id` | false | `payload` | — | — |
 | `observations.item.output_id` | `semantic_id` | false | `payload` | — | — |
 | `observations.item.time` | `Float64` | true | `payload` | — | — |
+| `observations.item.time_basis` | `enum:ObservationTimeBasis` | true | `payload` | — | — |
+| `observations.item.time_unit_id` | `semantic_id` | true | `payload` | — | — |
 | `observations.item.included` | `Boolean` | false | `payload` | — | — |
 | `observations.item.importance` | `Float64` | false | `payload` | — | — |
 
@@ -587,17 +604,29 @@ Version: 2. Snapshot class: `model`. Primary key: `selection_id`.
 | `options.item.key` | `Utf8` | false | `payload` | — | — |
 | `options.item.value` | `Utf8` | false | `payload` | — | — |
 
+## `model_compositions`
+
+Selected root of a reusable template/instance composition. Lowering is a checked projection; authored templates remain authoritative.
+
+Version: 1. Snapshot class: `model`. Primary key: `model_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `model_id` | `semantic_id` | false | `key` | — | — |
+| `root_instance_id` | `semantic_id` | false | `payload` | — | — |
+
 ## `native_providers`
 
-Explicit native factory selection; currently feos-light-hydrocarbons. No Python callback or opaque provider state is persisted.
+Explicit PC-SAFT/DIPPR records, species mapping, physical roles and selected formulation. Independent composition coordinates follow component order with the declared dependent species omitted; outputs are pressure, enthalpy, entropy and ordered ln(phi). No Python callback or opaque provider state is persisted.
 
-Version: 2. Snapshot class: `model`. Primary key: `model_id, name`.
+Version: 3. Snapshot class: `model`. Primary key: `model_id, name`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `model_id` | `semantic_id` | false | `key` | — | — |
 | `name` | `Utf8` | false | `key` | — | — |
 | `kind` | `Utf8` | false | `payload` | — | — |
+| `material_system_id` | `semantic_id` | true | `payload` | — | — |
 | `inputs` | `List` | false | `payload` | — | — |
 | `inputs.item` | `Struct` | false | `payload` | — | — |
 | `inputs.item.symbol_id` | `semantic_id` | false | `payload` | — | — |
@@ -619,10 +648,54 @@ Version: 2. Snapshot class: `model`. Primary key: `model_id, name`.
 | `envelope.composition.item` | `List` | false | `payload` | — | — |
 | `envelope.composition.item.item` | `Float64` | false | `payload` | — | — |
 | `envelope.provenance` | `Utf8` | false | `payload` | — | — |
-| `caloric_reference` | `semantic_id` | false | `payload` | — | — |
+| `enthalpy_reference` | `semantic_id` | false | `payload` | — | — |
+| `entropy_reference` | `semantic_id` | false | `payload` | — | — |
 | `components` | `List` | false | `payload` | — | — |
-| `components.item` | `semantic_id` | false | `payload` | — | — |
+| `components.item` | `Struct` | false | `payload` | — | — |
+| `components.item.species_id` | `semantic_id` | false | `payload` | — | — |
+| `components.item.pcsaft_cas` | `Utf8` | false | `payload` | — | — |
+| `components.item.ideal_gas_cas` | `Utf8` | false | `payload` | — | — |
+| `dependent_species` | `semantic_id` | false | `payload` | — | — |
+| `quantity_kinds` | `Struct` | false | `payload` | — | — |
+| `quantity_kinds.temperature` | `semantic_id` | false | `payload` | — | — |
+| `quantity_kinds.density` | `semantic_id` | false | `payload` | — | — |
+| `quantity_kinds.fraction` | `semantic_id` | false | `payload` | — | — |
+| `quantity_kinds.pressure` | `semantic_id` | false | `payload` | — | — |
+| `quantity_kinds.enthalpy` | `semantic_id` | false | `payload` | — | — |
+| `quantity_kinds.entropy` | `semantic_id` | false | `payload` | — | — |
+| `quantity_kinds.ln_fugacity` | `semantic_id` | false | `payload` | — | — |
+| `data` | `Struct` | false | `payload` | — | — |
+| `data.pcsaft` | `Utf8` | false | `payload` | — | — |
+| `data.ideal_gas` | `Utf8` | false | `payload` | — | — |
+| `data.binary` | `Utf8` | false | `payload` | — | — |
+| `data.provenance` | `Utf8` | false | `payload` | — | — |
+| `data.missing_interactions` | `enum:MissingInteractionPolicy` | false | `payload` | — | — |
+| `formulation` | `enum:ThermodynamicFormulation` | false | `payload` | — | — |
+| `stability` | `enum:StabilityPolicy` | false | `payload` | — | — |
 | `output` | `Int64` | false | `payload` | — | — |
+
+## `numerical_requirements`
+
+P05 declarative numerical meaning; selected ID targets, magnitude units and frozen relative budgets. Model/case selection establishes source precedence; runtime analysis overrides use the same row type.
+
+Version: 1. Snapshot class: `model`. Primary key: `requirement_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `requirement_id` | `semantic_id` | false | `key` | — | — |
+| `model_id` | `semantic_id` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | true | `payload` | — | — |
+| `target_id` | `semantic_id` | false | `payload` | — | — |
+| `target_kind` | `enum:NumericalTarget` | false | `payload` | — | — |
+| `nominal` | `Float64` | true | `payload` | — | — |
+| `scaling_factor` | `Float64` | true | `payload` | — | — |
+| `absolute_tolerance` | `Float64` | true | `payload` | — | — |
+| `relative_tolerance` | `Float64` | true | `payload` | — | — |
+| `unit_id` | `semantic_id` | true | `payload` | — | — |
+| `coordinates` | `enum:NumericalCoordinates` | false | `payload` | — | — |
+| `priority` | `Int32` | false | `payload` | — | — |
+| `required` | `Boolean` | false | `payload` | — | — |
+| `provenance` | `Utf8` | false | `payload` | — | — |
 
 ## `observation_targets`
 
@@ -760,7 +833,7 @@ Version: 1. Snapshot class: `model`. Primary key: `phase_id`.
 
 Authoritative signed physical contributions in canonical quantity coordinates. A balance derives one zero-equality steady row or one dynamic flux row. Accumulation and event impulses use the conserved state's canonical units. Declared tolerances and provenance are not empirical certification.
 
-Version: 1. Snapshot class: `model`. Primary key: `balance_id`.
+Version: 2. Snapshot class: `model`. Primary key: `balance_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -776,6 +849,7 @@ Version: 1. Snapshot class: `model`. Primary key: `balance_id`.
 | `terms.item` | `Struct` | false | `payload` | — | — |
 | `terms.item.source_id` | `semantic_id` | false | `payload` | — | — |
 | `terms.item.role` | `enum:BalanceRole` | false | `payload` | — | — |
+| `terms.item.multiplier` | `Float64` | false | `payload` | — | — |
 | `terms.item.transfer_id` | `semantic_id` | true | `payload` | — | — |
 | `terms.item.mode` | `Int64` | true | `payload` | — | — |
 | `terms.item.instance_id` | `semantic_id` | false | `payload` | — | — |
@@ -804,6 +878,53 @@ Version: 2. Snapshot class: `model`. Primary key: `property_package_id`.
 | `include_enthalpy_of_formation` | `Boolean` | false | `payload` | — | — |
 | `bubble_dew_method_id` | `semantic_id` | true | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
+
+## `provider_scaling_bindings`
+
+Explicit provider output to numerical target and authored property default. No name, arity or package execution inference.
+
+Version: 1. Snapshot class: `model`. Primary key: `binding_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `binding_id` | `semantic_id` | false | `key` | — | — |
+| `model_id` | `semantic_id` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | true | `payload` | — | — |
+| `provider` | `Utf8` | false | `payload` | — | — |
+| `output` | `Int64` | false | `payload` | — | — |
+| `target_id` | `semantic_id` | false | `payload` | — | — |
+| `target_kind` | `enum:NumericalTarget` | false | `payload` | — | — |
+| `property_package_id` | `semantic_id` | false | `payload` | — | — |
+| `property_kind_id` | `semantic_id` | false | `payload` | — | — |
+| `index` | `List` | false | `payload` | — | — |
+| `index.item` | `semantic_id` | false | `payload` | — | — |
+| `provenance` | `Utf8` | false | `payload` | — | — |
+
+## `reaction_applications`
+
+Selected homogeneous molar reaction. The authored rate is an extent per time. Stoichiometry derives species source outputs; an explicit signed heat-rate output supplies energy. No formation energy or kinetics is guessed.
+
+Version: 1. Snapshot class: `model`. Primary key: `application_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `application_id` | `semantic_id` | false | `key` | — | — |
+| `model_id` | `semantic_id` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `material_system_id` | `semantic_id` | false | `payload` | — | — |
+| `reaction_id` | `semantic_id` | false | `payload` | — | — |
+| `phase_id` | `semantic_id` | false | `payload` | — | — |
+| `rate_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `rate_output` | `Int64` | false | `payload` | — | — |
+| `species_balances` | `List` | false | `payload` | — | — |
+| `species_balances.item` | `Struct` | false | `payload` | — | — |
+| `species_balances.item.species_id` | `semantic_id` | false | `payload` | — | — |
+| `species_balances.item.balance_id` | `semantic_id` | false | `payload` | — | — |
+| `energy_balance_id` | `semantic_id` | false | `payload` | — | — |
+| `heat_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `heat_output` | `Int64` | false | `payload` | — | — |
+| `element_tolerance` | `Float64` | false | `payload` | — | — |
+| `provenance` | `Utf8` | false | `payload` | — | — |
 
 ## `reaction_methods`
 

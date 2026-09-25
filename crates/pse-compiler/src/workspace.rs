@@ -15,6 +15,7 @@ use pse_math::{
     library::Optimization,
     typed::BodyLimits,
 };
+use pse_model::SemanticEq;
 use pse_quantity::{PhysicalPreconditions, QuantityRegistry, QuantityTypeId, UnitId};
 use pse_structural::{
     incidence::{CaseIncidence, Constraint, Incidence, StructuralAnalysis},
@@ -58,7 +59,7 @@ pub struct Case {
     pub definitions: BTreeMap<SemanticId, SemanticId>,
 }
 /// Atomic application-visible input batch. No executable factory is retained here.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Inputs {
     /// Complete physical flowsheet declarations; absence is a tracked dependency.
     pub flows: BTreeMap<SemanticId, pse_structural::flowsheet::Declaration>,
@@ -78,6 +79,25 @@ pub struct Inputs {
     pub cases: BTreeMap<SemanticId, Case>,
     /// Fixed and parameter values; free trial values are ignored by coefficient queries.
     pub values: BTreeMap<SemanticId, f64>,
+}
+impl PartialEq for Inputs {
+    fn eq(&self, other: &Self) -> bool {
+        self.flows == other.flows
+            && self.quantities == other.quantities
+            && self.preconditions == other.preconditions
+            && self.definitions == other.definitions
+            && self.domains == other.domains
+            && self.groups == other.groups
+            && self.providers == other.providers
+            && self.cases == other.cases
+            && self.values.semantic_eq(&other.values)
+    }
+}
+fn value_bits(values: &BTreeMap<SemanticId, f64>) -> BTreeMap<SemanticId, u64> {
+    values
+        .iter()
+        .map(|(id, value)| (*id, pse_ids::canonical_f64_bits(*value)))
+        .collect()
 }
 /// Shared complete identity of actual physical declarations and prerequisites.
 pub fn physical_identity(
@@ -196,6 +216,7 @@ fn math_result<T>(db: &dyn CompilerDb, result: std::result::Result<T, MathError>
 }
 #[salsa::input]
 struct Inventory {
+    environment: ContentHash,
     flows: BTreeMap<SemanticId, pse_structural::flowsheet::Declaration>,
     quantities: Arc<QuantityRegistry>,
     preconditions: Arc<PhysicalPreconditions>,
@@ -204,7 +225,7 @@ struct Inventory {
     groups: BTreeMap<String, Group>,
     providers: BTreeMap<String, ProviderCall>,
     cases: BTreeMap<SemanticId, Case>,
-    values: BTreeMap<SemanticId, f64>,
+    values: BTreeMap<SemanticId, u64>,
 }
 #[salsa::tracked(returns(clone), lru = 64)]
 fn definition(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Option<Definition> {
@@ -485,7 +506,18 @@ fn algebraic_partition(
         }
     }
     let graph = CaseIncidence::new(
-        Scope::Whole(id),
+        Scope::Conditional {
+            model: id,
+            rows: rows.iter().copied().collect(),
+            columns: columns.iter().copied().collect(),
+            inputs: p
+                .structure()
+                .variables()
+                .iter()
+                .filter(|v| v.fixed)
+                .map(|v| v.port.id)
+                .collect(),
+        },
         rows.iter()
             .map(|id| Constraint {
                 id: *id,
@@ -564,12 +596,16 @@ fn artifacts(
     profile: Profile,
 ) -> Result<Arc<Vec<ArtifactRequest>>> {
     let p = plan(db, i, id, order)?.0;
-    Ok(artifact_requests(&p, profile))
+    Ok(artifact_requests(&p, profile, i.environment(db)))
 }
-fn artifact_requests(p: &CasePlan, profile: Profile) -> Arc<Vec<ArtifactRequest>> {
+fn artifact_requests(
+    p: &CasePlan,
+    profile: Profile,
+    environment: &ContentHash,
+) -> Arc<Vec<ArtifactRequest>> {
     Arc::new(p.demands().iter().map(|d|{
-        let mut h=FramedHasher::new("pse.math.artifact.v3");
-        h.hash(&d.body).hash(&pse_buildinfo::SOURCE_IDENTITY).hash(&pse_buildinfo::BUILD_IDENTITY)
+        let mut h=FramedHasher::new("pse.math.artifact.v4");
+        h.hash(&d.body).hash(environment).hash(&pse_buildinfo::SOURCE_IDENTITY).hash(&pse_buildinfo::BUILD_IDENTITY)
             .str("pse-math-evaluator-abi-v3;interpreted-f64;numerica-jets;real-algebra;no-jit;no-simd")
             .u64(d.order as u64).u64(d.outputs.len() as u64);
         for &x in &d.outputs{h.u64(x as u64);}h.u64(d.coordinates.len() as u64);for &x in &d.coordinates{h.u64(x as u64);}
@@ -614,7 +650,7 @@ fn assumptions(
                 let v = i.values(db).get(&s.source()).copied().ok_or_else(|| {
                     CompileError::Missing(format!("coefficient parameter {}", s.source()))
                 })?;
-                result.insert(s.source(), v.to_bits());
+                result.insert(s.source(), v);
             }
         }
     }
@@ -638,12 +674,15 @@ fn coefficients(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Coe
     checkpoint(db);
     let result = math_result(
         db,
-        plan(db, i, id, DerivativeOrder::Value)?.0.coefficients(
-            &values,
-            Optimization::default(),
-            100_000,
-            db.cancel(),
-        ),
+        plan(db, i, id, DerivativeOrder::Value)?
+            .0
+            .coefficients_with_facts(
+                &values,
+                &presolve_facts(db, i, id)?.0,
+                Optimization::default(),
+                100_000,
+                db.cancel(),
+            ),
     )?;
     checkpoint(db);
     Ok(CoefficientProduct(Arc::new(result)))
@@ -664,7 +703,7 @@ fn problem_facts(
     };
     math_result(
         db,
-        pse_math::facts::ProblemFacts::from_plan(&p, c.as_deref()),
+        pse_math::facts::ProblemFacts::from_plan(&p, c.as_deref(), &presolve_facts(db, i, id)?.0),
     )
 }
 #[derive(Clone, Debug)]
@@ -694,6 +733,8 @@ fn presolve_heap(value: &Result<PresolveProduct>) -> usize {
 /// Owned result: neither Salsa handles nor native mutable state escape.
 #[derive(Clone, Debug)]
 pub struct PreparedCase {
+    /// Physical registry used by this immutable compilation and numerical resolution.
+    pub quantities: Arc<QuantityRegistry>,
     /// Library presolve projection with complete expression/value invalidation.
     pub presolve: Arc<pse_math::presolve::Facts>,
     /// Exact consumed fixed/parameter values for the optional coefficient snapshot.
@@ -739,8 +780,9 @@ fn initialization_blocks(
     i: Inventory,
     id: SemanticId,
     profile: Profile,
+    order: DerivativeOrder,
 ) -> Result<InitializationBlocks> {
-    let source = plan(db, i, id, DerivativeOrder::First)?.0;
+    let source = plan(db, i, id, order)?.0;
     if source
         .structure()
         .rows()
@@ -764,7 +806,7 @@ fn initialization_blocks(
                 db.cancel(),
             ),
         )?);
-        let requests = artifact_requests(&p, profile);
+        let requests = artifact_requests(&p, profile, i.environment(db));
         blocks.push(PreparedBlock {
             boundary: b.clone(),
             plan: p,
@@ -791,6 +833,17 @@ impl std::fmt::Debug for CompilerWorkspace {
     }
 }
 impl CompilerWorkspace {
+    /// Admit the complete selected physical/model contract without constructing an
+    /// evaluator, presolve snapshot, native solver or analysis-specific derivatives.
+    pub fn admit_selected_case(&mut self, id: SemanticId) -> Result<Arc<CasePlan>> {
+        self.db.cancel = Arc::new(AtomicBool::new(false));
+        let result = salsa::Cancelled::catch(|| {
+            plan(&self.db, self.inventory, id, DerivativeOrder::Value).map(|v| v.0)
+        })
+        .map_err(|_| CompileError::Cancelled)?;
+        self.db.trigger_lru_eviction();
+        result
+    }
     /// Admit finite inputs before allocating Salsa storage.
     pub fn new(inputs: Inputs, limits: WorkspaceLimits) -> Result<Self> {
         Self::with_events(inputs, limits, None)
@@ -800,12 +853,13 @@ impl CompilerWorkspace {
         limits: WorkspaceLimits,
         event: Option<Box<dyn Fn(salsa::Event) + Send + Sync>>,
     ) -> Result<Self> {
+        pse_math::initialize()?;
         validate(&inputs, limits)?;
         let mut db = CompilerDatabase {
             storage: salsa::Storage::new(event),
             cancel: Arc::default(),
         };
-        let inventory = inventory(&db, &inputs);
+        let inventory = inventory(&db, &inputs, pse_math::context()?.environment.identity());
         configure(&mut db, limits.query_values);
         Ok(Self {
             db,
@@ -843,7 +897,11 @@ impl CompilerWorkspace {
         field!(groups, set_groups);
         field!(providers, set_providers);
         field!(cases, set_cases);
-        field!(values, set_values);
+        if !self.inputs.values.semantic_eq(&next.values) {
+            self.inventory
+                .set_values(&mut self.db)
+                .to(value_bits(&next.values));
+        }
         field!(flows, set_flows);
         self.inputs = next;
         self.revisions += 1;
@@ -919,7 +977,7 @@ impl CompilerWorkspace {
         let result = salsa::Cancelled::catch(|| {
             let plan = function_plan(&self.db, self.inventory, id, outputs, coordinates, order)?.0;
             Ok(PreparedFunctions {
-                artifacts: artifact_requests(&plan, profile),
+                artifacts: artifact_requests(&plan, profile, self.inventory.environment(&self.db)),
                 plan,
             })
         })
@@ -932,6 +990,7 @@ impl CompilerWorkspace {
         &mut self,
         id: SemanticId,
         profile: Profile,
+        order: DerivativeOrder,
     ) -> Result<Arc<Vec<PreparedBlock>>> {
         if self.calls >= self.limits.preparations
             || self.metadata_bytes() > self.limits.input_bytes / 4
@@ -941,7 +1000,7 @@ impl CompilerWorkspace {
         self.db.cancel = Arc::new(AtomicBool::new(false));
         self.calls += 1;
         let result = salsa::Cancelled::catch(|| {
-            initialization_blocks(&self.db, self.inventory, id, profile).map(|v| v.0)
+            initialization_blocks(&self.db, self.inventory, id, profile, order).map(|v| v.0)
         })
         .map_err(|_| CompileError::Cancelled)?;
         self.db.trigger_lru_eviction();
@@ -1053,6 +1112,7 @@ impl CompilerWorkspace {
                 None
             };
             Ok(PreparedCase {
+                quantities: self.inputs.quantities.clone(),
                 presolve: presolve_facts(&self.db, self.inventory, id)?.0,
                 coefficient_values: if project_coefficients {
                     assumptions(&self.db, self.inventory, id)?
@@ -1085,9 +1145,10 @@ impl CompilerWorkspace {
         result
     }
 }
-fn inventory(db: &dyn CompilerDb, i: &Inputs) -> Inventory {
+fn inventory(db: &dyn CompilerDb, i: &Inputs, environment: ContentHash) -> Inventory {
     Inventory::new(
         db,
+        environment,
         i.flows.clone(),
         i.quantities.clone(),
         i.preconditions.clone(),
@@ -1096,7 +1157,7 @@ fn inventory(db: &dyn CompilerDb, i: &Inputs) -> Inventory {
         i.groups.clone(),
         i.providers.clone(),
         i.cases.clone(),
-        i.values.clone(),
+        value_bits(&i.values),
     )
 }
 fn configure(db: &mut CompilerDatabase, n: usize) {

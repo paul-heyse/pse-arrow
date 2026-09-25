@@ -2,13 +2,15 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit Clarabel cones, bounded data reuse and source-space postprocessing.
 use crate::{
-    ConicProblem, GramCertificate, ProblemError,
+    ConicProblem, ProblemError,
     quality::{Quality, Tolerances, Violation, interval},
     solve::{
         Assurance, Backend, Candidate, Certificate, Compatibility, Controls, Event, Execution,
         Metric, NativeTermination, SolveReport, Termination,
     },
 };
+/// Pinned native CSC request storage; no parallel sparse matrix wire contract.
+pub use clarabel::algebra::CscMatrix as Matrix;
 /// Complete native cone vocabulary.
 pub use clarabel::solver::SupportedConeT as Cone;
 use clarabel::{
@@ -148,12 +150,35 @@ fn settings(
             "Clarabel QDLDL/serial-netlib profile requires one core".into(),
         ));
     }
+    let defaults = DefaultSettings::<f64>::default();
+    if settings.tol_gap_abs != defaults.tol_gap_abs
+        || settings.tol_gap_rel != defaults.tol_gap_rel
+        || settings.tol_feas != defaults.tol_feas
+        || settings.reduced_tol_gap_abs != defaults.reduced_tol_gap_abs
+        || settings.reduced_tol_gap_rel != defaults.reduced_tol_gap_rel
+        || settings.reduced_tol_feas != defaults.reduced_tol_feas
+        || settings.equilibrate_enable != defaults.equilibrate_enable
+    {
+        return Err(ProblemError::Contract(
+            "Clarabel accuracy and scaling are owned by the resolved numerical policy".into(),
+        ));
+    }
     settings.max_iter = controls.iterations;
     settings.time_limit = controls.time_limit.as_secs_f64();
     settings.max_threads = 1;
-    settings.tol_gap_abs = controls.tolerance;
-    settings.tol_gap_rel = controls.tolerance;
-    settings.tol_feas = controls.tolerance;
+    settings.tol_gap_abs = controls.accuracy.gap_absolute;
+    settings.tol_gap_rel = controls.accuracy.gap_relative;
+    settings.tol_feas = controls.accuracy.feasibility;
+    settings.reduced_tol_gap_abs = controls
+        .accuracy
+        .acceptable
+        .map_or(settings.tol_gap_abs, |k| k.complementarity);
+    settings.reduced_tol_gap_rel = controls
+        .accuracy
+        .acceptable
+        .map_or(settings.tol_gap_rel, |k| k.complementarity);
+    settings.reduced_tol_feas = settings.tol_feas;
+    settings.equilibrate_enable = controls.accuracy.native_scaling;
     settings.verbose = false;
     if mode == Mode::ReusableData {
         settings.presolve_enable = false;
@@ -172,7 +197,7 @@ impl Session {
     /// Validate explicit cones and current convexity evidence before constructing native data.
     pub fn new(
         p: &ConicProblem,
-        certificate: &GramCertificate,
+        certificate: &dyn pse_math::convexity::QuadraticEvidence,
         controls: &Controls,
         native: DefaultSettings<f64>,
         mode: Mode,
@@ -199,7 +224,7 @@ impl Session {
     pub fn update(
         &mut self,
         p: &ConicProblem,
-        certificate: &GramCertificate,
+        certificate: &dyn pse_math::convexity::QuadraticEvidence,
         compatibility: Compatibility,
     ) -> Result<(), ProblemError> {
         p.validate(certificate)?;
@@ -326,6 +351,7 @@ impl Session {
                 }
             }
             report.candidate = Some(Candidate {
+                kind: crate::solve::CandidateKind::FinalIterate,
                 primal: solution.x.clone(),
                 objective: Some(solution.obj_val + p.objective_constant),
                 row_dual: Some(solution.z[..self.rows].to_vec()),
@@ -395,15 +421,15 @@ fn metrics(info: &DefaultInfo<f64>) -> BTreeMap<String, Metric> {
 /// Native conic statuses retain certificate versus candidate distinctions.
 pub fn termination(status: SolverStatus) -> NativeTermination {
     let (category, assurance) = match status {
-        SolverStatus::Solved => (Termination::Success, Assurance::NativeOptimal),
-        SolverStatus::AlmostSolved => (Termination::Acceptable, Assurance::NativeOptimal),
+        SolverStatus::Solved => (Termination::Success, Assurance::None),
+        SolverStatus::AlmostSolved => (Termination::Acceptable, Assurance::None),
         SolverStatus::PrimalInfeasible | SolverStatus::AlmostPrimalInfeasible => {
             (Termination::Infeasible, Assurance::Certificate)
         }
         SolverStatus::DualInfeasible | SolverStatus::AlmostDualInfeasible => {
             (Termination::Unbounded, Assurance::Certificate)
         }
-        SolverStatus::MaxIterations => (Termination::Limit, Assurance::None),
+        SolverStatus::MaxIterations => (Termination::IterationLimit, Assurance::None),
         SolverStatus::MaxTime => (Termination::TimeLimit, Assurance::None),
         SolverStatus::CallbackTerminated => (Termination::Cancelled, Assurance::None),
         SolverStatus::NumericalError | SolverStatus::InsufficientProgress => {
@@ -517,7 +543,7 @@ fn power_violation(alpha: &[f64], x: &[f64], norm: f64) -> f64 {
     };
     (norm - product).max(negative)
 }
-fn dim(cone: &SupportedConeT<f64>) -> usize {
+pub(crate) fn dim(cone: &SupportedConeT<f64>) -> usize {
     use SupportedConeT::{
         ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT, ZeroConeT,
     };
@@ -543,12 +569,29 @@ fn quality(p: &ConicProblem, x: &[f64], t: &Tolerances) -> Result<Quality, Probl
     let mut start = 0;
     for cone in &p.cones {
         let end = start + dim(cone);
-        let tolerance = t.rows[start];
-        if t.rows[start..end].iter().any(|v| *v != tolerance) {
-            return Err(ProblemError::Contract(
-                "cone coordinates need one explicit common physical normalization".into(),
-            ));
+        if matches!(
+            cone,
+            SupportedConeT::ZeroConeT(_) | SupportedConeT::NonnegativeConeT(_)
+        ) {
+            for (i, slack) in s.iter().enumerate().take(end).skip(start) {
+                rows.push(Violation {
+                    id: p.contract.rows[i],
+                    physical: if matches!(cone, SupportedConeT::ZeroConeT(_)) {
+                        slack.abs()
+                    } else {
+                        (-slack).max(0.0)
+                    },
+                    tolerance: t.rows[i],
+                });
+            }
+            start = end;
+            continue;
         }
+        // The nonlinear cone is one homogeneous geometric block in common normalized coordinates.
+        let tolerance = t.rows[start..end]
+            .iter()
+            .copied()
+            .fold(f64::INFINITY, f64::min);
         rows.push(Violation {
             id: p.contract.rows[start],
             physical: cone_violation(cone, &s[start..end])?,
@@ -573,6 +616,7 @@ fn quality(p: &ConicProblem, x: &[f64], t: &Tolerances) -> Result<Quality, Probl
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::GramCertificate;
     #[test]
     fn svec_preserves_trace_inner_product_and_column_order() {
         let a = faer::Mat::from_fn(2, 2, |r, c| if r == c { (r + 1) as f64 } else { 3.0 });

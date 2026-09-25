@@ -4,6 +4,79 @@ use super::fixtures::*;
 use pse_backend_native::solve::Termination;
 use pse_ids::named_id;
 use pse_runtime::{CancelSource, workflow::RunReport};
+
+#[tokio::test]
+async fn declared_directional_valve_approaches_back_pressure_and_remains_closed_against_reverse_flow()
+ {
+    for back_pressure in [99_000.0, 101_000.0] {
+        let owner = WorkflowRuntime::new().unwrap();
+        let mut builder = builder(&owner).await;
+        vessel(&mut builder, true);
+        let f = json("bindings.json");
+        let dynamic = sid(&f["vessel_id"]);
+        let case = builder
+            .declaration_mut()
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == named_id(dynamic, "case"))
+            .unwrap();
+        for (role, value) in [
+            ("downstream", back_pressure),
+            ("valve_width", 100.0),
+            ("valve_k", 1e-4),
+            ("heat", 0.0),
+        ] {
+            let symbol = sid(&f["vessel_ports"][role]["symbol_id"]);
+            case.values
+                .iter_mut()
+                .find(|v| v.symbol_id == symbol)
+                .unwrap()
+                .value = value;
+        }
+        let revision = builder.freeze().unwrap();
+        let mut settings = simulation();
+        settings.end = 2000.0;
+        settings.samples = vec![0.0, 1.0, 10.0, 100.0, 1000.0, 2000.0];
+        let result = revision
+            .prepare_simulation(dynamic, settings, compiler(), &CancelSource::new())
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        let RunReport::Simulation(report) = result.report().unwrap() else {
+            panic!("missing simulation")
+        };
+        assert_eq!(
+            report.termination,
+            pse_backend_native::dynamics::Termination::Completed,
+            "{report:?}"
+        );
+        conservation(&result, report.samples.len() * 2);
+        let first = &report.samples[0].outputs;
+        let last = &report.samples.last().unwrap().outputs;
+        if back_pressure < first[4] {
+            assert!(last[0] < first[0]);
+            assert!(
+                last[4] >= back_pressure - 1e-3 && last[4] - back_pressure < 2.0,
+                "final pressure {}",
+                last[4]
+            );
+            assert!(
+                report
+                    .samples
+                    .windows(2)
+                    .all(|w| w[1].outputs[0] <= w[0].outputs[0] + 1e-8)
+            );
+        } else {
+            near(last[0], first[0], 1e-7);
+            near(last[1], first[1], 1e-5);
+        }
+    }
+}
+
 #[tokio::test]
 async fn vessel_fit() {
     let owner = WorkflowRuntime::new().unwrap();
@@ -164,7 +237,13 @@ async fn fitted_vessel_distinguishes_optimum_from_parameter_identifiability() {
         .parameters.push(serde_json::from_value(serde_json::json!({
             "symbol_id":inlet, "fixed":false, "value":h, "lower":h-1000., "upper":h+1000., "scale":1000.
         })).unwrap());
-    settings.solver.tolerances.variables = vec![1e-6; 2];
+    settings.solver.numerics.requirements.push(requirement(
+        b.declaration_mut().model_id,
+        None,
+        inlet,
+        "variable",
+        1e-6,
+    ));
     let result = b
         .freeze()
         .unwrap()

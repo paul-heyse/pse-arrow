@@ -6,7 +6,6 @@ use crate::{
     MathError,
     assembly::CasePlan,
     binding::{CaseValues, Target},
-    guarded::Condition,
     library::{self, Optimization},
     sparse::AssemblyMatrix,
 };
@@ -18,7 +17,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use symbolica::atom::{Atom, AtomCore, Indeterminate};
+use symbolica::atom::{Atom, AtomCore};
 
 /// A parameter-sensitive coefficient snapshot; it cannot stand in for future case values.
 #[derive(Clone, Debug)]
@@ -39,6 +38,10 @@ pub struct Coefficients {
     pub row_constants: Vec<f64>,
 }
 impl Coefficients {
+    /// Reject a shared classification established from different consumed values.
+    pub fn matches_facts(&self, facts: &crate::presolve::Facts) -> bool {
+        self.structure == facts.structure && self.values == facts.values
+    }
     /// Exact fixed/parameter assumptions consumed by this library-derived projection.
     pub fn matches_values(&self, values: &CaseValues) -> bool {
         self.values
@@ -60,6 +63,30 @@ impl CasePlan {
         term_limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Coefficients, MathError> {
+        let facts = self.presolve_facts(values, term_limit, cancel)?;
+        self.coefficients_with_facts(values, &facts, optimization, term_limit, cancel)
+    }
+    /// Consume the current shared bound facts rather than reclassifying affine rows.
+    pub fn coefficients_with_facts(
+        &self,
+        values: &CaseValues,
+        facts: &crate::presolve::Facts,
+        optimization: Optimization,
+        term_limit: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Coefficients, MathError> {
+        if !facts.matches(self, values)
+            || facts.affine.iter().any(Option::is_none)
+            || facts.objective_degree.is_none_or(|d| d > 2)
+            || facts
+                .obligations
+                .values()
+                .any(|s| *s != crate::presolve::ObligationStatus::Discharged)
+        {
+            return Err(MathError::Contract(
+                "coefficient projection requires current affine and domain facts".into(),
+            ));
+        }
         if values.scalars.values().any(|v| !v.is_finite()) {
             return Err(MathError::Contract(
                 "nonfinite coefficient assumption".into(),
@@ -89,20 +116,26 @@ impl CasePlan {
             .enumerate()
             .map(|(i, &id)| (id, i))
             .collect();
-        let rows: BTreeMap<_, _> = self
-            .structure()
-            .rows()
-            .iter()
-            .enumerate()
-            .map(|(i, r)| (r.id, i))
-            .collect();
         let mut identity = FramedHasher::new("pse.math.coefficient-assumptions.v1");
         identity.hash(&self.structure().key());
         let mut objective = vec![0.0; n];
         let mut constant = 0.0;
-        let mut row_constants = vec![0.0; m];
+        let mut row_constants = Vec::with_capacity(m);
         let mut jp = vec![];
         let mut jv = vec![];
+        for (row, affine) in facts.affine.iter().enumerate() {
+            let affine = affine
+                .as_ref()
+                .ok_or_else(|| MathError::Contract("missing affine row".into()))?;
+            row_constants.push(affine.constant);
+            for (&column, &value) in &affine.entries {
+                jp.push((row, column));
+                jv.push(value);
+            }
+        }
+        if jp.len() > term_limit {
+            return Err(MathError::Limit("affine coefficient entries"));
+        }
         let mut hp = vec![];
         let mut hv = vec![];
         for b in self.structure().instances() {
@@ -114,26 +147,11 @@ impl CasePlan {
             let mut replacements = vec![];
             let mut formals = vec![];
             let mut local_columns = vec![];
-            let mut bounds = vec![];
             for (i, slot) in b.slots.iter().enumerate() {
                 let replacement = if let Some(&col) = columns.get(&slot.source()) {
                     let atom = library::formal(i)?;
                     formals.push(atom.clone());
                     local_columns.push(col);
-                    let variable = self
-                        .structure()
-                        .variables()
-                        .iter()
-                        .find(|v| v.port.id == slot.source())
-                        .ok_or_else(|| MathError::Contract("coefficient variable".into()))?;
-                    bounds.push((
-                        if variable.domain.is_semi() {
-                            0.0
-                        } else {
-                            variable.lower.unwrap_or(f64::NEG_INFINITY)
-                        },
-                        variable.upper.unwrap_or(f64::INFINITY),
-                    ));
                     atom * Atom::num(slot.scale()) + Atom::num(slot.offset())
                 } else {
                     let value = *values.scalars.get(&slot.source()).ok_or_else(|| {
@@ -150,36 +168,10 @@ impl CasePlan {
                     a.replace(from.clone()).with(to.clone())
                 })
             };
-            for (obligation, condition) in &body.obligations {
-                let atom =
-                    replace(obligation.as_ref().ok_or_else(|| {
-                        MathError::Contract("opaque coefficient obligation".into())
-                    })?);
-                if atom.get_all_symbols(false).is_empty() {
-                    if !condition.permits(number(&atom, optimization, cancel)?) {
-                        return Err(MathError::Contract("coefficient obligation failed".into()));
-                    }
-                } else {
-                    // A deliberately small proof vocabulary: direct coordinates, closed bounds.
-                    let Some(k) = formals.iter().position(|f| *f == atom) else {
-                        return Err(MathError::Contract(
-                            "domain obligation lacks a bound proof".into(),
-                        ));
-                    };
-                    let (l, u) = bounds[k];
-                    let permitted = match condition {
-                        Condition::Positive => l > 0.0,
-                        Condition::Nonnegative => l >= 0.0,
-                        Condition::Nonzero => l > 0.0 || u < 0.0,
-                    };
-                    if !permitted {
-                        return Err(MathError::Contract(
-                            "coefficient bounds admit an invalid domain".into(),
-                        ));
-                    }
-                }
-            }
             for c in &b.contributions {
+                if c.target != Target::Objective {
+                    continue;
+                }
                 let expression = replace(body.expression(c.output).ok_or_else(|| {
                     MathError::Contract(
                         "opaque or switching output is not a coefficient model".into(),
@@ -196,29 +188,6 @@ impl CasePlan {
                 {
                     return Err(MathError::Limit("quadratic coefficient capacity"));
                 }
-                for (i, formal) in formals.iter().enumerate() {
-                    if cancel.load(Ordering::Relaxed) {
-                        return Err(MathError::Cancelled);
-                    }
-                    let derivative = expression.derivative(
-                        Indeterminate::try_from(formal.clone())
-                            .map_err(|e| MathError::Library(e.clone()))?,
-                    );
-                    if c.target != Target::Objective
-                        && !derivative.get_all_symbols(false).is_empty()
-                    {
-                        return Err(MathError::Contract("constraint is not affine".into()));
-                    }
-                    for other in &formals[i..] {
-                        let second = derivative.derivative(
-                            Indeterminate::try_from(other.clone())
-                                .map_err(|e| MathError::Library(e.clone()))?,
-                        );
-                        if !second.get_all_symbols(false).is_empty() {
-                            return Err(MathError::Contract("objective is not quadratic".into()));
-                        }
-                    }
-                }
                 let polynomial = expression
                     .expand()
                     .to_polynomial_in_vars::<u16>(formals.clone());
@@ -226,12 +195,12 @@ impl CasePlan {
                     return Err(MathError::Limit("polynomial terms"));
                 }
                 for (term, coefficient) in polynomial.coefficients.iter().enumerate() {
-                    if !coefficient.get_all_symbols(false).is_empty() {
+                    if !coefficient.is_constant() {
                         return Err(MathError::Contract("non-polynomial coefficient".into()));
                     }
                     let exponents = polynomial.exponents(term);
                     let degree: usize = exponents.iter().map(|&e| usize::from(e)).sum();
-                    if degree > 2 || (c.target != Target::Objective && degree > 1) {
+                    if degree > 2 {
                         return Err(MathError::Contract("unsupported coefficient degree".into()));
                     }
                     let v = number(coefficient, optimization, cancel)? * c.scale;
@@ -248,11 +217,6 @@ impl CasePlan {
                             hv.push(v);
                             hp.push((*j, *i));
                             hv.push(v);
-                        }
-                        (Target::Row(r), []) => row_constants[rows[&r]] += v,
-                        (Target::Row(r), [i]) => {
-                            jp.push((rows[&r], *i));
-                            jv.push(v);
                         }
                         _ => return Err(MathError::Contract("coefficient degree mapping".into())),
                     }
@@ -391,7 +355,10 @@ impl GramCertificate {
         Ok(())
     }
 }
-fn quadratic_identity(q: &faer::sparse::SparseColMat<usize, f64>, sign: f64) -> ContentHash {
+pub(crate) fn quadratic_identity(
+    q: &faer::sparse::SparseColMat<usize, f64>,
+    sign: f64,
+) -> ContentHash {
     let mut h = FramedHasher::new("pse.math.gram.v1");
     h.u64(q.nrows() as u64)
         .u64(q.ncols() as u64)

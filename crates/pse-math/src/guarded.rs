@@ -152,6 +152,7 @@ pub(crate) fn validate_dependencies(
                     let inputs = expr
                         .get_all_symbols(false)
                         .into_iter()
+                        .filter(|symbol| !Atom::var(*symbol).is_constant())
                         .map(|symbol| {
                             symbols.get(&symbol).copied().ok_or_else(|| {
                                 MathError::Contract("unregistered library parameter".into())

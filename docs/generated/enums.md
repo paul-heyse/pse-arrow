@@ -35,6 +35,8 @@ Member names are canonical string values; declaration order is presentation only
 | `outlet` | `` | false |
 | `generation` | `` | false |
 | `consumption` | `` | false |
+| `heat_in` | `` | false |
+| `heat_out` | `` | false |
 | `work_in` | `` | false |
 | `work_out` | `` | false |
 | `internal_in` | `` | false |
@@ -98,6 +100,14 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `at_upper` | `` | false |
 | `violated` | `` | false |
 
+## `CandidateUse`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `usable` | `` | false |
+| `qualified_unclosed` | `` | false |
+| `unusable` | `` | false |
+
 ## `CapabilityRequirement`
 
 | Member | IDAES name | Deprecated |
@@ -128,6 +138,22 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `delete` | `` | false |
 | `update_preimage` | `` | false |
 | `update_postimage` | `` | false |
+
+## `ClosureAssessment`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `not_required` | `` | false |
+| `closed` | `` | false |
+| `unclosed` | `` | false |
+| `unavailable` | `` | false |
+
+## `ClosurePolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `require_closed` | `` | false |
+| `allow_unclosed` | `` | false |
 
 ## `ColumnRole`
 
@@ -573,6 +599,18 @@ IDAES compatibility source: `idaes.models.unit_models.separator`.
 | `relation` | `` | false |
 | `conditional` | `` | false |
 
+## `EvidenceUnavailableReason`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `not_requested` | `` | false |
+| `not_computed` | `` | false |
+| `not_applicable` | `` | false |
+| `unsupported` | `` | false |
+| `failed` | `` | false |
+| `unknown` | `` | false |
+| `nonfinite` | `` | false |
+
 ## `ExpressionFamily`
 
 | Member | IDAES name | Deprecated |
@@ -965,6 +1003,13 @@ IDAES compatibility source: `idaes.core.base.process_base`.
 | `rename_column` | `` | false |
 | `change_nullable` | `` | false |
 
+## `MissingInteractionPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `require_explicit` | `` | false |
+| `zero` | `` | false |
+
 ## `MixingType`
 
 IDAES compatibility source: `idaes.models.unit_models.mixer`.
@@ -1009,6 +1054,52 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `runtime` | `` | false |
 | `provenance` | `` | false |
 
+## `NativeAssurance`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `none` | `` | false |
+| `feasible` | `` | false |
+| `local_stationary` | `` | false |
+| `native_optimal` | `` | false |
+| `certificate` | `` | false |
+
+## `NativeBackend`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `ipopt` | `` | false |
+| `pounce` | `` | false |
+| `kinsol` | `` | false |
+| `highs` | `` | false |
+| `clarabel` | `` | false |
+| `diffsol` | `` | false |
+| `idas` | `` | false |
+
+## `NativeBoundaryClass`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `invalid_model` | `` | false |
+| `unsupported` | `` | false |
+| `resource_limit` | `` | false |
+| `trial_rejected` | `` | false |
+| `nonfinite` | `` | false |
+| `infrastructure` | `` | false |
+| `cancelled` | `` | false |
+| `conflict` | `` | false |
+| `incompatible` | `` | false |
+| `internal` | `` | false |
+
+## `NativeCandidateKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `final_iterate` | `` | false |
+| `best_iterate` | `` | false |
+| `feasible_point` | `` | false |
+| `constant_evaluation` | `` | false |
+
 ## `NativeDependencyEvidenceKind`
 
 | Member | IDAES name | Deprecated |
@@ -1037,6 +1128,15 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `scope` | `` | false |
 | `observation` | `` | false |
 
+## `NativeDerivativeCapability`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `exact_hessian_or_limited_memory` | `` | false |
+| `jacobian_or_product` | `` | false |
+| `coefficients` | `` | false |
+| `first_with_smooth_sensitivities` | `` | false |
+
 ## `NativeMetricKind`
 
 | Member | IDAES name | Deprecated |
@@ -1045,6 +1145,7 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `integer` | `` | false |
 | `boolean` | `` | false |
 | `text` | `` | false |
+| `unavailable` | `` | false |
 
 ## `NativeObjectiveSense`
 
@@ -1052,6 +1153,70 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 |---|---|---|
 | `minimize` | `` | false |
 | `maximize` | `` | false |
+
+## `NativeProblemClass`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `smooth_nlp` | `` | false |
+| `square_root` | `` | false |
+| `declared_fixed_point` | `` | false |
+| `linear` | `` | false |
+| `mixed_linear` | `` | false |
+| `convex_quadratic` | `` | false |
+| `continuous_cone` | `` | false |
+| `ode` | `` | false |
+| `semi_explicit_index1` | `` | false |
+
+## `NativeQualification`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `unqualified` | `` | false |
+| `feasible` | `` | false |
+| `stationary` | `` | false |
+| `optimal_within_tolerance` | `` | false |
+| `gap_qualified` | `` | false |
+
+## `NativeRunState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `native` | `` | false |
+| `constant_evaluation` | `` | false |
+| `rejected` | `` | false |
+| `unattempted` | `` | false |
+
+## `NativeStartPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `no_prior_start` | `` | false |
+| `previous_accepted` | `` | false |
+| `explicit` | `` | false |
+
+## `NativeTermination`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `success` | `` | false |
+| `acceptable` | `` | false |
+| `feasible_only` | `` | false |
+| `infeasible` | `` | false |
+| `unbounded` | `` | false |
+| `infeasible_or_unbounded` | `` | false |
+| `limit` | `` | false |
+| `iteration_limit` | `` | false |
+| `resource_exhausted` | `` | false |
+| `inconclusive` | `` | false |
+| `objective_limit` | `` | false |
+| `solution_limit` | `` | false |
+| `time_limit` | `` | false |
+| `cancelled` | `` | false |
+| `numerical` | `` | false |
+| `evaluation` | `` | false |
+| `panic` | `` | false |
+| `invalid` | `` | false |
 
 ## `NativeVariableDomain`
 
@@ -1062,6 +1227,51 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `binary` | `` | false |
 | `semi_continuous` | `` | false |
 | `semi_integer` | `` | false |
+
+## `NativeWarmCapability`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `none` | `` | false |
+| `primal` | `` | false |
+| `primal_dual` | `` | false |
+| `primal_dual_and_working_set` | `` | false |
+| `primal_dual_and_basis` | `` | false |
+
+## `NumericalCoordinates`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `physical` | `` | false |
+| `normalized` | `` | false |
+
+## `NumericalSource`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `analysis` | `` | false |
+| `case` | `` | false |
+| `model` | `` | false |
+| `property_default` | `` | false |
+| `quantity_nominal` | `` | false |
+| `canonical_fallback` | `` | false |
+
+## `NumericalTarget`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `variable` | `` | false |
+| `row` | `` | false |
+| `objective` | `` | false |
+| `observable` | `` | false |
+| `closure` | `` | false |
+
+## `ObservationTimeBasis`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `elapsed` | `` | false |
+| `model_clock` | `` | false |
 
 ## `Opcode`
 
@@ -1476,6 +1686,23 @@ IDAES compatibility source: `idaes.models.unit_models.separator`.
 | `evolving` | `` | false |
 | `internal` | `` | false |
 
+## `StabilityPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `unchecked` | `` | false |
+| `mechanical` | `` | false |
+| `global` | `` | false |
+
+## `StabilityStatus`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `not_requested` | `` | false |
+| `stable` | `` | false |
+| `unstable` | `` | false |
+| `failed` | `` | false |
+
 ## `StateIndex`
 
 IDAES compatibility source: `idaes.models.properties.modular_properties.base.utility`.
@@ -1523,6 +1750,14 @@ IDAES compatibility source: `idaes.models.properties.modular_properties.base.uti
 | `equation` | `` | false |
 | `instance_wildcard` | `` | false |
 
+## `TearPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `free` | `` | false |
+| `mandatory` | `` | false |
+| `forbidden` | `` | false |
+
 ## `TemplateKind`
 
 | Member | IDAES name | Deprecated |
@@ -1564,6 +1799,20 @@ IDAES compatibility source: `idaes.models.unit_models.pressure_changer`.
 | `isentropic` | `isentropic` | false |
 | `pump` | `pump` | false |
 | `adiabatic` | `adiabatic` | false |
+
+## `ThermodynamicFormulation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `homogeneous_density` | `` | false |
+| `phase_equilibrium` | `` | false |
+
+## `TimeCoordinateKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `absolute_origin` | `` | false |
+| `elapsed_duration` | `` | false |
 
 ## `TrayMaterial`
 

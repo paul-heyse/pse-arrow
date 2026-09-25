@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 pub mod envelope;
 pub mod feos;
+pub mod valve;
 
 /// Complete provider interpretation, including ordered ports, phase and parameter data.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

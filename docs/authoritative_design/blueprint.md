@@ -1,12 +1,12 @@
 ---
 status: proposed
-revision: 51
-date: 2026-09-24
+revision: 52
+date: 2026-09-25
 ---
 
 # Arrow-native IDAES core: detailed design architecture blueprint
 
-**Status:** Proposed design blueprint, revision 51 (2026-09-24); Plan 14 defines the current native simulator target and its local design-stage acceptance. One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
+**Status:** Proposed design blueprint, revision 52 (2026-09-25); Plan 16 defines the selected foundation amendments; Plan 14 retains its historical local acceptance scope. One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
 **Reviews:** revisions 1 and 2 have historical reviews under `docs/design_review/reviews/`. The [revision-4 library-contract review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md) overturned several earlier enforcement claims. Revision 5 incorporates R4-01–R4-13 and L1–L9; §26 records disposition and [plan 02](../plans/02-blueprint-revision-5-contracts.md) names the remaining implementation gates. Library characterization is evidence about the pinned libraries, not acceptance of the skeletal platform.
 **Follows:** `docs/authoritative_design/proposal.md` (the proposal this document makes concrete)
 **Governing doctrine:** `docs/design_review/design_principles/standard.toml`: core DP-01–DP-24 and G1–G8, process-simulator PS-01–PS-13 and PS-G1–PS-G3, plus the repository binding (ADR-0085). Earlier DM/P citations record historical rationale.
@@ -116,6 +116,7 @@ date: 2026-09-24
 | 50 | 2026-09-24 | Retire orphaned custom rule execution while retaining relational invariants; recognize structural diagnostic implementations and scoped unsafe allowances; reconcile the FeOS num-dual pin (ADR-0086). | authorized test-repair implementation; formal decision/design PR pending |
 
 | 51 | 2026-09-24 | Reconcile library-owned math, class-specific native execution, physical provider/dynamic contracts and local design-stage qualification (ADR-0082–0087). §0.5 explicitly withdraws displaced implementation requirements while preserving historical section identifiers. | maintainer-authorized local design reconciliation; no remote qualification claim |
+| 52 | 2026-09-25 | Proposed Plan 16 foundation contracts (ADR-0088–0092): selected-model admission, physical provider binding, shared vocabulary and scoped identities. Active summary and D12 heading reconciled; no new qualification claim. | user-authorized implementation; decision PR acceptance pending |
 
 ## 0. Purpose, scope, and how to read this document
 
@@ -253,23 +254,62 @@ known upstream proc-macro-error2 future-compatibility warning is accepted withou
 local patch. Rust compilation is untimed cached setup; cold/warm cost refers to case
 preparation/rebuild and complete process operations, preserving Cargo and compiler caches.
 
+### 0.6 Selected data-model foundation amendments
+
+> Decision: ADR-0088, ADR-0089, ADR-0090, ADR-0091, ADR-0092 (proposed)
+
+Plan 16 P00–P04 implement the [foundation execution packet](../plans/16-p00-p04-execution.md).
+A selected model, case and analysis enter one semantic admission boundary shared by
+builders and documents. Selected meaning is consumed, explicitly retained as
+nonexecuting data, or refused with source-attributed diagnostics. Unrelated stored
+cases are not implicitly selected. Definitions, instance bindings, numerical policy,
+prepared artifacts, used starts and results retain distinct identities and lifecycles.
+
+FeOS binds declared species to actual selected PC-SAFT/DIPPR records and explicit
+coordinate order. Homogeneous explicit-density execution, complete physical port
+contracts, separate enthalpy/entropy references, declared envelopes and explicit
+stability policy replace the fixed ternary/arity-only assumptions. Reaction execution
+requires declared species/phases, element closure and a declared energy convention.
+Phase-equilibrium execution is outside this foundation scope and is refused.
+
+Registry-owned shared tags are projected into Rust, Arrow and Python. Semantic
+contract identity is separate from documentation and encoding. Versioned numeric
+framing and reuse equality preserve signed zero. Symbol initialization/registration
+happens before tracked derivation; prepared identity includes effective library and
+profile dependencies. These are implementation targets, not newly qualified outcomes.
+
+Publication/retention protocol and execution-tooling changes are specified in
+ADR-0091/0092 for P12/P17; P00–P04 do not migrate those implementations. Integrated
+and nonfunctional checks wait until requested functional scope completion. P18 owns
+whole-plan qualification. ADR-0087 and M22 remain historical evidence, not inherited
+exclusions for this plan.
+
 ---
 
 ## 1. Architectural summary
 
 ### 1.1 The one-paragraph design
 
-A process model is a **versioned snapshot of typed Arrow relations** organized into seven catalog namespaces (`reference`, `authored`, `normalized`, `inferred`, `compiled`, `runtime`, `provenance`). Authors write **packages** (material systems, property methods, unit templates, laws, costing methods) and **cases** (instances, connections, specifications) in a declarative authoring language that parses into `authored` relations. A **staged compiler** with contracted passes derives everything else: type and topology closure, property-demand closure, law expansion into equations, discretization, structural analysis, scaling and initialization plans, and finally a backend-neutral `CanonicalMathProblem`. **Typed relations remain the model authority; execution representation follows the operation.** Arrow owns columnar admission and transport, DataFusion owns set-oriented relational phases, typed Rust and MathIR own semantic derivation, Salsa owns bounded synchronous incremental reuse, and immutable graph projections use library algorithms. Compile, execute and publish are separate boundaries with explicit input validity and resource ownership (D10, ADR-0076). **Native Rust numerics** (an evaluation program with automatic differentiation, sparse linear algebra, and structural graph algorithms) execute the problem in-process with Ipopt, or lower it to the AMPL NL format or to a generated Pyomo model. Every artifact is content-addressed, every derived row carries a derivation, and every run records the exact inputs that produced it.
+Authored typed process relations carry engineering intent. The runtime admits a selected
+immutable model/case/analysis into compiler Inputs; checked physical and structural
+transformations derive library-owned mathematical programs and native execution
+layouts. Symbolica/Numerica own arithmetic and derivatives, FeOS owns thermodynamics,
+and native solvers own iteration/factorization. Arrow/DataFusion serve columnar and
+relational boundaries, Salsa serves synchronous semantic reuse, and Delta serves
+explicit publication. Definitions, policies, attempts and results have separate
+owners and identities. See §0.5 for the implemented Plan 14 boundary and §0.6 for the
+selected Plan 16 amendments.
 
 ### 1.2 The three representations, made concrete
 
 | Representation | Namespace(s) | Authority | Produced by | Consumed by |
 |---|---|---|---|---|
-| `CanonicalModel` (engineering intent) | `authored`, `normalized`, `inferred` | Authored facts plus deterministic inference | Authoring parser, passes P0–P6 | Law expansion, projection, UI |
-| `CanonicalMathGraph` (indexed symbolic mathematics) | `compiled.math_*` | Derived | Passes P7–P12 | Structural analysis, scaling, backends |
-| `CanonicalMathProblem` (ordered executable problem) | `compiled.problems`, `variable_order`, `equation_order`, derived structure | Derived | Passes P13–P16 | Native backend, NL writer, Pyomo adapter, diagnostics |
+| Selected model revision | `authored`, `reference` | Authored definitions and bindings | Workflow semantic admission | Compiler and inspection |
+| Admitted mathematical bodies and case plan | Native immutable compiler products | Derived from selected revision | Typed physical/structural preparation | Symbolica/Numerica and native adapters |
+| Attempt and physical results | `runtime`, `provenance` | Observations linked to immutable inputs | Attempt-owned native execution | Rust/Python inspection and explicit publication |
 
-The `runtime` namespace holds results and evidence; the `provenance` namespace holds derivations and pass records. No pass writes backward into `authored`.
+No derived result writes backward into authored definitions. Historical relation
+catalogues below remain governed by the replacement boundary in §0.5.
 
 ### 1.3 Where each library sits
 
@@ -277,7 +317,7 @@ The `runtime` namespace holds results and evidence; the `provenance` namespace h
 
 ```text
 exact release / validated edits → registry-derived typed semantic inputs
-    → Salsa semantic queries + typed MathIR + library graph projections
+    → Salsa semantic queries + physically admitted library mathematics + graph projections
     ↔ explicit runtime phases → Arrow/DataFusion relational execution
     → native numerical preparation → attempt-owned solver/runtime state
     → selected complete Delta artifacts, diagnostics and requested results
@@ -368,7 +408,7 @@ Typed Rust owns physical finite compilation; Salsa owns pure dependency tracking
 
 Specialization-local immutable library programs and explicit sparse bindings feed admitted worker-local evaluators/providers/solvers. Native libraries own iteration and factorization. Runtime admission outlives native and thread-local destruction. No custom evaluator or differentiator remains (§0.5).
 
-### D12. Pyomo is a generated, generic, coarse-grained backend
+### D12. Native execution with a coarse-grained Python boundary
 
 > Decision: ADR-0083
 

@@ -24,8 +24,54 @@ pub enum Scope {
         /// Members proved to have no crossing edge.
         members: BTreeSet<SemanticId>,
     },
+    /// Complete algebraic selection conditional on explicitly held inputs.
+    Conditional {
+        /// Parent case identity.
+        model: SemanticId,
+        /// Selected equality rows.
+        rows: BTreeSet<SemanticId>,
+        /// Selected free coordinates.
+        columns: BTreeSet<SemanticId>,
+        /// External coordinates held fixed for this analysis.
+        inputs: BTreeSet<SemanticId>,
+    },
     /// An inspection-only subset, ineligible for complete analysis.
     Partial(SemanticId),
+}
+impl Scope {
+    /// Versioned semantic scope identity, independent of traversal order.
+    pub fn key(&self) -> pse_ids::ContentHash {
+        let mut h = pse_ids::FramedHasher::new("pse.structural.scope.v1");
+        match self {
+            Self::Whole(id) => {
+                h.u64(0).id(id);
+            }
+            Self::Partial(id) => {
+                h.u64(1).id(id);
+            }
+            Self::Independent { model, members } => {
+                h.u64(2).id(model).u64(members.len() as u64);
+                for id in members {
+                    h.id(id);
+                }
+            }
+            Self::Conditional {
+                model,
+                rows,
+                columns,
+                inputs,
+            } => {
+                h.u64(3).id(model);
+                for group in [rows, columns, inputs] {
+                    h.u64(group.len() as u64);
+                    for id in group {
+                        h.id(id);
+                    }
+                }
+            }
+        }
+        h.finish_hash()
+    }
 }
 /// Finite admission bounds, checked before graph allocation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -84,6 +130,17 @@ pub enum ProjectionError {
     /// Actual semantic edge IDs form a cycle witness.
     #[error("graph contains a directed cycle")]
     Cycle(Vec<SemanticId>),
+    /// A directed cycle whose every connection is forbidden to tear.
+    #[error("forbidden tear cycle: connections={connections:?}, decisions={decisions:?}")]
+    ForbiddenTearCycle {
+        /// Actual cycle connection occurrences.
+        connections: Vec<SemanticId>,
+        /// Source policy decisions preventing removal.
+        decisions: Vec<SemanticId>,
+    },
+    /// A requested decision set conflicts with source policy.
+    #[error("tear selection violates decisions {0:?}")]
+    TearPolicy(Vec<SemanticId>),
     /// A domain projection violated its declared meaning.
     #[error("invalid graph projection: {0}")]
     Invalid(String),
@@ -309,6 +366,9 @@ impl Projection {
         limits: GraphLimits,
     ) -> Result<Self, ProjectionError> {
         self.complete()?;
+        if matches!(self.scope, Scope::Conditional { .. }) {
+            return Err(ProjectionError::Partial);
+        }
         for member in &members {
             if !self.index.contains_key(member) {
                 return Err(ProjectionError::Missing(*member));
@@ -320,9 +380,10 @@ impl Projection {
             }
         }
         let model = match &self.scope {
-            Scope::Whole(model) | Scope::Independent { model, .. } | Scope::Partial(model) => {
-                *model
-            }
+            Scope::Whole(model)
+            | Scope::Independent { model, .. }
+            | Scope::Conditional { model, .. }
+            | Scope::Partial(model) => *model,
         };
         let edges = self
             .edges

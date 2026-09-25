@@ -178,9 +178,9 @@ pub fn solve(
     };
     let mut session = crate::highs::Session::new(&p.problem, None, compatibility)?;
     let t = Tolerances {
-        variables: vec![controls.tolerance; p.problem.contract.variables.len()],
-        rows: vec![controls.tolerance; p.problem.bounds.len()],
-        integrality: controls.tolerance,
+        variables: vec![controls.accuracy.feasibility; p.problem.contract.variables.len()],
+        rows: vec![controls.accuracy.feasibility; p.problem.bounds.len()],
+        integrality: controls.accuracy.integrality,
     };
     let report = session.solve(
         &p.problem,

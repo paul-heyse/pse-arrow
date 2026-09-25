@@ -1,0 +1,18 @@
+{
+  "invariant": "runtime.candidate_assessments:unique:pk",
+  "rows": {
+    "runtime.candidate_assessments": [
+      {
+        "closure": "[\"enum\",\"not_required\"]",
+        "native_termination": "[\"enum\",\"success\"]",
+        "numerically_feasible": "[\"bool\",true]",
+        "policy": "[\"enum\",\"require_closed\"]",
+        "reason": "[\"text\",\"value-1\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "step": "[\"i64\",1]",
+        "usability": "[\"enum\",\"usable\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -6,7 +6,7 @@
 )]
 //! HiGHS coefficient adapter with completion-owned native scheduler teardown.
 use crate::{
-    CoefficientProblem, GramCertificate, ProblemError,
+    CoefficientProblem, ProblemError,
     quality::{Quality, Tolerances, Violation, interval},
     solve::*,
 };
@@ -63,6 +63,7 @@ pub struct Session {
     gate: Option<RwLockReadGuard<'static, ()>>,
     compatibility: Compatibility,
     structure: (Vec<usize>, Vec<usize>, Vec<VariableDomain>),
+    pending_sparse: Option<BTreeMap<pse_ids::SemanticId, f64>>,
     _local: PhantomData<Rc<()>>,
 }
 impl std::fmt::Debug for Session {
@@ -111,7 +112,7 @@ fn bounds(value: f64) -> Result<f64, ProblemError> {
 }
 fn admit(
     p: &CoefficientProblem,
-    certificate: Option<&GramCertificate>,
+    certificate: Option<&dyn pse_math::convexity::QuadraticEvidence>,
 ) -> Result<(), ProblemError> {
     p.validate_convex(certificate)?;
     let quadratic = p
@@ -252,11 +253,148 @@ fn hessian(model: &mut highs::Model, p: &CoefficientProblem) -> Result<(), Probl
         "exact Hessian upload",
     )
 }
+// Read back the complete original native model before trusting a primal, dual or bound.
+// A feasible point alone cannot prove equivalence of the optimization problems.
+fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), ProblemError> {
+    let ptr = model.as_ptr();
+    let (mut nc, mut nr, mut nz, mut qz) = unsafe {
+        (
+            ffi::Highs_getNumCol(ptr),
+            ffi::Highs_getNumRow(ptr),
+            ffi::Highs_getNumNz(ptr),
+            ffi::Highs_getHessianNumNz(ptr),
+        )
+    };
+    if nc != index(p.objective.len())?
+        || nr != index(p.bounds.len())?
+        || nz < 0
+        || qz < 0
+        || nz as usize > p.constraints.val().len()
+        || qz as usize > p.hessian.as_ref().map_or(0, |q| q.val().len())
+    {
+        return Err(ProblemError::Contract(
+            "HiGHS model readback dimensions differ from upload".into(),
+        ));
+    }
+    let (n, m) = (nc as usize, nr as usize);
+    let (mut cost, mut lo, mut hi) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+    let (mut rl, mut ru) = (vec![0.0; m], vec![0.0; m]);
+    let (mut ap, mut ai, mut av) = (vec![0; n + 1], vec![0; nz as usize], vec![0.0; nz as usize]);
+    let (mut qp, mut qi, mut qv) = (vec![0; n + 1], vec![0; qz as usize], vec![0.0; qz as usize]);
+    let mut domains = vec![0; n];
+    let mut sense = 0;
+    let mut offset = 0.0;
+    check(
+        unsafe {
+            ffi::Highs_getModel(
+                ptr,
+                1,
+                1,
+                &raw mut nc,
+                &raw mut nr,
+                &raw mut nz,
+                &raw mut qz,
+                &raw mut sense,
+                &raw mut offset,
+                cost.as_mut_ptr(),
+                lo.as_mut_ptr(),
+                hi.as_mut_ptr(),
+                rl.as_mut_ptr(),
+                ru.as_mut_ptr(),
+                ap.as_mut_ptr(),
+                ai.as_mut_ptr(),
+                av.as_mut_ptr(),
+                qp.as_mut_ptr(),
+                qi.as_mut_ptr(),
+                qv.as_mut_ptr(),
+                domains.as_mut_ptr(),
+            )
+        },
+        "full model readback",
+    )?;
+    // The C API promises n starts; the queried nonzero count supplies the sentinel.
+    ap[n] = nz;
+    qp[n] = qz;
+    let same_bound =
+        |a: f64, b: f64| a == b || (!b.is_finite() && a.signum() == b.signum() && a.abs() >= 1e20);
+    let mut equal = sense
+        == if p.sense == ObjectiveSense::Minimize {
+            1
+        } else {
+            -1
+        }
+        && offset == p.objective_constant
+        && cost == p.objective;
+    for c in 0..n {
+        let (l, u) = domain_bounds(p, c);
+        equal &= same_bound(lo[c], l) && same_bound(hi[c], u);
+        equal &= domains[c]
+            == match p.domains[c] {
+                VariableDomain::Continuous => 0,
+                VariableDomain::Integer | VariableDomain::Binary => 1,
+                VariableDomain::SemiContinuous => 2,
+                VariableDomain::SemiInteger => 3,
+            };
+    }
+    equal &= p
+        .bounds
+        .iter()
+        .enumerate()
+        .all(|(i, (l, u))| same_bound(rl[i], *l) && same_bound(ru[i], *u));
+    let entries = |starts: &[i32],
+                   rows: &[i32],
+                   values: &[f64]|
+     -> Result<BTreeMap<(usize, usize), f64>, ProblemError> {
+        let mut out = BTreeMap::new();
+        for c in 0..n {
+            if starts[c] < 0 || starts[c] > starts[c + 1] || starts[c + 1] as usize > values.len() {
+                return Err(ProblemError::Contract(
+                    "invalid native sparse readback".into(),
+                ));
+            }
+            for k in starts[c] as usize..starts[c + 1] as usize {
+                if values[k] != 0.0 {
+                    out.insert((rows[k] as usize, c), values[k]);
+                }
+            }
+        }
+        Ok(out)
+    };
+    let expected_a: BTreeMap<_, _> = (0..n)
+        .flat_map(|c| {
+            p.constraints
+                .row_idx_of_col(c)
+                .zip(p.constraints.val_of_col(c))
+                .filter(|(_, v)| **v != 0.0)
+                .map(move |(r, v)| ((r, c), *v))
+        })
+        .collect();
+    let expected_q: BTreeMap<_, _> = p
+        .hessian
+        .iter()
+        .flat_map(|q| {
+            (0..n).flat_map(move |c| {
+                q.row_idx_of_col(c)
+                    .zip(q.val_of_col(c))
+                    .filter(move |(r, v)| *r >= c && **v != 0.0)
+                    .map(move |(r, v)| ((r, c), *v))
+            })
+        })
+        .collect();
+    equal &= entries(&ap, &ai, &av)? == expected_a && entries(&qp, &qi, &qv)? == expected_q;
+    if equal {
+        Ok(())
+    } else {
+        Err(ProblemError::Contract(
+            "HiGHS upload differs from the complete admitted coefficient model".into(),
+        ))
+    }
+}
 impl Session {
     /// Construct only after runtime CPU/memory admission; one session per owner thread.
     pub fn new(
         p: &CoefficientProblem,
-        certificate: Option<&GramCertificate>,
+        certificate: Option<&dyn pse_math::convexity::QuadraticEvidence>,
         compatibility: Compatibility,
     ) -> Result<Self, ProblemError> {
         admit(p, certificate)?;
@@ -277,6 +415,7 @@ impl Session {
                 p.constraints.row_idx().to_vec(),
                 p.domains.clone(),
             ),
+            pending_sparse: None,
             _local: PhantomData,
         };
         session.model = Some(upload(p)?);
@@ -292,7 +431,7 @@ impl Session {
     pub fn update(
         &mut self,
         p: &CoefficientProblem,
-        certificate: Option<&GramCertificate>,
+        certificate: Option<&dyn pse_math::convexity::QuadraticEvidence>,
         compatibility: Compatibility,
     ) -> Result<(), ProblemError> {
         admit(p, certificate)?;
@@ -398,6 +537,9 @@ impl Session {
                 "primal_feasibility_tolerance",
                 "dual_feasibility_tolerance",
                 "mip_feasibility_tolerance",
+                "mip_abs_gap",
+                "mip_rel_gap",
+                "simplex_scale_strategy",
                 "log_file",
             ],
         )?;
@@ -440,6 +582,15 @@ impl Session {
             ("output_flag".into(), OptionValue::Bool(false)),
         ]);
         let discrete = p.domains.iter().any(|d| *d != VariableDomain::Continuous);
+        if !controls.accuracy.native_scaling
+            && (method != Method::Simplex
+                || discrete
+                || p.hessian
+                    .as_ref()
+                    .is_some_and(|q| q.val().iter().any(|v| *v != 0.0)))
+        {
+            return Err(ProblemError::Contract("disabling all HiGHS algorithmic scaling is qualified only for explicit continuous simplex LP".into()));
+        }
         if discrete && method != Method::Choose {
             return Err(ProblemError::Contract(
                 "explicit LP method cannot relax a mixed-integer model".into(),
@@ -454,12 +605,27 @@ impl Session {
         ] {
             options.insert(key.into(), OptionValue::Integer(controls.iterations as i32));
         }
-        for key in [
-            "primal_feasibility_tolerance",
-            "dual_feasibility_tolerance",
-            "mip_feasibility_tolerance",
+        for (key, value) in [
+            (
+                "primal_feasibility_tolerance",
+                controls.accuracy.feasibility,
+            ),
+            ("dual_feasibility_tolerance", controls.accuracy.stationarity),
+            // HiGHS also uses its MIP feasibility tolerance in subproblems.
+            (
+                "mip_feasibility_tolerance",
+                controls
+                    .accuracy
+                    .integrality
+                    .min(controls.accuracy.feasibility),
+            ),
+            ("mip_abs_gap", controls.accuracy.mip_absolute_gap),
+            ("mip_rel_gap", controls.accuracy.mip_relative_gap),
         ] {
-            options.insert(key.into(), OptionValue::Real(controls.tolerance));
+            options.insert(key.into(), OptionValue::Real(value));
+        }
+        if !controls.accuracy.native_scaling {
+            options.insert("simplex_scale_strategy".into(), OptionValue::Integer(0));
         }
         if let Some(stop) = execution.stopped() {
             let mut report =
@@ -468,7 +634,18 @@ impl Session {
             return Ok(report);
         }
         let compatible = self.compatibility.clone();
+        let sparse = self.pending_sparse.take();
+        if sparse.is_some() && warm.is_some() {
+            return Err(ProblemError::Contract(
+                "select one explicit HiGHS seed".into(),
+            ));
+        }
         let model = self.model()?;
+        verify_upload(model, p)?;
+        check(
+            unsafe { ffi::Highs_clearSolver(model.as_mut_ptr()) },
+            "clear retained solution and basis",
+        )?;
         for (key, value) in &options {
             let result = match value {
                 OptionValue::Text(v) => model.try_set_option(key.as_str(), v.as_str()),
@@ -532,6 +709,31 @@ impl Session {
                 )?;
             }
         }
+        if let Some(values) = &sparse {
+            let indices: Vec<_> = values
+                .keys()
+                .map(|id| {
+                    p.contract
+                        .variables
+                        .iter()
+                        .position(|v| v.id == *id)
+                        .ok_or_else(|| ProblemError::Contract("unknown sparse coordinate".into()))
+                        .and_then(index)
+                })
+                .collect::<Result<_, _>>()?;
+            let values: Vec<_> = values.values().copied().collect();
+            check(
+                unsafe {
+                    ffi::Highs_setSparseSolution(
+                        model.as_mut_ptr(),
+                        index(indices.len())?,
+                        indices.as_ptr(),
+                        values.as_ptr(),
+                    )
+                },
+                "selected sparse seed",
+            )?;
+        }
         let ptr = model.as_mut_ptr();
         let callback_binding = CallbackBinding::new(ptr, execution.clone())?;
         let run = if execution.stopped().is_some() {
@@ -544,6 +746,16 @@ impl Session {
         let code = unsafe { ffi::Highs_getModelStatus(ptr) };
         let mut report =
             SolveReport::new(Backend::Highs, &p.contract, termination(code), &execution);
+        report
+            .metrics
+            .insert("upload.equivalent".into(), Metric::Bool(true));
+        report
+            .metrics
+            .insert("model.discrete".into(), Metric::Bool(discrete));
+        report.metrics.insert(
+            "start.submitted".into(),
+            Metric::Bool(warm.is_some() || sparse.is_some()),
+        );
         let (effective, defaults) = option_snapshot(ptr)?;
         report.options = effective;
         report.native_defaults = defaults;
@@ -592,7 +804,9 @@ impl Session {
         }
         report.provenance.insert(
             "native".into(),
-            "HiGHS 1.14.0; highs 2.4.0; highs-sys 1.14.3".into(),
+            unsafe { std::ffi::CStr::from_ptr(ffi::Highs_version()) }
+                .to_string_lossy()
+                .into_owned(),
         );
         report.provenance.insert(
             "interrupt".into(),
@@ -627,6 +841,7 @@ impl Session {
             if x.iter().all(|v| v.is_finite()) {
                 let objective = coefficient_objective(p, &x);
                 report.candidate = Some(Candidate {
+                    kind: CandidateKind::FinalIterate,
                     primal: x.clone(),
                     objective: Some(objective),
                     row_dual: dual.then(|| rd.clone()),
@@ -658,6 +873,7 @@ impl Session {
                     None
                 };
                 report.warm_start = Some(WarmStart {
+                    origin: None,
                     compatibility: compatible,
                     payload: WarmPayload::Highs {
                         primal: Some(x),
@@ -914,17 +1130,25 @@ unsafe extern "C" fn callback(
 pub fn termination(code: i32) -> NativeTermination {
     let name = highs::HighsModelStatus::try_from(code)
         .map_or_else(|_| format!("Unknown({code})"), |s| format!("{s:?}"));
-    let (category, assurance) = match code {
-        7 => (Termination::Success, Assurance::NativeOptimal),
-        8 => (Termination::Infeasible, Assurance::None),
-        9 => (Termination::InfeasibleOrUnbounded, Assurance::None),
-        10 => (Termination::Unbounded, Assurance::None),
-        11 | 12 | 14 | 16 | 18 => (Termination::Limit, Assurance::None),
-        13 => (Termination::TimeLimit, Assurance::None),
-        17 => (Termination::Cancelled, Assurance::None),
-        3..=5 => (Termination::Numerical, Assurance::None),
-        _ => (Termination::Invalid, Assurance::None),
+    let category = match code {
+        ffi::kHighsModelStatusOptimal => Termination::Success,
+        ffi::kHighsModelStatusInfeasible => Termination::Infeasible,
+        ffi::kHighsModelStatusUnboundedOrInfeasible => Termination::InfeasibleOrUnbounded,
+        ffi::kHighsModelStatusUnbounded => Termination::Unbounded,
+        ffi::kHighsModelStatusObjectiveBound | ffi::kHighsModelStatusObjectiveTarget => {
+            Termination::ObjectiveLimit
+        }
+        ffi::kHighsModelStatusIterationLimit => Termination::IterationLimit,
+        ffi::kHighsModelStatusTimeLimit => Termination::TimeLimit,
+        ffi::kHighsModelStatusSolutionLimit => Termination::SolutionLimit,
+        ffi::kHighsModelStatusInterrupt => Termination::Cancelled,
+        ffi::kHighsModelStatusPresolveError
+        | ffi::kHighsModelStatusSolveError
+        | ffi::kHighsModelStatusPostsolveError => Termination::Numerical,
+        ffi::kHighsModelStatusLoadError | ffi::kHighsModelStatusModelError => Termination::Invalid,
+        _ => Termination::Inconclusive,
     };
+    let assurance = Assurance::None;
     NativeTermination {
         code: i64::from(code),
         name,
@@ -1023,6 +1247,34 @@ pub fn coefficient_quality(
     }
     Quality::new(rows, bounds, integrality)
 }
+/// Independently reconstruct original affine row values and authored objective.
+/// The native model has shifted row bounds; source constants are applied exactly once.
+pub fn coefficient_observation(
+    p: &CoefficientProblem,
+    x: &[f64],
+    constants: &[f64],
+    bounds: Vec<(f64, f64)>,
+) -> Result<crate::quality::Observation, ProblemError> {
+    if x.len() != p.contract.variables.len() || constants.len() != p.bounds.len() {
+        return Err(ProblemError::Contract(
+            "coefficient observation dimensions".into(),
+        ));
+    }
+    let column = faer::ColRef::from_slice(x);
+    let activity = p.constraints.as_ref() * column;
+    let values = activity.iter().zip(constants).map(|(v, c)| v + c).collect();
+    let objective = faer::ColRef::from_slice(&p.objective).transpose() * column;
+    let quadratic = p.hessian.as_ref().map_or(0.0, |q| {
+        let product = q * column;
+        0.5 * (column.transpose() * product.as_ref())
+    });
+    crate::quality::Observation::from_values(
+        Some(p.objective_constant + objective + quadratic),
+        values,
+        bounds,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1105,6 +1357,33 @@ mod tests {
         );
     }
     #[test]
+    fn defective_native_upload_is_refused_even_if_a_candidate_could_be_feasible() {
+        let p = problem();
+        let stamp = Compatibility {
+            layout: p.contract.identity,
+            data: p.contract.identity,
+            backend: Backend::Highs,
+        };
+        let mut session = Session::new(&p, None, stamp).unwrap();
+        check(
+            unsafe {
+                ffi::Highs_changeColCost(
+                    session.model().unwrap().as_mut_ptr(),
+                    0,
+                    p.objective[0] + 1.0,
+                )
+            },
+            "intentional defective upload",
+        )
+        .unwrap();
+        assert!(
+            verify_upload(session.model().unwrap(), &p)
+                .unwrap_err()
+                .to_string()
+                .contains("differs")
+        );
+    }
+    #[test]
     fn native_upload_warnings_are_refused_and_semi_quality_keeps_zero_branch() {
         let mut p = problem();
         p.constraints.val_mut()[0] = 1e-12;
@@ -1121,32 +1400,4 @@ mod tests {
         assert!(coefficient_quality(&p, &[0.0], &t).unwrap().feasible());
         assert!(!coefficient_quality(&p, &[1.0], &t).unwrap().feasible());
     }
-}
-
-/// Independently reconstruct original affine row values and authored objective.
-/// The native model has shifted row bounds; source constants are applied exactly once.
-pub fn coefficient_observation(
-    p: &CoefficientProblem,
-    x: &[f64],
-    constants: &[f64],
-    bounds: Vec<(f64, f64)>,
-) -> Result<crate::quality::Observation, ProblemError> {
-    if x.len() != p.contract.variables.len() || constants.len() != p.bounds.len() {
-        return Err(ProblemError::Contract(
-            "coefficient observation dimensions".into(),
-        ));
-    }
-    let column = faer::ColRef::from_slice(x);
-    let activity = p.constraints.as_ref() * column;
-    let values = activity.iter().zip(constants).map(|(v, c)| v + c).collect();
-    let objective = faer::ColRef::from_slice(&p.objective).transpose() * column;
-    let quadratic = p.hessian.as_ref().map_or(0.0, |q| {
-        let product = q * column;
-        0.5 * (column.transpose() * product.as_ref())
-    });
-    crate::quality::Observation::from_values(
-        Some(p.objective_constant + objective + quadratic),
-        values,
-        bounds,
-    )
 }

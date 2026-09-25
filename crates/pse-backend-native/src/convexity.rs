@@ -6,9 +6,17 @@ impl CoefficientProblem {
     /// A convex native QP route requires exact, current, sense-aware PSD evidence.
     pub fn validate_convex(
         &self,
-        certificate: Option<&GramCertificate>,
+        certificate: Option<&dyn pse_math::convexity::QuadraticEvidence>,
     ) -> Result<(), ProblemError> {
         self.validate()?;
+        if certificate
+            .and_then(|p| p.assumptions())
+            .is_some_and(|key| key != self.assumptions)
+        {
+            return Err(ProblemError::Contract(
+                "quadratic evidence belongs to another coefficient snapshot".into(),
+            ));
+        }
         if let Some(q) = &self.hessian
             && q.val().iter().any(|v| *v != 0.0)
         {

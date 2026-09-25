@@ -1,9 +1,21 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
+use pse_backend_native::solve::BackendCapabilities;
 mod balances;
+mod composition;
+mod numerics;
+mod reactions;
+mod time;
+pub use composition::{AdmissionEntry, CompositionDeclarations, port_id, symbol_id};
 mod sources;
+mod strategies;
 pub use balances::{BalanceCheck, BalanceDeclaration};
+pub use strategies::{AnalysisPort, ConicRequest, PreparedConic};
+#[cfg(feature = "solver-kinsol")]
+pub use strategies::{
+    CausalUnitRequest, PreparedInitializationStrategy, PreparedRecycle, RecycleRequest,
+};
 mod vessel;
 pub use vessel::{VesselPorts, VesselQuantities, VesselRecipe};
 #[cfg_attr(
@@ -38,6 +50,9 @@ use std::sync::Arc;
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkflowError {
+    /// Source-attributed selected-model or execution-boundary failure.
+    #[error(transparent)]
+    Boundary(#[from] pse_model::diagnostic::BoundaryDiagnostic),
     /// Invalid model, preparation, runtime or solver state.
     #[error(transparent)]
     Math(#[from] MathRuntimeError),
@@ -57,7 +72,7 @@ pub enum WorkflowError {
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(this) {match this {Self::Contract(_)=>Some(pse_diagnostics::DiagnosticCode::CompileMath),_=>None}},
-    forward(this) {match this {Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None}},
+    forward(this) {match this {Self::Boundary(e)=>Some(e),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 fn contract(message: impl Into<String>) -> WorkflowError {
@@ -111,7 +126,7 @@ impl Runtime {
         pse_backend_native::solve::Capabilities,
     )> {
         use pse_backend_native::solve::Backend::*;
-        [Ipopt, Pounce, Kinsol, Highs, Clarabel]
+        [Ipopt, Pounce, Kinsol, Highs, Clarabel, Diffsol, Idas]
             .into_iter()
             .filter(|b| b.available())
             .map(|b| (b, b.capabilities()))
@@ -127,3 +142,6 @@ impl Runtime {
         &self.registry
     }
 }
+
+/// Source-to-scalar mapping produced by selected template admission.
+pub use composition::lower::Binding as ScalarBinding;

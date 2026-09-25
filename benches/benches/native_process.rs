@@ -126,7 +126,7 @@ fn process(c: &mut Criterion) {
             let declaration=revision.declaration().cases.iter().find(|source|source.case_id==case).unwrap();
             let n=declaration.variables.iter().filter(|v|!v.fixed).count();
             variables.insert(n);
-            executor.block_on(revision.prepare(case,profile(Backend::Ipopt,n,declaration.rows.len()+revision.source_declarations().balances.iter().filter(|balance|balance.case_id==case).count(),false),compiler(),false,&CancelSource::new())).unwrap().start().unwrap()
+            executor.block_on(revision.prepare(case,profile(Backend::Ipopt,false),compiler(),&CancelSource::new())).unwrap().start().unwrap()
         };
         mark(&mut phases,"case_preparation_and_start",begin);
         let begin=Instant::now();

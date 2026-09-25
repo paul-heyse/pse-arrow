@@ -5,6 +5,7 @@
 use crate::MathError;
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::Port;
+use pse_model::{SemanticEq, SemanticFrame};
 use pse_quantity::{
     QuantityRegistry, UnitConvertSpec, admission::require_same_contract, convert_spec_for_type,
     convert_value,
@@ -85,7 +86,7 @@ impl FiniteDomain {
 }
 
 /// A variable's structural declaration; its current numerical value lives separately.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Variable {
     /// Global semantic identity and physical contract.
     pub port: Port,
@@ -150,7 +151,7 @@ impl ObjectiveSense {
     }
 }
 /// Complete selected constraint inventory, including isolated rows.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Row {
     /// Stable semantic identity.
     pub id: SemanticId,
@@ -179,7 +180,7 @@ pub enum Target {
     Objective,
 }
 /// One nonzero, dimensionless entry of the row contribution map A.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Contribution {
     /// Zero-based body output ordinal.
     pub output: usize,
@@ -197,7 +198,7 @@ pub struct CaseValues {
 }
 
 /// One physically checked formal binding. Repeated sources are intentional aliases.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct SlotBinding {
     /// Global variable/parameter identity.
     source: SemanticId,
@@ -456,8 +457,12 @@ impl CaseStructure {
                 .id(&v.port.unit.as_id())
                 .bool(v.fixed)
                 .u64(v.domain as u64)
-                .u64(v.lower.unwrap_or(f64::NEG_INFINITY).to_bits())
-                .u64(v.upper.unwrap_or(f64::INFINITY).to_bits());
+                .u64(pse_ids::canonical_f64_bits(
+                    v.lower.unwrap_or(f64::NEG_INFINITY),
+                ))
+                .u64(pse_ids::canonical_f64_bits(
+                    v.upper.unwrap_or(f64::INFINITY),
+                ));
         }
         h.u64(self.parameters.len() as u64);
         for p in &self.parameters {
@@ -467,8 +472,8 @@ impl CaseStructure {
         for r in &self.rows {
             h.id(&r.id)
                 .id(&r.quantity.as_id())
-                .u64(r.lower.to_bits())
-                .u64(r.upper.to_bits());
+                .u64(pse_ids::canonical_f64_bits(r.lower))
+                .u64(pse_ids::canonical_f64_bits(r.upper));
         }
         h.bool(self.objective.is_some());
         if let Some(o) = &self.objective {
@@ -479,12 +484,13 @@ impl CaseStructure {
             h.id(&b.instance).hash(&b.body).u64(b.slots.len() as u64);
             for s in &b.slots {
                 h.id(&s.source())
-                    .u64(s.scale().to_bits())
-                    .u64(s.offset().to_bits());
+                    .u64(pse_ids::canonical_f64_bits(s.scale()))
+                    .u64(pse_ids::canonical_f64_bits(s.offset()));
             }
             h.u64(b.contributions.len() as u64);
             for c in &b.contributions {
-                h.u64(c.output as u64).u64(c.scale.to_bits());
+                h.u64(c.output as u64)
+                    .u64(pse_ids::canonical_f64_bits(c.scale));
                 match c.target {
                     Target::Row(r) => {
                         h.bool(false).id(&r);
@@ -592,5 +598,56 @@ impl Default for CaseLimits {
             bodies: 1024,
             slots: 1_000_000,
         }
+    }
+}
+
+// Equality and framed identities share the canonical floating-point contract.
+impl PartialEq for Variable {
+    fn eq(&self, other: &Self) -> bool {
+        self.port == other.port
+            && self.fixed == other.fixed
+            && self.domain == other.domain
+            && self.lower.semantic_eq(&other.lower)
+            && self.upper.semantic_eq(&other.upper)
+    }
+}
+impl PartialEq for Row {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.quantity == other.quantity
+            && self.lower.semantic_eq(&other.lower)
+            && self.upper.semantic_eq(&other.upper)
+    }
+}
+impl PartialEq for Contribution {
+    fn eq(&self, other: &Self) -> bool {
+        self.output == other.output
+            && self.target == other.target
+            && self.scale.semantic_eq(&other.scale)
+    }
+}
+impl PartialEq for SlotBinding {
+    fn eq(&self, other: &Self) -> bool {
+        self.source == other.source
+            && self.port == other.port
+            && self.scale().semantic_eq(&other.scale())
+            && self.offset().semantic_eq(&other.offset())
+    }
+}
+impl PartialEq for CaseValues {
+    fn eq(&self, other: &Self) -> bool {
+        self.scalars.semantic_eq(&other.scalars)
+    }
+}
+impl CaseValues {
+    /// Value binding identity, separate from structure and prepared arithmetic.
+    pub fn identity(&self) -> ContentHash {
+        let mut h = FramedHasher::new("pse.math.case-values.v1");
+        h.u64(self.scalars.len() as u64);
+        for (id, value) in &self.scalars {
+            h.id(id);
+            value.frame(&mut h);
+        }
+        h.finish_hash()
     }
 }

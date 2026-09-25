@@ -159,6 +159,9 @@ impl Session {
         compatibility: Compatibility,
     ) -> Result<SolveReport, ProblemError> {
         controls.validate()?;
+        if oracle.normalization().is_some() {
+            return Err(ProblemError::Contract("model normalization must be transported through the shared NLP pipeline before native execution".into()));
+        }
         let n = oracle.contract().variables.len();
         let m = oracle.contract().rows.len();
         tolerances.validate(n, m)?;
@@ -270,6 +273,16 @@ impl Session {
                 "max_wall_time",
                 "max_cpu_time",
                 "tol",
+                "constr_viol_tol",
+                "dual_inf_tol",
+                "compl_inf_tol",
+                "acceptable_tol",
+                "acceptable_iter",
+                "acceptable_constr_viol_tol",
+                "acceptable_dual_inf_tol",
+                "acceptable_compl_inf_tol",
+                "bound_relax_factor",
+                "honor_original_bounds",
                 "warm_start_init_point",
                 "nlp_scaling_method",
                 "linear_solver",
@@ -288,6 +301,7 @@ impl Session {
             ));
         }
         let mut options = controls.options.clone();
+        options.extend(controls.accuracy.nlp_options());
         options.extend([
             (
                 "algorithm".into(),
@@ -311,12 +325,13 @@ impl Session {
                 "max_wall_time".into(),
                 OptionValue::Real(controls.time_limit.as_secs_f64()),
             ),
-            ("tol".into(), OptionValue::Real(controls.tolerance)),
             (
                 "nlp_scaling_method".into(),
                 OptionValue::Text(
                     if oracle.scaling().is_some() {
                         "user-scaling"
+                    } else if controls.accuracy.native_scaling {
+                        "gradient-based"
                     } else {
                         "none"
                     }
@@ -380,6 +395,11 @@ impl Session {
             app.set_sqp_warm_start(seed);
         }
         let adapter = Rc::new(RefCell::new(Adapter {
+            normalization: pse_math::normalization::Normalization::identity(
+                oracle.contract().variables.len(),
+                oracle.contract().rows.len(),
+            ),
+            certification_budget: None,
             normalize_affine: false,
             oracle,
             state: CallbackState::new(execution.clone()),
@@ -491,6 +511,9 @@ impl Session {
                 .provenance
                 .insert("crossover".into(), format!("{c:?}"));
         }
+        report
+            .metrics
+            .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
         report.provenance.insert(
             "native".into(),
             "POUNCE 0.12.0; FERAL; shared preprocessing is applied before this adapter".into(),
@@ -537,6 +560,7 @@ impl Session {
                     }
                 };
                 report.warm_start = Some(WarmStart {
+                    origin: None,
                     compatibility: compatibility.clone(),
                     payload,
                 });
@@ -564,11 +588,12 @@ impl Session {
 pub fn termination(status: ApplicationReturnStatus) -> NativeTermination {
     use ApplicationReturnStatus::*;
     let (category, assurance) = match status {
-        SolveSucceeded => (Termination::Success, Assurance::LocalStationary),
-        SolvedToAcceptableLevel => (Termination::Acceptable, Assurance::LocalStationary),
-        FeasiblePointFound => (Termination::FeasibleOnly, Assurance::Feasible),
+        SolveSucceeded => (Termination::Success, Assurance::None),
+        SolvedToAcceptableLevel => (Termination::Acceptable, Assurance::None),
+        FeasiblePointFound => (Termination::FeasibleOnly, Assurance::None),
         InfeasibleProblemDetected => (Termination::Infeasible, Assurance::None),
-        MaximumIterationsExceeded | InsufficientMemory => (Termination::Limit, Assurance::None),
+        MaximumIterationsExceeded => (Termination::IterationLimit, Assurance::None),
+        InsufficientMemory => (Termination::ResourceExhausted, Assurance::None),
         MaximumCpuTimeExceeded | MaximumWallTimeExceeded => {
             (Termination::TimeLimit, Assurance::None)
         }
@@ -595,6 +620,11 @@ mod tests {
     fn adapter() -> Adapter {
         let oracle = Box::new(crate::solver_tests::Polynomial::new());
         Adapter {
+            normalization: pse_math::normalization::Normalization::identity(
+                oracle.contract().variables.len(),
+                oracle.contract().rows.len(),
+            ),
+            certification_budget: None,
             normalize_affine: false,
             jac: Pattern::new(oracle.jacobian_pattern(), false).unwrap(),
             hess: Pattern::new(oracle.hessian_pattern().unwrap(), true).unwrap(),

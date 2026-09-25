@@ -81,6 +81,23 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `name`.
 | `bypasses` | `Int64` | false | `payload` | — | — |
 | `evictions` | `Int64` | true | `payload` | — | — |
 
+## `candidate_assessments`
+
+Completion-owned candidate assessment. Native termination, original numerical acceptance, physical closure and final usability remain distinct.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `native_termination` | `enum:NativeTermination` | true | `payload` | — | — |
+| `numerically_feasible` | `Boolean` | true | `payload` | — | — |
+| `closure` | `enum:ClosureAssessment` | false | `payload` | — | — |
+| `policy` | `enum:ClosurePolicy` | false | `payload` | — | — |
+| `usability` | `enum:CandidateUse` | false | `payload` | — | — |
+| `reason` | `Utf8` | false | `payload` | — | — |
+
 ## `change_events`
 
 Typed native CDF identity; each event travels with its complete declared before/after row value.
@@ -402,6 +419,34 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `consumer_id`.
 | `intervals.item.from_version` | `Int64` | false | `payload` | — | — |
 | `intervals.item.through_version` | `Int64` | false | `payload` | — | — |
 
+## `resolved_numerics`
+
+Frozen original-representation budgets and selected/overridden source interpretations. Coordinate factors describe model normalization separately from native algorithmic scaling.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, target_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `target_id` | `semantic_id` | false | `key` | — | — |
+| `target_kind` | `enum:NumericalTarget` | false | `key` | — | — |
+| `quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `nominal` | `Float64` | false | `payload` | — | — |
+| `coordinate_scale` | `Float64` | false | `payload` | — | — |
+| `absolute` | `Float64` | false | `payload` | — | — |
+| `relative` | `Float64` | false | `payload` | — | — |
+| `budget` | `Float64` | false | `payload` | — | — |
+| `provenance` | `List` | false | `payload` | — | — |
+| `provenance.item` | `Struct` | false | `payload` | — | — |
+| `provenance.item.declaration` | `semantic_id` | true | `payload` | — | — |
+| `provenance.item.source` | `enum:NumericalSource` | false | `payload` | — | — |
+| `provenance.item.field` | `Utf8` | false | `payload` | — | — |
+| `provenance.item.selected` | `Boolean` | false | `payload` | — | — |
+| `provenance.item.value` | `Float64` | false | `payload` | — | — |
+| `provenance.item.description` | `Utf8` | false | `payload` | — | — |
+
 ## `response_sensitivities`
 
 Local physical response derivative in output difference units per parameter difference unit, never a confidence interval.
@@ -498,7 +543,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, row_id`.
 
 Typed native metrics, effective options and provenance. Exactly the selected value field is populated by result admission; absent metrics are never synthesized as zero.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, namespace, name`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, namespace, name`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -511,12 +556,13 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, namespace, na
 | `integer` | `Int64` | true | `payload` | — | — |
 | `boolean` | `Boolean` | true | `payload` | — | — |
 | `text` | `Utf8` | true | `payload` | — | — |
+| `unavailable` | `enum:EvidenceUnavailableReason` | true | `payload` | — | — |
 
 ## `solve_runs`
 
 Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -525,12 +571,13 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `model_id` | `semantic_id` | true | `payload` | — | — |
 | `revision` | `content_hash` | true | `payload` | — | — |
 | `case_id` | `semantic_id` | true | `payload` | — | — |
-| `backend` | `Utf8` | true | `payload` | — | — |
+| `backend` | `enum:NativeBackend` | true | `payload` | — | — |
 | `native_code` | `Int64` | true | `payload` | — | — |
 | `native_status` | `Utf8` | true | `payload` | — | — |
-| `termination` | `Utf8` | false | `payload` | — | — |
-| `assurance` | `Utf8` | false | `payload` | — | — |
-| `candidate_present` | `Boolean` | false | `payload` | — | — |
+| `state` | `enum:NativeRunState` | false | `payload` | — | — |
+| `termination` | `enum:NativeTermination` | true | `payload` | — | — |
+| `assurance` | `enum:NativeAssurance` | false | `payload` | — | — |
+| `candidate_kind` | `enum:NativeCandidateKind` | true | `payload` | — | — |
 | `feasible` | `Boolean` | true | `payload` | — | — |
 | `objective` | `Float64` | true | `payload` | — | — |
 | `objective_sense` | `enum:NativeObjectiveSense` | true | `payload` | — | — |

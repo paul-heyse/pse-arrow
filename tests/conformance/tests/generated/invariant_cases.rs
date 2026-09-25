@@ -471,6 +471,16 @@ async fn authored_default_scaling_unique_pk_violating() {
 }
 
 #[tokio::test]
+async fn authored_directional_valve_laws_unique_pk_valid() {
+    super::assert_fixture("authored.directional_valve_laws:unique:pk", "valid").await;
+}
+
+#[tokio::test]
+async fn authored_directional_valve_laws_unique_pk_violating() {
+    super::assert_fixture("authored.directional_valve_laws:unique:pk", "violating").await;
+}
+
+#[tokio::test]
 async fn authored_document_edits_unique_pk_valid() {
     super::assert_fixture("authored.document_edits:unique:pk", "valid").await;
 }
@@ -1005,6 +1015,16 @@ async fn authored_method_selections_unique_pk_violating() {
 }
 
 #[tokio::test]
+async fn authored_model_compositions_unique_pk_valid() {
+    super::assert_fixture("authored.model_compositions:unique:pk", "valid").await;
+}
+
+#[tokio::test]
+async fn authored_model_compositions_unique_pk_violating() {
+    super::assert_fixture("authored.model_compositions:unique:pk", "violating").await;
+}
+
+#[tokio::test]
 async fn authored_native_providers_unique_pk_valid() {
     super::assert_fixture("authored.native_providers:unique:pk", "valid").await;
 }
@@ -1012,6 +1032,16 @@ async fn authored_native_providers_unique_pk_valid() {
 #[tokio::test]
 async fn authored_native_providers_unique_pk_violating() {
     super::assert_fixture("authored.native_providers:unique:pk", "violating").await;
+}
+
+#[tokio::test]
+async fn authored_numerical_requirements_unique_pk_valid() {
+    super::assert_fixture("authored.numerical_requirements:unique:pk", "valid").await;
+}
+
+#[tokio::test]
+async fn authored_numerical_requirements_unique_pk_violating() {
+    super::assert_fixture("authored.numerical_requirements:unique:pk", "violating").await;
 }
 
 #[tokio::test]
@@ -1384,6 +1414,26 @@ async fn authored_property_packages_unique_pk_valid() {
 #[tokio::test]
 async fn authored_property_packages_unique_pk_violating() {
     super::assert_fixture("authored.property_packages:unique:pk", "violating").await;
+}
+
+#[tokio::test]
+async fn authored_provider_scaling_bindings_unique_pk_valid() {
+    super::assert_fixture("authored.provider_scaling_bindings:unique:pk", "valid").await;
+}
+
+#[tokio::test]
+async fn authored_provider_scaling_bindings_unique_pk_violating() {
+    super::assert_fixture("authored.provider_scaling_bindings:unique:pk", "violating").await;
+}
+
+#[tokio::test]
+async fn authored_reaction_applications_unique_pk_valid() {
+    super::assert_fixture("authored.reaction_applications:unique:pk", "valid").await;
+}
+
+#[tokio::test]
+async fn authored_reaction_applications_unique_pk_violating() {
+    super::assert_fixture("authored.reaction_applications:unique:pk", "violating").await;
 }
 
 #[tokio::test]
@@ -4475,6 +4525,16 @@ async fn runtime_cache_statistics_unique_pk_violating() {
 }
 
 #[tokio::test]
+async fn runtime_candidate_assessments_unique_pk_valid() {
+    super::assert_fixture("runtime.candidate_assessments:unique:pk", "valid").await;
+}
+
+#[tokio::test]
+async fn runtime_candidate_assessments_unique_pk_violating() {
+    super::assert_fixture("runtime.candidate_assessments:unique:pk", "violating").await;
+}
+
+#[tokio::test]
 async fn runtime_change_events_unique_pk_valid() {
     super::assert_fixture("runtime.change_events:unique:pk", "valid").await;
 }
@@ -4602,6 +4662,16 @@ async fn runtime_release_checkpoints_unique_pk_valid() {
 #[tokio::test]
 async fn runtime_release_checkpoints_unique_pk_violating() {
     super::assert_fixture("runtime.release_checkpoints:unique:pk", "violating").await;
+}
+
+#[tokio::test]
+async fn runtime_resolved_numerics_unique_pk_valid() {
+    super::assert_fixture("runtime.resolved_numerics:unique:pk", "valid").await;
+}
+
+#[tokio::test]
+async fn runtime_resolved_numerics_unique_pk_violating() {
+    super::assert_fixture("runtime.resolved_numerics:unique:pk", "violating").await;
 }
 
 #[tokio::test]

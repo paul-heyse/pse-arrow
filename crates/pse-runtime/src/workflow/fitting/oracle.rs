@@ -6,6 +6,8 @@ use faer::{
     Mat,
     sparse::{Pair, SymbolicSparseColMat, SymbolicSparseColMatRef},
 };
+#[cfg(any(test, feature = "solver-ipopt", feature = "solver-pounce"))]
+use native::solve::Backend;
 use native::{
     NlpOracle, ProblemError,
     solve::{Compatibility, Execution},
@@ -299,11 +301,10 @@ impl FitOracle {
                             .enumerate()
                             .filter(|(_, o)| o.experiment == ei && o.included)
                         {
-                            let sample = report
-                                .samples
-                                .iter()
-                                .find(|v| Some(v.time) == o.time)
-                                .ok_or_else(|| error("missing transient observation time"))?;
+                            let sample = o
+                                .sample_index
+                                .and_then(|i| report.samples.get(i))
+                                .ok_or_else(|| error("missing prepared transient sample"))?;
                             point.predictions[i] = sample.outputs[o.row];
                             for &(j, k, scale) in &mapping {
                                 if let Some(col) = p.parameter_columns[k] {
@@ -357,6 +358,9 @@ impl FitOracle {
     }
 }
 impl NlpOracle for FitOracle {
+    fn normalization(&self) -> Option<&Normalization> {
+        Some(&self.prepared.normalization)
+    }
     fn contract(&self) -> &OracleContract {
         &self.prepared.contract
     }
@@ -533,6 +537,21 @@ impl PreparedFit {
         flag: Arc<AtomicBool>,
         progress: Arc<native::solve::Progress>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
+        #[cfg(feature = "solver-pounce")]
+        if self.route == native::routing::Route::Native(Backend::Pounce) {
+            return native::pounce::with_threads(
+                self.problem.profile.solver.controls.threads,
+                self.problem.revision.0.runtime.native().stack_bytes(),
+                || self.execute_inner(flag, progress),
+            );
+        }
+        self.execute_inner(flag, progress)
+    }
+    fn execute_inner(
+        &self,
+        flag: Arc<AtomicBool>,
+        progress: Arc<native::solve::Progress>,
+    ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let execution = Execution {
             cancel: flag,
             started: Instant::now(),
@@ -556,8 +575,8 @@ impl PreparedFit {
                 Box::new(oracle),
                 &self.problem.initial,
                 &self.problem.profile.solver.presolve,
-                &self.problem.profile.solver.tolerances,
-                self.problem.profile.solver.scaling.as_ref(),
+                &self.problem.tolerances,
+                None,
                 execution.clone(),
                 None,
                 stamp,
@@ -582,7 +601,7 @@ impl PreparedFit {
                             pse_math::binding::ObjectiveSense::Minimize,
                             controls,
                             execution.clone(),
-                            &pipeline.tolerances(&self.problem.profile.solver.tolerances),
+                            &pipeline.tolerances(&self.problem.tolerances),
                             scales.as_ref(),
                             None,
                             pipeline.native_compatibility().clone(),
@@ -610,7 +629,7 @@ impl PreparedFit {
                             method,
                             linear,
                             execution.clone(),
-                            &pipeline.tolerances(&self.problem.profile.solver.tolerances),
+                            &pipeline.tolerances(&self.problem.tolerances),
                             None,
                             pipeline.native_compatibility().clone(),
                         )?
@@ -618,11 +637,17 @@ impl PreparedFit {
                     _ => return Err(error("native fitting backend unavailable").into()),
                 }
             };
-            let report = pipeline.finish(
+            let mut report = pipeline.finish(
                 report,
-                &self.problem.profile.solver.tolerances,
+                &self.problem.tolerances,
                 pse_math::binding::ObjectiveSense::Minimize,
             );
+            native::quality::record_kkt(
+                &mut report,
+                &self.problem.normalization,
+                &self.problem.profile.solver.controls.accuracy,
+            );
+            native::quality::qualify(&mut report, &self.problem.profile.solver.controls.accuracy);
             let candidate = report.candidate.as_ref().map(|c| c.primal.clone());
             (Some(report), candidate)
         };
@@ -667,7 +692,7 @@ impl PreparedFit {
                         &self.problem.bounds,
                         x,
                         &point.constraints,
-                        &self.problem.profile.solver.tolerances,
+                        &self.problem.tolerances,
                     )?);
                     report.predictions = point
                         .predictions
@@ -826,8 +851,7 @@ impl FitOracle {
                     ));
                 }
                 if s.constraints.iter().any(|(_, g)| {
-                    (point.constraints[*g] - p.bounds[*g].0).abs()
-                        > p.profile.solver.tolerances.rows[*g]
+                    (point.constraints[*g] - p.bounds[*g].0).abs() > p.tolerances.rows[*g]
                 }) {
                     return Err(error(
                         "steady response requires a feasible physical closure",
@@ -841,8 +865,8 @@ impl FitOracle {
                     .ok_or_else(|| error("steady response partials"))?;
                 let fx = Mat::from_fn(nx, nx, |i, j| jac[(s.constraints[i].0, j)]);
                 let scaled = Mat::from_fn(nx, nx, |i, j| {
-                    fx[(i, j)] * p.profile.solver.tolerances.variables[s.coordinates[j].1]
-                        / p.profile.solver.tolerances.rows[s.constraints[i].1]
+                    fx[(i, j)] * p.tolerances.variables[s.coordinates[j].1]
+                        / p.tolerances.rows[s.constraints[i].1]
                 });
                 let spectrum = singular_values(&scaled, p.bytes)?;
                 if spectrum
@@ -855,12 +879,12 @@ impl FitOracle {
                 }
                 let rhs = Mat::from_fn(nx, np, |i, j| {
                     -point.jacobian[(s.constraints[i].1, free[j].1)]
-                        / p.profile.solver.tolerances.rows[s.constraints[i].1]
+                        / p.tolerances.rows[s.constraints[i].1]
                 });
                 let scaled_dx = solve_regular(&scaled, rhs.clone(), p.bytes)?;
                 check_response(&scaled, &scaled_dx, &rhs)?;
                 let dx = Mat::from_fn(nx, np, |i, j| {
-                    scaled_dx[(i, j)] * p.profile.solver.tolerances.variables[s.coordinates[i].1]
+                    scaled_dx[(i, j)] * p.tolerances.variables[s.coordinates[i].1]
                 });
                 for (i, o) in p
                     .measurements
@@ -920,20 +944,16 @@ mod tests {
         b.fit(serde_json::from_value(serde_json::json!({"fit_id":id(32),"model_id":id(20),"parameters":[{"symbol_id":id(1),"fixed":fixed,"value":2.0,"lower":0.1,"upper":10.0,"scale":2.0}],"experiments":[{"experiment_id":id(33),"case_id":id(5),"dynamic_id":null}],"observations":[{"observation_id":id(31),"experiment_id":id(33),"output_id":id(4),"time":null,"included":true,"importance":4.0}]})).unwrap());
         b
     }
-    fn profile(fixed: bool) -> FitProfile {
+    fn profile(_fixed: bool) -> FitProfile {
         FitProfile {
             solver: SolverProfile {
                 presolve: Default::default(),
-                scaling: None,
+                numerics: Default::default(),
+                convexity: Default::default(),
                 intent: SolveIntent::Optimize,
-                selection: SolverSelection::Explicit(Backend::Ipopt),
+                selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
                 controls: Default::default(),
                 backend: crate::math::solves::BackendSettings::Default,
-                tolerances: native::quality::Tolerances {
-                    variables: vec![1e-8; if fixed { 0 } else { 1 }],
-                    rows: vec![],
-                    integrality: 1e-8,
-                },
             },
             simulations: BTreeMap::new(),
             rank_tolerance: 1e-8,
@@ -1018,26 +1038,6 @@ mod tests {
         assert!(
             matches!(error, WorkflowError::Contract(ref message) if message == "all-fixed fitting evaluates directly and cannot apply required native presolve passes")
         );
-        let mut controls = profile(true);
-        controls.solver.scaling = Some(native::presolve::Scaling {
-            objective: 1.0,
-            variables: vec![1.0],
-            constraints: vec![],
-        });
-        let error = revision
-            .prepare_fit(
-                id(32),
-                controls,
-                compiler_profile(),
-                &crate::CancelSource::new(),
-            )
-            .await
-            .unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("native scaling dimensions/positive values")
-        );
     }
     #[cfg(not(feature = "solver-ipopt"))]
     #[tokio::test]
@@ -1053,8 +1053,18 @@ mod tests {
             )
             .await
             .unwrap_err();
-        assert!(matches!(error, WorkflowError::Contract(ref message)
-            if message == "selected fitting adapter is not linked"));
+        assert!(
+            matches!(
+                error,
+                WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                    ProblemError::Unavailable {
+                        backend: Backend::Ipopt,
+                        ..
+                    }
+                ))
+            ),
+            "{error:?}"
+        );
     }
     #[tokio::test]
     async fn invalid_uncertainty_and_unbound_observations_fail_admission() {
@@ -1109,14 +1119,11 @@ mod tests {
         );
         d.cases[0].instances[0].slots=serde_json::from_value(serde_json::json!([{"source_id":id(8),"formal_quantity_id":qty,"formal_unit_id":unit},{"source_id":id(1),"formal_quantity_id":qty,"formal_unit_id":unit}])).unwrap();
         d.cases[0].instances[0].contributions=serde_json::from_value(serde_json::json!([{"output":0,"row_id":id(7),"scale":1.0},{"output":1,"row_id":id(4),"scale":1.0}])).unwrap();
-        let mut profile = profile(false);
-        profile.solver.tolerances.variables.push(1e-8);
-        profile.solver.tolerances.rows = vec![1e-8];
+        let profile = profile(false);
         let mut fixed = source(true);
         *fixed.declaration_mut() = b.declaration_mut().clone();
         let fixed = fixed.freeze().unwrap();
-        let mut fixed_profile = profile.clone();
-        fixed_profile.solver.tolerances.variables = vec![1e-8];
+        let fixed_profile = profile.clone();
         let fixed_problem = fixed
             .prepare_fit_problem(
                 id(32),
@@ -1129,8 +1136,8 @@ mod tests {
         // Fixed fit parameters do not eliminate free experiment-local states.
         assert_eq!(fixed_problem.contract.variables.len(), 1);
         #[cfg(not(feature = "solver-ipopt"))]
-        assert!(
-            fixed
+        {
+            let error = fixed
                 .prepare_fit(
                     id(32),
                     fixed_profile,
@@ -1138,10 +1145,20 @@ mod tests {
                     &crate::CancelSource::new(),
                 )
                 .await
-                .unwrap_err()
-                .to_string()
-                .contains("selected fitting adapter is not linked")
-        );
+                .unwrap_err();
+            assert!(
+                matches!(
+                    error,
+                    WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                        ProblemError::Unavailable {
+                            backend: Backend::Ipopt,
+                            ..
+                        }
+                    ))
+                ),
+                "{error:?}"
+            );
+        }
         let p = b
             .freeze()
             .unwrap()
@@ -1210,19 +1227,15 @@ mod composition_tests {
         let profile = FitProfile {
             solver: SolverProfile {
                 presolve: Default::default(),
-                scaling: None,
+                numerics: Default::default(),
+                convexity: Default::default(),
                 intent: SolveIntent::Optimize,
-                selection: SolverSelection::Explicit(Backend::Ipopt),
+                selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
                 controls: native::solve::Controls {
                     hessian: HessianMode::LimitedMemory,
                     ..Default::default()
                 },
                 backend: crate::math::solves::BackendSettings::Default,
-                tolerances: native::quality::Tolerances {
-                    variables: vec![1e-8],
-                    rows: vec![],
-                    integrality: 1e-8,
-                },
             },
             simulations: BTreeMap::from([(id(74), dynamic::profile())]),
             rank_tolerance: 1e-8,
@@ -1268,3 +1281,7 @@ mod composition_tests {
         assert!((s[0] - 2.0f64.sqrt()).abs() < 1e-6);
     }
 }
+
+#[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
+#[path = "p09_tests.rs"]
+mod p09_tests;

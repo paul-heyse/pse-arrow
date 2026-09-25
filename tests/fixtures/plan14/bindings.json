@@ -182,6 +182,11 @@
       "symbol_id": "dd2172caa6a953079dc6982823756bb7",
       "quantity_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
       "unit_id": "aecacdf343e75fe4841e892db1deba89"
+    },
+    "valve_width": {
+      "symbol_id": "cba5d507a1df51cbbeb0ca79c1be4333",
+      "quantity_id": "4736fed26f5d5ce1b5b6b91e50bffb68",
+      "unit_id": "aecacdf343e75fe4841e892db1deba89"
     }
   },
   "vessel_values": {
@@ -204,12 +209,14 @@
     "density0": 34.565566349336066,
     "pressure0": 100000.0000000127,
     "valve_k": 1e-05,
-    "downstream": 50000.0
+    "downstream": 50000.0,
+    "valve_width": 10000.0
   },
   "provider": {
     "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
     "name": "pressure",
-    "kind": "feos-light-hydrocarbons",
+    "kind": "feos-pcsaft-dippr",
+    "material_system_id": null,
     "envelope": {
       "temperature": [
         250.0,
@@ -240,12 +247,44 @@
       "provenance": "declared acceptance operating window; empirical validity unestablished"
     },
     "output": 0,
-    "caloric_reference": "ef3687c693e5526abbabb3026b53ed1e",
+    "enthalpy_reference": "ef3687c693e5526abbabb3026b53ed1e",
+    "entropy_reference": "4fe08189a9f85cf4b66e9f2e33f9d556",
     "components": [
-      "85c787a54b735cef89f89c403c2376f4",
-      "64239c0b08b8577ea3edcffaa1a67ea0",
-      "cd138ba581a55782ae8ec4d865d4885e"
+      {
+        "species_id": "85c787a54b735cef89f89c403c2376f4",
+        "pcsaft_cas": "74-82-8",
+        "ideal_gas_cas": "74-82-8"
+      },
+      {
+        "species_id": "64239c0b08b8577ea3edcffaa1a67ea0",
+        "pcsaft_cas": "74-84-0",
+        "ideal_gas_cas": "74-84-0"
+      },
+      {
+        "species_id": "cd138ba581a55782ae8ec4d865d4885e",
+        "pcsaft_cas": "74-98-6",
+        "ideal_gas_cas": "74-98-6"
+      }
     ],
+    "dependent_species": "cd138ba581a55782ae8ec4d865d4885e",
+    "quantity_kinds": {
+      "temperature": "4072d3eb41be5830a3f22f8c09efd706",
+      "density": "d91c3c3286f55587b34ea66974419549",
+      "fraction": "72281d92523851e8abe61ca5e44d7fdd",
+      "pressure": "15cdc8a7bc455437a891b4f4bed57f69",
+      "enthalpy": "f5433c288a5b58e7acfcb00abd106c30",
+      "entropy": "e8c45e3669245b82a965af465cf2e8db",
+      "ln_fugacity": "15151515151515151515151515151515"
+    },
+    "data": {
+      "pcsaft": "[\n  {\n    \"identifier\": {\n      \"cas\": \"74-82-8\",\n      \"name\": \"methane\",\n      \"iupac_name\": \"methane\",\n      \"smiles\": \"C\",\n      \"inchi\": \"InChI=1/CH4/h1H4\",\n      \"formula\": \"CH4\"\n    },\n    \"molarweight\": 16.043,\n    \"m\": 1.0,\n    \"sigma\": 3.7039,\n    \"epsilon_k\": 150.03\n  },\n  {\n    \"identifier\": {\n      \"cas\": \"74-84-0\",\n      \"name\": \"ethane\",\n      \"iupac_name\": \"ethane\",\n      \"smiles\": \"CC\",\n      \"inchi\": \"InChI=1/C2H6/c1-2/h1-2H3\",\n      \"formula\": \"C2H6\"\n    },\n    \"molarweight\": 30.07,\n    \"m\": 1.6069,\n    \"sigma\": 3.5206,\n    \"epsilon_k\": 191.42\n  },\n  {\n    \"identifier\": {\n      \"cas\": \"74-98-6\",\n      \"name\": \"propane\",\n      \"iupac_name\": \"propane\",\n      \"smiles\": \"CCC\",\n      \"inchi\": \"InChI=1/C3H8/c1-3-2/h3H2,1-2H3\",\n      \"formula\": \"C3H8\"\n    },\n    \"molarweight\": 44.096,\n    \"m\": 2.002,\n    \"sigma\": 3.6184,\n    \"epsilon_k\": 208.11\n  }\n]\n",
+      "ideal_gas": "[\n  {\n    \"identifier\": {\n      \"cas\": \"74-82-8\",\n      \"name\": \"methane\"\n    },\n    \"DIPPR100\": [\n      37980.46523972399,\n      -74.62230199792532,\n      0.3018981376651441,\n      -0.00028327374140048084,\n      9.071078716405182e-08\n    ]\n  },\n  {\n    \"identifier\": {\n      \"cas\": \"74-84-0\",\n      \"name\": \"ethane\"\n    },\n    \"DIPPR100\": [\n      34737.82481864423,\n      -36.80812601056439,\n      0.4705985841874733,\n      -0.000552994908733372,\n      2.0678068531347104e-07\n    ]\n  },\n  {\n    \"identifier\": {\n      \"cas\": \"74-98-6\",\n      \"name\": \"propane\"\n    },\n    \"DIPPR100\": [\n      31985.73769203551,\n      42.66150769374427,\n      0.4997823479771912,\n      -0.0006562605344508351,\n      2.5600230401293817e-07\n    ]\n  }\n]\n",
+      "binary": "[]",
+      "provenance": "Bundled FeOS light-hydrocarbon example records; explicit zero binary interactions",
+      "missing_interactions": "zero"
+    },
+    "formulation": "homogeneous_density",
+    "stability": "unchecked",
     "inputs": [
       {
         "symbol_id": "12c86c0fe3095f80a9fc8290bd24d71b",

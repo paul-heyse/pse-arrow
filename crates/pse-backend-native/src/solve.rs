@@ -12,26 +12,31 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// Native implementation identity, never inferred from a status integer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Backend {
-    /// Direct Ipopt C interface.
-    Ipopt,
-    /// Native Rust TNLP interface.
-    Pounce,
-    /// SUNDIALS square nonlinear systems.
-    Kinsol,
-    /// Linear, mixed-integer and convex quadratic optimization.
-    Highs,
-    /// Explicit continuous convex cones.
-    Clarabel,
+/// Registry-owned tags shared with Arrow and Python.
+pub use pse_model::generated::enums::{
+    EvidenceUnavailableReason as UnavailableReason, NativeAssurance as Assurance,
+    NativeBackend as Backend, NativeCandidateKind as CandidateKind,
+    NativeDerivativeCapability as DerivativeCapability, NativeProblemClass as ProblemClass,
+    NativeQualification as Qualification, NativeStartPolicy as StartPolicy,
+    NativeTermination as Termination, NativeWarmCapability as WarmCapability,
+};
+/// Adapter behavior stays with the linked implementations, outside shared semantic values.
+pub trait BackendCapabilities {
+    /// Static inventory; actual model eligibility is a separate admission result.
+    fn capabilities(self) -> Capabilities;
+    /// Whether this binary links the selected native implementation.
+    fn available(self) -> bool;
 }
-impl Backend {
+impl BackendCapabilities for Backend {
     /// Explicit representational and execution capabilities of the linked adapters.
     /// Eligibility still requires admission of the actual model and profile.
-    pub const fn capabilities(self) -> Capabilities {
+    fn capabilities(self) -> Capabilities {
         match self {
             Self::Ipopt => Capabilities {
+                general_bounds: true,
+                sign_bounds: true,
+                parallel: false,
+                contextual: None,
                 classes: &[ProblemClass::SmoothNlp],
                 derivatives: DerivativeCapability::ExactHessianOrLimitedMemory,
                 warm: WarmCapability::PrimalDual,
@@ -40,6 +45,10 @@ impl Backend {
                 diagnostics: "native current iterate, violations, callback counts and timing",
             },
             Self::Pounce => Capabilities {
+                general_bounds: true,
+                sign_bounds: true,
+                parallel: true,
+                contextual: None,
                 classes: &[ProblemClass::SmoothNlp],
                 derivatives: DerivativeCapability::ExactHessianOrLimitedMemory,
                 warm: WarmCapability::PrimalDualAndWorkingSet,
@@ -48,6 +57,10 @@ impl Backend {
                 diagnostics: "complete SolveStatistics, phase timing, FERAL inertia/pivots/fill, restoration and crossover",
             },
             Self::Kinsol => Capabilities {
+                general_bounds: false,
+                sign_bounds: true,
+                parallel: false,
+                contextual: None,
                 classes: &[ProblemClass::SquareRoot, ProblemClass::DeclaredFixedPoint],
                 derivatives: DerivativeCapability::JacobianOrProduct,
                 warm: WarmCapability::Primal,
@@ -56,6 +69,10 @@ impl Backend {
                 diagnostics: "native nonlinear/linear iterations, setups, failures, norms and callback timing",
             },
             Self::Highs => Capabilities {
+                general_bounds: true,
+                sign_bounds: true,
+                parallel: true,
+                contextual: None,
                 classes: &[
                     ProblemClass::Linear,
                     ProblemClass::MixedLinear,
@@ -68,6 +85,10 @@ impl Backend {
                 diagnostics: "native information, rays, IIS, ranging and explicit relaxation",
             },
             Self::Clarabel => Capabilities {
+                general_bounds: true,
+                sign_bounds: true,
+                parallel: false,
+                contextual: None,
                 classes: &[ProblemClass::ContinuousCone],
                 derivatives: DerivativeCapability::Coefficients,
                 warm: WarmCapability::None,
@@ -75,64 +96,56 @@ impl Backend {
                 cancellation: "native iteration termination callback",
                 diagnostics: "complete native info/settings, cone slacks/duals and certificates",
             },
+            Self::Idas => Capabilities {
+                general_bounds: false,
+                sign_bounds: false,
+                parallel: false,
+                contextual: None,
+                classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
+                derivatives: DerivativeCapability::FirstWithSmoothSensitivities,
+                warm: WarmCapability::None,
+                reuse: "worker-local IDAS residual state",
+                cancellation: "residual callbacks and native step boundaries",
+                diagnostics: "native statuses, consistent starts, recoverable residual trials and sensitivities",
+            },
+            Self::Diffsol => Capabilities {
+                general_bounds: false,
+                sign_bounds: false,
+                parallel: false,
+                contextual: None,
+                classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
+                derivatives: DerivativeCapability::FirstWithSmoothSensitivities,
+                warm: WarmCapability::None,
+                reuse: "worker-local BDF state",
+                cancellation: "cooperative callbacks and step boundaries",
+                diagnostics: "native statistics, consistent starts, partial samples and root transitions",
+            },
         }
     }
     /// Whether this binary includes the adapter and its native link profile.
-    pub const fn available(self) -> bool {
+    fn available(self) -> bool {
         match self {
             Self::Ipopt => cfg!(feature = "ipopt"),
             Self::Pounce => cfg!(feature = "pounce"),
             Self::Kinsol => cfg!(feature = "kinsol"),
             Self::Highs => cfg!(feature = "highs"),
             Self::Clarabel => true,
+            Self::Diffsol => cfg!(feature = "diffsol"),
+            Self::Idas => cfg!(feature = "idas"),
         }
     }
-}
-/// Mathematical families exposed by an adapter, independent of model eligibility.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ProblemClass {
-    /// Smooth continuous constrained optimization.
-    SmoothNlp,
-    /// Square equality system.
-    SquareRoot,
-    /// Explicit causal map or linear splitting.
-    DeclaredFixedPoint,
-    /// Affine continuous optimization.
-    Linear,
-    /// Affine integer, binary and semi-domain optimization.
-    MixedLinear,
-    /// Certified convex continuous quadratic optimization.
-    ConvexQuadratic,
-    /// Explicit continuous product of convex cones.
-    ContinuousCone,
-}
-/// Required mathematical derivative representation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DerivativeCapability {
-    /// Exact first derivatives and exact or native quasi-Newton second order.
-    ExactHessianOrLimitedMemory,
-    /// Analytic matrix or matrix-vector product.
-    JacobianOrProduct,
-    /// Explicit coefficient matrices.
-    Coefficients,
-}
-/// Native externally supplied seed support; no absent interface is simulated.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WarmCapability {
-    /// No external iterate API.
-    None,
-    /// Initial coordinates.
-    Primal,
-    /// Initial primal and multiplier coordinates.
-    PrimalDual,
-    /// Primal/dual coordinates and native active working set.
-    PrimalDualAndWorkingSet,
-    /// Primal/dual coordinates and native simplex basis.
-    PrimalDualAndBasis,
 }
 /// Inspectable adapter contract with explicit operational limitations.
 #[derive(Clone, Copy, Debug)]
 pub struct Capabilities {
+    /// Static bound representation; KINSOL accepts only its sign constraints.
+    pub general_bounds: bool,
+    /// Whether a compatible strategy can represent sign constraints.
+    pub sign_bounds: bool,
+    /// Whether the adapter can consume more than one admitted native thread.
+    pub parallel: bool,
+    /// Selected-model admission is absent from a static inventory. P07 owns routing.
+    pub contextual: Option<ContextualCapabilities>,
     /// Representable mathematical classes.
     pub classes: &'static [ProblemClass],
     /// Required derivative representation.
@@ -145,6 +158,23 @@ pub struct Capabilities {
     pub cancellation: &'static str,
     /// Available native diagnostic families.
     pub diagnostics: &'static str,
+}
+/// Facts established for one selected model/settings pair, never inferred from
+/// the static library inventory. The routing boundary produces this record.
+#[derive(Clone, Copy, Debug)]
+pub struct ContextualCapabilities {
+    /// Identity of the exact mathematical representation and selected analysis.
+    pub analysis: ContentHash,
+    /// Mathematical class proved for that representation.
+    pub class: ProblemClass,
+    /// Highest derivative order admitted for every selected body and provider.
+    pub derivatives: pse_kernels::DerivativeOrder,
+    /// Actual native thread count admitted against the runtime budget.
+    pub threads: usize,
+    /// Bound semantics were checked for the selected native strategy.
+    pub bounds_admitted: bool,
+    /// Starting payload was checked for the selected layout and backend.
+    pub start_admitted: bool,
 }
 /// Why the caller requests numerical work.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -198,6 +228,173 @@ pub enum ReusePolicy {
     /// Fail rather than rebuilding incompatible native state.
     RequireReuse,
 }
+/// Independently resolved native stopping controls in normalized coordinates.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Accuracy {
+    /// Conservative scalar projection of comparable normalized feasibility budgets.
+    pub feasibility: f64,
+    /// Normalized dual stationarity budget.
+    pub stationarity: f64,
+    /// Normalized complementarity budget.
+    pub complementarity: f64,
+    /// Original integer-lattice violation budget.
+    pub integrality: f64,
+    /// Absolute continuous primal-dual gap budget.
+    pub gap_absolute: f64,
+    /// Relative continuous primal-dual gap budget.
+    pub gap_relative: f64,
+    /// Absolute mixed-integer objective gap.
+    pub mip_absolute_gap: f64,
+    /// Relative mixed-integer objective gap.
+    pub mip_relative_gap: f64,
+    /// Explicit relaxed KKT acceptance, absent by default.
+    pub acceptable: Option<pse_model::numerics::KktTolerances>,
+    /// Native algorithmic scaling, separate from the model coordinate transform.
+    pub native_scaling: bool,
+}
+impl Default for Accuracy {
+    fn default() -> Self {
+        Self {
+            feasibility: 1e-8,
+            stationarity: 1e-8,
+            complementarity: 1e-8,
+            integrality: 1e-8,
+            gap_absolute: 1e-8,
+            gap_relative: 1e-8,
+            mip_absolute_gap: 1e-6,
+            mip_relative_gap: 1e-4,
+            acceptable: None,
+            native_scaling: true,
+        }
+    }
+}
+impl Accuracy {
+    /// Shared Ipopt-compatible stopping and original-bound contract for both NLP adapters.
+    pub fn nlp_options(&self) -> BTreeMap<String, OptionValue> {
+        BTreeMap::from([
+            ("tol".into(), OptionValue::Real(self.nlp_tolerance())),
+            (
+                "constr_viol_tol".into(),
+                OptionValue::Real(self.feasibility),
+            ),
+            ("dual_inf_tol".into(), OptionValue::Real(self.stationarity)),
+            (
+                "compl_inf_tol".into(),
+                OptionValue::Real(self.complementarity),
+            ),
+            ("bound_relax_factor".into(), OptionValue::Real(0.0)),
+            ("honor_original_bounds".into(), OptionValue::Bool(true)),
+            (
+                "acceptable_iter".into(),
+                OptionValue::Integer(if self.acceptable.is_some() { 15 } else { 0 }),
+            ),
+            (
+                "acceptable_tol".into(),
+                OptionValue::Real(self.acceptable.map_or(self.nlp_tolerance(), |k| {
+                    k.stationarity.min(k.complementarity)
+                })),
+            ),
+            (
+                "acceptable_constr_viol_tol".into(),
+                OptionValue::Real(self.feasibility),
+            ),
+            (
+                "acceptable_dual_inf_tol".into(),
+                OptionValue::Real(
+                    self.acceptable
+                        .map_or(self.stationarity, |k| k.stationarity),
+                ),
+            ),
+            (
+                "acceptable_compl_inf_tol".into(),
+                OptionValue::Real(
+                    self.acceptable
+                        .map_or(self.complementarity, |k| k.complementarity),
+                ),
+            ),
+        ])
+    }
+    /// Complete native numerical contract identity, including independent stopping budgets.
+    pub fn key(&self) -> ContentHash {
+        let mut h = pse_ids::FramedHasher::new("pse.native.accuracy.v1");
+        for v in [
+            self.feasibility,
+            self.stationarity,
+            self.complementarity,
+            self.integrality,
+            self.gap_absolute,
+            self.gap_relative,
+            self.mip_absolute_gap,
+            self.mip_relative_gap,
+        ] {
+            h.u64(v.to_bits());
+        }
+        h.bool(self.native_scaling).bool(self.acceptable.is_some());
+        if let Some(k) = self.acceptable {
+            h.u64(k.stationarity.to_bits())
+                .u64(k.complementarity.to_bits());
+        }
+        h.finish_hash()
+    }
+    /// Derive semantic native controls; physical arrays remain the final acceptance authority.
+    pub fn resolve(
+        policy: &pse_model::numerics::NumericalPolicy,
+        tolerance: &crate::quality::Tolerances,
+        normalization: &pse_math::normalization::Normalization,
+    ) -> Result<Self, ProblemError> {
+        policy
+            .validate()
+            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+        let tolerance = tolerance.normalized(normalization)?;
+        let feasibility = tolerance
+            .variables
+            .iter()
+            .chain(&tolerance.rows)
+            .copied()
+            .reduce(f64::min)
+            .unwrap_or(1e-8);
+        Ok(Self {
+            feasibility,
+            stationarity: policy.kkt.stationarity,
+            complementarity: policy.kkt.complementarity,
+            integrality: policy.integrality,
+            gap_absolute: policy.gap_absolute,
+            gap_relative: policy.gap_relative,
+            mip_absolute_gap: policy.mip_absolute_gap,
+            mip_relative_gap: policy.mip_relative_gap,
+            acceptable: policy.acceptable,
+            native_scaling: policy.native_scaling,
+        })
+    }
+    /// Native dimensionless controls must remain finite and strictly positive where required.
+    fn valid(&self) -> bool {
+        [
+            self.feasibility,
+            self.stationarity,
+            self.complementarity,
+            self.integrality,
+            self.gap_absolute,
+            self.gap_relative,
+        ]
+        .into_iter()
+        .all(|v| v.is_finite() && v > 0.0)
+            && [self.mip_absolute_gap, self.mip_relative_gap]
+                .into_iter()
+                .all(|v| v.is_finite() && v >= 0.0)
+            && self.acceptable.is_none_or(|k| {
+                k.stationarity.is_finite()
+                    && k.stationarity >= self.stationarity
+                    && k.complementarity.is_finite()
+                    && k.complementarity >= self.complementarity
+            })
+    }
+    /// Combined native NLP error budget; separate unscaled criteria remain explicit.
+    pub fn nlp_tolerance(&self) -> f64 {
+        self.feasibility
+            .min(self.stationarity)
+            .min(self.complementarity)
+    }
+}
 /// Finite shared attempt controls; solver-specific settings remain native typed values.
 #[derive(Clone, Debug)]
 pub struct Controls {
@@ -205,8 +402,8 @@ pub struct Controls {
     pub time_limit: Duration,
     /// Positive native iteration limit.
     pub iterations: u32,
-    /// Positive dimensionless acceptance tolerance.
-    pub tolerance: f64,
+    /// Independently resolved native accuracy controls.
+    pub accuracy: Accuracy,
     /// Explicit admitted native thread count.
     pub threads: usize,
     /// Bounded retained progress and failure events.
@@ -215,6 +412,8 @@ pub struct Controls {
     pub hessian: HessianMode,
     /// Native allocation/data reuse policy.
     pub reuse: ReusePolicy,
+    /// Numerical start policy, independent of native allocation reuse.
+    pub start: StartPolicy,
     /// Additional native options, admitted by the selected adapter.
     pub options: Options,
 }
@@ -223,11 +422,12 @@ impl Default for Controls {
         Self {
             time_limit: Duration::from_secs(300),
             iterations: 3000,
-            tolerance: 1e-8,
+            accuracy: Accuracy::default(),
             threads: 1,
             history: 256,
             hessian: HessianMode::Exact,
             reuse: ReusePolicy::Fresh,
+            start: StartPolicy::NoPriorStart,
             options: Options::new(),
         }
     }
@@ -260,8 +460,7 @@ impl Controls {
         if self.time_limit.is_zero()
             || self.iterations == 0
             || self.iterations > i32::MAX as u32
-            || !self.tolerance.is_finite()
-            || self.tolerance <= 0.0
+            || !self.accuracy.valid()
             || self.threads == 0
             || self.threads > i32::MAX as usize
             || self.history > 1_000_000
@@ -283,50 +482,6 @@ impl Controls {
         }
         Ok(())
     }
-}
-/// Result assurance is independent of native termination and candidate availability.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Assurance {
-    /// No mathematical success established.
-    None,
-    /// Original residual acceptance for a root or feasible point.
-    Feasible,
-    /// Local first-order NLP result, not a global optimum.
-    LocalStationary,
-    /// Native convex/linear/MIP optimality claim.
-    NativeOptimal,
-    /// Native primal/dual infeasibility certificate is supplied.
-    Certificate,
-}
-/// Cross-backend termination category; the raw code/name are always retained too.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Termination {
-    /// Library success.
-    Success,
-    /// Relaxed native convergence criterion.
-    Acceptable,
-    /// Feasible point without optimality.
-    FeasibleOnly,
-    /// Native infeasibility detection; scope depends on backend.
-    Infeasible,
-    /// Native unboundedness detection.
-    Unbounded,
-    /// Native ambiguous infeasibility/unboundedness.
-    InfeasibleOrUnbounded,
-    /// Iteration/node/solution limit.
-    Limit,
-    /// Wall/CPU limit.
-    TimeLimit,
-    /// Explicit cancellation.
-    Cancelled,
-    /// Numerical, factorization or restoration failure.
-    Numerical,
-    /// Terminal evaluator failure.
-    Evaluation,
-    /// Panic contained at the foreign boundary.
-    Panic,
-    /// Invalid native configuration or unsupported status.
-    Invalid,
 }
 /// Raw native termination and the adapter's conservative interpretation.
 #[derive(Clone, Debug)]
@@ -353,6 +508,8 @@ pub enum Metric {
     Text(String),
     /// Explicit native Boolean.
     Bool(bool),
+    /// An absent observation, with a stable reason instead of a text sentinel.
+    Unavailable(UnavailableReason),
 }
 /// One owned, bounded event. No pointers or borrowed native buffers escape.
 #[derive(Clone, Debug)]
@@ -370,6 +527,20 @@ pub struct Progress {
     limit: usize,
     events: Mutex<(Vec<Event>, u64)>,
 }
+impl Metric {
+    /// Stable type tag; raw nonfinite native values are observations, not missing sentinels.
+    pub const fn kind(&self) -> pse_model::generated::enums::NativeMetricKind {
+        use pse_model::generated::enums::NativeMetricKind;
+        match self {
+            Self::Integer(_) => NativeMetricKind::Integer,
+            Self::Real(_) => NativeMetricKind::Real,
+            Self::Text(_) => NativeMetricKind::Text,
+            Self::Bool(_) => NativeMetricKind::Boolean,
+            Self::Unavailable(_) => NativeMetricKind::Unavailable,
+        }
+    }
+}
+
 impl Progress {
     /// Allocate only up to the admitted bound; later events increment a dropped count.
     pub fn new(limit: usize) -> Self {
@@ -441,6 +612,8 @@ impl Execution {
 /// Primal and available native dual data, in declared source order.
 #[derive(Clone, Debug)]
 pub struct Candidate {
+    /// What the native API actually supplied, independent of qualification.
+    pub kind: CandidateKind,
     /// Original independent variable values.
     pub primal: Vec<f64>,
     /// Authored objective, including sense-independent constant.
@@ -502,12 +675,99 @@ pub enum WarmPayload {
 /// Portable owned seed; mutable native model state never crosses a worker boundary.
 #[derive(Clone, Debug)]
 pub struct WarmStart {
+    /// Execution that produced this seed; absent for an explicitly authored seed.
+    pub origin: Option<SeedOrigin>,
     /// Compatibility evidence.
     pub compatibility: Compatibility,
     /// Native-class seed.
     pub payload: WarmPayload,
 }
+/// Portable provenance of an output seed, distinct from its coordinate compatibility.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct SeedOrigin {
+    /// Public run identity when one exists.
+    pub run: Option<SemanticId>,
+    /// Zero-based original attempt.
+    pub attempt: usize,
+}
 impl WarmStart {
+    /// Check source-coordinate shape and finite payloads before native construction.
+    pub fn validate_shape(&self, variables: usize, rows: usize) -> Result<(), ProblemError> {
+        let finite = |v: &[f64], n| v.len() == n && v.iter().all(|v| v.is_finite());
+        let valid = match &self.payload {
+            WarmPayload::Root(x) => {
+                self.compatibility.backend == Backend::Kinsol && finite(x, variables)
+            }
+            WarmPayload::Nlp {
+                primal,
+                bounds,
+                rows: dual,
+            } => {
+                matches!(self.compatibility.backend, Backend::Ipopt | Backend::Pounce)
+                    && finite(primal, variables)
+                    && bounds
+                        .as_ref()
+                        .is_none_or(|(l, u)| finite(l, variables) && finite(u, variables))
+                    && dual.as_ref().is_none_or(|d| finite(d, rows))
+            }
+            WarmPayload::Highs {
+                primal,
+                dual,
+                basis,
+            } => {
+                self.compatibility.backend == Backend::Highs
+                    && (primal.is_some() || dual.is_some() || basis.is_some())
+                    && primal.as_ref().is_none_or(|p| finite(p, variables))
+                    && dual
+                        .as_ref()
+                        .is_none_or(|(c, r)| finite(c, variables) && finite(r, rows))
+                    && basis.as_ref().is_none_or(|b| {
+                        b.columns.len() == variables
+                            && b.rows.len() == rows
+                            && b.columns.iter().chain(&b.rows).all(|s| (0..=4).contains(s))
+                    })
+            }
+            #[cfg(feature = "pounce")]
+            WarmPayload::PounceSqp(s) => {
+                self.compatibility.backend == Backend::Pounce
+                    && finite(&s.x, variables)
+                    && finite(&s.lambda_g, rows)
+                    && s.lambda_x.iter().all(|v| v.is_finite())
+            }
+        };
+        if valid {
+            Ok(())
+        } else {
+            Err(ProblemError::Contract(
+                "invalid source-coordinate seed payload for selected backend".into(),
+            ))
+        }
+    }
+    /// Owned semantic seed snapshot for result provenance; this is not native consumption evidence.
+    pub fn snapshot(&self) -> serde_json::Value {
+        let payload = match &self.payload {
+            WarmPayload::Root(x) => serde_json::json!({"kind":"root","primal":x}),
+            WarmPayload::Nlp {
+                primal,
+                bounds,
+                rows,
+            } => {
+                serde_json::json!({"kind":"nlp","primal":primal,"bound_duals":bounds,"row_duals":rows})
+            }
+            WarmPayload::Highs {
+                primal,
+                dual,
+                basis,
+            } => {
+                serde_json::json!({"kind":"highs","primal":primal,"dual":dual,"basis":basis.as_ref().map(|b|serde_json::json!({"columns":b.columns,"rows":b.rows}))})
+            }
+            #[cfg(feature = "pounce")]
+            WarmPayload::PounceSqp(s) => {
+                serde_json::json!({"kind":"pounce_sqp","primal":s.x,"row_duals":s.lambda_g,"packed_bound_duals":s.lambda_x,"working_set":s.working.as_ref().map(|w|serde_json::json!({"bounds":w.bounds.iter().map(|v|format!("{v:?}")).collect::<Vec<_>>(),"constraints":w.constraints.iter().map(|v|format!("{v:?}")).collect::<Vec<_>>()}))})
+            }
+        };
+        serde_json::json!({"origin":self.origin,"layout":self.compatibility.layout.to_hex(),"data":self.compatibility.data.to_hex(),"backend":self.compatibility.backend.as_str(),"payload":payload})
+    }
     /// Numeric data changes may reuse a seed; layout and backend must match exactly.
     pub fn validate(&self, target: &Compatibility) -> Result<(), ProblemError> {
         if self.compatibility.layout != target.layout
@@ -519,6 +779,20 @@ impl WarmStart {
         }
         Ok(())
     }
+}
+/// Exact owned submitted seed with source-coordinate transformation provenance.
+#[derive(Clone, Debug)]
+pub struct StartReceipt {
+    /// Previous sequence attempt when that policy selected the seed.
+    pub previous_attempt: Option<usize>,
+    /// Source compatibility and submitted payload in original coordinates.
+    pub seed: Option<WarmStart>,
+    /// Explicit partial MIP seed in original coordinates, if selected.
+    pub sparse_seed: Option<BTreeMap<SemanticId, f64>>,
+    /// Transformations subsequently applied by the native transport.
+    pub transformations: Vec<String>,
+    /// API submission is observable; native internal consumption may remain unavailable.
+    pub submitted: bool,
 }
 /// One native attempt, including unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]
@@ -575,6 +849,10 @@ pub struct SolveReport {
     pub dropped_events: u64,
     /// Compatible owned seed for a later attempt, when supplied.
     pub warm_start: Option<WarmStart>,
+    /// Input seed actually submitted, distinct from the output seed.
+    pub start_receipt: Option<StartReceipt>,
+    /// Original-space numerical qualification, never inferred from a native stop alone.
+    pub qualification: Qualification,
 }
 impl SolveReport {
     /// Attach the outer runtime's retained-result admission to this owned envelope.
@@ -613,6 +891,8 @@ impl SolveReport {
             events,
             dropped_events,
             warm_start: None,
+            start_receipt: None,
+            qualification: Qualification::Unqualified,
         }
     }
 }
@@ -653,7 +933,7 @@ pub(crate) fn insert_native_metrics(
         Value::Null => {
             out.insert(
                 prefix.into(),
-                Metric::Text("unavailable_or_nonfinite".into()),
+                Metric::Unavailable(UnavailableReason::Unknown),
             );
         }
         Value::Bool(v) => {
@@ -674,5 +954,60 @@ pub(crate) fn insert_native_metrics(
             };
             out.insert(prefix.into(), metric);
         }
+    }
+}
+
+#[cfg(test)]
+mod numerical_tests {
+    use super::*;
+    #[test]
+    fn numerical_options_keep_feasibility_kkt_and_acceptable_independent() {
+        let mut accuracy = Accuracy {
+            feasibility: 1e-7,
+            stationarity: 2e-8,
+            complementarity: 3e-9,
+            ..Default::default()
+        };
+        let options = accuracy.nlp_options();
+        assert!(matches!(options["constr_viol_tol"],OptionValue::Real(v) if v==1e-7));
+        assert!(matches!(options["dual_inf_tol"],OptionValue::Real(v) if v==2e-8));
+        assert!(matches!(options["compl_inf_tol"],OptionValue::Real(v) if v==3e-9));
+        assert!(matches!(
+            options["acceptable_iter"],
+            OptionValue::Integer(0)
+        ));
+        assert!(matches!(
+            options["bound_relax_factor"],
+            OptionValue::Real(0.0)
+        ));
+        assert!(matches!(
+            options["honor_original_bounds"],
+            OptionValue::Bool(true)
+        ));
+        let key = accuracy.key();
+        accuracy.acceptable = Some(pse_model::numerics::KktTolerances {
+            stationarity: 1e-5,
+            complementarity: 1e-6,
+        });
+        assert_ne!(key, accuracy.key());
+        assert!(matches!(
+            accuracy.nlp_options()["acceptable_iter"],
+            OptionValue::Integer(15)
+        ));
+        assert!(
+            matches!(accuracy.nlp_options()["acceptable_constr_viol_tol"],OptionValue::Real(v) if v==1e-7)
+        );
+        let scales = pse_math::normalization::Normalization {
+            variables: vec![1e6, 1e-3],
+            rows: vec![1e9, 1.0],
+            objective: 1.0,
+        };
+        let t = crate::quality::Tolerances {
+            variables: vec![1e-1, 1e-10],
+            rows: vec![1e2, 1e-7],
+            integrality: 1e-8,
+        };
+        let resolved = Accuracy::resolve(&Default::default(), &t, &scales).unwrap();
+        assert!((resolved.feasibility - 1e-7).abs() < 1e-20);
     }
 }

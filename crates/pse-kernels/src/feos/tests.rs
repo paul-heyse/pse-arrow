@@ -12,6 +12,7 @@ use std::sync::atomic::AtomicBool;
 fn fixture() -> (QuantityRegistry, FeosPorts) {
     let id = |n| SemanticId::from_bytes([n; 16]);
     let reference = ReferenceStateId::from_id(id(80));
+    let entropy_reference = ReferenceStateId::from_id(id(83));
     let basis = BasisId::from_id(id(81));
     let composition = BasisId::from_id(id(82));
     let mut b = QuantityRegistryBuilder::new();
@@ -20,6 +21,14 @@ fn fixture() -> (QuantityRegistry, FeosPorts) {
         kind: ReferenceStateKind::Custom,
         temperature: Some(298.15),
         pressure: None,
+        include_enthalpy_of_formation: false,
+        phase: None,
+    });
+    b.reference_state(ReferenceState {
+        id: entropy_reference,
+        kind: ReferenceStateKind::Custom,
+        temperature: Some(298.15),
+        pressure: Some(100_000.0),
         include_enthalpy_of_formation: false,
         phase: None,
     });
@@ -54,42 +63,54 @@ fn fixture() -> (QuantityRegistry, FeosPorts) {
         .enumerate()
         .map(|(i, d)| {
             let n = u8::try_from(i + 1).unwrap();
-            let u = UnitId::from_id(id(n));
-            let q = QuantityTypeId::from_id(id(n + 20));
-            let k = QuantityKindId::from_id(id(n + 40));
+            let role = match i {
+                3 => 2,
+                8 | 9 => 7,
+                _ => i,
+            };
+            let r = u8::try_from(role + 1).unwrap();
+            let u = UnitId::from_id(id(r));
+            let q = QuantityTypeId::from_id(id(r + 20));
+            let k = QuantityKindId::from_id(id(u8::try_from(role + 41).unwrap()));
             let dimension = DimensionVector::new(d.map(|e| Ratio::new(e, 1).unwrap()));
-            b.unit(Unit {
-                id: u,
-                symbol: format!("si-{n}"),
-                dimension,
-                scale_to_canonical: 1.0,
-                offset_to_canonical: 0.0,
-                is_affine: false,
-                reference_state: None,
-            });
-            b.kind(QuantityKind {
-                id: k,
-                dimension,
-                extensive: false,
-                addition_kind: QuantityAdditionKind::OriginSensitive,
-            });
-            b.quantity_type(QuantityType {
-                id: q,
-                key: QuantityTypeKey {
-                    kind: k,
-                    basis: if i == 2 || i == 3 {
-                        Some(composition)
-                    } else {
-                        ((i == 5) || (i == 6)).then_some(basis)
+            if i == role {
+                b.unit(Unit {
+                    id: u,
+                    symbol: format!("si-{n}"),
+                    dimension,
+                    scale_to_canonical: 1.0,
+                    offset_to_canonical: 0.0,
+                    is_affine: false,
+                    reference_state: None,
+                });
+                b.kind(QuantityKind {
+                    id: k,
+                    dimension,
+                    extensive: false,
+                    addition_kind: QuantityAdditionKind::OriginSensitive,
+                });
+                b.quantity_type(QuantityType {
+                    id: q,
+                    key: QuantityTypeKey {
+                        kind: k,
+                        basis: if i == 2 || i == 3 {
+                            Some(composition)
+                        } else {
+                            ((i == 5) || (i == 6)).then_some(basis)
+                        },
+                        reference_state: match i {
+                            5 => Some(reference),
+                            6 => Some(entropy_reference),
+                            _ => None,
+                        },
+                        scale_kind: ScaleKind::Point,
+                        shape: vec![],
+                        subject_kind: None,
                     },
-                    reference_state: ((i == 5) || (i == 6)).then_some(reference),
-                    scale_kind: ScaleKind::Point,
-                    shape: vec![],
-                    subject_kind: None,
-                },
-                canonical_unit: u,
-                nominal_magnitude: None,
-            });
+                    canonical_unit: u,
+                    nominal_magnitude: None,
+                });
+            }
             Port {
                 id: id(n + 60),
                 quantity: q,
@@ -103,13 +124,35 @@ fn fixture() -> (QuantityRegistry, FeosPorts) {
             temperature: range(250.0, 500.0),
             density: range(0.0, 25000.0),
             pressure: range(0.0, 1e8),
-            composition: [range(0.0, 1.0); 3],
+            composition: vec![range(0.0, 1.0); 3],
             provenance: "declared unit-test window; empirical validity unestablished".into(),
         },
-        inputs: ports[..4].to_vec().try_into().unwrap(),
-        outputs: ports[4..].to_vec().try_into().unwrap(),
-        caloric_reference: reference,
-        components: [id(90), id(91), id(92)],
+        inputs: ports[..4].to_vec(),
+        outputs: ports[4..].to_vec(),
+        enthalpy_reference: reference,
+        entropy_reference,
+        components: ["74-82-8", "74-84-0", "74-98-6"]
+            .into_iter()
+            .enumerate()
+            .map(|(i, cas)| ComponentBinding {
+                species: id(u8::try_from(90 + i).unwrap()),
+                pcsaft_cas: cas.into(),
+                ideal_gas_cas: cas.into(),
+            })
+            .collect(),
+        dependent_species: id(92),
+        kinds: FeosKinds {
+            temperature: QuantityKindId::from_id(id(41)),
+            density: QuantityKindId::from_id(id(42)),
+            fraction: QuantityKindId::from_id(id(43)),
+            pressure: QuantityKindId::from_id(id(45)),
+            enthalpy: QuantityKindId::from_id(id(46)),
+            entropy: QuantityKindId::from_id(id(47)),
+            ln_fugacity: QuantityKindId::from_id(id(48)),
+        },
+        data: FeosData::light_hydrocarbons(),
+        formulation: ThermodynamicFormulation::HomogeneousDensity,
+        stability: StabilityPolicy::Unchecked,
     };
     (b.build().unwrap(), bindings)
 }
@@ -243,7 +286,7 @@ fn data_identity_contract_and_npt_initialization_are_explicit() {
     changed.outputs.swap(0, 1);
     assert!(FeosPackage::new(changed, &registry).is_err());
     let mut changed = ports;
-    changed.components[1] = changed.components[0];
+    changed.components[1] = changed.components[0].clone();
     assert!(FeosPackage::new(changed, &registry).is_err());
     let cancel = AtomicBool::new(false);
     let context = EvaluationContext {
@@ -251,16 +294,23 @@ fn data_identity_contract_and_npt_initialization_are_explicit() {
         max_result_bytes: 4096,
     };
     let state = package
-        .initialize_npt(350.0, 1e5, [0.2, 0.3], InitialPhase::Vapor, false, &context)
+        .initialize_npt(
+            350.0,
+            1e5,
+            &[0.2, 0.3],
+            InitialPhase::Vapor,
+            false,
+            &context,
+        )
         .unwrap();
     assert!((state.molar_density - 34.565_566_349_336_066).abs() < 1e-10);
-    assert!(state.stable.is_none());
+    assert_eq!(state.global_stability.status, StabilityStatus::NotRequested);
     assert!(
         package
             .initialize_npt(
                 350.0,
                 -1.0,
-                [0.2, 0.3],
+                &[0.2, 0.3],
                 InitialPhase::Vapor,
                 false,
                 &context
@@ -333,16 +383,16 @@ fn independent_pcsaft_reference_values_and_caloric_increments() {
     assert_eq!(worker.state_evaluations(), 5);
     // Stability is an explicit library calculation, separate from density guessing.
     let initialized = package
-        .initialize_npt(350.0, 1e5, [0.2, 0.3], InitialPhase::Vapor, true, &context)
+        .initialize_npt(350.0, 1e5, &[0.2, 0.3], InitialPhase::Vapor, true, &context)
         .unwrap();
-    assert_eq!(initialized.stable, Some(true));
+    assert_eq!(initialized.global_stability.status, StabilityStatus::Stable);
     assert!((initialized.molar_density - 34.565_566_349_336_066).abs() < 1e-10);
 }
 
 #[test]
 fn declared_envelopes_bind_identity_and_reject_unrequested_pressure() {
     let (q, mut ports) = fixture();
-    ports.envelope.composition = [crate::envelope::Interval::new(1e-6, 1. - 1e-6).unwrap(); 3];
+    ports.envelope.composition = vec![crate::envelope::Interval::new(1e-6, 1. - 1e-6).unwrap(); 3];
     let first = FeosPackage::new(ports.clone(), &q).unwrap();
     ports.envelope.provenance.push_str(" revised");
     let second = FeosPackage::new(ports.clone(), &q).unwrap();
@@ -386,16 +436,261 @@ fn declared_envelopes_bind_identity_and_reject_unrequested_pressure() {
         worker.evaluate(&good, &request, &context).unwrap();
     }
     assert!(
-        matches!(first.initialize_npt(350., 1e8+1., [0.2,0.3], InitialPhase::Vapor, false, &context),Err(ProviderError::OutsideEnvelope{axis,..}) if axis == "pressure")
+        matches!(first.initialize_npt(350., 1e8+1., &[0.2,0.3], InitialPhase::Vapor, false, &context),Err(ProviderError::OutsideEnvelope{axis,..}) if axis == "pressure")
     );
     let mut narrow = ports.clone();
     narrow.envelope.density = crate::envelope::Interval::new(1., 2.).unwrap();
     assert!(
-        matches!(FeosPackage::new(narrow,&q).unwrap().initialize_npt(350.,1e5,[0.2,0.3],InitialPhase::Vapor,false,&context),Err(ProviderError::OutsideEnvelope{axis,..}) if axis == "density")
+        matches!(FeosPackage::new(narrow,&q).unwrap().initialize_npt(350.,1e5,&[0.2,0.3],InitialPhase::Vapor,false,&context),Err(ProviderError::OutsideEnvelope{axis,..}) if axis == "density")
     );
     ports.envelope.pressure = crate::envelope::Interval::new(0., 100.).unwrap();
     let tight = FeosPackage::new(ports, &q).unwrap();
     assert!(
         matches!(tight.worker().evaluate(&good,&request,&context),Err(ProviderError::OutsideEnvelope{axis,..}) if axis=="pressure")
     );
+}
+
+#[test]
+fn declared_entropy_datum_agrees_with_independent_residuals() {
+    let reference: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/fixtures/thermo-entropy-reference.json"
+    ))
+    .unwrap();
+    let (registry, ports) = fixture();
+    let cancel = AtomicBool::new(false);
+    let context = EvaluationContext {
+        cancelled: &cancel,
+        max_result_bytes: 4096,
+    };
+    let offset: f64 = reference["feos_raw_minus_reference_j_per_mol_k"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let request = ProviderRequest {
+        outputs: vec![2],
+        order: DerivativeOrder::Value,
+    };
+    for case in reference["cases"].as_array().unwrap().iter() {
+        let x: Vec<_> = case["input"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_f64().unwrap())
+            .collect();
+        let cas: Vec<_> = case["cas"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        let mut worker = FeosPackage::new(select_components(ports.clone(), &cas), &registry)
+            .unwrap()
+            .worker();
+        let raw = worker.evaluate(&x, &request, &context).unwrap().values[0];
+        let independent = case["entropy"].as_f64().unwrap();
+        assert!(
+            (raw - independent).abs() < 2e-7,
+            "raw {raw}, reference {independent}, derived offset {offset}"
+        );
+    }
+}
+
+fn select_components(mut ports: FeosPorts, cas: &[&str]) -> FeosPorts {
+    let old = ports.components.clone();
+    ports.components = cas
+        .iter()
+        .map(|cas| old.iter().find(|c| c.pcsaft_cas == *cas).unwrap().clone())
+        .collect();
+    ports.dependent_species = ports.components.last().unwrap().species;
+    ports.inputs.truncate(2);
+    for i in 1..cas.len() {
+        ports.inputs.push(Port {
+            id: named_id(SemanticId::NIL, &format!("coordinate{i}")),
+            quantity: QuantityTypeId::from_id(SemanticId::from_bytes([23; 16])),
+            unit: UnitId::from_id(SemanticId::from_bytes([3; 16])),
+        });
+    }
+    ports.outputs.truncate(3);
+    for i in 0..cas.len() {
+        ports.outputs.push(Port {
+            id: named_id(SemanticId::NIL, &format!("phi{i}")),
+            quantity: QuantityTypeId::from_id(SemanticId::from_bytes([28; 16])),
+            unit: UnitId::from_id(SemanticId::from_bytes([8; 16])),
+        });
+    }
+    ports.envelope.composition = vec![crate::envelope::Interval::new(0.0, 1.0).unwrap(); cas.len()];
+    ports
+}
+#[test]
+fn explicit_records_permutation_and_wide_derivative_blocks() {
+    let (q, ports) = fixture();
+    let cancel = AtomicBool::new(false);
+    let context = EvaluationContext {
+        cancelled: &cancel,
+        max_result_bytes: 16384,
+    };
+    let request = ProviderRequest {
+        outputs: vec![0, 1, 2, 3, 4, 5],
+        order: DerivativeOrder::Second,
+    };
+    let mut original = FeosPackage::new(ports.clone(), &q).unwrap().worker();
+    let a = original
+        .evaluate(&[350., 30., 0.2, 0.3], &request, &context)
+        .unwrap();
+    let p = select_components(ports.clone(), &["74-98-6", "74-82-8", "74-84-0"]);
+    let mut permuted = FeosPackage::new(p, &q).unwrap().worker();
+    let b = permuted
+        .evaluate(&[350., 30., 0.5, 0.2], &request, &context)
+        .unwrap();
+    for i in 0..3 {
+        assert!((a.values[i] - b.values[i]).abs() < 1e-9);
+    }
+    for (i, j) in [(3, 4), (4, 5), (5, 3)] {
+        assert!((a.values[i] - b.values[j]).abs() < 1e-12);
+    }
+    let mut bad = ports.clone();
+    bad.components[0].pcsaft_cas = "unknown".into();
+    assert!(FeosPackage::new(bad, &q).is_err());
+    let mut bad = ports.clone();
+    bad.data.missing_interactions = MissingInteractionPolicy::RequireExplicit;
+    assert!(FeosPackage::new(bad, &q).is_err());
+    let mut bad = ports.clone();
+    bad.kinds.enthalpy = bad.kinds.entropy;
+    assert!(FeosPackage::new(bad, &q).is_err());
+    let mut bad = ports.clone();
+    bad.formulation = ThermodynamicFormulation::PhaseEquilibrium;
+    assert!(FeosPackage::new(bad, &q).is_err());
+    // A fourth synthetic identity sharing methane parameters exercises width, not empirical validity.
+    let mut wide = ports;
+    for text in [&mut wide.data.pcsaft, &mut wide.data.ideal_gas] {
+        let mut records: Vec<serde_json::Value> = serde_json::from_str(text).unwrap();
+        let mut extra = records[0].clone();
+        extra["identifier"]["cas"] = "synthetic-width-control".into();
+        records.push(extra);
+        *text = serde_json::to_string(&records).unwrap();
+    }
+    wide.components.push(ComponentBinding {
+        species: SemanticId::from_bytes([93; 16]),
+        pcsaft_cas: "synthetic-width-control".into(),
+        ideal_gas_cas: "synthetic-width-control".into(),
+    });
+    wide = select_components(
+        wide,
+        &["74-82-8", "74-84-0", "74-98-6", "synthetic-width-control"],
+    );
+    let mut worker = FeosPackage::new(wide, &q).unwrap().worker();
+    let request = ProviderRequest {
+        outputs: vec![0, 1, 2, 6],
+        order: DerivativeOrder::Second,
+    };
+    let x = [350., 30., 0.2, 0.3, 0.1];
+    let v = worker.evaluate(&x, &request, &context).unwrap();
+    assert_eq!(worker.state_evaluations(), 3);
+    for axis in 0..5 {
+        let h = x[axis].abs().max(1.) * 1e-5;
+        let mut left = x;
+        let mut right = x;
+        left[axis] -= h;
+        right[axis] += h;
+        let first = ProviderRequest {
+            order: DerivativeOrder::First,
+            ..request.clone()
+        };
+        let a = worker.evaluate(&left, &first, &context).unwrap();
+        let b = worker.evaluate(&right, &first, &context).unwrap();
+        for output in 0..4 {
+            for j in 0..5 {
+                let expected = v.hessians[output * 25 + j * 5 + axis];
+                let actual = (b.jacobian[output * 5 + j] - a.jacobian[output * 5 + j]) / (2. * h);
+                assert!(
+                    (actual - expected).abs() < 4e-4 * expected.abs().max(1.),
+                    "axis {axis}, {j}: {actual} vs {expected}"
+                );
+            }
+        }
+    }
+}
+#[test]
+fn declared_stability_policy_distinguishes_mechanical_global_and_failure() {
+    let stable = StabilityObservation {
+        status: StabilityStatus::Stable,
+        detail: None,
+    };
+    let unstable = StabilityObservation {
+        status: StabilityStatus::Unstable,
+        detail: None,
+    };
+    let failed = StabilityObservation {
+        status: StabilityStatus::Failed,
+        detail: Some("iteration did not converge".into()),
+    };
+    assert!(enforce_stability(StabilityPolicy::Unchecked, -1., &unstable).is_ok());
+    assert!(enforce_stability(StabilityPolicy::Mechanical, 1., &unstable).is_ok());
+    assert!(enforce_stability(StabilityPolicy::Mechanical, -1., &stable).is_err());
+    assert!(enforce_stability(StabilityPolicy::Global, 1., &unstable).is_err());
+    assert!(
+        enforce_stability(StabilityPolicy::Global, 1., &failed)
+            .unwrap_err()
+            .to_string()
+            .contains("failed")
+    );
+    assert!(enforce_stability(StabilityPolicy::Global, 1., &stable).is_ok());
+}
+
+#[test]
+fn same_dimension_internal_energy_cannot_bind_enthalpy_role() {
+    let (q, mut ports) = fixture();
+    let mut builder = q.to_builder();
+    let mut kind = q.kind(ports.kinds.enthalpy).unwrap().clone();
+    kind.id = SemanticId::from_bytes([140; 16]).into();
+    builder.kind(kind.clone());
+    let mut quantity = q.quantity_type(ports.outputs[1].quantity).unwrap().clone();
+    quantity.id = SemanticId::from_bytes([141; 16]).into();
+    quantity.key.kind = kind.id;
+    builder.quantity_type(quantity.clone());
+    ports.outputs[1].quantity = quantity.id;
+    assert!(matches!(
+        FeosPackage::new(ports, &builder.build().unwrap()),
+        Err(ProviderError::Contract(_))
+    ));
+}
+
+#[test]
+fn mechanical_requirement_changes_admissibility_only_when_selected() {
+    let (q, ports) = fixture();
+    let unrestricted = FeosPackage::new(ports.clone(), &q).unwrap();
+    let mut strict = ports;
+    strict.stability = StabilityPolicy::Mechanical;
+    let strict = FeosPackage::new(strict, &q).unwrap();
+    assert_ne!(unrestricted.spec().identity(), strict.spec().identity());
+    let cancel = AtomicBool::new(false);
+    let context = EvaluationContext {
+        cancelled: &cancel,
+        max_result_bytes: 4096,
+    };
+    let request = ProviderRequest {
+        outputs: vec![0],
+        order: DerivativeOrder::First,
+    };
+    let mut a = unrestricted.worker();
+    let mut b = strict.worker();
+    let mut witness = None;
+    for temperature in [250., 275., 300.] {
+        for density in [500., 1000., 2000., 3000., 4000., 5000., 6000., 8000.] {
+            let x = [temperature, density, 0.2, 0.3];
+            if let Ok(value) = a.evaluate(&x, &request, &context)
+                && value.jacobian[1] < 0.0
+            {
+                witness = Some(x);
+                break;
+            }
+        }
+    }
+    let x = witness.expect("positive-pressure metastable-region control");
+    assert!(matches!(
+        b.evaluate(&x, &request, &context),
+        Err(ProviderError::Trial(_))
+    ));
+    assert!(a.evaluate(&x, &request, &context).is_ok());
 }

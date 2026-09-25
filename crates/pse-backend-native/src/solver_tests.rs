@@ -158,6 +158,7 @@ fn physical_quality_keeps_original_units_and_normalizes_only_ratios() {
 fn warm_compatibility_is_semantic_and_backend_specific() {
     let mut target = stamp(Backend::Kinsol);
     let start = WarmStart {
+        origin: None,
         compatibility: target.clone(),
         payload: WarmPayload::Root(vec![1.0]),
     };

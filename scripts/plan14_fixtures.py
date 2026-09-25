@@ -52,6 +52,15 @@ def main() -> None:
             "doc": "DIPPR100 integral origin.",
         }
     ]
+    entropy_reference = sid("entropy-datum")
+    d["reference_states"].append(
+        dict(
+            d["reference_states"][0],
+            reference_state_id=entropy_reference,
+            pressure=100000.0,
+            doc="DIPPR ideal-gas entropy origin at 298.15 K and 1 bar.",
+        )
+    )
     d["bases"] = [
         {
             "basis_id": i,
@@ -126,7 +135,11 @@ def main() -> None:
         "enthalpy", [2, 1, -2, 0, -1, 0, 0, 0], basis=molar, ref=reference, origin=True
     )
     quantity(
-        "entropy", [2, 1, -2, -1, -1, 0, 0, 0], basis=molar, ref=reference, origin=True
+        "entropy",
+        [2, 1, -2, -1, -1, 0, 0, 0],
+        basis=molar,
+        ref=entropy_reference,
+        origin=True,
     )
     quantity("time", [0, 0, 1, 0, 0, 0, 0, 0])
     quantity("amount", [0, 0, 0, 0, 1, 0, 0, 0])
@@ -214,6 +227,7 @@ def main() -> None:
     ]:
         op("Mul", args, out)
     op("Div", ("pressure", "density"), "enthalpy_difference")
+    op("Div", ("pressure", "pressure"), "neutral")
     op("Sqrt", ("pressure",), "sqrt_pressure")
     op("Derivative", ("amount",), "flow")
     op("Derivative", ("energy",), "power")
@@ -262,7 +276,8 @@ def main() -> None:
     provider = {
         "model_id": sid("model"),
         "name": "pressure",
-        "kind": "feos-light-hydrocarbons",
+        "kind": "feos-pcsaft-dippr",
+        "material_system_id": None,
         "envelope": {
             "temperature": [250.0, 500.0],
             "density": [0.0, 25000.0],
@@ -271,8 +286,42 @@ def main() -> None:
             "provenance": "declared acceptance operating window; empirical validity unestablished",
         },
         "output": 0,
-        "caloric_reference": reference,
-        "components": [sid(c) for c in ["methane", "ethane", "propane"]],
+        "enthalpy_reference": reference,
+        "entropy_reference": entropy_reference,
+        "components": [
+            {"species_id": sid(name), "pcsaft_cas": cas, "ideal_gas_cas": cas}
+            for name, cas in [
+                ("methane", "74-82-8"),
+                ("ethane", "74-84-0"),
+                ("propane", "74-98-6"),
+            ]
+        ],
+        "dependent_species": sid("propane"),
+        "quantity_kinds": {
+            role: kinds["neutral" if role == "ln_fugacity" else role]
+            for role in [
+                "temperature",
+                "density",
+                "fraction",
+                "pressure",
+                "enthalpy",
+                "entropy",
+                "ln_fugacity",
+            ]
+        },
+        "data": {
+            "pcsaft": (
+                ROOT / "crates/pse-kernels/data/pcsaft-light-hydrocarbons.json"
+            ).read_text(),
+            "ideal_gas": (
+                ROOT / "crates/pse-kernels/data/ideal-gas-light-hydrocarbons.json"
+            ).read_text(),
+            "binary": "[]",
+            "provenance": "Bundled FeOS light-hydrocarbon example records; explicit zero binary interactions",
+            "missing_interactions": "zero",
+        },
+        "formulation": "homogeneous_density",
+        "stability": "unchecked",
         "inputs": [
             port("provider." + q, q)
             for q in ["temperature", "density", "fraction", "fraction"]
@@ -548,6 +597,7 @@ def main() -> None:
         "pressure0": "pressure",
         "valve_k": "valve",
         "downstream": "pressure",
+        "valve_width": "pressure",
     }
     vessel_ports = {r: port("vessel." + r, q) for r, q in roles.items()}
     n0 = density * 0.1
@@ -573,6 +623,7 @@ def main() -> None:
         "pressure0": target["pressure"],
         "valve_k": 1e-5,
         "downstream": 50000.0,
+        "valve_width": 10000.0,
     }
     flash = json.loads((DEST / "thermo-reference.json").read_text())["flash"]
     variables = [
@@ -689,6 +740,7 @@ def main() -> None:
                     {
                         "source_id": sid(case_name + ".physical." + row_name + str(i)),
                         "role": role,
+                        "multiplier": 1.0,
                         "transfer_id": None,
                         "mode": None,
                         "instance_id": instance["instance_id"],
@@ -800,6 +852,7 @@ def main() -> None:
             "model_id": model["model_id"],
             "case_id": dynamic["case_id"],
             "time_id": dynamic_ports["time"]["symbol_id"],
+            "time_origin": None,
             "states": [
                 {
                     "symbol_id": dynamic_ports["n"]["symbol_id"],
@@ -843,6 +896,8 @@ def main() -> None:
                     "experiment_id": experiment_id,
                     "output_id": sid("accumulator.row.output"),
                     "time": 1.0,
+                    "time_basis": None,
+                    "time_unit_id": None,
                     "included": True,
                     "importance": 1.0,
                 }

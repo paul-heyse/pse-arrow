@@ -16,10 +16,12 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-strum.workspace = true
+gmp-mpfr-sys.workspace = true
+pse-model.workspace = true
 symbolica.workspace = true
 faer.workspace = true
 pounce-nlp.workspace = true
+pounce-presolve.workspace = true
 pse-ids.workspace = true
 pse-diagnostics.workspace = true
 pse-quantity.workspace = true

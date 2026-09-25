@@ -24,9 +24,19 @@ pounce = ["dep:pounce-rs", "dep:pounce-feral", "dep:rayon", "pounce-nlp/serde"]
 kinsol = ["dep:sundials-sys", "dep:suitesparse_sys"]
 sdp = ["clarabel/sdp-netlib"]
 diffsol = ["dep:diffsol"]
-native-solvers = ["ipopt", "highs", "pounce", "kinsol", "sdp", "diffsol"]
+idas = ["dep:sundials-sys", "sundials-sys/idas", "dep:suitesparse_sys"]
+native-solvers = [
+  "ipopt",
+  "highs",
+  "pounce",
+  "kinsol",
+  "sdp",
+  "diffsol",
+  "idas",
+]
 
 [dependencies]
+pse-model.workspace = true
 diffsol = { workspace = true, optional = true }
 pounce-nlp.workspace = true
 pounce-common.workspace = true

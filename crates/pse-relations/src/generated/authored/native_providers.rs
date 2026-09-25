@@ -5,24 +5,26 @@
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#authored::r#native_providers::{
     AuthoredNativeProvidersFieldInputsItem, AuthoredNativeProvidersFieldOutputsItem,
-    AuthoredNativeProvidersFieldEnvelope, AuthoredNativeProvidersRow, Row,
+    AuthoredNativeProvidersFieldEnvelope, AuthoredNativeProvidersFieldComponentsItem,
+    AuthoredNativeProvidersFieldQuantityKinds, AuthoredNativeProvidersFieldData,
+    AuthoredNativeProvidersRow, Row,
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    35u8, 109u8, 109u8, 30u8, 13u8, 74u8, 86u8, 55u8, 113u8, 5u8, 232u8, 8u8, 228u8,
-    105u8, 191u8, 82u8,
+    29u8, 157u8, 198u8, 180u8, 213u8, 206u8, 150u8, 73u8, 2u8, 5u8, 207u8, 45u8, 74u8,
+    111u8, 229u8, 223u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "native_providers";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    172u8, 212u8, 62u8, 81u8, 146u8, 21u8, 165u8, 145u8, 151u8, 252u8, 160u8, 161u8,
-    93u8, 198u8, 188u8, 102u8, 226u8, 211u8, 70u8, 24u8, 83u8, 6u8, 81u8, 14u8, 81u8,
-    16u8, 200u8, 37u8, 34u8, 220u8, 23u8, 107u8,
+    152u8, 208u8, 174u8, 48u8, 26u8, 135u8, 146u8, 32u8, 122u8, 101u8, 79u8, 6u8, 157u8,
+    115u8, 101u8, 174u8, 214u8, 163u8, 122u8, 233u8, 210u8, 29u8, 103u8, 149u8, 129u8,
+    119u8, 252u8, 47u8, 97u8, 123u8, 67u8, 129u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredNativeProvidersFieldInputsItem {
     fn append(
@@ -238,7 +240,7 @@ impl crate::columnar::ArrowValue for AuthoredNativeProvidersFieldEnvelope {
         })
     }
 }
-impl crate::columnar::ArrowValue for AuthoredNativeProvidersRow {
+impl crate::columnar::ArrowValue for AuthoredNativeProvidersFieldComponentsItem {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -248,26 +250,17 @@ impl crate::columnar::ArrowValue for AuthoredNativeProvidersRow {
         >(output)?;
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(
-            &self.r#model_id,
+            &self.r#species_id,
             children[0usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#name, children[1usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#inputs, children[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#outputs, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#envelope,
-            children[5usize].as_mut(),
+            &self.r#pcsaft_cas,
+            children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#caloric_reference,
-            children[6usize].as_mut(),
+            &self.r#ideal_gas_cas,
+            children[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#components,
-            children[7usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#output, children[8usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -283,22 +276,314 @@ impl crate::columnar::ArrowValue for AuthoredNativeProvidersRow {
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <Vec<
-            AuthoredNativeProvidersFieldInputsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <Vec<
-            AuthoredNativeProvidersFieldOutputsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
-        <AuthoredNativeProvidersFieldEnvelope as crate::columnar::ArrowValue>::append_null(
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#species_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#pcsaft_cas: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#ideal_gas_cas: <String as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredNativeProvidersFieldQuantityKinds {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#temperature,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#density, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#fraction,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#pressure,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#enthalpy,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#entropy, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#ln_fugacity,
+            children[6usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[5usize].as_mut(),
         )?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[6usize].as_mut(),
         )?;
-        <Vec<
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#temperature: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#density: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#fraction: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#pressure: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#enthalpy: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#entropy: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#ln_fugacity: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredNativeProvidersFieldData {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#pcsaft, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#ideal_gas,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#binary, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#provenance,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#missing_interactions,
+            children[4usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <crate::generated::enums::MissingInteractionPolicy as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#pcsaft: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#ideal_gas: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#binary: <String as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#provenance: <String as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#missing_interactions: <crate::generated::enums::MissingInteractionPolicy as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredNativeProvidersRow {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#model_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#name, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#material_system_id,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#inputs, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outputs, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#envelope,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#enthalpy_reference,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#entropy_reference,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#components,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dependent_species,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity_kinds,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#data, children[12usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#formulation,
+            children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#stability,
+            children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#output, children[15usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
             pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Vec<
+            AuthoredNativeProvidersFieldInputsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            AuthoredNativeProvidersFieldOutputsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <AuthoredNativeProvidersFieldEnvelope as crate::columnar::ArrowValue>::append_null(
+            children[6usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[7usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[8usize].as_mut(),
+        )?;
+        <Vec<
+            AuthoredNativeProvidersFieldComponentsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[10usize].as_mut(),
+        )?;
+        <AuthoredNativeProvidersFieldQuantityKinds as crate::columnar::ArrowValue>::append_null(
+            children[11usize].as_mut(),
+        )?;
+        <AuthoredNativeProvidersFieldData as crate::columnar::ArrowValue>::append_null(
+            children[12usize].as_mut(),
+        )?;
+        <crate::generated::enums::ThermodynamicFormulation as crate::columnar::ArrowValue>::append_null(
+            children[13usize].as_mut(),
+        )?;
+        <crate::generated::enums::StabilityPolicy as crate::columnar::ArrowValue>::append_null(
+            children[14usize].as_mut(),
+        )?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -321,34 +606,64 @@ impl crate::columnar::ArrowValue for AuthoredNativeProvidersRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
+            r#material_system_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
             r#inputs: <Vec<
                 AuthoredNativeProvidersFieldInputsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(4usize).as_ref(),
                 index,
             )?,
             r#outputs: <Vec<
                 AuthoredNativeProvidersFieldOutputsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
-                index,
-            )?,
-            r#envelope: <AuthoredNativeProvidersFieldEnvelope as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#caloric_reference: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#envelope: <AuthoredNativeProvidersFieldEnvelope as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#components: <Vec<
-                pse_ids::SemanticId,
-            > as crate::columnar::ArrowValue>::read(
+            r#enthalpy_reference: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#output: <i64 as crate::columnar::ArrowValue>::read(
+            r#entropy_reference: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#components: <Vec<
+                AuthoredNativeProvidersFieldComponentsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#dependent_species: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#quantity_kinds: <AuthoredNativeProvidersFieldQuantityKinds as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#data: <AuthoredNativeProvidersFieldData as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#formulation: <crate::generated::enums::ThermodynamicFormulation as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
+                index,
+            )?,
+            r#stability: <crate::generated::enums::StabilityPolicy as crate::columnar::ArrowValue>::read(
+                input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#output: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
                 index,
             )?,
         })
@@ -402,18 +717,43 @@ impl crate::columnar::RelationRow for AuthoredNativeProvidersRow {
         crate::columnar::ArrowValue::append(&self.r#model_id, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#name, columns[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#kind, columns[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#inputs, columns[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#outputs, columns[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#envelope, columns[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#caloric_reference,
-            columns[6usize].as_mut(),
+            &self.r#material_system_id,
+            columns[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#inputs, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outputs, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#envelope, columns[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#enthalpy_reference,
+            columns[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#entropy_reference,
+            columns[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#components,
-            columns[7usize].as_mut(),
+            columns[9usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#output, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dependent_species,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity_kinds,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#data, columns[12usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#formulation,
+            columns[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#stability,
+            columns[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#output, columns[15usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -448,10 +788,10 @@ impl crate::columnar::RelationRow for AuthoredNativeProvidersRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        55_296_usize + size_of::<Self::Builder>()
+        107_520_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        432usize
+        840usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -466,6 +806,17 @@ impl crate::columnar::RelationRow for AuthoredNativeProvidersRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             crate::columnar::allocation_add(8, (self.r#kind).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#material_system_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -597,15 +948,123 @@ impl crate::columnar::RelationRow for AuthoredNativeProvidersRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             (self.r#components)
                 .iter()
                 .try_fold(
                     8usize,
-                    |bytes, _| crate::columnar::allocation_add(
+                    |bytes, item| crate::columnar::allocation_add(
                         bytes,
-                        Ok::<usize, crate::RelationError>(16usize)?,
+                        {
+                            let mut bytes = 1usize;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(16usize)?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#pcsaft_cas).len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#ideal_gas_cas).len(),
+                                )?,
+                            )?;
+                            Ok::<usize, crate::RelationError>(bytes)
+                        }?,
                     ),
                 )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(8, ((self.r#data).r#pcsaft).len())?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#data).r#ideal_gas).len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(8, ((self.r#data).r#binary).len())?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#data).r#provenance).len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#data).r#missing_interactions).as_str().len(),
+                    )?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#formulation).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#stability).as_str().len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -621,7 +1080,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "model_id",
@@ -639,33 +1098,68 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "inputs",
+        name: "material_system_id",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "outputs",
+        name: "inputs",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "envelope",
+        name: "outputs",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "caloric_reference",
+        name: "envelope",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "components",
+        name: "enthalpy_reference",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "output",
+        name: "entropy_reference",
         position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "components",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "dependent_species",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "quantity_kinds",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "data",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "formulation",
+        position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "stability",
+        position: 14usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "output",
+        position: 15usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -676,18 +1170,32 @@ pub mod columns {
     pub const NAME: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///kind
     pub const KIND: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    ///material_system_id
+    pub const MATERIAL_SYSTEM_ID: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///inputs
-    pub const INPUTS: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const INPUTS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///outputs
-    pub const OUTPUTS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const OUTPUTS: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///envelope
-    pub const ENVELOPE: crate::columnar::ColumnReference = super::COLUMNS[5usize];
-    ///caloric_reference
-    pub const CALORIC_REFERENCE: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const ENVELOPE: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///enthalpy_reference
+    pub const ENTHALPY_REFERENCE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///entropy_reference
+    pub const ENTROPY_REFERENCE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///components
-    pub const COMPONENTS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const COMPONENTS: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///dependent_species
+    pub const DEPENDENT_SPECIES: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///quantity_kinds
+    pub const QUANTITY_KINDS: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///data
+    pub const DATA: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    ///formulation
+    pub const FORMULATION: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    ///stability
+    pub const STABILITY: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///output
-    pub const OUTPUT: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const OUTPUT: crate::columnar::ColumnReference = super::COLUMNS[15usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -697,11 +1205,18 @@ pub struct AuthoredNativeProvidersView<'a> {
     model_id_column: &'a arrow_array::FixedSizeBinaryArray,
     name_column: &'a arrow_array::StringArray,
     kind_column: &'a arrow_array::StringArray,
+    material_system_id_column: &'a arrow_array::FixedSizeBinaryArray,
     inputs_column: &'a arrow_array::ListArray,
     outputs_column: &'a arrow_array::ListArray,
     envelope_column: &'a arrow_array::StructArray,
-    caloric_reference_column: &'a arrow_array::FixedSizeBinaryArray,
+    enthalpy_reference_column: &'a arrow_array::FixedSizeBinaryArray,
+    entropy_reference_column: &'a arrow_array::FixedSizeBinaryArray,
     components_column: &'a arrow_array::ListArray,
+    dependent_species_column: &'a arrow_array::FixedSizeBinaryArray,
+    quantity_kinds_column: &'a arrow_array::StructArray,
+    data_column: &'a arrow_array::StructArray,
+    formulation_column: &'a arrow_array::StringArray,
+    stability_column: &'a arrow_array::StringArray,
     output_column: &'a arrow_array::Int64Array,
 }
 impl<'a> AuthoredNativeProvidersView<'a> {
@@ -751,24 +1266,45 @@ impl<'a> AuthoredNativeProvidersView<'a> {
             kind_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
+            material_system_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(3usize).as_ref())?,
             inputs_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(3usize).as_ref())?,
+            >(batch.column(4usize).as_ref())?,
             outputs_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
             envelope_column: crate::columnar::array::<
                 arrow_array::StructArray,
-            >(batch.column(5usize).as_ref())?,
-            caloric_reference_column: crate::columnar::array::<
-                arrow_array::FixedSizeBinaryArray,
             >(batch.column(6usize).as_ref())?,
+            enthalpy_reference_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(7usize).as_ref())?,
+            entropy_reference_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(8usize).as_ref())?,
             components_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
+            dependent_species_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(10usize).as_ref())?,
+            quantity_kinds_column: crate::columnar::array::<
+                arrow_array::StructArray,
+            >(batch.column(11usize).as_ref())?,
+            data_column: crate::columnar::array::<
+                arrow_array::StructArray,
+            >(batch.column(12usize).as_ref())?,
+            formulation_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(13usize).as_ref())?,
+            stability_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(14usize).as_ref())?,
             output_column: crate::columnar::array::<
                 arrow_array::Int64Array,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(15usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -821,6 +1357,24 @@ impl<'a> AuthoredNativeProvidersView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "material_system_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn material_system_id_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.material_system_id_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "material_system_id",
+        "`.",
+    )]
+    pub fn material_system_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "inputs",
         "`, including its offsets and validity bitmap.",
     )]
@@ -829,7 +1383,7 @@ impl<'a> AuthoredNativeProvidersView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "inputs", "`.")]
     pub fn inputs_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -841,7 +1395,7 @@ impl<'a> AuthoredNativeProvidersView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "outputs", "`.")]
     pub fn outputs_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -853,21 +1407,39 @@ impl<'a> AuthoredNativeProvidersView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "envelope", "`.")]
     pub fn envelope_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "caloric_reference",
+        "enthalpy_reference",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn caloric_reference_column(
+    pub const fn enthalpy_reference_column(
         &self,
     ) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.caloric_reference_column
+        self.enthalpy_reference_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "caloric_reference", "`.")]
-    pub fn caloric_reference_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "enthalpy_reference",
+        "`.",
+    )]
+    pub fn enthalpy_reference_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "entropy_reference",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn entropy_reference_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.entropy_reference_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "entropy_reference", "`.")]
+    pub fn entropy_reference_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -879,7 +1451,69 @@ impl<'a> AuthoredNativeProvidersView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "components", "`.")]
     pub fn components_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "dependent_species",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn dependent_species_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.dependent_species_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "dependent_species", "`.")]
+    pub fn dependent_species_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "quantity_kinds",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn quantity_kinds_column(&self) -> &'a arrow_array::StructArray {
+        self.quantity_kinds_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "quantity_kinds", "`.")]
+    pub fn quantity_kinds_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "data",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn data_column(&self) -> &'a arrow_array::StructArray {
+        self.data_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "data", "`.")]
+    pub fn data_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "formulation",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn formulation_column(&self) -> &'a arrow_array::StringArray {
+        self.formulation_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "formulation", "`.")]
+    pub fn formulation_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[13usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "stability",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn stability_column(&self) -> &'a arrow_array::StringArray {
+        self.stability_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "stability", "`.")]
+    pub fn stability_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[14usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -891,7 +1525,7 @@ impl<'a> AuthoredNativeProvidersView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "output", "`.")]
     pub fn output_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -908,15 +1542,40 @@ impl<'a> AuthoredNativeProvidersView<'a> {
             r#model_id: crate::columnar::ArrowValue::read(self.model_id_column, index)?,
             r#name: crate::columnar::ArrowValue::read(self.name_column, index)?,
             r#kind: crate::columnar::ArrowValue::read(self.kind_column, index)?,
+            r#material_system_id: crate::columnar::ArrowValue::read(
+                self.material_system_id_column,
+                index,
+            )?,
             r#inputs: crate::columnar::ArrowValue::read(self.inputs_column, index)?,
             r#outputs: crate::columnar::ArrowValue::read(self.outputs_column, index)?,
             r#envelope: crate::columnar::ArrowValue::read(self.envelope_column, index)?,
-            r#caloric_reference: crate::columnar::ArrowValue::read(
-                self.caloric_reference_column,
+            r#enthalpy_reference: crate::columnar::ArrowValue::read(
+                self.enthalpy_reference_column,
+                index,
+            )?,
+            r#entropy_reference: crate::columnar::ArrowValue::read(
+                self.entropy_reference_column,
                 index,
             )?,
             r#components: crate::columnar::ArrowValue::read(
                 self.components_column,
+                index,
+            )?,
+            r#dependent_species: crate::columnar::ArrowValue::read(
+                self.dependent_species_column,
+                index,
+            )?,
+            r#quantity_kinds: crate::columnar::ArrowValue::read(
+                self.quantity_kinds_column,
+                index,
+            )?,
+            r#data: crate::columnar::ArrowValue::read(self.data_column, index)?,
+            r#formulation: crate::columnar::ArrowValue::read(
+                self.formulation_column,
+                index,
+            )?,
+            r#stability: crate::columnar::ArrowValue::read(
+                self.stability_column,
                 index,
             )?,
             r#output: crate::columnar::ArrowValue::read(self.output_column, index)?,

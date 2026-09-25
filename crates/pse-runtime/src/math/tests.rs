@@ -334,7 +334,7 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
     use super::initialization::InitializationProfile;
     use pse_backend_native::{
         kinsol::Linear,
-        solve::{Controls, Termination},
+        solve::{Controls, SolverSelection, Termination},
     };
     for singular in [false, true] {
         let s = service();
@@ -413,9 +413,11 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
             )
             .unwrap(),
         );
-        let workspace = s.workspace(input, WorkspaceLimits::default()).unwrap();
+        let workspace = s
+            .workspace(input.clone(), WorkspaceLimits::default())
+            .unwrap();
         let prepared = s
-            .prepare_initialization(workspace, id(5), profile())
+            .prepare_initialization(workspace, input, id(5), profile(), DerivativeOrder::First)
             .await
             .unwrap();
         assert_eq!(
@@ -432,10 +434,10 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
                 initial.clone(),
                 BTreeMap::new(),
                 InitializationProfile {
+                    selection: SolverSelection::Auto,
                     controls: Controls::default(),
                     linear: Linear::Klu,
-                    variable_tolerances: BTreeMap::from([(id(1), 1e-7), (id(6), 1e-7)]),
-                    row_tolerances: BTreeMap::from([(id(4), 1e-7), (id(7), 1e-7)]),
+                    numerics: Default::default(),
                     stages: vec![BTreeMap::new(), BTreeMap::new()],
                 },
             )
@@ -445,9 +447,10 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
             .unwrap();
         if singular {
             assert_eq!(result.completed_stages, 0);
-            assert_eq!(
-                result.values.scalars, initial.scalars,
-                "failed trials must not commit"
+            assert_eq!(result.original.scalars, initial.scalars);
+            assert!(
+                result.values.scalars.is_empty(),
+                "failed trials must not commit solved unknowns"
             );
             assert!(!result.attempts[0].committed);
             if let Ok(report) = &result.attempts[0].result {
@@ -468,7 +471,7 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
 #[tokio::test]
 async fn constant_sequence_uses_shared_lifecycle_and_retains_result_allowance() {
     use super::solves::*;
-    use pse_backend_native::{quality::Tolerances, solve::*};
+    use pse_backend_native::solve::*;
     let s = service();
     let mut i = inputs();
     i.values.insert(id(1), 0.0);
@@ -508,18 +511,15 @@ async fn constant_sequence_uses_shared_lifecycle_and_retains_result_allowance() 
             BTreeMap::new(),
             SolverProfile {
                 presolve: Default::default(),
-                scaling: None,
+                numerics: Default::default(),
+                convexity: Default::default(),
                 intent: SolveIntent::Root,
                 selection: SolverSelection::Auto,
                 controls: Controls::default(),
                 backend: BackendSettings::Default,
-                tolerances: Tolerances {
-                    variables: vec![],
-                    rows: vec![1e-8],
-                    integrality: 1e-8,
-                },
             },
             None,
+            NumericalInputs::default(),
         )
         .await
         .unwrap();
@@ -548,7 +548,7 @@ async fn constant_sequence_uses_shared_lifecycle_and_retains_result_allowance() 
 #[tokio::test]
 async fn solver_profile_refuses_mismatched_backend_before_artifact_construction() {
     use super::solves::*;
-    use pse_backend_native::{quality::Tolerances, solve::*};
+    use pse_backend_native::solve::*;
     let s = service();
     let p = prepared(&s).await;
     let before = s.entries.len();
@@ -561,18 +561,15 @@ async fn solver_profile_refuses_mismatched_backend_before_artifact_construction(
             BTreeMap::new(),
             SolverProfile {
                 presolve: Default::default(),
-                scaling: None,
+                numerics: Default::default(),
+                convexity: Default::default(),
                 intent: SolveIntent::Root,
                 selection: SolverSelection::Explicit(Backend::Clarabel),
                 controls: Controls::default(),
                 backend: BackendSettings::Default,
-                tolerances: Tolerances {
-                    variables: vec![1e-8],
-                    rows: vec![1e-8],
-                    integrality: 1e-8,
-                },
             },
             None,
+            NumericalInputs::default(),
         )
         .await;
     assert!(result.is_err());
@@ -585,13 +582,16 @@ async fn initialization_prepares_conditional_programs_and_rejects_invalid_schedu
     use pse_backend_native::{kinsol, solve::*};
     let s = service();
     let w = s.workspace(inputs(), WorkspaceLimits::default()).unwrap();
-    let p = s.prepare_initialization(w, id(5), profile()).await.unwrap();
+    let p = s
+        .prepare_initialization(w, inputs(), id(5), profile(), DerivativeOrder::First)
+        .await
+        .unwrap();
     assert_eq!(p.boundaries().count(), 1);
     let profile = InitializationProfile {
+        selection: SolverSelection::Auto,
         controls: Controls::default(),
         linear: kinsol::Linear::Klu,
-        variable_tolerances: BTreeMap::from([(id(1), 1e-8)]),
-        row_tolerances: BTreeMap::from([(id(4), 1e-8)]),
+        numerics: Default::default(),
         stages: vec![BTreeMap::from([(id(1), 2.0)])],
     };
     assert!(
@@ -626,9 +626,15 @@ async fn flow_selection_uses_shared_lifecycle_and_owns_extracted_witness() {
         },
     );
     let workspace = service
-        .workspace(source, WorkspaceLimits::default())
+        .workspace(source.clone(), WorkspaceLimits::default())
         .unwrap();
-    let flow = service.prepare_flow(workspace, id(70)).await.unwrap();
+    let mut other_revision = source.clone();
+    other_revision.flows.get_mut(&id(70)).unwrap().nodes[0].id = id(72);
+    service.publish(&workspace, other_revision).unwrap();
+    let flow = service
+        .prepare_flow(workspace, source, id(70))
+        .await
+        .unwrap();
     let result = service
         .select_tears(flow, TearMethod::UnweightedHeuristic, Controls::default())
         .unwrap()

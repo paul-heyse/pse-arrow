@@ -31,8 +31,288 @@ fn port() -> T {
     ])
 }
 pub(super) fn declare(b: &mut RegistryBuilder) {
+    enumeration(
+        b,
+        "NumericalTarget",
+        ["variable", "row", "objective", "observable", "closure"],
+    );
+    enumeration(b, "NumericalCoordinates", ["physical", "normalized"]);
+    enumeration(
+        b,
+        "NumericalSource",
+        [
+            "analysis",
+            "case",
+            "model",
+            "property_default",
+            "quantity_nominal",
+            "canonical_fallback",
+        ],
+    );
+    enumeration(b, "ClosurePolicy", ["require_closed", "allow_unclosed"]);
+    enumeration(
+        b,
+        "ClosureAssessment",
+        ["not_required", "closed", "unclosed", "unavailable"],
+    );
+    enumeration(
+        b,
+        "CandidateUse",
+        ["usable", "qualified_unclosed", "unusable"],
+    );
+    relation(
+        b,
+        N::Authored,
+        "provider_scaling_bindings",
+        S::Model,
+        &["binding_id"],
+        vec![
+            column("binding_id", T::id()),
+            column("model_id", T::id()),
+            column("case_id", T::id()).optional(),
+            column("provider", text()),
+            column("output", ordinal()),
+            column("target_id", T::id()),
+            column("target_kind", T::enumeration("NumericalTarget")),
+            column("property_package_id", T::id()),
+            column("property_kind_id", T::id()),
+            column("index", T::list(T::id())),
+            column("provenance", text()),
+        ],
+        "Explicit provider output to numerical target and authored property default. No name, arity or package execution inference.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "candidate_assessments",
+        S::Derived,
+        &["run_id", "step"],
+        vec![
+            column("run_id", T::id()),
+            column("step", ordinal()),
+            column("native_termination", T::enumeration("NativeTermination")).optional(),
+            column("numerically_feasible", flag()).optional(),
+            column("closure", T::enumeration("ClosureAssessment")),
+            column("policy", T::enumeration("ClosurePolicy")),
+            column("usability", T::enumeration("CandidateUse")),
+            column("reason", text()),
+        ],
+        "Completion-owned candidate assessment. Native termination, original numerical acceptance, physical closure and final usability remain distinct.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "resolved_numerics",
+        S::Derived,
+        &["run_id", "step", "target_kind", "target_id"],
+        vec![
+            column("run_id", T::id()),
+            column("step", ordinal()),
+            column("target_id", T::id()),
+            column("target_kind", T::enumeration("NumericalTarget")),
+            column("quantity_id", T::id()),
+            column("unit_id", T::id()),
+            column("nominal", real()),
+            column("coordinate_scale", real()),
+            column("absolute", real()),
+            column("relative", real()),
+            column("budget", real()),
+            column(
+                "provenance",
+                T::list(record(vec![
+                    ("declaration", T::id().optional()),
+                    ("source", T::enumeration("NumericalSource")),
+                    ("field", text()),
+                    ("selected", flag()),
+                    ("value", real()),
+                    ("description", text()),
+                ])),
+            ),
+        ],
+        "Frozen original-representation budgets and selected/overridden source interpretations. Coordinate factors describe model normalization separately from native algorithmic scaling.",
+    );
+    relation(
+        b,
+        N::Authored,
+        "numerical_requirements",
+        S::Model,
+        &["requirement_id"],
+        vec![
+            column("requirement_id", T::id()),
+            column("model_id", T::id()),
+            column("case_id", T::id()).optional(),
+            column("target_id", T::id()),
+            column("target_kind", T::enumeration("NumericalTarget")),
+            column("nominal", real()).optional(),
+            column("scaling_factor", real()).optional(),
+            column("absolute_tolerance", real()).optional(),
+            column("relative_tolerance", real()).optional(),
+            column("unit_id", T::id()).optional(),
+            column("coordinates", T::enumeration("NumericalCoordinates")),
+            column("priority", T::native(D::Int32)),
+            column("required", flag()),
+            column("provenance", text()),
+        ],
+        "P05 declarative numerical meaning; selected ID targets, magnitude units and frozen relative budgets. Model/case selection establishes source precedence; runtime analysis overrides use the same row type.",
+    );
+    enumeration(
+        b,
+        "NativeBoundaryClass",
+        [
+            "invalid_model",
+            "unsupported",
+            "resource_limit",
+            "trial_rejected",
+            "nonfinite",
+            "infrastructure",
+            "cancelled",
+            "conflict",
+            "incompatible",
+            "internal",
+        ],
+    );
+    // Stable wire tags have one owner; native adapters implement behavior on these values.
+    enumeration(
+        b,
+        "NativeBackend",
+        [
+            "ipopt", "pounce", "kinsol", "highs", "clarabel", "diffsol", "idas",
+        ],
+    );
+    enumeration(
+        b,
+        "NativeTermination",
+        [
+            "success",
+            "acceptable",
+            "feasible_only",
+            "infeasible",
+            "unbounded",
+            "infeasible_or_unbounded",
+            "limit",
+            "iteration_limit",
+            "resource_exhausted",
+            "inconclusive",
+            "objective_limit",
+            "solution_limit",
+            "time_limit",
+            "cancelled",
+            "numerical",
+            "evaluation",
+            "panic",
+            "invalid",
+        ],
+    );
+    enumeration(
+        b,
+        "NativeStartPolicy",
+        ["no_prior_start", "previous_accepted", "explicit"],
+    );
+    enumeration(
+        b,
+        "NativeQualification",
+        [
+            "unqualified",
+            "feasible",
+            "stationary",
+            "optimal_within_tolerance",
+            "gap_qualified",
+        ],
+    );
+    enumeration(
+        b,
+        "NativeAssurance",
+        [
+            "none",
+            "feasible",
+            "local_stationary",
+            "native_optimal",
+            "certificate",
+        ],
+    );
+    enumeration(
+        b,
+        "NativeRunState",
+        ["native", "constant_evaluation", "rejected", "unattempted"],
+    );
+    enumeration(
+        b,
+        "NativeCandidateKind",
+        [
+            "final_iterate",
+            "best_iterate",
+            "feasible_point",
+            "constant_evaluation",
+        ],
+    );
+    enumeration(
+        b,
+        "EvidenceUnavailableReason",
+        [
+            "not_requested",
+            "not_computed",
+            "not_applicable",
+            "unsupported",
+            "failed",
+            "unknown",
+            "nonfinite",
+        ],
+    );
+    enumeration(
+        b,
+        "TimeCoordinateKind",
+        ["absolute_origin", "elapsed_duration"],
+    );
+    enumeration(
+        b,
+        "NativeProblemClass",
+        [
+            "smooth_nlp",
+            "square_root",
+            "declared_fixed_point",
+            "linear",
+            "mixed_linear",
+            "convex_quadratic",
+            "continuous_cone",
+            "ode",
+            "semi_explicit_index1",
+        ],
+    );
+    enumeration(
+        b,
+        "NativeDerivativeCapability",
+        [
+            "exact_hessian_or_limited_memory",
+            "jacobian_or_product",
+            "coefficients",
+            "first_with_smooth_sensitivities",
+        ],
+    );
+    enumeration(
+        b,
+        "NativeWarmCapability",
+        [
+            "none",
+            "primal",
+            "primal_dual",
+            "primal_dual_and_working_set",
+            "primal_dual_and_basis",
+        ],
+    );
     declare_dynamics_fitting(b);
     declare_balances(b);
+    relation(
+        b,
+        N::Authored,
+        "model_compositions",
+        S::Model,
+        &["model_id"],
+        vec![
+            column("model_id", T::id()),
+            column("root_instance_id", T::id()),
+        ],
+        "Selected root of a reusable template/instance composition. Lowering is a checked projection; authored templates remain authoritative.",
+    );
     enumeration(
         b,
         "NativeVariableDomain",
@@ -48,7 +328,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
     enumeration(
         b,
         "NativeMetricKind",
-        ["real", "integer", "boolean", "text"],
+        ["real", "integer", "boolean", "text", "unavailable"],
     );
     let definition = record(vec![
         ("definition_id", T::id()),
@@ -167,10 +447,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Authoritative bounded native-model declaration. Typed builders and package documents share this contract; compiler products are derived and non-durable.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "solve_runs",
+        2,
         S::Derived,
         &["run_id", "step"],
         vec![
@@ -179,12 +460,13 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("model_id", T::id()).optional(),
             column("revision", T::hash()).optional(),
             column("case_id", T::id()).optional(),
-            column("backend", text()).optional(),
+            column("backend", T::enumeration("NativeBackend")).optional(),
             column("native_code", T::native(D::Int64)).optional(),
             column("native_status", text()).optional(),
-            column("termination", text()),
-            column("assurance", text()),
-            column("candidate_present", flag()),
+            column("state", T::enumeration("NativeRunState")),
+            column("termination", T::enumeration("NativeTermination")).optional(),
+            column("assurance", T::enumeration("NativeAssurance")),
+            column("candidate_kind", T::enumeration("NativeCandidateKind")).optional(),
             column("feasible", flag()).optional(),
             column("objective", real()).optional(),
             column("objective_sense", T::enumeration("NativeObjectiveSense")).optional(),
@@ -247,10 +529,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Fresh original constraint values; signed residual exists only for equality rows. Interval violations retain separate sides and physical tolerances.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "solve_metrics",
+        2,
         S::Derived,
         &["run_id", "step", "namespace", "name"],
         vec![
@@ -263,23 +546,80 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("integer", T::native(D::Int64)).optional(),
             column("boolean", flag()).optional(),
             column("text", text()).optional(),
+            column("unavailable", T::enumeration("EvidenceUnavailableReason")).optional(),
         ],
         "Typed native metrics, effective options and provenance. Exactly the selected value field is populated by result admission; absent metrics are never synthesized as zero.",
     );
 }
 
 fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
+    relation(
+        b,
+        N::Authored,
+        "directional_valve_laws",
+        S::Model,
+        &["model_id", "name"],
+        vec![
+            column("model_id", T::id()),
+            column("name", text()),
+            column("transition_width_id", T::id()),
+        ],
+        "Declared nonreversing C2 valve closure: zero at nonpositive pressure difference, square-root law above the positive authored pressure transition width, and the unique quintic matching values and first two derivatives between. Width is a fixed positive pressure coordinate, never an implicit numerical tolerance.",
+    );
+    relation(
+        b,
+        N::Authored,
+        "reaction_applications",
+        S::Model,
+        &["application_id"],
+        vec![
+            column("application_id", T::id()),
+            column("model_id", T::id()),
+            column("case_id", T::id()),
+            column("material_system_id", T::id()),
+            column("reaction_id", T::id()),
+            column("phase_id", T::id()),
+            column("rate_instance_id", T::id()),
+            column("rate_output", ordinal()),
+            column(
+                "species_balances",
+                T::list(record(vec![
+                    ("species_id", T::id()),
+                    ("balance_id", T::id()),
+                ])),
+            ),
+            column("energy_balance_id", T::id()),
+            column("heat_instance_id", T::id()),
+            column("heat_output", ordinal()),
+            column("element_tolerance", real()),
+            column("provenance", text()),
+        ],
+        "Selected homogeneous molar reaction. The authored rate is an extent per time. Stoichiometry derives species source outputs; an explicit signed heat-rate output supplies energy. No formation energy or kinetics is guessed.",
+    );
+    enumeration(
+        b,
+        "ThermodynamicFormulation",
+        ["homogeneous_density", "phase_equilibrium"],
+    );
+    enumeration(b, "StabilityPolicy", ["unchecked", "mechanical", "global"]);
+    enumeration(
+        b,
+        "StabilityStatus",
+        ["not_requested", "stable", "unstable", "failed"],
+    );
+    enumeration(b, "MissingInteractionPolicy", ["require_explicit", "zero"]);
     relation_version(
         b,
         N::Authored,
         "native_providers",
-        2,
+        3,
         S::Model,
         &["model_id", "name"],
         vec![
             column("model_id", T::id()),
             column("name", text()),
             column("kind", text()),
+            column("material_system_id", T::id()).optional(),
             column("inputs", T::list(port())),
             column("outputs", T::list(port())),
             column(
@@ -292,11 +632,47 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                     ("provenance", text()),
                 ]),
             ),
-            column("caloric_reference", T::id()),
-            column("components", T::list(T::id())),
+            column("enthalpy_reference", T::id()),
+            column("entropy_reference", T::id()),
+            column(
+                "components",
+                T::list(record(vec![
+                    ("species_id", T::id()),
+                    ("pcsaft_cas", text()),
+                    ("ideal_gas_cas", text()),
+                ])),
+            ),
+            column("dependent_species", T::id()),
+            column(
+                "quantity_kinds",
+                record(vec![
+                    ("temperature", T::id()),
+                    ("density", T::id()),
+                    ("fraction", T::id()),
+                    ("pressure", T::id()),
+                    ("enthalpy", T::id()),
+                    ("entropy", T::id()),
+                    ("ln_fugacity", T::id()),
+                ]),
+            ),
+            column(
+                "data",
+                record(vec![
+                    ("pcsaft", text()),
+                    ("ideal_gas", text()),
+                    ("binary", text()),
+                    ("provenance", text()),
+                    (
+                        "missing_interactions",
+                        T::enumeration("MissingInteractionPolicy"),
+                    ),
+                ]),
+            ),
+            column("formulation", T::enumeration("ThermodynamicFormulation")),
+            column("stability", T::enumeration("StabilityPolicy")),
             column("output", ordinal()),
         ],
-        "Explicit native factory selection; currently feos-light-hydrocarbons. No Python callback or opaque provider state is persisted.",
+        "Explicit PC-SAFT/DIPPR records, species mapping, physical roles and selected formulation. Independent composition coordinates follow component order with the declared dependent species omitted; outputs are pressure, enthalpy, entropy and ordered ln(phi). No Python callback or opaque provider state is persisted.",
     );
     let state = record(vec![
         ("symbol_id", T::id()),
@@ -314,10 +690,12 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         ("next_mode", ordinal()),
         ("tolerance", real()),
     ]);
-    relation(
+    enumeration(b, "ObservationTimeBasis", ["elapsed", "model_clock"]);
+    relation_version(
         b,
         N::Authored,
         "dynamic_cases",
+        2,
         S::Model,
         &["dynamic_id"],
         vec![
@@ -325,6 +703,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             column("model_id", T::id()),
             column("case_id", T::id()),
             column("time_id", T::id()),
+            column("time_origin", real()).optional(),
             column("states", T::list(state)),
             column("parameters", T::list(T::id())),
             column("outputs", T::list(T::id())),
@@ -336,12 +715,13 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                 ])),
             ),
         ],
-        "Semi-explicit dynamics over existing compiled case functions. States use canonical physical offsets/scales; algebraic rows use explicit residual scales; time is seconds.",
+        "Semi-explicit dynamics over existing compiled functions. Integration time is canonical seconds; model time is (integration time - time_origin) divided by the time port unit scale. An absent origin is zero.",
     );
-    relation(
+    relation_version(
         b,
         N::Authored,
         "fit_cases",
+        2,
         S::Case,
         &["fit_id"],
         vec![
@@ -373,12 +753,17 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                     ("experiment_id", T::id()),
                     ("output_id", T::id()),
                     ("time", real().optional()),
+                    (
+                        "time_basis",
+                        T::enumeration("ObservationTimeBasis").optional(),
+                    ),
+                    ("time_unit_id", T::id().optional()),
                     ("included", flag()),
                     ("importance", real()),
                 ])),
             ),
         ],
-        "Native simultaneous steady and smooth transient fitting. Measurement values, units and uncertainty remain authored.observations; elapsed time is seconds.",
+        "Native simultaneous fitting. Observation time defaults to elapsed seconds from the integration start; model_clock uses the declared dynamic time origin. Explicit time units must be non-affine time units. Measurement values, units and uncertainty remain authored.observations.",
     );
     relation(
         b,
@@ -540,16 +925,19 @@ fn declare_balances(b: &mut RegistryBuilder) {
             "outlet",
             "generation",
             "consumption",
+            "heat_in",
+            "heat_out",
             "work_in",
             "work_out",
             "internal_in",
             "internal_out",
         ],
     );
-    relation(
+    relation_version(
         b,
         N::Authored,
         "physical_balances",
+        2,
         S::Model,
         &["balance_id"],
         vec![
@@ -566,6 +954,7 @@ fn declare_balances(b: &mut RegistryBuilder) {
                 T::list(record(vec![
                     ("source_id", T::id()),
                     ("role", T::enumeration("BalanceRole")),
+                    ("multiplier", real()),
                     ("transfer_id", T::id().optional()),
                     ("mode", ordinal().optional()),
                     ("instance_id", T::id()),

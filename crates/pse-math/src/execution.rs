@@ -151,6 +151,22 @@ impl PreparedBody {
             owner: None,
         })
     }
+    /// Smooth derivative capability established by admitted operations and providers.
+    pub fn available_order(&self) -> DerivativeOrder {
+        if self.switches.is_empty() {
+            self.smooth
+        } else {
+            DerivativeOrder::Value
+        }
+    }
+    /// Fixed external guards do not reduce derivatives with respect to selected free coordinates.
+    pub fn available_order_for(&self, coordinates: &[usize]) -> DerivativeOrder {
+        if coordinates.iter().any(|c| self.switches.contains(c)) {
+            DerivativeOrder::Value
+        } else {
+            self.smooth
+        }
+    }
     /// Number of formal inputs.
     pub fn input_count(&self) -> usize {
         self.inputs
@@ -847,6 +863,7 @@ fn reads(expressions: &[Atom], symbols: &HashMap<Symbol, usize>) -> Result<Vec<u
     expressions
         .iter()
         .flat_map(|e| e.get_all_symbols(false))
+        .filter(|symbol| !Atom::var(*symbol).is_constant())
         .map(|s| {
             symbols
                 .get(&s)

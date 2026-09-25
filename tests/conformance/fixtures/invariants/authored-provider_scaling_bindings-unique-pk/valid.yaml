@@ -1,0 +1,21 @@
+{
+  "invariant": "authored.provider_scaling_bindings:unique:pk",
+  "rows": {
+    "authored.provider_scaling_bindings": [
+      {
+        "binding_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "index": "[\"list\",[]]",
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "output": "[\"i64\",1]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "provenance": "[\"text\",\"value-1\"]",
+        "provider": "[\"text\",\"value-1\"]",
+        "target_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_kind": "[\"enum\",\"variable\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

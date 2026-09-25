@@ -1,0 +1,12 @@
+{
+  "invariant": "authored.model_compositions:unique:pk",
+  "rows": {
+    "authored.model_compositions": [
+      {
+        "model_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "root_instance_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

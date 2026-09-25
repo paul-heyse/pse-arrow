@@ -49,8 +49,8 @@ pub struct VesselPorts {
     pub density0: Port,
     /// Physical pressure0 port.
     pub pressure0: Port,
-    /// Valve coefficient and downstream pressure, together or absent.
-    pub valve: Option<(Port, Port)>,
+    /// Valve coefficient, downstream pressure and explicit positive pressure transition width.
+    pub valve: Option<(Port, Port, Port)>,
 }
 /// Declared physical quantities of generated rates and algebraic closures.
 #[derive(Clone, Debug)]
@@ -86,9 +86,26 @@ pub struct VesselRecipe {
     /// Native FeOS factory and explicit operating envelope.
     pub provider: NativeProviderDeclaration,
 }
-impl ModelBuilder {
-    /// Construct conserved states and FeOS algebraic closures with no JSON round trip.
-    pub fn vessel(&mut self, recipe: VesselRecipe) -> Result<&mut Self, WorkflowError> {
+impl VesselRecipe {
+    /// Produce inspectable authored equations, contributions and dynamics before admission.
+    /// These ordinary declarations may be edited or serialized and enter the common freeze boundary.
+    /// # Errors
+    /// Missing physical roles, values or invalid declared scales/tolerances.
+    pub fn declarations(
+        self,
+        model: SemanticId,
+        physical: &super::PhysicalContext,
+    ) -> Result<(super::ModelDeclaration, super::SourceDeclarations), WorkflowError> {
+        let recipe = self;
+        let mut row = super::ModelDeclaration {
+            model_id: model,
+            name: "homogeneous vessel".into(),
+            definitions: vec![],
+            domains: vec![],
+            groups: vec![],
+            cases: vec![],
+        };
+        let mut sources = super::SourceDeclarations::default();
         let state_names = ["n", "u", "temperature", "density", "pressure"];
         let mut roles = vec![
             ("n", &recipe.ports.n),
@@ -110,8 +127,8 @@ impl ModelBuilder {
             ("density0", &recipe.ports.density0),
             ("pressure0", &recipe.ports.pressure0),
         ];
-        if let Some((k, p)) = &recipe.ports.valve {
-            roles.extend([("valve_k", k), ("downstream", p)]);
+        if let Some((k, p, width)) = &recipe.ports.valve {
+            roles.extend([("valve_k", k), ("downstream", p), ("valve_width", width)]);
         }
         if recipe.values.len() != roles.len()
             || roles
@@ -128,7 +145,6 @@ impl ModelBuilder {
                 "vessel values or positive scale/tolerance contract",
             ));
         }
-        let model = self.row.model_id;
         let name = |s: &str| named_id(recipe.id, s);
         let mut pressure = recipe.provider.clone();
         pressure.model_id = model;
@@ -137,18 +153,40 @@ impl ModelBuilder {
         let mut enthalpy = pressure.clone();
         enthalpy.name = format!("vessel_enthalpy_{}", recipe.id.to_hex());
         enthalpy.output = 1;
+        let coordinates = composition_coordinates(&pressure)?;
         let pe = format!(
-            "kernel.{}(temperature,density,methane,ethane)",
+            "kernel.{}(temperature,density,{coordinates})",
             pressure.name
         );
         let he = format!(
-            "kernel.{}(temperature,density,methane,ethane)",
+            "kernel.{}(temperature,density,{coordinates})",
             enthalpy.name
         );
-        let outflow = if recipe.ports.valve.is_some() {
-            "valve_k * sqrt(pressure - downstream)"
+        let valve_name = format!("vessel_valve_{}", recipe.id.to_hex());
+        let outflow = if let Some((coefficient, _, width)) = &recipe.ports.valve {
+            if recipe.values[&width.id] <= 0.0 || recipe.values[&coefficient.id] < 0.0 {
+                return Err(contract(
+                    "directional valve needs nonnegative coefficient and positive pressure width",
+                ));
+            }
+            pse_quantity::admission::require_same_contract(
+                width.quantity,
+                recipe.ports.pressure.quantity,
+                &physical.quantities,
+            )
+            .map_err(super::math)?;
+            sources.valve_laws.push(
+                pse_relations::generated::authored::directional_valve_laws::Row {
+                    model_id: model,
+                    name: valve_name.clone(),
+                    transition_width_id: width.id,
+                },
+            );
+            format!(
+                "valve_k * sqrt(valve_width) * kernel.{valve_name}((pressure - downstream) / valve_width)"
+            )
         } else {
-            "outflow"
+            "outflow".into()
         };
         let formals: Vec<_> = roles
             .iter()
@@ -166,8 +204,7 @@ impl ModelBuilder {
                     m::AuthoredComputationModelsFieldCasesItemInstancesItemSlotsItem {
                         source_id: p.id,
                         formal_quantity_id: p.quantity.as_id(),
-                        formal_unit_id: self
-                            .physical_context()
+                        formal_unit_id: physical
                             .quantities
                             .quantity_type(p.quantity)
                             .map_err(super::math)?
@@ -183,8 +220,11 @@ impl ModelBuilder {
         let mut add = |role: &str,
                        expression: String,
                        quantity: QuantityTypeId,
-                       providers: Vec<String>,
+                       mut providers: Vec<String>,
                        visible: bool| {
+            if expression.contains(&format!("kernel.{valve_name}(")) {
+                providers.push(valve_name.clone());
+            }
             definitions.push(m::AuthoredComputationModelsFieldDefinitionsItem {
                 definition_id: name(&format!("definition.{role}")),
                 sources: vec![expression],
@@ -229,7 +269,7 @@ impl ModelBuilder {
             ),
             (
                 "amount_out",
-                outflow.into(),
+                outflow.clone(),
                 recipe.functions.amount_rate,
                 vec![],
             ),
@@ -324,19 +364,17 @@ impl ModelBuilder {
                 },
             )
             .collect();
-        self.row.definitions.extend(definitions);
-        self.row
-            .cases
-            .push(m::AuthoredComputationModelsFieldCasesItem {
-                case_id: name("case"),
-                name: "conserved homogeneous vessel".into(),
-                variables,
-                parameters,
-                instances,
-                rows,
-                objective: None,
-                values,
-            });
+        row.definitions.extend(definitions);
+        row.cases.push(m::AuthoredComputationModelsFieldCasesItem {
+            case_id: name("case"),
+            name: "conserved homogeneous vessel".into(),
+            variables,
+            parameters,
+            instances,
+            rows,
+            objective: None,
+            values,
+        });
         let states = roles
             .iter()
             .take(5)
@@ -354,11 +392,12 @@ impl ModelBuilder {
                 },
             })
             .collect();
-        self.dynamics(d::Row {
+        sources.dynamics.push(d::Row {
             dynamic_id: recipe.id,
             model_id: model,
             case_id: name("case"),
             time_id: recipe.ports.time.id,
+            time_origin: None,
             states,
             parameters: vec![
                 recipe.ports.inflow.id,
@@ -397,14 +436,78 @@ impl ModelBuilder {
                 vec![
                     ("energy_in", BalanceRole::Inlet),
                     ("energy_out", BalanceRole::Outlet),
-                    ("heat", BalanceRole::WorkIn),
+                    ("heat", BalanceRole::HeatIn),
                 ],
             ),
         ] {
-            self.balance(b::Row{balance_id:name(&format!("row.{rate}")),model_id:model,case_id:name("case"),quantity_id:qty.as_id(),accumulation:Some(state),tolerance:recipe.balance_tolerances[i],integral_tolerance:Some(recipe.balance_tolerances[i]),provenance:"declared homogeneous vessel amount/internal-energy contributions; empirical validity unestablished".into(),terms:terms.into_iter().map(|(r,role)|b::AuthoredPhysicalBalancesFieldTermsItem{source_id:name(&format!("physical.{r}")),role,mode:None,transfer_id:None,instance_id:name(&format!("instance.{r}")),output:0}).collect(),impulses:vec![]});
+            sources.balances.push(b::Row{balance_id:name(&format!("row.{rate}")),model_id:model,case_id:name("case"),quantity_id:qty.as_id(),accumulation:Some(state),tolerance:recipe.balance_tolerances[i],integral_tolerance:Some(recipe.balance_tolerances[i]),provenance:"declared homogeneous vessel amount/internal-energy contributions; empirical validity unestablished".into(),terms:terms.into_iter().map(|(r,role)|b::AuthoredPhysicalBalancesFieldTermsItem{ multiplier:1.0,source_id:name(&format!("physical.{r}")),role,mode:None,transfer_id:None,instance_id:name(&format!("instance.{r}")),output:0}).collect(),impulses:vec![]});
         }
-        self.native_provider(pressure);
-        self.native_provider(enthalpy);
+        sources.providers.extend([pressure, enthalpy]);
+        Ok((row, sources))
+    }
+}
+
+fn composition_coordinates(provider: &NativeProviderDeclaration) -> Result<String, WorkflowError> {
+    let dependent = provider
+        .components
+        .iter()
+        .find(|c| c.species_id == provider.dependent_species);
+    if provider.components.len() != 3 || dependent.is_none_or(|c| c.pcsaft_cas != "74-98-6") {
+        return Err(contract(
+            "the vessel recipe requires methane/ethane coordinates and dependent propane",
+        ));
+    }
+    let names: Vec<_> = provider
+        .components
+        .iter()
+        .filter(|c| c.species_id != provider.dependent_species)
+        .map(|c| match c.pcsaft_cas.as_str() {
+            "74-82-8" => Ok("methane"),
+            "74-84-0" => Ok("ethane"),
+            _ => Err(contract("unsupported species in the vessel recipe")),
+        })
+        .collect::<Result<_, _>>()?;
+    if names.len() != 2 || names[0] == names[1] {
+        return Err(contract("duplicate vessel composition species"));
+    }
+    Ok(names.join(","))
+}
+
+impl ModelBuilder {
+    /// Apply the vessel declaration producer to the ordinary editable model draft.
+    /// # Errors
+    /// Invalid recipe or conflicting source identities.
+    pub fn vessel(&mut self, recipe: VesselRecipe) -> Result<&mut Self, WorkflowError> {
+        let (row, sources) = recipe.declarations(self.row.model_id, self.physical_context())?;
+        let mut merged = self.sources.clone();
+        merged.merge(&sources)?;
+        self.row.definitions.extend(row.definitions);
+        self.row.cases.extend(row.cases);
+        self.sources = merged;
         Ok(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn vessel_declarations_map_actual_species_coordinate_order() {
+        let providers: Vec<NativeProviderDeclaration> = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/plan14/providers.json"
+        ))
+        .unwrap();
+        let mut provider = providers[0].clone();
+        assert_eq!(
+            composition_coordinates(&provider).unwrap(),
+            "methane,ethane"
+        );
+        provider.components.reverse();
+        assert_eq!(
+            composition_coordinates(&provider).unwrap(),
+            "ethane,methane"
+        );
+        provider.dependent_species = provider.components[1].species_id;
+        assert!(composition_coordinates(&provider).is_err());
     }
 }

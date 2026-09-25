@@ -354,6 +354,11 @@ replace-imports-with-any = ["idaes.*", "pyomo.*", "pint.*"]
 matches = "scripts/plan14_reference.py"
 replace-imports-with-any = ["teqp", "scipy", "scipy.*"]
 
+# Same locked reference-only interpreter and upstream API as plan14_reference.py.
+[[tool.pyrefly.sub-config]]
+matches = "scripts/feos_entropy_reference.py"
+replace-imports-with-any = ["teqp"]
+
 [tool.importlinter]
 root_packages = ["pse"]
 include_external_packages = true

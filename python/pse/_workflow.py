@@ -12,6 +12,7 @@ from pse import codec
 from pse._build import (
     DiagnosticReport,
     EngineSettings,
+    NativeAttempt,
     ProgressEvent,
     SimulationSettings,
     SolverCapability,
@@ -19,11 +20,15 @@ from pse._build import (
     _NativeModelRevision,
     _NativePhysicalContext,
     _NativePreparedCase,
+    _NativePreparedFlow,
     _NativePreparedOperation,
+    _NativePreparedStrategy,
     _NativePublicationAttempt,
     _NativeRunHandle,
     _NativeRunResult,
     _NativeRuntime,
+    _NativeStart,
+    _NativeStrategyResult,
 )
 from pse._inspection import TableStream
 from pse.contracts import authored as a
@@ -48,6 +53,12 @@ Contribution = a.AuthoredComputationModelsFieldCasesItemInstancesItemContributio
 Row = a.AuthoredComputationModelsFieldCasesItemRowsItem
 Objective = a.AuthoredComputationModelsFieldCasesItemObjective
 Value = a.AuthoredComputationModelsFieldCasesItemValuesItem
+
+
+class _AnalysisDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    """Transport envelope; Rust admits the typed analysis inside it."""
+
+    payload: dict[str, object]
 
 
 class _ModelEnvelope(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
@@ -169,6 +180,18 @@ class ModelBuilder:
         self._sources[family] = [*previous, conv.unstructure(row)]
         return self
 
+    def numerical_requirement(self, row: a.AuthoredNumericalRequirementsRow) -> Self:
+        """Declare an ID-keyed physical nominal or acceptance budget."""
+        return self._source("numerics", row)
+
+    def provider_scaling(self, row: a.AuthoredProviderScalingBindingsRow) -> Self:
+        """Bind an exact native provider output to a property scaling default."""
+        return self._source("scaling_bindings", row)
+
+    def default_scaling(self, row: a.AuthoredDefaultScalingRow) -> Self:
+        """Retain an authored default; only an explicit binding activates it."""
+        return self._source("scaling_defaults", row)
+
     def dynamics(self, row: a.AuthoredDynamicCasesRow) -> Self:
         """Add the generated semi-explicit dynamic declaration."""
         return self._source("dynamics", row)
@@ -180,6 +203,10 @@ class ModelBuilder:
     def balance(self, row: a.AuthoredPhysicalBalancesRow) -> Self:
         """Declare signed physical sources and independent closure tolerances."""
         return self._source("balances", row)
+
+    def directional_valve_law(self, row: a.AuthoredDirectionalValveLawsRow) -> Self:
+        """Declare the C2 closed-to-forward valve law and its pressure width."""
+        return self._source("valve_laws", row)
 
     def native_provider(self, row: a.AuthoredNativeProvidersRow) -> Self:
         """Select a native library factory without Python callbacks."""
@@ -212,6 +239,12 @@ class ModelRevision:
     _handle: _NativeModelRevision
     _physical: _NativePhysicalContext
 
+    def prepare_flow(self, case_id: SemanticId, flow_id: SemanticId) -> "PreparedFlow":
+        """Inspect physical ports and select tears from this exact revision."""
+        return PreparedFlow(
+            self._handle.prepare_flow(case_id.to_hex(), flow_id.to_hex())
+        )
+
     @property
     def identity(self) -> ContentHash:
         """Complete native declaration, physical and provider identity."""
@@ -236,13 +269,9 @@ class ModelRevision:
         self,
         case_id: SemanticId,
         settings: SolveSettings,
-        *,
-        coefficients: bool = False,
     ) -> "PreparedCase":
         """Compile and admit an explicit representation without starting a solve."""
-        return PreparedCase(
-            self._handle.prepare(case_id.to_hex(), settings, coefficients=coefficients)
-        )
+        return PreparedCase(self._handle.prepare(case_id.to_hex(), settings))
 
     def prepare_simulation(
         self, dynamic_id: SemanticId, settings: SimulationSettings
@@ -250,6 +279,31 @@ class ModelRevision:
         """Compile a finite native BDF simulation without starting it."""
         return PreparedOperation(
             self._handle.prepare_simulation(dynamic_id.to_hex(), settings)
+        )
+
+    def prepare_recycle(
+        self, request: Mapping[str, object], settings: SolveSettings
+    ) -> "PreparedStrategy":
+        """Compile declared causal unit directions and a selected tear witness."""
+        return PreparedStrategy(
+            self._handle.prepare_recycle(
+                codec.encode_json(_AnalysisDocument(dict(request))), settings
+            )
+        )
+
+    def prepare_initialization(
+        self,
+        case_id: SemanticId,
+        settings: SolveSettings,
+        stages: Sequence[Mapping[SemanticId, float]],
+    ) -> "PreparedStrategy":
+        """Prepare finite overlays over this revision's original bindings."""
+        return PreparedStrategy(
+            self._handle.prepare_initialization(
+                case_id.to_hex(),
+                settings,
+                [{k.to_hex(): v for k, v in stage.items()} for stage in stages],
+            )
         )
 
     def prepare_fit(
@@ -291,10 +345,95 @@ class PreparedOperation:
 
 
 @attrs.frozen
+class PreparedFlow:
+    """Selected physical graph with explicit cost, grouping and tear policy."""
+
+    _handle: _NativePreparedFlow
+
+    def graph(self) -> dict[str, object]:
+        """Return source-attributed nodes, scalar ports, connections and decisions."""
+        return codec.decode_json(
+            self._handle.graph_json().encode(), _AnalysisDocument
+        ).payload
+
+    def select_tears(self, method: str, settings: SolveSettings) -> "StrategyResult":
+        """Run the explicitly selected native MILP or policy-respecting heuristic."""
+        return StrategyResult(self._handle.select_tears(method, settings))
+
+
+@attrs.frozen
+class PreparedStrategy:
+    """Prepared explicit cone, causal map or transactional initialization."""
+
+    _handle: _NativePreparedStrategy
+
+    @property
+    def routes(self) -> tuple[str, ...]:
+        """Routes selected before execution, without implicit failure fallback."""
+        return tuple(self._handle.routes)
+
+    def run(self) -> "StrategyResult":
+        """Run one finite strategy and retain its joined reports."""
+        return StrategyResult(self._handle.run())
+
+
+@attrs.frozen
+class StrategyResult:
+    """Owned native attempts, including failures and stage overlays."""
+
+    _handle: _NativeStrategyResult
+
+    def tears(self) -> dict[str, object] | None:
+        """Selected decisions, authored cost and independently checked acyclic order."""
+        data = self._handle.tears_json()
+        return (
+            None
+            if data is None
+            else codec.decode_json(data.encode(), _AnalysisDocument).payload
+        )
+
+    def attempts(self) -> tuple[NativeAttempt, ...]:
+        """Actual native attempts with termination, qualification and progress."""
+        return tuple(self._handle.attempts())
+
+    def failures(self) -> tuple[tuple[int, str], ...]:
+        """Attributable failures before a native report became available."""
+        return tuple(self._handle.failures())
+
+    def initialization(self) -> dict[str, object] | None:
+        """Original values, committed unknowns and temporary stage evidence."""
+        data = self._handle.initialization_json()
+        return (
+            None
+            if data is None
+            else codec.decode_json(data.encode(), _AnalysisDocument).payload
+        )
+
+
+@attrs.frozen
 class PreparedCase:
     """Class-specific native representation with a resolved, inspectable route."""
 
     _handle: _NativePreparedCase
+
+    def with_primal_start(self, values: Mapping[SemanticId, float]) -> "PreparedCase":
+        """Select a complete primal seed independently of allocation reuse."""
+        return PreparedCase(
+            self._handle.with_primal_start(
+                {key.to_hex(): value for key, value in values.items()}
+            )
+        )
+
+    @property
+    def eligibility(self) -> tuple[tuple[str, tuple[str, ...]], ...]:
+        """Backend alternatives and preparation refusals for this case."""
+        return tuple(
+            (name, tuple(reasons)) for name, reasons in self._handle.eligibility
+        )
+
+    def with_start(self, seed: _NativeStart) -> Self:
+        """Select a compatible result seed independently of allocation reuse."""
+        return type(self)(self._handle.with_start(seed))
 
     @property
     def route(self) -> str:
@@ -333,10 +472,19 @@ class RunResult:
 
     _handle: _NativeRunResult
 
+    def available_start(self, step: int = 0) -> _NativeStart | None:
+        """Return available numerical seed data and its provenance."""
+        return self._handle.available_start(step)
+
     @property
     def run_id(self) -> SemanticId:
         """Unique execution identity."""
         return SemanticId.from_hex(self._handle.run_id)
+
+    @property
+    def usable(self) -> bool:
+        """Whether every requested candidate satisfies its final usability policy."""
+        return self._handle.usable
 
     def diagnostics(self) -> tuple[DiagnosticReport, ...]:
         """Structured native admission and execution failures, preserving causes."""
@@ -415,6 +563,21 @@ class Runtime:
     def capabilities(self) -> tuple[SolverCapability, ...]:
         """Discover linked native libraries without PATH or optional Python probes."""
         return tuple(self._handle.capabilities())
+
+    def prepare_conic(
+        self,
+        request: Mapping[str, object],
+        physical: "PhysicalContext",
+        settings: SolveSettings,
+    ) -> PreparedStrategy:
+        """Admit explicit library cone geometry and an exact quadratic witness."""
+        return PreparedStrategy(
+            self._handle.prepare_conic(
+                codec.encode_json(_AnalysisDocument(dict(request))),
+                physical._handle,  # noqa: SLF001 - same native boundary
+                settings,
+            )
+        )
 
     def model(
         self, model_id: SemanticId, name: str, physical: "PhysicalContext"

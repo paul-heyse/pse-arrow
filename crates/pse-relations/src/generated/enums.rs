@@ -5,38 +5,44 @@
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#enums::{
     ArtifactReconstruction, AssertionStatus, Authority, BalanceRole, BasisKind,
-    BasisRule, BlowerMaterial, BlowerType, BoundKind, BoundStatus, CapabilityRequirement,
-    CaseKind, ChangeKind, ColumnRole, ComponentType, CompositionBasis,
-    CompressorDriveType, CompressorMaterial, CompressorType, ConcentrationForm,
-    ConfigCategory, ConfigValueKind, ConnectionExpansion, ConstraintScalingScheme,
-    ContributionSign, ContributionSubjectKind, ControllerAntiwindupType,
-    ControllerMVBoundType, ControllerType, ConversionKind, CubicType, DaeVarTypes,
-    DefaultScalingRecommendation, DemandSource, DerivationGranularity, Determinism,
-    DiagnosticCode, Direction, DiscretizationScheme, DisplayKind, DistributedVars,
-    DomainBindingSource, DomainKind, ElementProjectionFormula, EnergyBalanceType,
-    EnergySplittingType, EntityKind, EquationSyntax, ExpressionFamily,
-    ExpressionOwnerKind, ExpressionSyntax, FailureClass, FanMaterial, FanType,
-    FeatureKind, FeatureRuleKind, FindingSeverity, FlashType, FlowDirection,
-    GeneratorKind, HXMaterial, HXTubeLength, HXType, HeatExchangerFlowPattern,
-    HeaterMaterial, HeaterSource, HenryType, IdPolicy, IndexMapKind,
-    InitializationStatus, InputConsumptionKind, InvariantKind, KernelOutcome,
-    LawExpansion, LawFamily, LawSubjectProjection, MaterialBalanceType,
+    BasisRule, BlowerMaterial, BlowerType, BoundKind, BoundStatus, CandidateUse,
+    CapabilityRequirement, CaseKind, ChangeKind, ClosureAssessment, ClosurePolicy,
+    ColumnRole, ComponentType, CompositionBasis, CompressorDriveType, CompressorMaterial,
+    CompressorType, ConcentrationForm, ConfigCategory, ConfigValueKind,
+    ConnectionExpansion, ConstraintScalingScheme, ContributionSign,
+    ContributionSubjectKind, ControllerAntiwindupType, ControllerMVBoundType,
+    ControllerType, ConversionKind, CubicType, DaeVarTypes, DefaultScalingRecommendation,
+    DemandSource, DerivationGranularity, Determinism, DiagnosticCode, Direction,
+    DiscretizationScheme, DisplayKind, DistributedVars, DomainBindingSource, DomainKind,
+    ElementProjectionFormula, EnergyBalanceType, EnergySplittingType, EntityKind,
+    EquationSyntax, EvidenceUnavailableReason, ExpressionFamily, ExpressionOwnerKind,
+    ExpressionSyntax, FailureClass, FanMaterial, FanType, FeatureKind, FeatureRuleKind,
+    FindingSeverity, FlashType, FlowDirection, GeneratorKind, HXMaterial, HXTubeLength,
+    HXType, HeatExchangerFlowPattern, HeaterMaterial, HeaterSource, HenryType, IdPolicy,
+    IndexMapKind, InitializationStatus, InputConsumptionKind, InvariantKind,
+    KernelOutcome, LawExpansion, LawFamily, LawSubjectProjection, MaterialBalanceType,
     MaterialFlowBasis, MemberSelectionKind, MethodCandidateReason,
     MethodDependencyTarget, MethodFamily, MethodOutputKind, MethodRealization,
-    MethodScopeMap, MigrationOp, MixingType, MomentumBalanceType, MomentumMixingType,
-    Namespace, NativeDependencyEvidenceKind, NativeDependencyKind, NativeMetricKind,
-    NativeObjectiveSense, NativeVariableDomain, Opcode, OperationEffect, Orientation,
-    PackageKind, ParameterSourceCoordinate, ParticipationExclusionReason, PhaseType,
-    PhysicalCoordinateKind, PortKind, PredicateComparison, PredicateKind,
-    PredicateOperandKind, PropertyCategory, PublicationKind, PumpMaterial, PumpMotorType,
-    PumpType, QuantityAdditionKind, QuantityPreconditionKind, QuantityScaleRule,
-    QuantityShapeRule, RateBasis, ReactionKind, ReductionKind, ReferenceRule,
-    ReferenceStateKind, RequirementSource, ResolutionStatus, RetentionReason, ScaleKind,
-    ScopeKind, SelectorOp, Sense, Severity, SnapshotClass, SolverVariableType,
-    SourceBindingKind, SplittingType, Stability, StateIndex, SubjectKind, SubjectRule,
-    SymbolRole, TargetKind, TemplateKind, TerminationStatus, ThermodynamicAssumption,
-    TrayMaterial, TrayType, Treatment, TriState, TruthValue, ValveFunctionType,
-    VariableSemanticRole, VesselMaterial, WeightNormalization,
+    MethodScopeMap, MigrationOp, MissingInteractionPolicy, MixingType,
+    MomentumBalanceType, MomentumMixingType, Namespace, NativeAssurance, NativeBackend,
+    NativeBoundaryClass, NativeCandidateKind, NativeDependencyEvidenceKind,
+    NativeDependencyKind, NativeDerivativeCapability, NativeMetricKind,
+    NativeObjectiveSense, NativeProblemClass, NativeQualification, NativeRunState,
+    NativeStartPolicy, NativeTermination, NativeVariableDomain, NativeWarmCapability,
+    NumericalCoordinates, NumericalSource, NumericalTarget, ObservationTimeBasis, Opcode,
+    OperationEffect, Orientation, PackageKind, ParameterSourceCoordinate,
+    ParticipationExclusionReason, PhaseType, PhysicalCoordinateKind, PortKind,
+    PredicateComparison, PredicateKind, PredicateOperandKind, PropertyCategory,
+    PublicationKind, PumpMaterial, PumpMotorType, PumpType, QuantityAdditionKind,
+    QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
+    ReactionKind, ReductionKind, ReferenceRule, ReferenceStateKind, RequirementSource,
+    ResolutionStatus, RetentionReason, ScaleKind, ScopeKind, SelectorOp, Sense, Severity,
+    SnapshotClass, SolverVariableType, SourceBindingKind, SplittingType, Stability,
+    StabilityPolicy, StabilityStatus, StateIndex, SubjectKind, SubjectRule, SymbolRole,
+    TargetKind, TearPolicy, TemplateKind, TerminationStatus, ThermodynamicAssumption,
+    ThermodynamicFormulation, TimeCoordinateKind, TrayMaterial, TrayType, Treatment,
+    TriState, TruthValue, ValveFunctionType, VariableSemanticRole, VesselMaterial,
+    WeightNormalization,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
@@ -228,6 +234,25 @@ impl crate::columnar::ArrowValue for BoundStatus {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for CandidateUse {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for CapabilityRequirement {
     fn append(
         &self,
@@ -267,6 +292,44 @@ impl crate::columnar::ArrowValue for CaseKind {
     }
 }
 impl crate::columnar::ArrowValue for ChangeKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ClosureAssessment {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ClosurePolicy {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -932,6 +995,25 @@ impl crate::columnar::ArrowValue for EntityKind {
     }
 }
 impl crate::columnar::ArrowValue for EquationSyntax {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for EvidenceUnavailableReason {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -1672,6 +1754,25 @@ impl crate::columnar::ArrowValue for MigrationOp {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for MissingInteractionPolicy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for MixingType {
     fn append(
         &self,
@@ -1748,6 +1849,82 @@ impl crate::columnar::ArrowValue for Namespace {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for NativeAssurance {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeBackend {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeBoundaryClass {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeCandidateKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for NativeDependencyEvidenceKind {
     fn append(
         &self,
@@ -1768,6 +1945,25 @@ impl crate::columnar::ArrowValue for NativeDependencyEvidenceKind {
     }
 }
 impl crate::columnar::ArrowValue for NativeDependencyKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeDerivativeCapability {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -1824,7 +2020,197 @@ impl crate::columnar::ArrowValue for NativeObjectiveSense {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for NativeProblemClass {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeQualification {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeRunState {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeStartPolicy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeTermination {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for NativeVariableDomain {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeWarmCapability {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NumericalCoordinates {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NumericalSource {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NumericalTarget {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ObservationTimeBasis {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -2584,6 +2970,44 @@ impl crate::columnar::ArrowValue for Stability {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for StabilityPolicy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for StabilityStatus {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for StateIndex {
     fn append(
         &self,
@@ -2679,6 +3103,25 @@ impl crate::columnar::ArrowValue for TargetKind {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for TearPolicy {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for TemplateKind {
     fn append(
         &self,
@@ -2718,6 +3161,44 @@ impl crate::columnar::ArrowValue for TerminationStatus {
     }
 }
 impl crate::columnar::ArrowValue for ThermodynamicAssumption {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ThermodynamicFormulation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for TimeCoordinateKind {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

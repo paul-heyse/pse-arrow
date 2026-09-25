@@ -11,7 +11,8 @@
         "real": "[\"f64\",\"3ff0000000000000\"]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "step": "[\"i64\",1]",
-        "text": "[\"text\",\"value-1\"]"
+        "text": "[\"text\",\"value-1\"]",
+        "unavailable": "[\"enum\",\"not_requested\"]"
       },
       {
         "boolean": "[\"bool\",true]",
@@ -22,7 +23,8 @@
         "real": "[\"f64\",\"3ff0000000000000\"]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "step": "[\"i64\",1]",
-        "text": "[\"text\",\"value-1\"]"
+        "text": "[\"text\",\"value-1\"]",
+        "unavailable": "[\"enum\",\"not_requested\"]"
       }
     ]
   },

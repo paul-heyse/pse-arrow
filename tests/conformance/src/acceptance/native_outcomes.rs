@@ -131,7 +131,7 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
         rows: vec![],
         integrality: 1e-8,
     };
-    let report = match backend {
+    let mut report = match backend {
         Backend::Ipopt => ipopt::Session::new().solve(
             &mut oracle,
             &[10.],
@@ -158,6 +158,25 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
         _ => unreachable!(),
     }
     .unwrap();
+    assert_eq!(report.termination.assurance, Assurance::None);
+    if matches!(
+        report.termination.category,
+        Termination::Success | Termination::Acceptable
+    ) {
+        let mut original = Quadratic::new(Fault::None, Default::default(), Default::default());
+        pse_backend_native::quality::attach_nlp(
+            &mut report,
+            &mut original,
+            &tolerances,
+            ObjectiveSense::Minimize,
+        );
+        pse_backend_native::quality::record_kkt(
+            &mut report,
+            &pse_math::normalization::Normalization::identity(1, 0),
+            &controls.accuracy,
+        );
+        pse_backend_native::quality::qualify(&mut report, &controls.accuracy);
+    }
     (report, fired.load(Ordering::SeqCst))
 }
 #[test]
@@ -221,7 +240,7 @@ fn native_nlp_terminal_failure_panic_limit_and_after_entry_stop() {
         );
         assert_eq!(
             report.termination.category,
-            Termination::Limit,
+            Termination::IterationLimit,
             "{report:?}"
         );
         assert_eq!(report.termination.assurance, Assurance::None);

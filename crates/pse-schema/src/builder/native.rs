@@ -473,7 +473,7 @@ fn sections(reg: &Registry) -> Result<Vec<ArrayRef>, SchemaError> {
 }
 
 fn functions() -> Vec<ArrayRef> {
-    let rows = pse_math::Function::all();
+    let rows = pse_quantity::functions::Function::all();
     vec![
         text(rows.iter().map(|f| Some(f.as_str()))),
         text(rows.iter().map(|f| Some(f.implementation().as_str()))),

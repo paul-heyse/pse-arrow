@@ -7,7 +7,7 @@ use pse_engine::cache_service::flight::FlightCancellation;
 use pse_ids::SemanticId;
 use std::sync::Arc;
 /// Immutable physically admitted compiler product and its allocation owner.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PreparedFlow {
     graph: Arc<pse_structural::flowsheet::FlowGraph>,
     _owner: Arc<pse_columnar::AllocationLease>,
@@ -40,6 +40,7 @@ impl MathService {
     pub async fn prepare_flow(
         self: &Arc<Self>,
         workspace: Workspace,
+        revision: pse_compiler::workspace::Inputs,
         id: SemanticId,
     ) -> Result<PreparedFlow, MathRuntimeError> {
         let owner = self.reserve("math:flow-product", self.policy.workspace_bytes)?;
@@ -50,14 +51,11 @@ impl MathService {
                 FlightCancellation::default(),
                 move |_| {
                     let _lease = workspace.lease;
-                    workspace
-                        .compiler
-                        .lock()
-                        .map_err(|_| {
-                            MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                        })?
-                        .prepare_flow(id)
-                        .map_err(Into::into)
+                    let mut compiler = workspace.compiler.lock().map_err(|_| {
+                        MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                    })?;
+                    compiler.publish(revision)?;
+                    compiler.prepare_flow(id).map_err(Into::into)
                 },
             )
             .await?;

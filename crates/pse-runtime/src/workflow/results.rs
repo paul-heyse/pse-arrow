@@ -10,7 +10,7 @@ use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{
         authored::computation_models as models,
-        enums::NativeMetricKind,
+        enums::{NativeAssurance, NativeCandidateKind, NativeMetricKind, NativeRunState},
         runtime::{
             solve_constraints as constraints, solve_metrics as metrics, solve_runs as runs,
             solve_variables as variables,
@@ -121,19 +121,15 @@ impl RunResult {
                 (_, Some(Outcome::Rejected(e))) => Some(e.to_string()),
                 _ => None,
             };
-            let termination = native.map_or_else(
-                || {
-                    if error.is_some() {
-                        "rejected"
-                    } else if constant.is_some() {
-                        "constant_evaluation"
-                    } else {
-                        "unattempted"
-                    }
-                    .to_owned()
-                },
-                |r| format!("{:?}", r.termination.category),
-            );
+            let state = if native.is_some() {
+                NativeRunState::Native
+            } else if error.is_some() {
+                NativeRunState::Rejected
+            } else if constant.is_some() {
+                NativeRunState::ConstantEvaluation
+            } else {
+                NativeRunState::Unattempted
+            };
             run_rows
                 .push(runs::Row {
                     run_id: self.run_id,
@@ -141,15 +137,15 @@ impl RunResult {
                     model_id: Some(request.revision.0.row.model_id),
                     revision: Some(request.revision.identity()),
                     case_id: Some(request.case),
-                    backend: native.map(|r| format!("{:?}", r.backend)),
+                    backend: native.map(|r| r.backend),
                     native_code: native.map(|r| r.termination.code),
                     native_status: native.map(|r| r.termination.name.clone()),
-                    termination,
-                    assurance: native.map_or_else(
-                        || "none".into(),
-                        |r| format!("{:?}", r.termination.assurance),
-                    ),
-                    candidate_present: candidate.is_some() || constant.is_some(),
+                    state,
+                    termination: native.map(|r| r.termination.category),
+                    assurance: native.map_or(NativeAssurance::None, |r| r.termination.assurance),
+                    candidate_kind: candidate
+                        .map(|c| c.kind)
+                        .or_else(|| constant.map(|_| NativeCandidateKind::ConstantEvaluation)),
                     feasible: quality.map(|q| q.feasible()),
                     objective: observation
                         .and_then(|o| o.objective)
@@ -192,7 +188,7 @@ impl RunResult {
                         .columns()
                         .iter()
                         .position(|id| *id == p.symbol_id);
-                    i.and_then(|i| request.profile.tolerances.variables.get(i).copied())
+                    i.and_then(|i| request.solve.tolerances().variables.get(i).copied())
                 };
                 let dual_status = match observation {
                     Some(o) if o.dual_error.is_none() => "evaluated_kkt_not_sensitivity_certified",
@@ -293,7 +289,7 @@ impl RunResult {
                             .and_then(|o| o.lower_violations.get(i).copied()),
                         upper_violation: observation
                             .and_then(|o| o.upper_violations.get(i).copied()),
-                        tolerance: request.profile.tolerances.rows.get(i).copied(),
+                        tolerance: request.solve.tolerances().rows.get(i).copied(),
                         dual: candidate
                             .and_then(|c| c.row_dual.as_ref().and_then(|v| v.get(i).copied())),
                         dual_qualification: observation
@@ -342,6 +338,64 @@ impl RunResult {
                     &Metric::Text(value),
                 )?;
             }
+            if let Some(proof) = request.solve.quadratic_evidence() {
+                use pse_math::convexity::ConvexityAssessment;
+                let (state, values, reason) = match proof.assessment() {
+                    None | Some(ConvexityAssessment::Exact(_)) => ("exact_gram", vec![], None),
+                    Some(ConvexityAssessment::NumericalPsd {
+                        minimum,
+                        tolerance,
+                        uncertainty,
+                    }) => (
+                        "numerical_psd",
+                        vec![
+                            ("minimum", *minimum),
+                            ("tolerance", *tolerance),
+                            ("uncertainty", *uncertainty),
+                        ],
+                        None,
+                    ),
+                    Some(ConvexityAssessment::Indefinite {
+                        minimum,
+                        uncertainty,
+                    }) => (
+                        "indefinite",
+                        vec![("minimum", *minimum), ("uncertainty", *uncertainty)],
+                        None,
+                    ),
+                    Some(ConvexityAssessment::Inconclusive(reason)) => {
+                        ("inconclusive", vec![], Some(format!("{reason:?}")))
+                    }
+                };
+                push_metric(
+                    &mut metric_rows,
+                    self.run_id,
+                    step,
+                    "convexity",
+                    "assessment",
+                    &Metric::Text(state.into()),
+                )?;
+                for (name, value) in values {
+                    push_metric(
+                        &mut metric_rows,
+                        self.run_id,
+                        step,
+                        "convexity",
+                        name,
+                        &Metric::Real(value),
+                    )?;
+                }
+                if let Some(reason) = reason {
+                    push_metric(
+                        &mut metric_rows,
+                        self.run_id,
+                        step,
+                        "convexity",
+                        "reason",
+                        &Metric::Text(reason),
+                    )?;
+                }
+            }
             for (name, provider) in &request.revision.0.providers {
                 push_metric(
                     &mut metric_rows,
@@ -380,17 +434,17 @@ impl RunResult {
             }
             if let Some(native) = native {
                 push_native_metrics(&mut metric_rows, self.run_id, step, native)?;
-                if let Some(o) = observation {
-                    if let Some(error) = &o.dual_error {
-                        push_metric(
-                            &mut metric_rows,
-                            self.run_id,
-                            step,
-                            "diagnostic",
-                            "dual",
-                            &Metric::Text(error.clone()),
-                        )?;
-                    }
+                if let Some(o) = observation
+                    && let Some(error) = &o.dual_error
+                {
+                    push_metric(
+                        &mut metric_rows,
+                        self.run_id,
+                        step,
+                        "diagnostic",
+                        "dual",
+                        &Metric::Text(error.clone()),
+                    )?;
                 }
             }
         }
@@ -432,6 +486,7 @@ pub(super) fn push_metric(
         integer: None,
         boolean: None,
         text: None,
+        unavailable: None,
     };
     match value {
         Metric::Real(v) if v.is_finite() => {
@@ -450,6 +505,10 @@ pub(super) fn push_metric(
             row.boolean = Some(*v);
         }
         Metric::Text(v) => row.text = Some(v.clone()),
+        Metric::Unavailable(reason) => {
+            row.kind = NativeMetricKind::Unavailable;
+            row.unavailable = Some(*reason);
+        }
     }
     builder.push(row).map_err(relation)
 }
@@ -461,6 +520,35 @@ pub(super) fn push_native_metrics(
     step: i64,
     native: &pse_backend_native::solve::SolveReport,
 ) -> Result<(), WorkflowError> {
+    push_metric(
+        builder,
+        run_id,
+        step,
+        "qualification",
+        "numerical",
+        &Metric::Text(native.qualification.as_str().into()),
+    )?;
+    if let Some(start) = &native.start_receipt {
+        let value = serde_json::json!({"previous_attempt":start.previous_attempt,"seed":start.seed.as_ref().map(|s|s.snapshot()),"sparse_seed":start.sparse_seed.as_ref().map(|s|s.iter().map(|(id,v)|(id.to_hex(),*v)).collect::<BTreeMap<_,_>>()),"transformations":start.transformations,"submitted":start.submitted});
+        push_metric(
+            builder,
+            run_id,
+            step,
+            "start",
+            "request",
+            &Metric::Text(value.to_string()),
+        )?;
+    }
+    if let Some(seed) = &native.warm_start {
+        push_metric(
+            builder,
+            run_id,
+            step,
+            "start",
+            "available",
+            &Metric::Text(seed.snapshot().to_string()),
+        )?;
+    }
     for (name, value) in &native.metrics {
         push_metric(builder, run_id, step, "metric", name, value)?;
     }
@@ -661,6 +749,64 @@ pub(super) fn push_native_metrics(
         }
     }
     if let Some(p) = &native.preprocessing {
+        if let Some(proof) = &p.proof {
+            let kind = proof.kind();
+            push_metric(
+                builder,
+                run_id,
+                step,
+                "preprocessing_proof",
+                "kind",
+                &Metric::Text(kind.into()),
+            )?;
+            push_metric(
+                builder,
+                run_id,
+                step,
+                "preprocessing_proof",
+                "normalization",
+                &Metric::Text(proof.normalization.to_prefixed()),
+            )?;
+            if let Some(id) = proof.witness_row {
+                push_metric(
+                    builder,
+                    run_id,
+                    step,
+                    "preprocessing_proof",
+                    "witness_row",
+                    &Metric::Text(id.to_hex()),
+                )?;
+            }
+            for (kind, ids, budgets) in [
+                ("row", &proof.rows, &proof.budgets.rows),
+                ("variable", &proof.columns, &proof.budgets.variables),
+            ] {
+                for (id, budget) in ids.iter().zip(budgets) {
+                    push_metric(
+                        builder,
+                        run_id,
+                        step,
+                        "preprocessing_proof",
+                        &format!("{kind}.{}.normalized_budget", id.to_hex()),
+                        &Metric::Real(*budget),
+                    )?;
+                }
+            }
+            for (index, (row, instance, output)) in proof.contributions.iter().enumerate() {
+                push_metric(
+                    builder,
+                    run_id,
+                    step,
+                    "preprocessing_proof",
+                    &format!("contribution.{index}"),
+                    &Metric::Text(format!(
+                        "row={};instance={};output={output}",
+                        row.to_hex(),
+                        instance.to_hex()
+                    )),
+                )?;
+            }
+        }
         for (name, value) in &p.diagnostics {
             push_metric(
                 builder,

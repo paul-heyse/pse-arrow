@@ -14,22 +14,15 @@ async fn publication_resource() {
     cancelled.cancel();
     assert!(
         revision
-            .prepare(
-                case,
-                profile(Backend::Ipopt, 3, 3, false),
-                compiler(),
-                false,
-                &cancelled
-            )
+            .prepare(case, profile(Backend::Ipopt, false), compiler(), &cancelled)
             .await
             .is_err()
     );
     let prepared = revision
         .prepare(
             case,
-            profile(Backend::Ipopt, 3, 3, false),
+            profile(Backend::Ipopt, false),
             compiler(),
-            false,
             &CancelSource::new(),
         )
         .await
@@ -107,10 +100,10 @@ async fn publication_resource() {
     assert!(owner.runtime.pool().reserved() <= reserved);
     // A limited or cancelled attempt remains an attempt, never an optimum certificate.
     let revision = builder(&owner).await.freeze().unwrap();
-    let mut limited = profile(Backend::Ipopt, 3, 3, false);
+    let mut limited = profile(Backend::Ipopt, false);
     limited.controls.iterations = 1;
     let p = revision
-        .prepare(case, limited, compiler(), false, &CancelSource::new())
+        .prepare(case, limited, compiler(), &CancelSource::new())
         .await
         .unwrap();
     let result = p.start().unwrap().wait().await.unwrap();
@@ -131,9 +124,8 @@ async fn publication_resource() {
     let p = revision
         .prepare(
             case,
-            profile(Backend::Ipopt, 3, 3, false),
+            profile(Backend::Ipopt, false),
             compiler(),
-            false,
             &CancelSource::new(),
         )
         .await

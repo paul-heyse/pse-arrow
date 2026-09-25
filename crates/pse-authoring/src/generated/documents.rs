@@ -80,6 +80,11 @@ pub struct ComputationModelsDocument {
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
+    pub r#model_compositions: Vec<
+        pse_model::generated::r#authored::r#model_compositions::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
     pub r#dynamic_cases: Vec<pse_model::generated::r#authored::r#dynamic_cases::Row>,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
@@ -88,8 +93,28 @@ pub struct ComputationModelsDocument {
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
+    pub r#directional_valve_laws: Vec<
+        pse_model::generated::r#authored::r#directional_valve_laws::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
     pub r#physical_balances: Vec<
         pse_model::generated::r#authored::r#physical_balances::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#numerical_requirements: Vec<
+        pse_model::generated::r#authored::r#numerical_requirements::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#provider_scaling_bindings: Vec<
+        pse_model::generated::r#authored::r#provider_scaling_bindings::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#reaction_applications: Vec<
+        pse_model::generated::r#authored::r#reaction_applications::Row,
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]

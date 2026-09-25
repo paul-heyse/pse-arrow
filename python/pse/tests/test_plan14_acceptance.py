@@ -6,6 +6,7 @@ import asyncio
 import gc
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import msgspec
@@ -19,6 +20,33 @@ from pse.contracts import authored
 from pse.contracts.values import SemanticId
 
 FIXTURE = Path(__file__).resolve().parents[3] / "tests/fixtures/plan14"
+
+
+def numerical_requirement(
+    model: SemanticId,
+    case: SemanticId | None,
+    target: SemanticId,
+    kind: str,
+    tolerance: float,
+) -> dict[str, object]:
+    return {
+        "requirement_id": uuid.uuid5(
+            uuid.NAMESPACE_URL, f"plan14:{model}:{case}:{target}:{kind}"
+        ).hex,
+        "model_id": model.to_hex(),
+        "case_id": None if case is None else case.to_hex(),
+        "target_id": target.to_hex(),
+        "target_kind": kind,
+        "nominal": None,
+        "scaling_factor": None,
+        "absolute_tolerance": tolerance,
+        "relative_tolerance": None,
+        "unit_id": None,
+        "coordinates": "physical",
+        "priority": 0,
+        "required": True,
+        "provenance": "Plan 14 acceptance budget migrated by semantic identity",
+    }
 
 
 @pytest.mark.integration
@@ -46,21 +74,34 @@ def test_public_native_process_and_exact_results(
         draft.native_provider(
             codec.converter().structure(row, authored.AuthoredNativeProvidersRow)
         )
+    balances: list[authored.AuthoredPhysicalBalancesRow] = []
     for row in msgspec.json.decode(
         (FIXTURE / "balances.json").read_bytes(), type=list[dict[str, object]]
     ):
-        draft.balance(
-            codec.converter().structure(row, authored.AuthoredPhysicalBalancesRow)
+        balance = codec.converter().structure(row, authored.AuthoredPhysicalBalancesRow)
+        balances.append(balance)
+        draft.balance(balance)
+    selected = next(c for c in declaration.cases if c.name == "heater-recycle")
+    targets = [(v.port.symbol_id, "variable", 1e-6) for v in selected.variables]
+    targets.extend((r.row_id, "row", 1e-4) for r in selected.rows)
+    targets.extend(
+        (b.balance_id, "row", 1e-4) for b in balances if b.case_id == selected.case_id
+    )
+    for target, kind, tolerance in targets:
+        draft.numerical_requirement(
+            codec.converter().structure(
+                numerical_requirement(
+                    declaration.model_id, selected.case_id, target, kind, tolerance
+                ),
+                authored.AuthoredNumericalRequirementsRow,
+            )
         )
     revision = draft.freeze()
-    selected = next(c for c in declaration.cases if c.name == "heater-recycle")
     prepared = revision.prepare(
         selected.case_id,
         pse.SolveSettings(
             backend="ipopt",
             intent="feasible_point",
-            variable_tolerances=[1e-6] * 3,
-            row_tolerances=[1e-4] * 3,
         ),
     )
     handle = prepared.start()
@@ -186,8 +227,17 @@ def test_public_dynamic_and_transient_fit(
                 backend="ipopt",
                 intent="optimize",
                 hessian="limited_memory",
-                variable_tolerances=[1e-6],
-                row_tolerances=[],
+                numerics={
+                    "requirements": [
+                        numerical_requirement(
+                            fit.model_id,
+                            None,
+                            fit.parameters[0].symbol_id,
+                            "variable",
+                            1e-6,
+                        )
+                    ]
+                },
             ),
             {fit.experiments[0].experiment_id: settings},
         )

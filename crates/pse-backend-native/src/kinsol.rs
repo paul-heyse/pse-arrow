@@ -112,6 +112,41 @@ impl Settings {
     /// Admit exact dimensions, sign-only bound semantics and strategy representation.
     pub fn validate(&self, function: &Function) -> Result<Vec<f64>, ProblemError> {
         let c = function.contract();
+        let representation = match function {
+            Function::Equations(_) => Strategy::LineSearch,
+            Function::Picard { .. } => Strategy::Picard,
+            Function::FixedPoint(_) => Strategy::FixedPoint,
+        };
+        let guards = match function {
+            Function::Equations(o) | Function::Picard { oracle: o, .. } => o.guard_signs(),
+            Function::FixedPoint(_) => Default::default(),
+        };
+        let signs = self.validate_contract(c, representation, &guards)?;
+        if let Function::Picard { linear, .. } = function {
+            if linear.val().iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::Contract("nonfinite Picard splitting".into()));
+            }
+        }
+        let original = match function {
+            Function::Equations(o) => o.jacobian_pattern(),
+            Function::Picard { oracle, .. } => oracle.jacobian_pattern(),
+            Function::FixedPoint(o) => o.original_pattern(),
+        };
+        crate::structural::oracle(
+            c,
+            original,
+            &vec![(0.0, 0.0); c.variables.len()],
+            crate::structural::Mode::Roots,
+        )?;
+        Ok(signs)
+    }
+    /// Check strategy, scales, bounds and guards before an evaluator or native worker exists.
+    pub fn validate_contract(
+        &self,
+        c: &OracleContract,
+        representation: Strategy,
+        guards: &std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign>,
+    ) -> Result<Vec<f64>, ProblemError> {
         let n = c.variables.len();
         if n == 0
             || c.rows.len() != n
@@ -134,13 +169,13 @@ impl Settings {
                 "KINSOL square/scaling/settings contract".into(),
             ));
         }
-        let fixed = matches!(function, Function::FixedPoint(_));
+        let fixed = representation == Strategy::FixedPoint;
         if fixed != (self.strategy == Strategy::FixedPoint) {
             return Err(ProblemError::Contract(
                 "KINSOL strategy requires its declared residual/map representation".into(),
             ));
         }
-        if matches!(function, Function::Picard { .. }) != (self.strategy == Strategy::Picard) {
+        if (representation == Strategy::Picard) != (self.strategy == Strategy::Picard) {
             return Err(ProblemError::Contract(
                 "Picard requires an explicit constant splitting".into(),
             ));
@@ -150,23 +185,7 @@ impl Settings {
         } else {
             c.validate(pse_kernels::DerivativeOrder::Value)?;
         }
-        if let Function::Picard { linear, .. } = function {
-            if linear.val().iter().any(|v| !v.is_finite()) {
-                return Err(ProblemError::Contract("nonfinite Picard splitting".into()));
-            }
-        }
-        let original = match function {
-            Function::Equations(o) => o.jacobian_pattern(),
-            Function::Picard { oracle, .. } => oracle.jacobian_pattern(),
-            Function::FixedPoint(o) => o.original_pattern(),
-        };
-        crate::structural::oracle(
-            c,
-            original,
-            &vec![(0.0, 0.0); n],
-            crate::structural::Mode::Roots,
-        )?;
-        let signs = sign_constraints(c)?;
+        let signs = guarded_sign_constraints(c, guards)?;
         if (fixed || self.strategy == Strategy::Picard) && signs.iter().any(|v| *v != 0.0) {
             return Err(ProblemError::Contract(
                 "KIN_FP/KIN_PICARD forbid constraints; choose an eligible declared map or NLP"
@@ -200,6 +219,24 @@ pub fn sign_constraints(c: &OracleContract) -> Result<Vec<f64>, ProblemError> {
             )),
         })
         .collect()
+}
+/// Check guard and bound intersection without constructing an oracle.
+pub fn guarded_sign_constraints(
+    c: &OracleContract,
+    guards: &std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign>,
+) -> Result<Vec<f64>, ProblemError> {
+    let mut signs = sign_constraints(c)?;
+
+    for (i, v) in c.variables.iter().enumerate() {
+        if let Some(guard) = guards.get(&v.id) {
+            let direction = if guard.positive { 1.0 } else { -1.0 };
+            if signs[i] != 0.0 && signs[i].signum() != direction {
+                return Err(ProblemError::Contract("bound/guard sign conflict".into()));
+            }
+            signs[i] = direction * if guard.strict { 2.0 } else { 1.0 };
+        }
+    }
+    Ok(signs)
 }
 struct Context {
     function: Function,
@@ -652,7 +689,7 @@ impl Session {
                 "iteration limit",
             )?;
             check(
-                ffi::KINSetFuncNormTol(self.mem, controls.tolerance),
+                ffi::KINSetFuncNormTol(self.mem, controls.accuracy.feasibility),
                 "residual tolerance",
             )?;
             check(
@@ -707,10 +744,12 @@ impl Session {
         }
         macro_rules! real{($($get:ident),*)=>{$(let mut v=0.0;if unsafe{ffi::$get(self.mem,&mut v)}==0{report.metrics.insert(stringify!($get).into(),Metric::Real(v));})*}}
         real!(KINGetFuncNorm, KINGetStepLength);
-        report.provenance.insert(
-            "native".into(),
-            "SUNDIALS 7.1.1; serial vectors; SuiteSparse 7.7.0 KLU".into(),
-        );
+        report
+            .metrics
+            .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
+        report
+            .provenance
+            .insert("native".into(), crate::sundials_version());
         report
             .provenance
             .insert("settings".into(), format!("{:?}", self.settings));
@@ -788,6 +827,7 @@ impl Session {
                 }
             }
             report.candidate = Some(Candidate {
+                kind: CandidateKind::FinalIterate,
                 primal: x.clone(),
                 objective: None,
                 row_dual: None,
@@ -796,6 +836,7 @@ impl Session {
                 slacks: None,
             });
             report.warm_start = Some(WarmStart {
+                origin: None,
                 compatibility: self.compatibility.clone(),
                 payload: WarmPayload::Root(x),
             });
@@ -808,27 +849,27 @@ impl Session {
 /// Preserve KINSOL's distinct residual, step-size and initialization exits.
 pub fn termination(code: i32) -> NativeTermination {
     let (name, category) = match code {
-        0 => ("KIN_SUCCESS", Termination::Success),
-        1 => ("KIN_INITIAL_GUESS_OK", Termination::Success),
-        2 => ("KIN_STEP_LT_STPTOL", Termination::Acceptable),
-        -1 => ("KIN_MEM_NULL", Termination::Invalid),
-        -2 => ("KIN_ILL_INPUT", Termination::Invalid),
-        -3 => ("KIN_NO_MALLOC", Termination::Invalid),
-        -4 => ("KIN_MEM_FAIL", Termination::Limit),
-        -5 => ("KIN_LINESEARCH_NONCONV", Termination::Numerical),
-        -6 => ("KIN_MAXITER_REACHED", Termination::Limit),
-        -7 => ("KIN_MXNEWT_5X_EXCEEDED", Termination::Numerical),
-        -8 => ("KIN_LINESEARCH_BCFAIL", Termination::Numerical),
-        -9 => ("KIN_LINSOLV_NO_RECOVERY", Termination::Numerical),
-        -10 => ("KIN_LINIT_FAIL", Termination::Numerical),
-        -11 => ("KIN_LSETUP_FAIL", Termination::Numerical),
-        -12 => ("KIN_LSOLVE_FAIL", Termination::Numerical),
-        -13 => ("KIN_SYSFUNC_FAIL", Termination::Evaluation),
-        -14 => ("KIN_FIRST_SYSFUNC_ERR", Termination::Evaluation),
-        -15 => ("KIN_REPTD_SYSFUNC_ERR", Termination::Evaluation),
-        -16 => ("KIN_VECTOROP_ERR", Termination::Numerical),
-        -17 => ("KIN_CONTEXT_ERR", Termination::Invalid),
-        _ => ("KIN_UNKNOWN", Termination::Invalid),
+        ffi::KIN_SUCCESS => ("KIN_SUCCESS", Termination::Success),
+        ffi::KIN_INITIAL_GUESS_OK => ("KIN_INITIAL_GUESS_OK", Termination::Success),
+        ffi::KIN_STEP_LT_STPTOL => ("KIN_STEP_LT_STPTOL", Termination::Acceptable),
+        ffi::KIN_MEM_NULL => ("KIN_MEM_NULL", Termination::Invalid),
+        ffi::KIN_ILL_INPUT => ("KIN_ILL_INPUT", Termination::Invalid),
+        ffi::KIN_NO_MALLOC => ("KIN_NO_MALLOC", Termination::Invalid),
+        ffi::KIN_MEM_FAIL => ("KIN_MEM_FAIL", Termination::ResourceExhausted),
+        ffi::KIN_LINESEARCH_NONCONV => ("KIN_LINESEARCH_NONCONV", Termination::Numerical),
+        ffi::KIN_MAXITER_REACHED => ("KIN_MAXITER_REACHED", Termination::IterationLimit),
+        ffi::KIN_MXNEWT_5X_EXCEEDED => ("KIN_MXNEWT_5X_EXCEEDED", Termination::Numerical),
+        ffi::KIN_LINESEARCH_BCFAIL => ("KIN_LINESEARCH_BCFAIL", Termination::Numerical),
+        ffi::KIN_LINSOLV_NO_RECOVERY => ("KIN_LINSOLV_NO_RECOVERY", Termination::Numerical),
+        ffi::KIN_LINIT_FAIL => ("KIN_LINIT_FAIL", Termination::Numerical),
+        ffi::KIN_LSETUP_FAIL => ("KIN_LSETUP_FAIL", Termination::Numerical),
+        ffi::KIN_LSOLVE_FAIL => ("KIN_LSOLVE_FAIL", Termination::Numerical),
+        ffi::KIN_SYSFUNC_FAIL => ("KIN_SYSFUNC_FAIL", Termination::Evaluation),
+        ffi::KIN_FIRST_SYSFUNC_ERR => ("KIN_FIRST_SYSFUNC_ERR", Termination::Evaluation),
+        ffi::KIN_REPTD_SYSFUNC_ERR => ("KIN_REPTD_SYSFUNC_ERR", Termination::Evaluation),
+        ffi::KIN_VECTOROP_ERR => ("KIN_VECTOROP_ERR", Termination::Numerical),
+        ffi::KIN_CONTEXT_ERR => ("KIN_CONTEXT_ERR", Termination::Invalid),
+        _ => ("KIN_UNKNOWN", Termination::Inconclusive),
     };
     NativeTermination {
         code: i64::from(code),
@@ -867,6 +908,21 @@ mod tests {
         assert_eq!(sign_constraints(&c).unwrap(), vec![1.0]);
         c.variables[0].upper = 1.0;
         assert!(sign_constraints(&c).is_err());
+    }
+    #[test]
+    fn strict_guards_are_native_constraints_without_bound_relaxation() {
+        let mut c = crate::solver_tests::Polynomial::new().c;
+        let id = c.variables[0].id;
+        let guard = std::collections::BTreeMap::from([(
+            id,
+            pse_math::presolve::GuardSign {
+                positive: true,
+                strict: true,
+            },
+        )]);
+        assert_eq!(guarded_sign_constraints(&c, &guard).unwrap(), vec![2.0]);
+        c.variables[0].upper = 0.0;
+        assert!(guarded_sign_constraints(&c, &guard).is_err());
     }
     fn settings() -> Settings {
         Settings {

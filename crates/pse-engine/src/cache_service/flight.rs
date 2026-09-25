@@ -95,8 +95,10 @@ impl<V, E> Drop for Waiter<V, E> {
     }
 }
 /// One entry per live key, retained by completion independently of caller futures.
+type FlightEntries<K, V, E> = Arc<Mutex<HashMap<K, Arc<Flight<V, E>>>>>;
+/// Shared table of pending keyed loads.
 pub struct Flights<K, V, E = DataFusionError> {
-    entries: Arc<Mutex<HashMap<K, Arc<Flight<V, E>>>>>,
+    entries: FlightEntries<K, V, E>,
     limit: usize,
 }
 impl<K, V, E> Flights<K, V, E>

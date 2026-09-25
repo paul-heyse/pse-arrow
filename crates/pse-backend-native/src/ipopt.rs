@@ -387,97 +387,103 @@ unsafe extern "C" fn intermediate(
 /// Map every pinned Ipopt return status without claiming global NLP certificates.
 pub fn termination(code: i32) -> NativeTermination {
     let (name, category, assurance) = match code {
-        0 => (
-            "Solve_Succeeded",
-            Termination::Success,
-            Assurance::LocalStationary,
-        ),
-        1 => (
+        ffi::ApplicationReturnStatus_Solve_Succeeded => {
+            ("Solve_Succeeded", Termination::Success, Assurance::None)
+        }
+        ffi::ApplicationReturnStatus_Solved_To_Acceptable_Level => (
             "Solved_To_Acceptable_Level",
             Termination::Acceptable,
-            Assurance::LocalStationary,
+            Assurance::None,
         ),
-        2 => (
+        ffi::ApplicationReturnStatus_Infeasible_Problem_Detected => (
             "Infeasible_Problem_Detected",
             Termination::Infeasible,
             Assurance::None,
         ),
-        3 => (
+        ffi::ApplicationReturnStatus_Search_Direction_Becomes_Too_Small => (
             "Search_Direction_Becomes_Too_Small",
             Termination::Numerical,
             Assurance::None,
         ),
-        4 => (
+        ffi::ApplicationReturnStatus_Diverging_Iterates => (
             "Diverging_Iterates",
             Termination::Numerical,
             Assurance::None,
         ),
-        5 => (
+        ffi::ApplicationReturnStatus_User_Requested_Stop => (
             "User_Requested_Stop",
             Termination::Cancelled,
             Assurance::None,
         ),
-        6 => (
+        ffi::ApplicationReturnStatus_Feasible_Point_Found => (
             "Feasible_Point_Found",
             Termination::FeasibleOnly,
-            Assurance::Feasible,
-        ),
-        -1 => (
-            "Maximum_Iterations_Exceeded",
-            Termination::Limit,
             Assurance::None,
         ),
-        -2 => (
+        ffi::ApplicationReturnStatus_Maximum_Iterations_Exceeded => (
+            "Maximum_Iterations_Exceeded",
+            Termination::IterationLimit,
+            Assurance::None,
+        ),
+        ffi::ApplicationReturnStatus_Restoration_Failed => (
             "Restoration_Failed",
             Termination::Numerical,
             Assurance::None,
         ),
-        -3 => (
+        ffi::ApplicationReturnStatus_Error_In_Step_Computation => (
             "Error_In_Step_Computation",
             Termination::Numerical,
             Assurance::None,
         ),
-        -4 => (
+        ffi::ApplicationReturnStatus_Maximum_CpuTime_Exceeded => (
             "Maximum_CpuTime_Exceeded",
             Termination::TimeLimit,
             Assurance::None,
         ),
-        -5 => (
+        ffi::ApplicationReturnStatus_Maximum_WallTime_Exceeded => (
             "Maximum_WallTime_Exceeded",
             Termination::TimeLimit,
             Assurance::None,
         ),
-        -10 => (
+        ffi::ApplicationReturnStatus_Not_Enough_Degrees_Of_Freedom => (
             "Not_Enough_Degrees_Of_Freedom",
             Termination::Invalid,
             Assurance::None,
         ),
-        -11 => (
+        ffi::ApplicationReturnStatus_Invalid_Problem_Definition => (
             "Invalid_Problem_Definition",
             Termination::Invalid,
             Assurance::None,
         ),
-        -12 => ("Invalid_Option", Termination::Invalid, Assurance::None),
-        -13 => (
+        ffi::ApplicationReturnStatus_Invalid_Option => {
+            ("Invalid_Option", Termination::Invalid, Assurance::None)
+        }
+        ffi::ApplicationReturnStatus_Invalid_Number_Detected => (
             "Invalid_Number_Detected",
             Termination::Evaluation,
             Assurance::None,
         ),
-        -100 => (
+        ffi::ApplicationReturnStatus_Unrecoverable_Exception => (
             "Unrecoverable_Exception",
             Termination::Numerical,
             Assurance::None,
         ),
-        -101 => (
+        ffi::ApplicationReturnStatus_NonIpopt_Exception_Thrown => (
             "NonIpopt_Exception_Thrown",
             Termination::Numerical,
             Assurance::None,
         ),
-        -102 => ("Insufficient_Memory", Termination::Limit, Assurance::None),
-        -199 => ("Internal_Error", Termination::Invalid, Assurance::None),
+        ffi::ApplicationReturnStatus_Insufficient_Memory => (
+            "Insufficient_Memory",
+            Termination::ResourceExhausted,
+            Assurance::None,
+        ),
+        ffi::ApplicationReturnStatus_Internal_Error => {
+            ("Internal_Error", Termination::Invalid, Assurance::None)
+        }
         _ => (
             "Unknown_Ipopt_Status",
-            Termination::Invalid,
+            Termination::Inconclusive,
             Assurance::None,
         ),
     };
@@ -523,6 +529,9 @@ impl Session {
         compatibility: Compatibility,
     ) -> Result<SolveReport, ProblemError> {
         controls.validate()?;
+        if oracle.normalization().is_some() {
+            return Err(ProblemError::Contract("model normalization must be transported through the shared NLP pipeline before native execution".into()));
+        }
         let exact = controls.hessian == HessianMode::Exact;
         crate::validate_nlp(
             oracle,
@@ -654,6 +663,16 @@ impl Session {
                 "max_wall_time",
                 "max_cpu_time",
                 "tol",
+                "constr_viol_tol",
+                "dual_inf_tol",
+                "compl_inf_tol",
+                "acceptable_tol",
+                "acceptable_iter",
+                "acceptable_constr_viol_tol",
+                "acceptable_dual_inf_tol",
+                "acceptable_compl_inf_tol",
+                "bound_relax_factor",
+                "honor_original_bounds",
                 "warm_start_init_point",
                 "nlp_scaling_method",
                 "obj_scaling_factor",
@@ -661,6 +680,7 @@ impl Session {
             ],
         )?;
         let mut options = controls.options.clone();
+        options.extend(controls.accuracy.nlp_options());
         options.extend([
             ("option_file_name".into(), OptionValue::Text(String::new())),
             (
@@ -671,7 +691,6 @@ impl Session {
                 "max_wall_time".into(),
                 OptionValue::Real(controls.time_limit.as_secs_f64()),
             ),
-            ("tol".into(), OptionValue::Real(controls.tolerance)),
             (
                 "hessian_approximation".into(),
                 OptionValue::Text(if exact { "exact" } else { "limited-memory" }.into()),
@@ -684,6 +703,8 @@ impl Session {
                 OptionValue::Text(
                     if scaling.is_some() {
                         "user-scaling"
+                    } else if controls.accuracy.native_scaling {
+                        "gradient-based"
                     } else {
                         "none"
                     }
@@ -808,10 +829,17 @@ impl Session {
         report
             .metrics
             .insert("reuse.native_model".into(), Metric::Bool(reused));
-        report.provenance.insert(
-            "native".into(),
-            "Ipopt 3.14.20; MUMPS 5.9.1; sequential LP64".into(),
-        );
+        report
+            .metrics
+            .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
+        let (mut major, mut minor, mut release) = (0, 0, 0);
+        // SAFETY: the linked API writes three caller-owned integers.
+        unsafe {
+            ffi::GetIpoptVersion(&mut major, &mut minor, &mut release);
+        }
+        report
+            .provenance
+            .insert("native".into(), format!("Ipopt {major}.{minor}.{release}"));
         report.provenance.insert(
             "duals".into(),
             "minimization L=f+lambda*g-zL*x+zU*x; authored objective recovered once".into(),
@@ -828,6 +856,7 @@ impl Session {
                 .chain(&upper)
                 .all(|v| v.is_finite());
             report.candidate = Some(Candidate {
+                kind: CandidateKind::FinalIterate,
                 primal: x.clone(),
                 objective: Some(objective * sense.sign()),
                 row_dual: duals.then(|| rows.clone()),
@@ -848,6 +877,7 @@ impl Session {
                 }
             }
             report.warm_start = Some(WarmStart {
+                origin: None,
                 compatibility,
                 payload: WarmPayload::Nlp {
                     primal: x,
@@ -880,7 +910,8 @@ mod tests {
     #[test]
     fn status_scope_and_finite_infinity_are_not_conflated() {
         assert_eq!(termination(2).assurance, Assurance::None);
-        assert_eq!(termination(6).assurance, Assurance::Feasible);
+        assert_eq!(termination(6).assurance, Assurance::None);
+        assert_eq!(termination(6).category, Termination::FeasibleOnly);
         for code in [
             0, 1, 2, 3, 4, 5, 6, -1, -2, -3, -4, -5, -10, -11, -12, -13, -100, -101, -102, -199,
         ] {
