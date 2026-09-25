@@ -58,6 +58,7 @@ pub(crate) fn python_tests(root: &Path, args: &[String]) -> Result<()> {
             "run",
             "--no-sync",
             "pytest",
+            "python/pse/tests",
             "--maxfail=0",
             "--continue-on-collection-errors",
             "-m",

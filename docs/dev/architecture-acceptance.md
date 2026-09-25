@@ -7,12 +7,12 @@ adrs: [ADR-0082, ADR-0083, ADR-0084]
 
 # Plan 14 native simulator acceptance
 
-**Implemented, execution deferred:** M19–M20 supplies concrete native process tests,
-independent references and measurement bodies. M21 adds explicit envelopes, contribution-based conservation and final implementation/
-deletion review; M22 executes and qualifies the complete target. The
+**Implemented:** M19–M21 supplies concrete native process tests, independent
+references, operating envelopes, contribution-based conservation and measurement
+bodies. The [M22 packet](../plans/14-m22-execution.md) records local Linux execution
+and the design-stage completion boundary. The
 [manifest](../plans/14-acceptance-cases.toml) maps Q01–Q18 to exact witnesses and
-profiles. The [execution packet](../plans/14-m19-m20-execution.md) records what was
-actually tested. No historical acceptance identity, old seal or passing campaign
+profiles. Execution receipts record what was actually tested. No historical acceptance identity, old seal or passing campaign
 satisfies a current requirement.
 
 ## Current commands
@@ -66,14 +66,29 @@ global MINLP and covariance/global-identifiability claims are outside this profi
 
 ## Measurements and independent review input
 
-`plan14-measure` runs Criterion in 12 fresh processes: cold/warm source operations,
-one/eight/32 heater blocks and one/four process threads. Complete operations include
-preparation/edit, compilation, joined native solve, physical quality, Arrow result
+`plan14-measure` runs Criterion in 23 fresh processes: cold/warm heater operations
+with one/eight/32 blocks and one/four process threads; structural edits and new
+specializations; flash cold/warm/difficult starts; conserved vessel, transient fitting,
+publication/reopening and after-entry cancellation. Complete operations include
+case preparation/edit and compilation, joined native solve, physical quality, Arrow result
 access and attempt teardown. Cold operations also construct/drop their runtime;
 warm operations retain the revision/compiler owner. Every report separates tracked
 pool peaks from process-lifetime RSS, and binds raw samples, confidence intervals,
 workload shape, binary/linked libraries and toolchain. No speedup is implied by the
-presence of a benchmark.
+presence of a benchmark. Rust application compilation is untimed setup using the
+existing target/cache and `dev` profile. Ten flat samples use a 250 ms warmup and
+a one-second measurement target, extended automatically for slow operations.
+These observations are design-stage costs, not release-profile performance.
+
+Use `--stop-after plan14-measure` to retain measurements with reviews pending.
+Resume into a fresh directory using `--resume-from`, `--change-reason` and affected
+`--rerun` gates. Documentation-only continuation retains the original measurement
+identity; executable changes require new measurements and all source changes
+require current independent reviews. Functional observations affected only by reviewed
+formatting/style edits may be retained with an explicit change reason and affected
+rerun selection, including edits overlapping the original run. Their original drift
+and origin remain visible; an already authenticated continuation needs no repeated
+impact decision merely to consume it.
 
 Independent reviewers supply one file for every `review_gates` entry in the manifest:
 `G1.json`–`G8.json` and `PS-G1.json`–`PS-G3.json`, under
@@ -92,8 +107,12 @@ there is no generated approval or self-review substitute.
 
 The [validation guide](validation-assessment.md) defines receipt version 3, exact
 case coverage, classified advisory results and source-aware continuation. M22 must
-repair actual failures and rerun affected gates until the zero baseline is met,
-then reconcile formal ADR/blueprint status and current capability claims.
+repair actual functional failures and rerun affected gates. The design-stage scope
+keeps default/native tests, Python journeys and repository contract checks. Release,
+coverage, exhaustive feature matrices, strict Clippy backlog cleanup and
+distribution/platform acceptance are separate. The full workspace test selection
+already includes the governance test crate. The known upstream `proc-macro-error2` warning is maintainer-accepted
+(ADR-0087); no functional failure is waived.
 
 The development receipt is the existing version-3 `checks.json` plus retained raw
 reports and native provenance, with mode `development`. Its pointer lives at

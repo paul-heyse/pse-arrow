@@ -67,6 +67,10 @@ impl Comparison {
 
 /// One region in dependency order. Constructed only after physical admission.
 #[derive(Clone, Debug, PartialEq)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Stages retain owned expressions inline for compilation without per-stage indirection"
+)]
 pub(crate) enum Stage {
     /// Safe multi-output arithmetic owned by Symbolica.
     Block {

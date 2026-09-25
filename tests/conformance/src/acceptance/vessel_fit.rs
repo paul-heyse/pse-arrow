@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::fixtures::*;
-use pse_backend_native::solve::{Backend, HessianMode};
-use pse_ids::{SemanticId, named_id};
-use pse_runtime::{
-    CancelSource,
-    workflow::{FitProfile, RunReport},
-};
-use std::collections::BTreeMap;
+use pse_backend_native::solve::Termination;
+use pse_ids::named_id;
+use pse_runtime::{CancelSource, workflow::RunReport};
 #[tokio::test]
 async fn vessel_fit() {
     let owner = WorkflowRuntime::new().unwrap();
@@ -85,60 +81,7 @@ async fn vessel_fit() {
     // One shared physical parameter in steady, transient and mixed observation sets.
     for kind in ["steady", "transient", "mixed"] {
         let mut b = revision.edit();
-        let heat = sid(&f["vessel_ports"]["heat"]["symbol_id"]);
-        let fit_id = named_id(dynamic, kind);
-        let dataset = named_id(fit_id, "data");
-        b.dataset(serde_json::from_value(serde_json::json!({"dataset_id":dataset,"name":kind,"source":"analytic closed-vessel energy conservation","content_hash":format!("blake3:{}","02".repeat(32))})).unwrap());
-        let dynamic_case = named_id(dynamic, "case");
-        let mut steady = b
-            .declaration_mut()
-            .cases
-            .iter()
-            .find(|c| c.case_id == dynamic_case)
-            .unwrap()
-            .clone();
-        steady.case_id = named_id(fit_id, "steady");
-        for v in &mut steady.variables {
-            v.fixed = true;
-        }
-        let steady_id = steady.case_id;
-        let heat_row = named_id(steady_id, "measured-heat");
-        steady.rows.push(pse_relations::generated::authored::computation_models::AuthoredComputationModelsFieldCasesItemRowsItem {
-            row_id:heat_row,quantity_id:sid(&f["functions"]["rate_u"]),lower:None,upper:None,
-        });
-        steady.instances.iter_mut().find(|i|i.instance_id == named_id(dynamic,"instance.heat")).unwrap().contributions.push(
-            pse_relations::generated::authored::computation_models::AuthoredComputationModelsFieldCasesItemInstancesItemContributionsItem {output:0,row_id:Some(heat_row),scale:1.0}
-        );
-        b.declaration_mut().cases.push(steady);
-        let mut experiments = vec![];
-        let mut observations = vec![];
-        for transient in [false, true] {
-            if (kind == "steady" && transient) || (kind == "transient" && !transient) {
-                continue;
-            }
-            let experiment = named_id(fit_id, if transient { "dynamic" } else { "static" });
-            let observation = named_id(experiment, "observation");
-            experiments.push(serde_json::json!({"experiment_id":experiment,"case_id":if transient{dynamic_case}else{steady_id},"dynamic_id":if transient{Some(dynamic)}else{None::<SemanticId>}}));
-            let unit = sid(&f["ids"]["units"][if transient { "energy" } else { "power" }]);
-            b.observation(serde_json::from_value(serde_json::json!({"observation_id":observation,"dataset_id":dataset,"target":"energy balance","value":if transient{u+10.}else{10.},"unit_id":unit,"std_dev":1.,"timestamp":null,"tag":null,"source_span":{"document_id":dataset,"start":0,"end":0}})).unwrap());
-            observations.push(serde_json::json!({"observation_id":observation,"experiment_id":experiment,"output_id":if transient{named_id(dynamic,"row.output.u")}else{heat_row},"time":if transient{Some(1.)}else{None::<f64>},"included":true,"importance":1.}));
-        }
-        let model_id = b.declaration_mut().model_id;
-        b.fit(serde_json::from_value(serde_json::json!({"fit_id":fit_id,"model_id":model_id,"parameters":[{"symbol_id":heat,"fixed":false,"value":3.,"lower":0.,"upper":20.,"scale":10.}],"experiments":experiments,"observations":observations})).unwrap());
-        let mut solver = profile(Backend::Ipopt, 1, 0, true);
-        solver.controls.hessian = HessianMode::LimitedMemory;
-        let mut simulation = simulation();
-        simulation.sensitivities = true;
-        let profile = FitProfile {
-            solver,
-            simulations: if kind == "steady" {
-                BTreeMap::new()
-            } else {
-                BTreeMap::from([(named_id(fit_id, "dynamic"), simulation)])
-            },
-            rank_tolerance: 1e-8,
-            max_cells: 1 << 20,
-        };
+        let (fit_id, profile) = heat_fit(&mut b, kind);
         let fit = b
             .freeze()
             .unwrap()
@@ -149,6 +92,20 @@ async fn vessel_fit() {
         let RunReport::Fit(report) = result.report().unwrap() else {
             panic!()
         };
+        assert!(
+            matches!(
+                report.solve.as_ref().unwrap().termination.category,
+                Termination::Success | Termination::Acceptable
+            ),
+            "{report:?}"
+        );
+        assert!(
+            report
+                .quality
+                .as_ref()
+                .is_some_and(|quality| quality.feasible()),
+            "{report:?}"
+        );
         near(report.candidate.as_ref().unwrap()[0], 10., 2e-3);
         assert_eq!(report.rank, Some(1));
         for v in report.responses.as_ref().unwrap().col(0).iter() {
@@ -165,6 +122,79 @@ async fn vessel_fit() {
             1
         );
     }
+}
+
+#[tokio::test]
+async fn higher_index_vessel_is_refused_before_native_start() {
+    let owner = WorkflowRuntime::new().unwrap();
+    let mut b = builder(&owner).await;
+    vessel(&mut b, false);
+    let dynamic = sid(&json("bindings.json")["vessel_id"]);
+    b.declaration_mut()
+        .definitions
+        .iter_mut()
+        .find(|d| d.definition_id == named_id(dynamic, "definition.closure_n"))
+        .unwrap()
+        .sources[0] = "n - n0".into();
+    let error = b
+        .freeze()
+        .unwrap()
+        .prepare_simulation(dynamic, simulation(), compiler(), &CancelSource::new())
+        .await
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("structural deficiency")
+            && error
+                .to_string()
+                .contains(&format!("{:?}", named_id(dynamic, "row.closure_n"))),
+        "{error}"
+    );
+}
+
+#[tokio::test]
+async fn fitted_vessel_distinguishes_optimum_from_parameter_identifiability() {
+    let owner = WorkflowRuntime::new().unwrap();
+    let mut b = builder(&owner).await;
+    vessel(&mut b, false);
+    let f = json("bindings.json");
+    let (fit_id, mut settings) = heat_fit(&mut b, "transient");
+    let inlet = sid(&f["vessel_ports"]["inlet_enthalpy"]["symbol_id"]);
+    let h = f["vessel_values"]["inlet_enthalpy"].as_f64().unwrap();
+    b.sources_mut().fits.iter_mut().find(|fit| fit.fit_id == fit_id).unwrap()
+        .parameters.push(serde_json::from_value(serde_json::json!({
+            "symbol_id":inlet, "fixed":false, "value":h, "lower":h-1000., "upper":h+1000., "scale":1000.
+        })).unwrap());
+    settings.solver.tolerances.variables = vec![1e-6; 2];
+    let result = b
+        .freeze()
+        .unwrap()
+        .prepare_fit(fit_id, settings, compiler(), &CancelSource::new())
+        .await
+        .unwrap()
+        .start()
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    let RunReport::Fit(report) = result.report().unwrap() else {
+        panic!()
+    };
+    assert!(
+        matches!(
+            report.solve.as_ref().unwrap().termination.category,
+            Termination::Success | Termination::Acceptable
+        ),
+        "{report:?}"
+    );
+    assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
+    assert!(report.objective.unwrap() < 1e-6, "{report:?}");
+    assert_eq!(report.candidate.as_ref().unwrap().len(), 2);
+    assert_eq!(
+        report.rank,
+        Some(1),
+        "zero inflow leaves inlet enthalpy unidentifiable: {report:?}"
+    );
+    conservation(&result, 2);
 }
 
 #[tokio::test]
@@ -195,6 +225,12 @@ async fn valve_event_reset_preserves_conservation_and_changes_mode() {
         d.definition_id = named_id(dynamic, role);
         d.sources = vec![expression.into()];
         d.providers.clear();
+        d.units = vec![
+            serde_json::from_value(
+                serde_json::json!({"spelling":"1", "unit_id":sid(&f["ids"]["units"]["neutral"])}),
+            )
+            .unwrap(),
+        ];
         source.definitions.push(d.clone());
         let mut i = instance.clone();
         i.instance_id = named_id(d.definition_id, "instance");

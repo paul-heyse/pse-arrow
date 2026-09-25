@@ -19,8 +19,9 @@ have different lifecycles, which is why they live in different directories.
 | [11 — Integrated work reuse and native execution performance](11-integrated-native-performance.md) | Historical native execution design and evidence | Existing contracts through ADR-0074 | incomplete I18/I19 acceptance was carried into Plan 13; not automatically inherited by Plan 14 |
 | [12 — Expand the petgraph skill into rust-graphs](12-rust-graphs-skill.md) | Agent tooling: rename the petgraph skill to `rust-graphs` and add rustworkx-core, leiden-rs, graphops, graphina, rust-igraph and raphtory at uniform full depth (library ladder, coverage and interop matrices, seams, probes) | none required (tooling) | done; 14 verify checks and every probe family passing |
 | [13 — Rust computation architecture and carried acceptance](13-rust-computation-architecture.md) | Historical typed compiler, Salsa/graph and MathIR execution design and receipts | Proposed ADR-0076–ADR-0081 at its checkpoint | execution scope superseded by 14; historical W19 incomplete and W20 unrun; reuse requires new-target evidence |
-| [14 — Library-owned process simulator hard pivot](14-library-owned-process-simulator.md) | Combined math reviews: library-owned arithmetic, properties, native solvers, initialization, indexed assembly, scoped dynamics/fitting, hard deletions and new target-derived acceptance | Proposed ADR-0082–0084 | M00–M21 implemented; targeted units pass; M22 qualification remains |
+| [14 — Library-owned process simulator hard pivot](14-library-owned-process-simulator.md) | Combined math reviews: library-owned arithmetic, properties, native solvers, initialization, indexed assembly, scoped dynamics/fitting, hard deletions and new target-derived acceptance | ADR-0082–0087 | complete for local Linux design-stage scope; [M22 evidence](14-m22-execution.md) |
 | [15 — Rust build performance and persistent compilation reuse](15-rust-build-performance.md) | Compiler caching, artifact retention, dated nightly frontend parallelism, native prerequisites and measured build-profile improvements; no crate restructuring or increased check-first workflow | tooling; default-toolchain governance amendment if needed | draft; assessment and execution packets B00–B06 |
+| [16 — Data-model architecture and consolidated review remediation](16-data-model-architecture.md) | Aggregated comprehensive/follow-up reviews: semantic admission and composition, physical/numerical contracts, native strategies and results, correct reuse, publication, consolidation and final qualification | ADR-0082–0086; new/superseding decisions scoped in P00 | draft; P00–P18 pending |
 
 **Completed execution sequence:** Plan 09 integrates and completes the caching review
 and all remaining Plan 08 E00–E10 architecture work. Its final acceptance review,
@@ -35,10 +36,15 @@ checkpoint and incomplete acceptance evidence.
 **Current implementation direction:** [Plan 14](14-library-owned-process-simulator.md)
 supersedes Plan 13's execution scope. It combines both library-math reviews and the
 maintainer's requirement to select reuse on evidence of relevance to the new target.
-M00–M21 is implemented; start next with M22 full qualification. The
+M00–M22 is complete for the local Linux scope in the [M22 packet](14-m22-execution.md). The
 [M09–M10 packet](14-m09-m10-execution.md),
 [foundation contract](14-math-foundation-contract.md) and
 [execution inventory](14-execution-inventory.md) record current source boundaries.
+
+**Proposed next architecture work:** [Plan 16](16-data-model-architecture.md)
+consolidates the two 2026-09-24 codebase reviews into one dependency-ordered target.
+It preserves Plan 14's historical qualification and Plan 15's separate build-cache
+scope. Implementation has not started.
 
 Plan 13's [repair checkpoint](13-w19-repair-checkpoint.md),
 [W15–W20 packet](13-w15-w20-execution.md) and [inventory](13-execution-inventory.md)

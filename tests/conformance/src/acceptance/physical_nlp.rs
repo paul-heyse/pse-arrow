@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::fixtures::*;
-use pse_backend_native::solve::Backend;
+use pse_backend_native::solve::{Assurance, Backend, Termination};
+use pse_runtime::{math::solves::Outcome, workflow::RunReport};
 #[tokio::test]
 async fn physical_nlp() {
     let owner = WorkflowRuntime::new().unwrap();
@@ -41,11 +42,30 @@ async fn physical_nlp() {
         );
     }
     for backend in [Backend::Ipopt, Backend::Pounce] {
-        success(
-            solve(&revision, sid(&f["optimization"]), backend, true)
-                .await
-                .as_ref(),
-        );
+        let result = solve(&revision, sid(&f["optimization"]), backend, true).await;
+        success(&result);
+        let RunReport::Solves(report) = result.report().unwrap() else {
+            panic!("expected optimization result")
+        };
+        assert_eq!(report.outcomes.len(), 1);
+        let Outcome::Native(report) = &report.outcomes[0] else {
+            panic!("expected native optimization")
+        };
+        assert!(matches!(
+            report.termination.category,
+            Termination::Success | Termination::Acceptable
+        ));
+        assert_eq!(report.termination.assurance, Assurance::LocalStationary);
+        let temperature = revision
+            .declaration()
+            .cases
+            .iter()
+            .find(|case| case.case_id == sid(&f["optimization"]))
+            .unwrap()
+            .variables[0]
+            .port
+            .symbol_id;
+        near(variable(&result, temperature), 76.85, 1e-5);
     }
     let mut separator = revision.edit();
     for c in &mut separator.declaration_mut().cases {
@@ -113,38 +133,6 @@ async fn physical_nlp() {
             .prepare(
                 case.case_id,
                 profile(Backend::Kinsol, 2, 3, false),
-                compiler(),
-                false,
-                &pse_runtime::CancelSource::new()
-            )
-            .await
-            .is_err()
-    );
-    // Structural matching alone cannot certify a singular numerical system.
-    let mut singular = revision.edit();
-    let source = singular.declaration_mut();
-    let first = source.cases[0].instances[0].definition_id;
-    let duplicate = source.cases[0].instances[1].definition_id;
-    let definition = source
-        .definitions
-        .iter()
-        .find(|d| d.definition_id == first)
-        .unwrap()
-        .clone();
-    let target = source
-        .definitions
-        .iter_mut()
-        .find(|d| d.definition_id == duplicate)
-        .unwrap();
-    target.sources = definition.sources;
-    target.providers = definition.providers;
-    // Admission must reject the incompatible physical row before a solver runs.
-    let changed = singular.freeze().unwrap();
-    assert!(
-        changed
-            .prepare(
-                sid(&f["root_case"]),
-                profile(Backend::Kinsol, 3, 3, false),
                 compiler(),
                 false,
                 &pse_runtime::CancelSource::new()

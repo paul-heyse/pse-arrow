@@ -394,9 +394,9 @@ impl Progress {
                             })
                     });
             if s.0.len() < self.limit && bytes <= 4096 {
-                s.0.push(event)
+                s.0.push(event);
             } else {
-                s.1 = s.1.saturating_add(1)
+                s.1 = s.1.saturating_add(1);
             }
         }
     }
@@ -489,7 +489,7 @@ pub enum WarmPayload {
     },
     /// Root-system initial values; no fictitious duals.
     Root(Vec<f64>),
-    /// HiGHS primal/dual start and optional simplex basis.
+    /// `HiGHS` primal/dual start and optional simplex basis.
     Highs {
         /// Complete or absent primal.
         primal: Option<Vec<f64>>,

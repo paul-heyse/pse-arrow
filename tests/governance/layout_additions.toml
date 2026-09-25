@@ -5,8 +5,22 @@
 # block. Adding a row here is the mechanical half of amending §3.2; the other half is the
 # ADR named below. `every_crate_registered` fails on any directory that is in neither
 # place, so a crate cannot be introduced by accident.
-additions = ["pse-ipopt-sys", "pse-buildinfo", "pse-engine", "pse-testkit", "pse-math"]
-removals = ["pse-mathir", "pse-numerics", "pse-templates", "pse-backend-nl", "pse-backend-pyomo", "pse-plans", "pse-kernels-ext"]
+additions = [
+  "pse-ipopt-sys",
+  "pse-buildinfo",
+  "pse-engine",
+  "pse-testkit",
+  "pse-math",
+]
+removals = [
+  "pse-mathir",
+  "pse-numerics",
+  "pse-templates",
+  "pse-backend-nl",
+  "pse-backend-pyomo",
+  "pse-plans",
+  "pse-kernels-ext",
+]
 reason = """
 ADR-0082/0083 and approved Plan 14 add pse-math and remove the legacy math/backend and unused placeholder identities.
 ADR-0073 introduces the native engine and dev-only testkit. ADR-0038 amends blueprint §3.2 with the workspace-layout additions the design implies but

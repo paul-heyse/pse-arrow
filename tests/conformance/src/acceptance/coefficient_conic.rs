@@ -68,6 +68,8 @@ fn coefficient_conic() {
                 None,
             )
             .unwrap();
+        assert_eq!(r.termination.category, Termination::Success, "{r:?}");
+        assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
         assert!(r.quality.as_ref().unwrap().feasible());
         near(
             r.candidate.as_ref().unwrap().primal[0],
@@ -126,6 +128,8 @@ fn coefficient_conic() {
                 },
             )
             .unwrap();
+        assert_eq!(r.termination.category, Termination::Success, "{r:?}");
+        assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
         assert!(r.quality.as_ref().unwrap().feasible(), "{r:?}");
         near(r.candidate.as_ref().unwrap().primal[0], expected, 2e-5);
     }
@@ -159,6 +163,8 @@ fn coefficient_conic() {
             None,
         )
         .unwrap();
+    assert_eq!(r.termination.category, Termination::Success, "{r:?}");
+    assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
     near(r.candidate.unwrap().primal[0], 2., 1e-5);
     p.domains[0] = VariableDomain::Integer;
     assert!(highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs)).is_err());

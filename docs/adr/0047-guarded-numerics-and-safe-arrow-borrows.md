@@ -1,7 +1,7 @@
 ---
 id: ADR-0047
 title: Preserve guarded numerical semantics and borrow through safe Arrow views
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D6, §D11, §6.11, §7.3, §7.4, §18.2, §21.2]
 review: docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md#6-acceptance-gates
 evidence: Proposed
 supersedes: [ADR-0014]
-superseded-by: null
+superseded-by: ADR-0082
 revisit: A backend cannot express an adopted numerical policy or measured buffer-transfer cost justifies a new layout.
 verification: just adr-lint; just docs; docs/plans/02-blueprint-revision-5-contracts.md Verification; bash docs/design_review/evidence/blueprint-rev4-2026-09-13/run.sh
 ---
@@ -62,3 +62,4 @@ See the governed blueprint sections, the [revision-4 review](../design_review/re
 - 2026-09-13 — proposed before the revision-5 blueprint amendment; user requested reconciliation of all review findings and library opportunities.
 - 2026-09-13 — proposes superseding ADR-0014 for the corrected contract above; accepted arguments remain immutable.
 - 2026-09-13 — accepted (revision-5 review, Accept for bounded proposed scope; evidence remains Proposed until the wave-1 implementation review).
+- 2026-09-24 — superseded by ADR-0082.

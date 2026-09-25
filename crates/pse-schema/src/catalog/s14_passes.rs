@@ -4,9 +4,7 @@
 //! Actual authored-source projection signature.
 use crate::{
     RegistryBuilder,
-    model::{
-        AlgorithmDecl, Authority, Determinism, ResultSpec, SnapshotClass,
-    },
+    model::{AlgorithmDecl, Authority, Determinism, ResultSpec, SnapshotClass},
 };
 
 /// Declare source projection over explicit typed native arguments.

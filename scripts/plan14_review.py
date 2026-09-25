@@ -3,13 +3,16 @@
 """Collect independently authored G1-G8 and PS-G1-PS-G3 decisions; never generate an approval."""
 
 from __future__ import annotations
+
 import hashlib
 import json
 import os
 import sys
 import time
 from pathlib import Path
-from scripts import implementation_phase as phase, validation
+
+from scripts import implementation_phase as phase
+from scripts import validation
 from scripts.plan14_measure import source_digest
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -125,7 +125,13 @@ pub(crate) async fn solve(
             profile(
                 backend,
                 source.variables.iter().filter(|v| !v.fixed).count(),
-                source.rows.len(),
+                source.rows.len()
+                    + revision
+                        .source_declarations()
+                        .balances
+                        .iter()
+                        .filter(|b| b.case_id == case)
+                        .count(),
                 optimize,
             ),
             compiler(),
@@ -324,4 +330,72 @@ pub(crate) fn resize(builder: &mut ModelBuilder, blocks: usize) {
             builder.balance(copy);
         }
     }
+}
+
+/// Shared analytic known-heat fit declaration; test and timing paths use one source recipe.
+pub(crate) fn heat_fit(
+    b: &mut ModelBuilder,
+    kind: &str,
+) -> (SemanticId, pse_runtime::workflow::FitProfile) {
+    let f = json("bindings.json");
+    let u = f["expected"]["u0"].as_f64().unwrap();
+    let dynamic = sid(&f["vessel_id"]);
+    let heat = sid(&f["vessel_ports"]["heat"]["symbol_id"]);
+    let fit_id = pse_ids::named_id(dynamic, kind);
+    let dataset = pse_ids::named_id(fit_id, "data");
+    b.dataset(serde_json::from_value(serde_json::json!({"dataset_id":dataset,"name":kind,"source":"analytic closed-vessel energy conservation","content_hash":format!("blake3:{}","02".repeat(32))})).unwrap());
+    let dynamic_case = pse_ids::named_id(dynamic, "case");
+    let mut steady = b
+        .declaration_mut()
+        .cases
+        .iter()
+        .find(|c| c.case_id == dynamic_case)
+        .unwrap()
+        .clone();
+    steady.case_id = pse_ids::named_id(fit_id, "steady");
+    for v in &mut steady.variables {
+        v.fixed = true;
+    }
+    let steady_id = steady.case_id;
+    let heat_row = pse_ids::named_id(steady_id, "measured-heat");
+    steady.rows.push(pse_relations::generated::authored::computation_models::AuthoredComputationModelsFieldCasesItemRowsItem {
+        row_id:heat_row,quantity_id:sid(&f["functions"]["rate_u"]),lower:None,upper:None,
+    });
+    steady.instances.iter_mut().find(|i|i.instance_id == pse_ids::named_id(dynamic,"instance.heat")).unwrap().contributions.push(
+        pse_relations::generated::authored::computation_models::AuthoredComputationModelsFieldCasesItemInstancesItemContributionsItem {output:0,row_id:Some(heat_row),scale:1.0}
+    );
+    steady
+        .instances
+        .retain(|instance| !instance.contributions.is_empty());
+    b.declaration_mut().cases.push(steady);
+    let mut experiments = vec![];
+    let mut observations = vec![];
+    for transient in [false, true] {
+        if (kind == "steady" && transient) || (kind == "transient" && !transient) {
+            continue;
+        }
+        let experiment = pse_ids::named_id(fit_id, if transient { "dynamic" } else { "static" });
+        let observation = pse_ids::named_id(experiment, "observation");
+        experiments.push(serde_json::json!({"experiment_id":experiment,"case_id":if transient{dynamic_case}else{steady_id},"dynamic_id":if transient{Some(dynamic)}else{None::<SemanticId>}}));
+        let unit = sid(&f["ids"]["units"][if transient { "energy" } else { "power" }]);
+        b.observation(serde_json::from_value(serde_json::json!({"observation_id":observation,"dataset_id":dataset,"target":"energy balance","value":if transient{u+10.}else{10.},"unit_id":unit,"std_dev":1.,"timestamp":null,"tag":null,"source_span":{"document_id":dataset,"start":0,"end":0}})).unwrap());
+        observations.push(serde_json::json!({"observation_id":observation,"experiment_id":experiment,"output_id":if transient{pse_ids::named_id(dynamic,"row.output.u")}else{heat_row},"time":if transient{Some(1.)}else{None::<f64>},"included":true,"importance":1.}));
+    }
+    let model_id = b.declaration_mut().model_id;
+    b.fit(serde_json::from_value(serde_json::json!({"fit_id":fit_id,"model_id":model_id,"parameters":[{"symbol_id":heat,"fixed":false,"value":3.,"lower":0.,"upper":20.,"scale":10.}],"experiments":experiments,"observations":observations})).unwrap());
+    let mut solver = profile(Backend::Ipopt, 1, 0, true);
+    solver.controls.hessian = pse_backend_native::solve::HessianMode::LimitedMemory;
+    let mut simulation = simulation();
+    simulation.sensitivities = true;
+    let profile = pse_runtime::workflow::FitProfile {
+        solver,
+        simulations: if kind == "steady" {
+            BTreeMap::new()
+        } else {
+            BTreeMap::from([(pse_ids::named_id(fit_id, "dynamic"), simulation)])
+        },
+        rank_tolerance: 1e-8,
+        max_cells: 1 << 20,
+    };
+    (fit_id, profile)
 }

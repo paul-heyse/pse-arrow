@@ -1,40 +1,20 @@
 # Project status
 
-**Current: Plan 14 M00–M20 — 2026-09-24.** Library-owned mathematics, FeOS,
-matching/DM/BTF and Salsa preparation now feed one admitted native solver lifecycle.
-Ipopt, POUNCE, KINSOL, HiGHS and Clarabel adapters, finite native reuse/warm starts,
-conditional initialization, explicit recycle maps and weighted tear selection are
-implemented. Runtime reports preserve native status, source-space quality, available
-metrics and diagnostic scope. Shared presolve/postsolve, Rust/Python workflows,
-exact publication, Diffsol BDF dynamics and steady/transient/mixed fitting are now
-implemented. M19 removes residual empty crates, unused generated families and
-confirmed unused dependencies; M20 authors physical acceptance, reference and
-measurement bodies. Legacy mathematics and Pyomo routes remain deleted.
+**Current: Plan 14 M00–M22 — local Linux design-stage closure, 2026-09-24.**
+Library-owned mathematics, FeOS properties, native solvers, conserved dynamics/fitting,
+Rust/Python workflows and exact publication are implemented and locally qualified.
+The [M22 packet](docs/plans/14-m22-execution.md) records **Tested** Q01–Q17 evidence,
+**Measured** costs for 23 workloads, independent reviews and the exact completion scope.
+Workspace results are retained with their original provenance and explicit impact review;
+Rust compilation is excluded from case measurements and compiler caches remain in use.
 
-**Tested, baseline zero:** M19–M20's selected generator, enum, physical-fixture and
-algebra commands pass eight Rust units with explicit force-validation; the shared
-Python source-contract unit passes once. The isolated validation/phase/tool suite
-passes 38 tests. Commands and conditions are in the
-[packet verification](docs/plans/14-m19-m20-execution.md#verification).
-`just plan14-discover` compiles/enumerates all 109 native Rust tests and collects three
-Python tests; it does not execute those journeys. `just check` and
-`just check-native-python` pass. The transitive `proc-macro-error2` future-compatibility
-notice remains for final qualification. No full static, physical-convergence,
-publication or performance campaign is claimed. Foreign allocation allowances are
-estimates, not process RSS enforcement.
-
-**Next: M21, final implementation/deletion closure.** Review the final consumer,
-capability and retained-mechanism inventory, assemble current classified development
-evidence and issue a fresh seal. M22 then runs Q01–Q17 and all applicable repository
-gates, measures Q18 and obtains independent G1–G7 decisions. The v3 manifest has
-29 case groups and 135 exact witnesses, all still declared unqualified.
-ADR-0082–0084 remain proposed pending formal decision/blueprint reconciliation.
-
-The [execution packet](docs/plans/14-m19-m20-execution.md),
-[inventory](docs/plans/14-execution-inventory.md),
-[foundation contract](docs/plans/14-math-foundation-contract.md) and
-[scoped review](docs/design_review/reviews/design_review_unified-native-solvers_2026-09-24.md)
-record the current boundary. Earlier receipts below retain their historical scope.
+Strict Clippy cleanup, the accepted upstream `proc-macro-error2` warning, remote CI,
+release/distribution and other-platform qualification are outside this milestone under
+ADR-0087. No lint-clean, release, empirical-property or general solver-coverage claim is
+made. Larger finite workstation allowances are admission policy, not process RSS caps.
+See the [inventory](docs/plans/14-execution-inventory.md) and
+[foundation contract](docs/plans/14-math-foundation-contract.md) for supported scope.
+Earlier receipts below retain their historical scope.
 
 ## Historical Plan 13 checkpoint
 

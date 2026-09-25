@@ -1,15 +1,15 @@
 ---
 id: ADR-0082
 title: Compile typed process definitions through library-owned mathematics
-status: proposed
+status: accepted
 date: 2026-09-24
 deciders: [paul-heyse]
 level: decision
 principles: [DM-07, DM-24, DM-38, DM-56]
 blueprint: [§D6, §D10, §D11, §7, §14]
 review: docs/design_review/reviews/design_review_incremental-math-structure_2026-09-24.md
-evidence: Implemented
-supersedes: []
+evidence: Tested
+supersedes: [ADR-0047, ADR-0078]
 superseded-by: null
 revisit: A provider or guarded composition cannot preserve the selected value or derivative contract.
 verification: Plan 14 M00–M21 targeted units and M22 qualification
@@ -32,11 +32,15 @@ Existing data, graph, incremental and retention mechanisms require current consu
 
 The concrete replacement text is prepared in
 [Plan 14 foundation contract](../plans/14-math-foundation-contract.md#concrete-decision-amendment-prepared-for-the-design-pr).
-Apply it to the cited blueprint contracts through the designated design PR.
-This proposed record describes the implemented mathematical foundation and M19 cleanup.
-Native solver/workflow implementation is described by ADR-0083–0084; whole-plan
-scientific, runtime and formal acceptance remain M22 work.
-Accepted decisions are reconciled through formal supersession before decision PR acceptance.
+Blueprint revision 51 applies it under the local authorization in ADR-0087.
+For this milestone ADR-0087 authorizes local reconciliation; blueprint §0.5 now
+contains the governing replacement contract. Superseding ADR-0047 retains its
+safe Arrow borrowing and typed trial-failure obligations while replacing ordered
+custom evaluation with guarded library real algebra. ADR-0078's typed-region
+ownership is retained in the specialization compiler; its old IR is removed.
+This record describes the implemented mathematical foundation and M19 cleanup.
+Native solver/workflow implementation is described by ADR-0083–0084; local scientific and runtime qualification is recorded in the M22 packet.
+Displaced accepted decisions are reconciled through explicit supersession.
 
 ## Drivers
 
@@ -66,8 +70,8 @@ The unused expression-payload sharing pass is deleted. Generated semantic values
 native codecs retain their existing owners, with typed AST transformations and compact
 physical fixtures; no second codec or allocator framework is introduced. See
 [M19–M20 execution](../plans/14-m19-m20-execution.md). The removals were recorded before
-implementation and are now implemented; formal decision acceptance and blueprint
-reconciliation remain pending.
+implementation and are qualified locally by M22; blueprint revision 51 reconciles
+the current contract under ADR-0087.
 
 The approved M09–M10 extension separates immutable case planning from evaluator
 construction. Salsa owns semantic dependency tracking over actual admitted physical
@@ -91,7 +95,7 @@ source-attributed failures and targeted positive/negative unit controls.
 ### Confirmation
 
 The package-specific units and deleted caller inventory establish implementation;
-Plan 14 M22 alone establishes full qualification.
+Plan 14 M22 establishes the scoped local qualification recorded in its execution packet.
 
 ## Pros and cons
 
@@ -106,6 +110,19 @@ independent M22 acceptance.
 
 [Execution packet](../plans/14-m00-m05-execution.md) and
 [main plan](../plans/14-library-owned-process-simulator.md).
+
+## M22 local qualification
+
+**Tested and Measured:** the [M22 packet](../plans/14-m22-execution.md#verification)
+records local Linux functional Q01–Q17, the 23 cached-development case-cost workloads,
+zero required failures and retained-origin conditions. It distinguishes admitted memory
+allowances from measured pool/RSS observations and excludes Rust build time.
+
+The [independent final review](../design_review/reviews/design_review_m22-scientific_2026-09-24.md)
+accepts the relevant scoped contracts with no open MUST finding. Companion runtime,
+scientific and claims reviews cover G1–G8 and PS-G1–PS-G3. Blueprint revision 51 and
+ADR-0087 govern local acceptance. Strict Clippy cleanup and release/remote/platform
+qualification remain separate; no broader clean or empirical claim follows.
 
 ## Status history
 
@@ -122,3 +139,5 @@ independent M22 acceptance.
 - 2026-09-24: M09–M10 implemented and scoped-reviewed; 63 targeted force-validation
   units pass with zero failures. Shared workspace compilation passes. Formal decision
   acceptance, blueprint reconciliation and full M22 qualification remain open.
+
+- 2026-09-24 — accepted for local Linux M22 scope under ADR-0087 after independent final review; blueprint revision 51 reconciles the contracts. No remote or release qualification is claimed.

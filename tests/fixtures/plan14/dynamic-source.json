@@ -1,0 +1,30 @@
+{
+  "dynamic_id": "eb03ee66dd9e54259c34c9e81dfb53e9",
+  "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+  "case_id": "d3325a4faf5356b184a851008dd8994a",
+  "time_id": "29dc1f6e83115e8e8d84adae625b8633",
+  "states": [
+    {
+      "symbol_id": "e0cb2e36d13e50f7883888d66cc139f5",
+      "differential": true,
+      "initial_row": "cf9a32f5a53952dbbe1cdbd6aaa61d47",
+      "offset": 0.0,
+      "scale": 1.0,
+      "residual_scale": 1.0
+    }
+  ],
+  "parameters": [
+    "025b6cee4d165fb1a2818fb82018fd9a"
+  ],
+  "outputs": [
+    "0de2475a468a53f1bec6bc0f7e37fbc5"
+  ],
+  "modes": [
+    {
+      "rhs_rows": [
+        "4c1339ff8e1b5e4391aeddccfc0cdd74"
+      ],
+      "events": []
+    }
+  ]
+}

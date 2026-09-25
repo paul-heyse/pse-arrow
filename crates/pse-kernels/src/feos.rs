@@ -31,7 +31,7 @@ pub struct FeosPorts {
     pub inputs: [Port; 4],
     /// Pressure (Pa), enthalpy (J/mol), entropy (J/mol/K), three dimensionless ln(phi).
     pub outputs: [Port; 6],
-    /// Declared custom FeOS caloric convention at 298.15 K, without formation enthalpy.
+    /// Declared custom `FeOS` caloric convention at 298.15 K, without formation enthalpy.
     pub caloric_reference: ReferenceStateId,
     /// Component identities in methane/ethane/propane order.
     pub components: [SemanticId; 3],
@@ -55,6 +55,10 @@ fn fingerprint(text: &str) -> ContentHash {
     hash.str(text);
     hash.finish_hash()
 }
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "map_err consumes the native error"
+)]
 fn failure(error: feos_core::FeosError) -> ProviderError {
     use feos_core::FeosError as E;
     match error {
@@ -76,6 +80,13 @@ impl FeosPackage {
             .ok_or_else(|| ProviderError::Contract("FeOS requires an operating envelope".into()))
     }
     /// Admit physical roles and construct library-owned equations of state.
+    /// # Errors
+    /// Rejects incompatible physical ports, caloric conventions or operating envelopes.
+    #[allow(
+        clippy::too_many_lines,
+        clippy::float_cmp,
+        reason = "one physical admission table; canonical unit scale must equal one exactly"
+    )]
     pub fn new(ports: FeosPorts, registry: &QuantityRegistry) -> Result<Self, ProviderError> {
         let contract = |e: pse_quantity::QuantityError| ProviderError::Contract(e.to_string());
         let reference = registry
@@ -206,6 +217,8 @@ impl FeosPackage {
     }
 
     /// Library NPT initialization; the phase chooses an initial density, not a phase guarantee.
+    /// # Errors
+    /// Returns cancellation, invalid trials, envelope violations or native state failures.
     pub fn initialize_npt(
         &self,
         temperature: f64,
@@ -314,7 +327,7 @@ struct Cached {
     request: ProviderRequest,
     values: ProviderValues,
 }
-/// Worker-local evaluator and cache. It never retains a mutable FeOS state across trials.
+/// Worker-local evaluator and cache. It never retains a mutable `FeOS` state across trials.
 #[derive(Debug)]
 pub struct FeosWorker {
     package: FeosPackage,
@@ -401,41 +414,40 @@ impl Provider for FeosWorker {
         envelope.thermal_composition(x[0], [x[2], x[3], 1.0 - x[2] - x[3]])?;
         envelope.density.check("density", x[1])?;
         let bits = x.map(f64::to_bits);
-        if let Some(c) = prior {
-            if c.inputs == bits
-                && c.request.order >= request.order
-                && request
+        if let Some(c) = prior
+            && c.inputs == bits
+            && c.request.order >= request.order
+            && request
+                .outputs
+                .iter()
+                .all(|o| c.request.outputs.contains(o))
+        {
+            let mut values = ProviderValues {
+                values: vec![],
+                jacobian: vec![],
+                hessians: vec![],
+            };
+            for output in &request.outputs {
+                let i = c
+                    .request
                     .outputs
                     .iter()
-                    .all(|o| c.request.outputs.contains(o))
-            {
-                let mut values = ProviderValues {
-                    values: vec![],
-                    jacobian: vec![],
-                    hessians: vec![],
-                };
-                for output in &request.outputs {
-                    let i = c
-                        .request
-                        .outputs
-                        .iter()
-                        .position(|o| o == output)
-                        .ok_or_else(|| ProviderError::Contract("cached output selection".into()))?;
-                    values.values.push(c.values.values[i]);
-                    if request.order >= DerivativeOrder::First {
-                        values
-                            .jacobian
-                            .extend_from_slice(&c.values.jacobian[i * 4..(i + 1) * 4]);
-                    }
-                    if request.order >= DerivativeOrder::Second {
-                        values
-                            .hessians
-                            .extend_from_slice(&c.values.hessians[i * 16..(i + 1) * 16]);
-                    }
+                    .position(|o| o == output)
+                    .ok_or_else(|| ProviderError::Contract("cached output selection".into()))?;
+                values.values.push(c.values.values[i]);
+                if request.order >= DerivativeOrder::First {
+                    values
+                        .jacobian
+                        .extend_from_slice(&c.values.jacobian[i * 4..(i + 1) * 4]);
                 }
-                self.cache = Some(c);
-                return Ok(values);
+                if request.order >= DerivativeOrder::Second {
+                    values
+                        .hessians
+                        .extend_from_slice(&c.values.hessians[i * 16..(i + 1) * 16]);
+                }
             }
+            self.cache = Some(c);
+            return Ok(values);
         }
         let mut result = ProviderValues {
             values: vec![],

@@ -39,7 +39,7 @@ def stored_rows(
     root = publication_index(path).root
     with (
         pse.open(root.location, version=root.version, settings=settings) as publication,
-        publication.table("artifact", "reference", name) as stream,
+        publication.table("workspace", "reference", name) as stream,
         pa.RecordBatchReader.from_stream(stream) as reader,
     ):
         rows: list[dict[str, object]] = [

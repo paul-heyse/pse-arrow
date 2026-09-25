@@ -326,15 +326,15 @@ impl<'a> BodyBuilder<'a> {
         {
             return Err(MathError::Limit("integral power degree"));
         }
-        if !self.physical_only && op == Binary::Pow {
-            if let Some(ratio) = exponent {
-                let expected =
-                    Atom::num(i64::from(ratio.num())) / Atom::num(i64::from(ratio.den()));
-                if right.atom != expected {
-                    return Err(MathError::Contract(
-                        "power literal fact disagrees with its value".into(),
-                    ));
-                }
+        if !self.physical_only
+            && op == Binary::Pow
+            && let Some(ratio) = exponent
+        {
+            let expected = Atom::num(i64::from(ratio.num())) / Atom::num(i64::from(ratio.den()));
+            if right.atom != expected {
+                return Err(MathError::Contract(
+                    "power literal fact disagrees with its value".into(),
+                ));
             }
         }
         let request = match op {
@@ -587,35 +587,35 @@ impl<'a> BodyBuilder<'a> {
             return Err(MathError::Contract("provider input arity".into()));
         }
         let cache_key = (spec.key(), inputs.iter().map(|v| v.atom.clone()).collect());
-        if !self.physical_only {
-            if let Some(outputs) = self.provider_cache.get(&cache_key) {
-                for (value, port) in inputs.iter().zip(&spec.inputs) {
-                    pse_quantity::admission::require_same_contract(
-                        value.quantity,
-                        port.quantity,
-                        self.registry,
-                    )?;
-                }
-                if inputs.windows(2).any(|w| w[0].indices != w[1].indices) {
-                    return Err(MathError::Contract(
-                        "provider lexical indices differ".into(),
-                    ));
-                }
-                return Ok(outputs
-                    .iter()
-                    .cloned()
-                    .map(|mut value| {
-                        value
-                            .effects
-                            .extend(inputs.iter().flat_map(|v| v.effects.iter().copied()));
-                        value.source = source;
-                        value.indices = inputs
-                            .first()
-                            .map_or_else(IndexSet::new, |v| v.indices.clone());
-                        value
-                    })
-                    .collect());
+        if !self.physical_only
+            && let Some(outputs) = self.provider_cache.get(&cache_key)
+        {
+            for (value, port) in inputs.iter().zip(&spec.inputs) {
+                pse_quantity::admission::require_same_contract(
+                    value.quantity,
+                    port.quantity,
+                    self.registry,
+                )?;
             }
+            if inputs.windows(2).any(|w| w[0].indices != w[1].indices) {
+                return Err(MathError::Contract(
+                    "provider lexical indices differ".into(),
+                ));
+            }
+            return Ok(outputs
+                .iter()
+                .cloned()
+                .map(|mut value| {
+                    value
+                        .effects
+                        .extend(inputs.iter().flat_map(|v| v.effects.iter().copied()));
+                    value.source = source;
+                    value.indices = inputs
+                        .first()
+                        .map_or_else(IndexSet::new, |v| v.indices.clone());
+                    value
+                })
+                .collect());
         }
         let mut input_slots = vec![];
         for (value, port) in inputs.iter().zip(&spec.inputs) {

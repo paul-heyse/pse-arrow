@@ -86,7 +86,10 @@ SPDX-License-Identifier = "MIT OR Apache-2.0"
 
 # Selected upstream parameter records; source revisions and hashes accompany the data.
 [[annotations]]
-path = ["crates/pse-kernels/data/pcsaft-light-hydrocarbons.json", "crates/pse-kernels/data/ideal-gas-light-hydrocarbons.json"]
+path = [
+  "crates/pse-kernels/data/pcsaft-light-hydrocarbons.json",
+  "crates/pse-kernels/data/ideal-gas-light-hydrocarbons.json",
+]
 precedence = "override"
 SPDX-FileCopyrightText = "FeOS contributors"
 SPDX-License-Identifier = "MIT OR Apache-2.0"

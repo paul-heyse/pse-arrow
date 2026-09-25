@@ -84,7 +84,6 @@ pub(crate) fn runtime(
         cache: pse_runtime::DeltaCacheBudget::disabled(1),
         math: Default::default(),
         hashing_may_use_pool: false,
-
     })
     .expect("runtime")
 }

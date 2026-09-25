@@ -31,7 +31,10 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
             .u64(v.scale_to_canonical.to_bits())
             .u64(v.offset_to_canonical.to_bits())
             .u64(u64::from(v.is_affine));
-        id(&mut h, v.reference_state.map(|x| x.as_id()));
+        id(
+            &mut h,
+            v.reference_state.map(pse_quantity::ReferenceStateId::as_id),
+        );
     }
     h.str("kinds").u64(r.kinds().len() as u64);
     for v in r.kinds() {
@@ -43,9 +46,17 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
     h.str("bases").u64(r.bases().len() as u64);
     for v in r.bases() {
         h.id(&v.id.as_id()).str(v.kind.as_str());
-        word(&mut h, v.composition_basis.map(|x| x.as_str()));
-        word(&mut h, v.rate_basis.map(|x| x.as_str()));
-        id(&mut h, v.reference_conditions.map(|x| x.as_id()));
+        word(
+            &mut h,
+            v.composition_basis
+                .map(pse_quantity::CompositionBasis::as_str),
+        );
+        word(&mut h, v.rate_basis.map(pse_quantity::RateBasis::as_str));
+        id(
+            &mut h,
+            v.reference_conditions
+                .map(pse_quantity::ReferenceStateId::as_id),
+        );
     }
     h.str("references").u64(r.reference_states().len() as u64);
     for v in r.reference_states() {
@@ -63,9 +74,15 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
             .id(&k.kind.as_id())
             .id(&v.canonical_unit.as_id())
             .str(k.scale_kind.as_str());
-        id(&mut h, k.basis.map(|x| x.as_id()));
-        id(&mut h, k.reference_state.map(|x| x.as_id()));
-        word(&mut h, k.subject_kind.map(|x| x.as_str()));
+        id(&mut h, k.basis.map(pse_quantity::BasisId::as_id));
+        id(
+            &mut h,
+            k.reference_state.map(pse_quantity::ReferenceStateId::as_id),
+        );
+        word(
+            &mut h,
+            k.subject_kind.map(pse_quantity::SubjectKind::as_str),
+        );
         number(&mut h, v.nominal_magnitude);
         h.u64(k.shape.len() as u64);
         for d in &k.shape {
@@ -105,9 +122,16 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
         ] {
             h.u64(n.map_or(u64::MAX, u64::from));
         }
-        id(&mut h, v.result_basis.map(|x| x.as_id()));
-        id(&mut h, v.result_reference_state.map(|x| x.as_id()));
-        word(&mut h, v.result_subject_kind.map(|x| x.as_str()));
+        id(&mut h, v.result_basis.map(pse_quantity::BasisId::as_id));
+        id(
+            &mut h,
+            v.result_reference_state
+                .map(pse_quantity::ReferenceStateId::as_id),
+        );
+        word(
+            &mut h,
+            v.result_subject_kind.map(pse_quantity::SubjectKind::as_str),
+        );
         h.u64(v.input_kinds.len() as u64);
         for n in &v.input_kinds {
             h.id(&n.as_id());
@@ -129,10 +153,14 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
     for v in r.unit_sets() {
         h.id(&v.id.as_id());
         for n in v.base {
-            id(&mut h, n.map(|x| x.as_id()));
+            id(&mut h, n.map(pse_quantity::UnitId::as_id));
         }
     }
-    id(&mut h, r.neutral_dimensionless().map(|x| x.as_id()));
+    id(
+        &mut h,
+        r.neutral_dimensionless()
+            .map(pse_quantity::QuantityTypeId::as_id),
+    );
     h.str("preconditions").u64(p.declarations().len() as u64);
     for v in p.declarations() {
         h.id(&v.id.as_id()).u64(v.operand_positions.len() as u64);
@@ -142,7 +170,7 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
         match v.requirement {
             pse_quantity::PhysicalRequirement::EqualOperandBases { required } => {
                 h.str("equal-bases");
-                id(&mut h, required.map(|x| x.as_id()));
+                id(&mut h, required.map(pse_quantity::BasisId::as_id));
             }
             pse_quantity::PhysicalRequirement::OperandQuantityContract {
                 required,

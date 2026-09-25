@@ -53,7 +53,6 @@ impl WorkflowRuntime {
             cache,
             math: Default::default(),
             hashing_may_use_pool: false,
-
         })?;
         let sessions = Arc::new(
             runtime

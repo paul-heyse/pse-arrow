@@ -52,7 +52,6 @@ fn budget(directory: &Scratch, limit: usize) -> ResourceBudget {
         cache: pse_runtime::DeltaCacheBudget::disabled(1),
         math: Default::default(),
         hashing_may_use_pool: false,
-
     }
 }
 

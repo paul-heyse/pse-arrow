@@ -68,9 +68,7 @@ impl NlpOracle for Polynomial {
         &self.bounds
     }
     fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
-        if self.panic {
-            panic!("callback test panic")
-        };
+        assert!(!self.panic, "callback test panic");
         Ok(x[0] * x[0])
     }
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
@@ -173,8 +171,10 @@ fn warm_compatibility_is_semantic_and_backend_specific() {
 }
 #[test]
 fn history_is_bounded_and_deadline_is_distinct_from_cancellation() {
-    let mut c = Controls::default();
-    c.history = 2;
+    let c = Controls {
+        history: 2,
+        ..Controls::default()
+    };
     let e = Execution::new(Arc::new(AtomicBool::new(false)), &c);
     for _ in 0..5 {
         e.progress.push(Event {
@@ -186,7 +186,7 @@ fn history_is_bounded_and_deadline_is_distinct_from_cancellation() {
     let (v, d) = e.progress.snapshot();
     assert_eq!((v.len(), d), (2, 3));
     let mut timed = e.clone();
-    timed.started = std::time::Instant::now() - c.time_limit;
+    timed.started = std::time::Instant::now().checked_sub(c.time_limit).unwrap();
     assert_eq!(timed.stopped(), Some(Termination::TimeLimit));
     e.cancel.store(true, std::sync::atomic::Ordering::Release);
     assert_eq!(e.stopped(), Some(Termination::Cancelled));

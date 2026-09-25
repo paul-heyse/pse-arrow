@@ -396,7 +396,16 @@ def run_gates(
     change_reason: str | None = None,
     plan: int | None = None,
     functional_from: Path | None = None,
+    stop_after: str | None = None,
 ) -> int:
+    if stop_after is not None and (
+        phase != "performance"
+        or stop_after != "plan14-measure"
+        or stop_after not in {gate.name for gate in gates}
+    ):
+        raise ValueError(
+            "measurement checkpoint requires the performance measurement gate"
+        )
     plan = implementation_phase.execution_plan(root, plan)
     functional = None
     if phase == "performance" and plan == 14:
@@ -423,6 +432,7 @@ def run_gates(
         "evidence": "Proposed",
         "source_files": snapshot,
         "parent": None,
+        "stopped_after": None,
         "environment": {
             key: os.environ[key]
             for key in (
@@ -478,8 +488,12 @@ def run_gates(
     # Selection belongs to this exact gate, never an enclosing pytest/assessment.
     env.pop("PSE_TEST_ENUMERATION", None)
     interrupted = False
+    stopped = False
     for gate in gates:
         if any(check["gate"] == gate.name for check in receipt["checks"]):
+            if gate.name == stop_after:
+                stopped = True
+                receipt["stopped_after"] = gate.name
             continue
         previous = {check["gate"]: check for check in receipt["checks"]}
         dependencies = [
@@ -512,7 +526,7 @@ def run_gates(
             "command": command,
             "exit_code": None,
             "status": "not_run"
-            if interrupted
+            if interrupted or stopped
             else "blocked"
             if dependencies
             else "running",
@@ -530,7 +544,7 @@ def run_gates(
         }
         receipt["checks"].append(record)
         checkpoint(output, receipt)
-        if interrupted or dependencies:
+        if interrupted or stopped or dependencies:
             continue
         if report and (
             gate.name.startswith("assessment-python-") or gate.name == "plan14-python"
@@ -643,6 +657,9 @@ def run_gates(
             f"validation: {gate.name}: {record['status']} ({record['elapsed_seconds']:.1f}s); {output / record['log']}",
             flush=True,
         )
+        if gate.name == stop_after:
+            stopped = True
+            receipt["stopped_after"] = gate.name
     receipt["complete"] = not interrupted and all(
         c["status"] not in {"running", "not_run", "blocked", "interrupted"}
         for c in receipt["checks"]
@@ -663,6 +680,19 @@ def run_gates(
         )
         receipt["required_checks_covered"] &= receipt["case_coverage"]["complete"]
     checkpoint(output, receipt)
+    if stopped:
+        # A requested checkpoint can succeed operationally but never qualifies Q18.
+        # The full scope and pending review gate remain in the incomplete receipt.
+        return int(
+            bool(receipt["provenance_errors"])
+            or not receipt["source_unchanged"]
+            or interrupted
+            or any(
+                not validation_receipts.qualified(check)
+                for check in receipt["checks"]
+                if check["status"] != "not_run"
+            )
+        )
     return int(
         bool(receipt["provenance_errors"])
         or not receipt["source_unchanged"]
@@ -684,6 +714,7 @@ def main() -> int:
     parser.add_argument("--change-reason")
     parser.add_argument("--plan", type=int, choices=(14,))
     parser.add_argument("--functional-from", type=Path)
+    parser.add_argument("--stop-after", choices=("plan14-measure",))
     args = parser.parse_args()
     gates = expand((args.group,)) if args.group else comprehensive(args.phase)
     if args.list:
@@ -720,9 +751,10 @@ def main() -> int:
         change_reason=args.change_reason,
         plan=plan,
         functional_from=args.functional_from,
+        stop_after=args.stop_after,
     )
     print(
-        f"validation complete: exit {code}; baseline zero; {output / 'summary.md'}",
+        f"validation {'checkpoint' if args.stop_after else 'complete'}: exit {code}; baseline zero; {output / 'summary.md'}",
         flush=True,
     )
     # Advisory findings are already classified; tool failures must remain failures.

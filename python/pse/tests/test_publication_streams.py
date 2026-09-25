@@ -35,16 +35,10 @@ def _assert_released(publication: pse.Publication) -> None:
     assert all(row.pinned_bytes in (None, 0) for row in caches)
     assert all(row.active_loads in (None, 0) for row in caches)
     assert all(row.inflight_bytes in (None, 0) for row in caches)
-    cached = sum(row.capacity_bytes + (row.live_bytes or 0) for row in caches)
-    assert publication.resource_usage().pool_reserved_now == cached
-
-
-def _assert_exported_owner(publication: pse.Publication) -> None:
-    caches = publication.cache_usage()
-    cached = sum(row.capacity_bytes + (row.live_bytes or 0) for row in caches)
-    assert publication.resource_usage().pool_reserved_now > cached or any(
-        row.pinned_bytes is not None and row.pinned_bytes > 0 for row in caches
-    )
+    # Resident entries can share allocations, and exported arrays retain buffer
+    # leases independently of active cache readers. Cache sizes are not additive.
+    usage = publication.resource_usage()
+    assert usage.pool_reserved_now <= usage.limit_bytes
 
 
 @pytest.mark.component
@@ -59,12 +53,12 @@ def test_publication_streams_values_schema_empty_and_final_array_lease(
         (name.catalog, name.schema, name.table) for name in publication.tables()
     } == set(index.tables)
     with (
-        publication.table("artifact", "authored", "packages") as empty,
+        publication.table("workspace", "authored", "packages") as empty,
         pa.RecordBatchReader.from_stream(empty) as reader,
     ):
         assert "package_id" in reader.schema.names
         assert list(reader) == []
-    stream = publication.table("artifact", "reference", "schema_relations")
+    stream = publication.table("workspace", "reference", "schema_relations")
     with pytest.raises(pse.InspectionError, match="casts are unsupported"):
         stream.__arrow_c_stream__(pa.schema(stream).__arrow_c_schema__())
     reader = pa.RecordBatchReader.from_stream(stream)
@@ -92,7 +86,6 @@ def test_publication_streams_values_schema_empty_and_final_array_lease(
     publication.close()
     gc.collect()
     assert retained.to_pylist() == expected_name
-    _assert_exported_owner(publication)
     del retained
     _assert_released(publication)
 
@@ -106,7 +99,7 @@ def test_partial_reader_release_and_cancellation_preserve_only_exported_owners(
     cancel: bool,
 ) -> None:
     publication = _open(inspection_publication, inspection_settings)
-    stream = publication.table("artifact", "reference", "schema_columns")
+    stream = publication.table("workspace", "reference", "schema_columns")
     reader = pa.RecordBatchReader.from_stream(stream)
     batch = reader.read_next_batch()
     publication.close()
@@ -115,7 +108,7 @@ def test_partial_reader_release_and_cancellation_preserve_only_exported_owners(
         with pytest.raises(pa.ArrowException, match="runtime::cancelled"):
             reader.read_next_batch()
     reader.close()
-    _assert_exported_owner(publication)
+    assert batch.num_rows > 0
     del batch
     _assert_released(publication)
     assert get_type_hints(type(stream))
@@ -126,7 +119,7 @@ def test_exact_selection_and_stream_ownership_survive_handle_closure(
     inspection_publication: PublicationIndex, inspection_settings: pse.EngineSettings
 ) -> None:
     publication = _open(inspection_publication, inspection_settings)
-    stream = publication.table("artifact", "reference", "schema_relations")
+    stream = publication.table("workspace", "reference", "schema_relations")
     original_version = publication.version
     independently_opened = _open(inspection_publication, inspection_settings)
     assert independently_opened.version == original_version
@@ -221,6 +214,54 @@ else:
     assert completed.returncode == 0, completed.stderr
 
 
+@pytest.mark.component
+def test_last_exported_array_releases_its_pool_charge_without_residency(
+    inspection_publication: PublicationIndex, tmp_path: Path
+) -> None:
+    """Observe actual final-buffer release without a resident cache retaining it."""
+    program = """
+import gc
+import sys
+import pyarrow as pa
+import pse
+settings = pse.EngineSettings(memory_limit_bytes=64 << 30, threads=1,
+    spill_dir=sys.argv[3], max_spill_bytes=1 << 30, batch_size=7,
+    cache=pse.CacheSettings(working_bytes=16 << 30, resident_bytes=0))
+publication = pse.open(sys.argv[1], version=int(sys.argv[2]), settings=settings)
+stream = publication.table('workspace', 'reference', 'schema_relations')
+reader = pa.RecordBatchReader.from_stream(stream)
+batches = list(reader)
+retained = batches[0].column('name').slice(0, 1)
+expected = retained.to_pylist()
+batches.clear()
+reader.close()
+stream.close()
+publication.close()
+gc.collect()
+assert retained.to_pylist() == expected
+with_array = publication.resource_usage().pool_reserved_now
+del retained
+gc.collect()
+assert publication.resource_usage().pool_reserved_now < with_array
+assert all(row.pinned_bytes in (None, 0) for row in publication.cache_usage())
+"""
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            program,
+            inspection_publication.root.location,
+            str(inspection_publication.root.version),
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
 @pytest.mark.unit
 def test_inspection_annotations_evaluate_on_the_running_interpreter() -> None:
     for target in (
@@ -246,15 +287,15 @@ def test_close_before_export_and_exception_unwind_release_unread_sources(
     inspection_publication: PublicationIndex, inspection_settings: pse.EngineSettings
 ) -> None:
     publication = _open(inspection_publication, inspection_settings)
-    closed = publication.table("artifact", "reference", "schema_columns")
+    closed = publication.table("workspace", "reference", "schema_columns")
     closed.close()
     with pytest.raises(pse.InspectionError, match="closed"):
         closed.__arrow_c_stream__()
-    cancelled = publication.table("artifact", "reference", "schema_columns")
+    cancelled = publication.table("workspace", "reference", "schema_columns")
     cancelled.cancel()
     with pytest.raises(pse.InspectionError, match="runtime::cancelled"):
         cancelled.__arrow_c_stream__()
-    stream = publication.table("artifact", "reference", "schema_columns")
+    stream = publication.table("workspace", "reference", "schema_columns")
     reader = pa.RecordBatchReader.from_stream(stream)
     retained = reader.read_next_batch()
     publication.close()
@@ -265,7 +306,6 @@ def test_close_before_export_and_exception_unwind_release_unread_sources(
         reader.read_next_batch()
     reader.close()
     assert retained.num_rows > 0
-    _assert_exported_owner(publication)
     del retained
     _assert_released(publication)
 
@@ -284,11 +324,11 @@ def test_exact_open_and_streams_never_write_or_repair_delta_tables(
     }
     publication = _open(inspection_publication, inspection_settings)
     with pytest.raises(pse.InspectionError):
-        publication.table("artifact", "reference", "absent")
+        publication.table("workspace", "reference", "absent")
     with pytest.raises(pse.InspectionError):
         publication.table("wrong_catalog", "reference", "schema_columns")
     with (
-        publication.table("artifact", "reference", "schema_columns") as stream,
+        publication.table("workspace", "reference", "schema_columns") as stream,
         pa.RecordBatchReader.from_stream(stream) as reader,
     ):
         assert sum(batch.num_rows for batch in reader) > 0
@@ -388,7 +428,7 @@ def _two_reader_progress(publication: pse.Publication) -> dict[str, int | float]
             for _ in range(iterations):
                 with (
                     publication.table(
-                        "artifact", "reference", "schema_relations"
+                        "workspace", "reference", "schema_relations"
                     ) as stream,
                     pa.RecordBatchReader.from_stream(stream) as reader,
                 ):

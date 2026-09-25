@@ -270,12 +270,13 @@ impl Policy {
         ] {
             let requested = requested && o.enabled;
             let applied = requested && eligible;
-            if let Self::Explicit { required, .. } = self {
-                if required.contains(&pass) && !applied {
-                    return Err(ProblemError::Contract(format!(
-                        "required {pass:?} unavailable: {reason}"
-                    )));
-                }
+            if let Self::Explicit { required, .. } = self
+                && required.contains(&pass)
+                && !applied
+            {
+                return Err(ProblemError::Contract(format!(
+                    "required {pass:?} unavailable: {reason}"
+                )));
             }
             passes.insert(
                 pass,

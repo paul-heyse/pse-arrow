@@ -1,0 +1,15 @@
+{
+  "observation_id": "ca43d33251b75de88cc7348f6464ad7d",
+  "dataset_id": "f4d4f16bb84f5d2ebb92ee27180921cc",
+  "target": "accumulated amount",
+  "value": 5.0,
+  "unit_id": "c2f6ce5d697458cbaee3699ceb64e308",
+  "std_dev": 1.0,
+  "timestamp": null,
+  "tag": null,
+  "source_span": {
+    "document_id": "f4d4f16bb84f5d2ebb92ee27180921cc",
+    "start": 0,
+    "end": 0
+  }
+}

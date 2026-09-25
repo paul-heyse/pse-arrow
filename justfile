@@ -257,22 +257,22 @@ doctest-release:
 [doc('Independent Python collection/execution; fixture failures surface as component errors while unit tests continue')]
 assessment-python output:
     "{{ py }}" -m scripts.implementation_phase guard assessment-python
-    PSE_INSPECTION_PUBLICATION={{ quote(output / "inspection") }} uv run --no-sync pytest -m "unit or component" -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python.xml") }}
+    PSE_INSPECTION_PUBLICATION={{ quote(output / "inspection") }} uv run --no-sync pytest python/pse/tests -m "unit or component" -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python.xml") }}
 
 [group('local')]
 assessment-python-unit output:
     "{{ py }}" -m scripts.implementation_phase guard assessment-python
-    uv run --no-sync pytest -m unit -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-unit.xml") }}
+    uv run --no-sync pytest python/pse/tests -m unit -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-unit.xml") }}
 
 [group('local')]
 assessment-python-component output:
     "{{ py }}" -m scripts.implementation_phase guard assessment-python
-    PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-{{ output }}/inspection}" uv run --no-sync pytest -m component -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-component.xml") }}
+    PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-{{ output }}/inspection}" uv run --no-sync pytest python/pse/tests -m component -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-component.xml") }}
 
 [group('local')]
 assessment-python-integration output:
     "{{ py }}" -m scripts.implementation_phase guard assessment-python
-    PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-{{ output }}/inspection}" uv run --no-sync pytest -m integration -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-integration.xml") }}
+    PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-{{ output }}/inspection}" uv run --no-sync pytest python/pse/tests -m integration -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-integration.xml") }}
 
 [group('local')]
 [doc('Measure current native consolidation, including diagnostic campaigns with an open acceptance barrier')]
@@ -583,6 +583,15 @@ inspection-fixture output:
 [doc('Plan-qualified current-function architecture campaign; run after all implementation and deletions')]
 [positional-arguments]
 architecture-acceptance output *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/build-env.sh
+    source scripts/native-solver-env.sh
+    source scripts/native-math-env.sh
+    if [[ -f .envrc.local ]]; then source .envrc.local; fi
+    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
+    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
+    export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
     cargo run --quiet --package xtask --locked {{ validate }} -- architecture-acceptance "$@"
 
 [group('local')]

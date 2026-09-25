@@ -1,0 +1,286 @@
+{
+  "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+  "name": "Native physical acceptance",
+  "domains": [],
+  "groups": [],
+  "definitions": [
+    {
+      "definition_id": "1b1c9e410c775d7aaed51b2dd5fa0919",
+      "sources": [
+        "q"
+      ],
+      "formals": [
+        {
+          "path": "n",
+          "quantity_id": "b62aa5e464785827bb7d0f2f0879467f"
+        },
+        {
+          "path": "time",
+          "quantity_id": "ee75ea99ccc15d778d44ec81b4c487ee"
+        },
+        {
+          "path": "q",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "n0",
+          "quantity_id": "b62aa5e464785827bb7d0f2f0879467f"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [],
+      "units": [
+        {
+          "spelling": "1",
+          "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+        }
+      ],
+      "literals": []
+    },
+    {
+      "definition_id": "e4d68d6573d15ab2802ea0bcbc3ecc01",
+      "sources": [
+        "n0"
+      ],
+      "formals": [
+        {
+          "path": "n",
+          "quantity_id": "b62aa5e464785827bb7d0f2f0879467f"
+        },
+        {
+          "path": "time",
+          "quantity_id": "ee75ea99ccc15d778d44ec81b4c487ee"
+        },
+        {
+          "path": "q",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "n0",
+          "quantity_id": "b62aa5e464785827bb7d0f2f0879467f"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [],
+      "units": [
+        {
+          "spelling": "1",
+          "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+        }
+      ],
+      "literals": []
+    },
+    {
+      "definition_id": "f7f96ddbd155571584542b32135f7583",
+      "sources": [
+        "n"
+      ],
+      "formals": [
+        {
+          "path": "n",
+          "quantity_id": "b62aa5e464785827bb7d0f2f0879467f"
+        },
+        {
+          "path": "time",
+          "quantity_id": "ee75ea99ccc15d778d44ec81b4c487ee"
+        },
+        {
+          "path": "q",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147"
+        },
+        {
+          "path": "n0",
+          "quantity_id": "b62aa5e464785827bb7d0f2f0879467f"
+        }
+      ],
+      "domains": [],
+      "groups": [],
+      "providers": [],
+      "units": [
+        {
+          "spelling": "1",
+          "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+        }
+      ],
+      "literals": []
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "d3325a4faf5356b184a851008dd8994a",
+      "name": "accumulator",
+      "variables": [
+        {
+          "port": {
+            "symbol_id": "e0cb2e36d13e50f7883888d66cc139f5",
+            "quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+            "unit_id": "c2f6ce5d697458cbaee3699ceb64e308"
+          },
+          "fixed": false,
+          "domain": "continuous",
+          "lower": null,
+          "upper": null
+        }
+      ],
+      "parameters": [
+        {
+          "symbol_id": "29dc1f6e83115e8e8d84adae625b8633",
+          "quantity_id": "ee75ea99ccc15d778d44ec81b4c487ee",
+          "unit_id": "835f59b589ed5bc9899002e909dd17d6"
+        },
+        {
+          "symbol_id": "025b6cee4d165fb1a2818fb82018fd9a",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+          "unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+        },
+        {
+          "symbol_id": "9f500c4b316552ec9a26ebe56ab11d26",
+          "quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+          "unit_id": "c2f6ce5d697458cbaee3699ceb64e308"
+        }
+      ],
+      "instances": [
+        {
+          "instance_id": "b390ab0384675f2ba90b3d84bb4e02c4",
+          "definition_id": "1b1c9e410c775d7aaed51b2dd5fa0919",
+          "slots": [
+            {
+              "source_id": "e0cb2e36d13e50f7883888d66cc139f5",
+              "formal_quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+              "formal_unit_id": "c2f6ce5d697458cbaee3699ceb64e308"
+            },
+            {
+              "source_id": "29dc1f6e83115e8e8d84adae625b8633",
+              "formal_quantity_id": "ee75ea99ccc15d778d44ec81b4c487ee",
+              "formal_unit_id": "835f59b589ed5bc9899002e909dd17d6"
+            },
+            {
+              "source_id": "025b6cee4d165fb1a2818fb82018fd9a",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "9f500c4b316552ec9a26ebe56ab11d26",
+              "formal_quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+              "formal_unit_id": "c2f6ce5d697458cbaee3699ceb64e308"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "4c1339ff8e1b5e4391aeddccfc0cdd74",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "c4b6e25955f05eb6851b5072250243b6",
+          "definition_id": "e4d68d6573d15ab2802ea0bcbc3ecc01",
+          "slots": [
+            {
+              "source_id": "e0cb2e36d13e50f7883888d66cc139f5",
+              "formal_quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+              "formal_unit_id": "c2f6ce5d697458cbaee3699ceb64e308"
+            },
+            {
+              "source_id": "29dc1f6e83115e8e8d84adae625b8633",
+              "formal_quantity_id": "ee75ea99ccc15d778d44ec81b4c487ee",
+              "formal_unit_id": "835f59b589ed5bc9899002e909dd17d6"
+            },
+            {
+              "source_id": "025b6cee4d165fb1a2818fb82018fd9a",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "9f500c4b316552ec9a26ebe56ab11d26",
+              "formal_quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+              "formal_unit_id": "c2f6ce5d697458cbaee3699ceb64e308"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "cf9a32f5a53952dbbe1cdbd6aaa61d47",
+              "scale": 1.0
+            }
+          ]
+        },
+        {
+          "instance_id": "c2b97d58d24451f1a5acdd27354e4f64",
+          "definition_id": "f7f96ddbd155571584542b32135f7583",
+          "slots": [
+            {
+              "source_id": "e0cb2e36d13e50f7883888d66cc139f5",
+              "formal_quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+              "formal_unit_id": "c2f6ce5d697458cbaee3699ceb64e308"
+            },
+            {
+              "source_id": "29dc1f6e83115e8e8d84adae625b8633",
+              "formal_quantity_id": "ee75ea99ccc15d778d44ec81b4c487ee",
+              "formal_unit_id": "835f59b589ed5bc9899002e909dd17d6"
+            },
+            {
+              "source_id": "025b6cee4d165fb1a2818fb82018fd9a",
+              "formal_quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+              "formal_unit_id": "ec3c42a990dd559b9a23a2d993cae5ad"
+            },
+            {
+              "source_id": "9f500c4b316552ec9a26ebe56ab11d26",
+              "formal_quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+              "formal_unit_id": "c2f6ce5d697458cbaee3699ceb64e308"
+            }
+          ],
+          "contributions": [
+            {
+              "output": 0,
+              "row_id": "0de2475a468a53f1bec6bc0f7e37fbc5",
+              "scale": 1.0
+            }
+          ]
+        }
+      ],
+      "rows": [
+        {
+          "row_id": "4c1339ff8e1b5e4391aeddccfc0cdd74",
+          "quantity_id": "9ca99c383f06598db8a6d96f86b92147",
+          "lower": null,
+          "upper": null
+        },
+        {
+          "row_id": "cf9a32f5a53952dbbe1cdbd6aaa61d47",
+          "quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+          "lower": null,
+          "upper": null
+        },
+        {
+          "row_id": "0de2475a468a53f1bec6bc0f7e37fbc5",
+          "quantity_id": "b62aa5e464785827bb7d0f2f0879467f",
+          "lower": null,
+          "upper": null
+        }
+      ],
+      "objective": null,
+      "values": [
+        {
+          "symbol_id": "e0cb2e36d13e50f7883888d66cc139f5",
+          "value": 2.0
+        },
+        {
+          "symbol_id": "29dc1f6e83115e8e8d84adae625b8633",
+          "value": 0.0
+        },
+        {
+          "symbol_id": "025b6cee4d165fb1a2818fb82018fd9a",
+          "value": 3.0
+        },
+        {
+          "symbol_id": "9f500c4b316552ec9a26ebe56ab11d26",
+          "value": 2.0
+        }
+      ]
+    }
+  ]
+}

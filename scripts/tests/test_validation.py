@@ -304,14 +304,22 @@ class ValidationTests(unittest.TestCase):
                 "msrv-check",
                 "udeps",
                 "gh-setup-check",
+                "test-release",
+                "doctest-release",
+                "coverage",
+                "features-combinations",
+                "features-no-default",
+                "clippy-default",
+                "clippy-no-default",
+                "governance-tests",
             }
         )
         self.assertTrue(
             {
                 "test",
-                "test-release",
-                "coverage",
                 "doctest",
+                "plan14-native",
+                "plan14-python",
                 "assessment-python-unit",
                 "assessment-python-component",
                 "assessment-python-integration",
@@ -405,6 +413,122 @@ class ValidationTests(unittest.TestCase):
                 self.output, {"source": "old"}, set(), None, plan=11
             )
 
+    def test_observed_formatting_changes_require_explicit_impact_selection(
+        self,
+    ) -> None:
+        log = self.output / "test.log"
+        log.write_text("completed workspace tests")
+        check = {
+            "gate": "test",
+            "status": "passed",
+            "changed_source": ["src/lib.rs"],
+            "artifacts": {log.name: validation_receipts.digest(log)},
+        }
+        validation.write_json(
+            self.output / "checks.json",
+            {
+                "version": 3,
+                "plan": 14,
+                "mode": "functional",
+                "source_files": {"src/lib.rs": "before-formatting"},
+                "checks": [check],
+            },
+        )
+        current = {"src/lib.rs": "formatted"}
+        with self.assertRaises(ValueError):
+            validation_receipts.continuation(self.output, current, set(), None, plan=14)
+        link, retained = validation_receipts.continuation(
+            self.output,
+            current,
+            {"plan14-native"},
+            "reviewed formatting-only edits; exercise new native diagnostic",
+            plan=14,
+        )
+        self.assertEqual(len(retained), 1)
+        self.assertEqual(retained[0]["changed_source"], ["src/lib.rs"])
+        self.assertEqual(retained[0]["origin"], str(self.output))
+        child = self.root / "continued"
+        child.mkdir()
+        validation.write_json(
+            child / "checks.json",
+            {
+                "version": 3,
+                "plan": 14,
+                "mode": "functional",
+                "source_files": current,
+                "checks": retained,
+                "parent": link,
+            },
+        )
+        _, verified = validation_receipts.continuation(
+            child, current, set(), None, plan=14
+        )
+        self.assertEqual(verified, retained)
+        _, retained = validation_receipts.continuation(
+            self.output,
+            current,
+            {"test"},
+            "functional change requires workspace rerun",
+            plan=14,
+        )
+        self.assertEqual(retained, [])
+
+    def test_retained_measurement_allows_only_document_changes(self) -> None:
+        log = self.output / "measure.log"
+        log.write_text("actual operation samples")
+        sources = {
+            "docs/plans/14-m22-execution.md": "old",
+            "benches/benches/native_process.rs": "same",
+        }
+        check = {
+            "gate": "plan14-measure",
+            "status": "passed",
+            "artifacts": {log.name: validation_receipts.digest(log)},
+        }
+        validation.write_json(
+            self.output / "checks.json",
+            {
+                "version": 3,
+                "plan": 14,
+                "mode": "performance",
+                "source_files": sources,
+                "checks": [check],
+            },
+        )
+        updated = {**sources, "docs/plans/14-m22-execution.md": "new"}
+        _, retained = validation_receipts.continuation(
+            self.output, updated, {"plan14-reviews"}, "final documentation", plan=14
+        )
+        self.assertEqual(len(retained), 1)
+        self.assertEqual(retained[0]["origin"], str(self.output))
+        for name in [
+            "benches/benches/native_process.rs",
+            "tests/fixtures/plan14/model.json",
+            "scripts/plan14_measure.py",
+            "docs/plans/14-acceptance-cases.toml",
+            "Cargo.lock",
+            ".cargo/config.toml",
+        ]:
+            with (
+                self.subTest(name=name),
+                self.assertRaisesRegex(ValueError, "executable inputs changed"),
+            ):
+                validation_receipts.continuation(
+                    self.output,
+                    {**updated, name: "changed"},
+                    {"plan14-reviews"},
+                    "claimed docs update",
+                    plan=14,
+                )
+        _, retained = validation_receipts.continuation(
+            self.output,
+            {**updated, "Cargo.lock": "changed"},
+            {"plan14-measure", "plan14-reviews"},
+            "requalify changed executable",
+            plan=14,
+        )
+        self.assertEqual(retained, [])
+
     def test_functional_scope_defers_benchmarks_and_includes_threaded_python(
         self,
     ) -> None:
@@ -415,6 +539,73 @@ class ValidationTests(unittest.TestCase):
         )
         self.assertIn("assessment-python-integration", functional)
         self.assertFalse(any(name.startswith("bench-") for name in functional))
+
+    def test_measurement_checkpoint_is_incomplete_and_resumes_without_remeasurement(
+        self,
+    ) -> None:
+        real = validation.execute
+        invoked = []
+
+        def execute(
+            root: Path, output: Path, name: str, command: list[str], env: dict[str, str]
+        ) -> dict:
+            del command, env
+            invoked.append(name)
+            return real(root, output, name, [sys.executable, "-c", "pass"], {})
+
+        gates = [Gate("plan14-measure"), Gate("plan14-reviews")]
+        with (
+            patch.object(validation, "execute", side_effect=execute),
+            patch.object(validation_receipts, "classify"),
+            patch.object(
+                validation.implementation_phase,
+                "require_functional",
+                return_value={"path": str(self.output)},
+            ),
+        ):
+            code = validation.run_gates(
+                self.root,
+                self.output,
+                gates,
+                capture=False,
+                phase="performance",
+                stop_after="plan14-measure",
+            )
+            receipt = json.loads((self.output / "checks.json").read_text())
+            self.assertEqual(code, 0)
+            self.assertEqual(invoked, ["plan14-measure"])
+            self.assertEqual(receipt["stopped_after"], "plan14-measure")
+            self.assertFalse(receipt["complete"])
+            self.assertFalse(receipt["required_checks_covered"])
+            self.assertEqual(
+                [c["status"] for c in receipt["checks"]], ["passed", "not_run"]
+            )
+            continuation = self.root / "continued"
+            continuation.mkdir()
+            code = validation.run_gates(
+                self.root,
+                continuation,
+                gates,
+                capture=False,
+                phase="performance",
+                resume_from=self.output,
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual(invoked, ["plan14-measure", "plan14-reviews"])
+        receipt = json.loads((continuation / "checks.json").read_text())
+        self.assertTrue(receipt["complete"])
+        self.assertTrue(receipt["required_checks_covered"])
+        self.assertIsNone(receipt["stopped_after"])
+
+    def test_measurement_checkpoint_cannot_skip_functional_work(self) -> None:
+        with self.assertRaisesRegex(ValueError, "performance measurement"):
+            validation.run_gates(
+                self.root,
+                self.output,
+                [Gate("plan14-measure")],
+                capture=False,
+                stop_after="plan14-measure",
+            )
 
     def test_unsupported_and_advisory_findings_do_not_mask_tool_failure(self) -> None:
         self.assertTrue(

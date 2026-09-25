@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Authored expression meanings retained independently of mathematical storage.
-use super::{ExtensionUse,N,RegistryBuilder,S,T,column,relation};
+use super::{ExtensionUse, N, RegistryBuilder, S, T, column, relation};
 pub(super) fn declare(builder: &mut RegistryBuilder) {
     relation(
         builder,

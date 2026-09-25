@@ -20,7 +20,7 @@ pub fn formal(slot: usize) -> Result<Atom, MathError> {
     }
     let text = format!("pse_math::slot_{slot}");
     let name =
-        NamespacedSymbol::try_from(text.as_str()).map_err(|e| MathError::Library(e.to_string()))?;
+        NamespacedSymbol::try_from(text.as_str()).map_err(|e| MathError::Library(e.clone()))?;
     SymbolBuilder::new(name)
         .build()
         .map(Atom::var)
@@ -125,7 +125,7 @@ pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathErro
     }
     let text = format!("pse_math::function_{slot}");
     let name =
-        NamespacedSymbol::try_from(text.as_str()).map_err(|e| MathError::Library(e.to_string()))?;
+        NamespacedSymbol::try_from(text.as_str()).map_err(|e| MathError::Library(e.clone()))?;
     let symbol = SymbolBuilder::new(name)
         .build()
         .map_err(|e| MathError::Library(e.to_string()))?;

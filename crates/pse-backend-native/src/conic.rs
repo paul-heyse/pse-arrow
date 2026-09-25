@@ -4,7 +4,10 @@
 use crate::{
     ConicProblem, GramCertificate, ProblemError,
     quality::{Quality, Tolerances, Violation, interval},
-    solve::*,
+    solve::{
+        Assurance, Backend, Candidate, Certificate, Compatibility, Controls, Event, Execution,
+        Metric, NativeTermination, SolveReport, Termination,
+    },
 };
 /// Complete native cone vocabulary.
 pub use clarabel::solver::SupportedConeT as Cone;
@@ -21,7 +24,10 @@ pub fn cone_key(cones: &[Cone<f64>]) -> pse_ids::ContentHash {
     let mut h = pse_ids::FramedHasher::new("pse.cone.layout.v1");
     h.u64(cones.len() as u64);
     for c in cones {
-        use Cone::*;
+        use Cone::{
+            ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT,
+            ZeroConeT,
+        };
         match c {
             ZeroConeT(n) => {
                 h.u64(0).u64(*n as u64);
@@ -45,7 +51,7 @@ pub fn cone_key(cones: &[Cone<f64>]) -> pse_ids::ContentHash {
                 }
             }
             #[cfg(feature = "sdp")]
-            PSDTriangleConeT(n) => {
+            SupportedConeT::PSDTriangleConeT(n) => {
                 h.u64(6).u64(*n as u64);
             }
         }
@@ -92,11 +98,11 @@ fn data(p: &ConicProblem) -> Data {
     for (i, v) in p.contract.variables.iter().enumerate() {
         if v.lower.is_finite() {
             bounds.push((i, true));
-            rhs.push(-v.lower)
+            rhs.push(-v.lower);
         }
         if v.upper.is_finite() {
             bounds.push((i, false));
-            rhs.push(v.upper)
+            rhs.push(v.upper);
         }
     }
     if !bounds.is_empty() {
@@ -282,7 +288,7 @@ impl Session {
         );
         if let Some(stop) = execution.stopped() {
             report.termination.category = stop;
-            report.termination.assurance = Assurance::None
+            report.termination.assurance = Assurance::None;
         }
         if matches!(
             solution.status,
@@ -314,9 +320,9 @@ impl Session {
             let mut upper = lower.clone();
             for (k, &(i, l)) in self.bounds.iter().enumerate() {
                 if l {
-                    lower[i] = solution.z[self.rows + k]
+                    lower[i] = solution.z[self.rows + k];
                 } else {
-                    upper[i] = solution.z[self.rows + k]
+                    upper[i] = solution.z[self.rows + k];
                 }
             }
             report.candidate = Some(Candidate {
@@ -330,17 +336,17 @@ impl Session {
             match crate::quality::contained(|| quality(p, &solution.x, tolerances)) {
                 Ok(q) => {
                     if !q.feasible() {
-                        report.termination.assurance = Assurance::None
+                        report.termination.assurance = Assurance::None;
                     }
-                    report.quality = Some(q)
+                    report.quality = Some(q);
                 }
                 Err(e) => {
                     report.validation_error = Some(e.to_string());
-                    report.termination.assurance = Assurance::None
+                    report.termination.assurance = Assurance::None;
                 }
             }
         } else {
-            report.termination.assurance = Assurance::None
+            report.termination.assurance = Assurance::None;
         }
         Ok(report)
     }
@@ -443,7 +449,9 @@ pub fn svec(matrix: faer::MatRef<'_, f64>) -> Result<Vec<f64>, ProblemError> {
 /// closed-cone predicates are boundary glue because Clarabel's public margins
 /// deliberately panic for exponential and power cones.
 fn cone_violation(cone: &SupportedConeT<f64>, s: &[f64]) -> Result<f64, ProblemError> {
-    use SupportedConeT::*;
+    use SupportedConeT::{
+        ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT, ZeroConeT,
+    };
     let violation = match cone {
         ZeroConeT(_) => s.iter().map(|v| v.abs()).fold(0.0, f64::max),
         NonnegativeConeT(_) => s.iter().map(|v| -v).fold(0.0, f64::max),
@@ -468,7 +476,7 @@ fn cone_violation(cone: &SupportedConeT<f64>, s: &[f64]) -> Result<f64, ProblemE
                 .fold(0.0f64, |v, x| v.hypot(*x)),
         ),
         #[cfg(feature = "sdp")]
-        PSDTriangleConeT(n) => {
+        SupportedConeT::PSDTriangleConeT(n) => {
             let mut m = faer::Mat::zeros(*n, *n);
             let mut k = 0;
             for c in 0..*n {
@@ -510,13 +518,15 @@ fn power_violation(alpha: &[f64], x: &[f64], norm: f64) -> f64 {
     (norm - product).max(negative)
 }
 fn dim(cone: &SupportedConeT<f64>) -> usize {
-    use SupportedConeT::*;
+    use SupportedConeT::{
+        ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT, ZeroConeT,
+    };
     match cone {
         ZeroConeT(n) | NonnegativeConeT(n) | SecondOrderConeT(n) => *n,
         ExponentialConeT() | PowerConeT(_) => 3,
         GenPowerConeT(a, d) => a.len() + d,
         #[cfg(feature = "sdp")]
-        PSDTriangleConeT(n) => n * (n + 1) / 2,
+        SupportedConeT::PSDTriangleConeT(n) => n * (n + 1) / 2,
     }
 }
 fn quality(p: &ConicProblem, x: &[f64], t: &Tolerances) -> Result<Quality, ProblemError> {

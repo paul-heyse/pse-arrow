@@ -1110,7 +1110,7 @@ impl MathService {
                                     &pipeline.tolerances(tolerance),
                                     scaling.as_ref(),
                                     pipeline.warm(),
-                                    pipeline.compatibility().clone(),
+                                    pipeline.native_compatibility().clone(),
                                 )?
                             };
                             pipeline.finish(report, tolerance, sense)
@@ -1174,7 +1174,7 @@ impl MathService {
                                     execution,
                                     &pipeline.tolerances(tolerance),
                                     pipeline.warm(),
-                                    pipeline.compatibility().clone(),
+                                    pipeline.native_compatibility().clone(),
                                 )?
                             };
                             pipeline.finish(report, tolerance, sense)

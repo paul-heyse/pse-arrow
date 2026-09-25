@@ -19,6 +19,15 @@ def changed(before: dict, after: dict) -> list[str]:
     )
 
 
+def documentation_only(names: list[str]) -> bool:
+    """The sole source-change exception for retained executable measurements."""
+    return all(
+        name in {"README.md", "AGENTS.md", "CLAUDE.md"}
+        or (name.startswith("docs/") and name.endswith(".md"))
+        for name in names
+    )
+
+
 def qualified(check: dict) -> bool:
     """A nonblocking finding differs from a failed invocation or missing evidence."""
     return (
@@ -36,10 +45,9 @@ def verify_native(native: dict) -> None:
         with Path(name).open("rb") as stream:
             if hashlib.file_digest(stream, "sha256").hexdigest() != expected:
                 raise ValueError("native binary or linked library changed")
-    if native.get("threads") != {
-        name: "1"
-        for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
-    }:
+    if native.get("threads") != dict.fromkeys(
+        ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"
+    ):
         raise ValueError("native thread budget differs")
 
 
@@ -57,7 +65,9 @@ def classify(check: dict, output: Path) -> None:
     if check["gate"] in {"plan14-native", "plan14-python"}:
         path = output / f"{check['gate']}-native.json"
         try:
-            from scripts import implementation_phase
+            from scripts import (  # noqa: PLC0415 -- avoids validation runner cycle
+                implementation_phase,
+            )
 
             profile = next(
                 p
@@ -73,7 +83,7 @@ def classify(check: dict, output: Path) -> None:
                 or native["captured"] < check["started"]
                 or not native["files"]
             ):
-                raise ValueError("wrong or stale linked native profile")
+                raise ValueError("wrong or stale linked native profile")  # noqa: TRY301 -- converted to a failed evidence record
             verify_native(native)
             check["native"] = native
             check["artifacts"][path.name] = digest(path)
@@ -81,8 +91,13 @@ def classify(check: dict, output: Path) -> None:
             check["status"] = "failed"
             check["report_errors"].append(str(error))
     if check["gate"] in {"plan14-measure", "plan14-reviews"}:
-        from scripts import implementation_phase, validation_cases
-        from scripts.plan14_measure import source_digest
+        from scripts import (  # noqa: PLC0415 -- avoids validation runner cycle
+            implementation_phase,
+            validation_cases,
+        )
+        from scripts.plan14_measure import (  # noqa: PLC0415 -- avoids validation runner cycle
+            source_digest,
+        )
 
         root = Path(__file__).resolve().parents[1]
         path = output / f"{check['gate']}.json"
@@ -97,7 +112,7 @@ def classify(check: dict, output: Path) -> None:
             if report["started"] < check["started"] or report[
                 "source_digest"
             ] != source_digest(root):
-                raise ValueError("stale measurement or review artifact")
+                raise ValueError("stale measurement or review artifact")  # noqa: TRY301 -- converted to a failed evidence record
             if check["gate"] == "plan14-measure":
                 native = report["native"]
                 profile = next(
@@ -109,14 +124,14 @@ def classify(check: dict, output: Path) -> None:
                     native["profile"] != profile
                     or native["captured"] < check["started"]
                 ):
-                    raise ValueError("wrong or stale measurement native profile")
+                    raise ValueError("wrong or stale measurement native profile")  # noqa: TRY301 -- converted to a failed evidence record
                 verify_native(native)
             for row in report["cases"]:
                 for name, expected in row.get("artifacts", {}).items():
                     artifact = (output / name).resolve()
                     artifact.relative_to(output.resolve())
                     if digest(artifact) != expected:
-                        raise ValueError("changed measurement artifact")
+                        raise ValueError("changed measurement artifact")  # noqa: TRY301 -- converted to a failed evidence record
                     check["artifacts"][name] = expected
             check["measurement"] = report
             check["artifacts"][path.name] = digest(path)
@@ -209,7 +224,11 @@ def continuation(
                 "changed gate declarations require explicit --rerun selections"
             )
     changes = changed(prior["source_files"], snapshot)
-    if changes and (not reason or not rerun):
+    observed_changes = any(
+        check.get("changed_source") and not check.get("retained")
+        for check in prior["checks"]
+    )
+    if (changes or observed_changes) and (not reason or not rerun):
         raise ValueError(
             "changed source requires --change-reason and affected --rerun gates"
         )
@@ -218,12 +237,25 @@ def continuation(
         if (
             check["gate"] in rerun
             or not qualified(check)
-            or check.get("changed_source")
+            or (
+                check.get("changed_source")
+                and check["gate"] in {"plan14-measure", "plan14-reviews"}
+            )
         ):
             continue
         origin = Path(check.get("origin", str(parent)))
         if origin.resolve() not in chain:
             raise ValueError("check origin is outside authenticated continuation chain")
+        origin_sources = json.loads((origin / "checks.json").read_text())[
+            "source_files"
+        ]
+        origin_changes = changed(origin_sources, snapshot)
+        if check["gate"] == "plan14-measure" and not documentation_only(origin_changes):
+            raise ValueError(
+                "executable inputs changed; rerun plan14-measure after functional qualification"
+            )
+        if check["gate"] == "plan14-reviews" and origin_changes:
+            raise ValueError("changed source requires fresh independent plan14-reviews")
         artifacts = check.get("artifacts", {})
         if not artifacts:
             raise ValueError(f"missing authenticated artifacts: {check['gate']}")

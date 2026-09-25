@@ -601,7 +601,19 @@ impl Runtime {
         let batches =
             crate::authoring_driver::p1::source_batches(documents.bundles(), &self.registry)?;
         let keys = crate::physical::input_keys(&self.registry);
+        let roots = keys
+            .iter()
+            .filter_map(|key| {
+                self.registry
+                    .relation(&key.qualified_name())
+                    .map(|spec| spec.id)
+            })
+            .collect();
+        let support = pse_schema::product::support_closure(&self.registry, &roots)
+            .map_err(pse_relations::RelationError::from)
+            .map_err(relation)?;
         let mut physical = BTreeMap::new();
+        let mut retained_support = BTreeMap::new();
         for (id, batch) in batches {
             let spec = self
                 .registry
@@ -609,6 +621,13 @@ impl Runtime {
                 .ok_or_else(|| contract("unknown physical declaration"))?;
             if keys.contains(&spec.key) {
                 physical.insert(spec.key, batch);
+            } else if support.contains(&id) {
+                retained_support.insert(
+                    spec.key,
+                    batch
+                        .retained(&self.shared.pool(), cancel)
+                        .map_err(relation)?,
+                );
             }
         }
         let session = self
@@ -617,6 +636,8 @@ impl Runtime {
         let inventory = crate::physical::PhysicalInventory::load(&session, &self.registry, cancel)
             .await
             .map_err(|e| pse_engine::EngineError::Semantic(Arc::new(e)))?;
-        Ok(PhysicalContext::admitted(Arc::new(inventory)))
+        let mut context = PhysicalContext::admitted(Arc::new(inventory));
+        context.sources.extend(retained_support);
+        Ok(context)
     }
 }

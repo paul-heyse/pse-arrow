@@ -1,7 +1,7 @@
 ---
 id: ADR-0043
 title: Declare kernel outcomes and generate only supported bindings
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D9, §6.11, §7.6, §18.5, §18.9, §21.4]
 review: docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md#6-acceptance-gates
 evidence: Proposed
 supersedes: [ADR-0012]
-superseded-by: null
+superseded-by: ADR-0084
 revisit: A current kernel needs an execution or outcome policy that the descriptor cannot express without backend-specific semantic invention.
 verification: just adr-lint; just docs; docs/plans/02-blueprint-revision-5-contracts.md Verification; bash docs/design_review/evidence/blueprint-rev4-2026-09-13/run.sh
 ---
@@ -62,3 +62,4 @@ See the governed blueprint sections, the [revision-4 review](../design_review/re
 - 2026-09-13 — proposed before the revision-5 blueprint amendment; user requested reconciliation of all review findings and library opportunities.
 - 2026-09-13 — proposes superseding ADR-0012 for the corrected contract above; accepted arguments remain immutable.
 - 2026-09-13 — accepted (revision-5 review, Accept for bounded proposed scope; evidence remains Proposed until the wave-1 implementation review).
+- 2026-09-24 — superseded by ADR-0084.

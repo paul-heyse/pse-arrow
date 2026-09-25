@@ -348,6 +348,12 @@ python-version = "3.11"
 matches = "python/pse/parity/**"
 replace-imports-with-any = ["idaes.*", "pyomo.*", "pint.*"]
 
+# Executed only by plan14-reference in its isolated locked Python 3.12 environment.
+# These upstream modules do not ship typing metadata for the development checker.
+[[tool.pyrefly.sub-config]]
+matches = "scripts/plan14_reference.py"
+replace-imports-with-any = ["teqp", "scipy", "scipy.*"]
+
 [tool.importlinter]
 root_packages = ["pse"]
 include_external_packages = true

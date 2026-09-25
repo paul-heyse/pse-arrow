@@ -1,7 +1,7 @@
 ---
 id: ADR-0022
 title: Write every kernel against num-dual 0.15; FeOs stays conditional
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§3.1, §3.3, §9.8]
 review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0084
 revisit: `feos-core` releases a version that depends on `num-dual` 0.15 (checked monthly with `cargo info`)
 verification: `tests/conformance` kernel derivative tests against hand derivations; `rust / family-check`; register row R-05
 
@@ -61,3 +61,4 @@ Blueprint §3.1, §3.3 (num-dual and feos rows), §9.8 (provider kernels), §18.
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-24 — superseded by ADR-0084.

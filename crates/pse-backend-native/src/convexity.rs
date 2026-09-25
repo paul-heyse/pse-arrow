@@ -9,16 +9,14 @@ impl CoefficientProblem {
         certificate: Option<&GramCertificate>,
     ) -> Result<(), ProblemError> {
         self.validate()?;
-        if let Some(q) = &self.hessian {
-            if q.val().iter().any(|v| *v != 0.0) {
-                certificate
-                    .ok_or_else(|| {
-                        ProblemError::Contract(
-                            "quadratic degree does not establish convexity".into(),
-                        )
-                    })?
-                    .validate(q, self.sense.sign())?;
-            }
+        if let Some(q) = &self.hessian
+            && q.val().iter().any(|v| *v != 0.0)
+        {
+            certificate
+                .ok_or_else(|| {
+                    ProblemError::Contract("quadratic degree does not establish convexity".into())
+                })?
+                .validate(q, self.sense.sign())?;
         }
         Ok(())
     }

@@ -12,7 +12,7 @@ fn incidence(nr: usize, nc: usize, mask: u32) -> EqualityIncidence {
     for r in 0..nr {
         for c in 0..nc {
             if mask & (1 << (r * nc + c)) != 0 {
-                vars.push(c)
+                vars.push(c);
             }
         }
         ptr.push(vars.len());
@@ -36,10 +36,10 @@ fn enumerate(
         let count = rows.iter().filter(|c| c.is_some()).count();
         if count > *best {
             *best = count;
-            all.clear()
+            all.clear();
         }
         if count == *best {
-            all.push(rows.clone())
+            all.push(rows.clone());
         }
         return;
     }
@@ -52,7 +52,7 @@ fn enumerate(
             rows.push(Some(c));
             enumerate(i, r + 1, rows, used, best, all);
             rows.pop();
-            used[c] = false
+            used[c] = false;
         }
     }
 }
@@ -70,28 +70,28 @@ fn validate(i: &EqualityIncidence, m: &BipartiteMatching) {
             for &c in &b.cols {
                 assert!(!seen_c[c]);
                 seen_c[c] = true;
-                owner[c] = Some(k)
+                owner[c] = Some(k);
             }
             for &r in &b.eq_rows {
                 assert!(!seen_r[r]);
-                seen_r[r] = true
+                seen_r[r] = true;
             }
         }
         for (k, b) in btf.blocks.iter().enumerate() {
             for &r in &b.eq_rows {
                 for &c in i.neighbors(r) {
                     if let Some(j) = owner[c] {
-                        assert!(j <= k, "wrong order")
+                        assert!(j <= k, "wrong order");
                     }
                 }
             }
         }
     }
     for (r, seen) in seen_r.iter().enumerate() {
-        assert_eq!(*seen, dm.row_part[r] == DMPart::Square)
+        assert_eq!(*seen, dm.row_part[r] == DMPart::Square);
     }
     for (c, seen) in seen_c.iter().enumerate() {
-        assert_eq!(*seen, dm.col_part[c] == DMPart::Square)
+        assert_eq!(*seen, dm.col_part[c] == DMPart::Square);
     }
 }
 #[test]
@@ -122,14 +122,14 @@ fn exhaustive_matching_dm_and_btf_against_all_maximum_witnesses() {
                     let mut cols = vec![None; nc];
                     for (r, c) in rows.iter().enumerate() {
                         if let Some(c) = c {
-                            cols[*c] = Some(r)
+                            cols[*c] = Some(r);
                         } else {
-                            over_r[r] = true
+                            over_r[r] = true;
                         }
                     }
                     for (c, row) in cols.iter().enumerate() {
                         if row.is_none() {
-                            under_c[c] = true
+                            under_c[c] = true;
                         }
                     }
                     let alt = BipartiteMatching {
@@ -148,10 +148,10 @@ fn exhaustive_matching_dm_and_btf_against_all_maximum_witnesses() {
                 for r in 0..nr {
                     for &c in inc.neighbors(r) {
                         if over_r[r] {
-                            over_c[c] = true
+                            over_c[c] = true;
                         }
                         if under_c[c] {
-                            under_r[r] = true
+                            under_r[r] = true;
                         }
                     }
                 }
@@ -165,7 +165,7 @@ fn exhaustive_matching_dm_and_btf_against_all_maximum_witnesses() {
                         } else {
                             DMPart::Square
                         }
-                    )
+                    );
                 }
                 for c in 0..nc {
                     assert_eq!(
@@ -177,7 +177,7 @@ fn exhaustive_matching_dm_and_btf_against_all_maximum_witnesses() {
                         } else {
                             DMPart::Square
                         }
-                    )
+                    );
                 }
                 graphs += 1;
             }
@@ -218,9 +218,9 @@ fn qualified_long_augmenting_path_stack() {
             };
             for r in 0..n {
                 if r == n - 1 {
-                    inc.vars.push(0)
+                    inc.vars.push(0);
                 } else {
-                    inc.vars.extend([r, r + 1])
+                    inc.vars.extend([r, r + 1]);
                 }
                 inc.adj_ptr.push(inc.vars.len());
             }

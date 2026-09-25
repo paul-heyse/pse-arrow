@@ -585,7 +585,7 @@ impl PreparedFit {
                             &pipeline.tolerances(&self.problem.profile.solver.tolerances),
                             scales.as_ref(),
                             None,
-                            pipeline.compatibility().clone(),
+                            pipeline.native_compatibility().clone(),
                         )?
                     }
                     #[cfg(feature = "solver-pounce")]
@@ -612,7 +612,7 @@ impl PreparedFit {
                             execution.clone(),
                             &pipeline.tolerances(&self.problem.profile.solver.tolerances),
                             None,
-                            pipeline.compatibility().clone(),
+                            pipeline.native_compatibility().clone(),
                         )?
                     }
                     _ => return Err(error("native fitting backend unavailable").into()),

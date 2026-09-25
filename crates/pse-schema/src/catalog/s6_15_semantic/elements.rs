@@ -29,6 +29,4 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ],
         "Closed physical projection from actual species count/MW to one declared Element balance quantity.",
     );
-
-
 }

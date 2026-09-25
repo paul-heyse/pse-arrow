@@ -101,6 +101,7 @@
   - [ADR-0084: Separate physical provider validity from derivative and dynamic eligibility](adr/0084-physical-provider-and-dynamic-contracts.md)
   - [ADR-0085: Adopt a layered design standard with a process-simulator profile](adr/0085-layered-design-standard.md)
   - [ADR-0086: Retire orphaned rule execution and check structural governance contracts](adr/0086-retire-orphaned-rule-execution.md)
+  - [ADR-0087: Close Plan 14 through local Linux qualification](adr/0087-local-linux-plan14-qualification.md)
 <!-- adr:end -->
 
 # Plans
@@ -132,6 +133,7 @@
   - [Rust computation stage contracts](plans/13-stage-contracts.md)
   - [Foundation library profile](plans/13-foundation-library-profile.md)
   - [14 — Library-owned process simulator hard pivot](plans/14-library-owned-process-simulator.md)
+  - [16 — Data-model architecture and review remediation](plans/16-data-model-architecture.md)
 
 # Design reviews
 

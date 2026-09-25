@@ -105,6 +105,28 @@ mod tests {
         assert!(select(&f, SolveIntent::Optimize, SolverSelection::Auto, true).is_err());
         assert!(select(&f, SolveIntent::Root, SolverSelection::Auto, true).is_err());
         let mut f = f;
+        // Coefficient MILPs and opaque nonlinear expressions are not conic data.
+        f.quadratic = false;
+        assert!(
+            select(
+                &f,
+                SolveIntent::Optimize,
+                SolverSelection::Explicit(Backend::Clarabel),
+                true,
+            )
+            .is_err()
+        );
+        f.domains.fill(VariableDomain::Continuous);
+        f.coefficients = false;
+        assert!(
+            select(
+                &f,
+                SolveIntent::Optimize,
+                SolverSelection::Explicit(Backend::Clarabel),
+                true,
+            )
+            .is_err()
+        );
         f.variables = 0;
         assert_eq!(
             select(&f, SolveIntent::Optimize, SolverSelection::Auto, false).unwrap(),

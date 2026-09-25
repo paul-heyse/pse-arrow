@@ -1,7 +1,7 @@
 ---
 id: ADR-0078
 title: Compile P7 through P10 as one typed semantic region
-status: proposed
+status: superseded
 date: 2026-09-23
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§7.4, §14.3]
 review: docs/design_review/reviews/design_review_rust-computation-target-design_2026-09-23.md
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0082
 revisit: A supported relational query needs a full intermediate mathematical graph or a stage cannot retain its actual source evidence without serialization.
 verification: Plan 13 W09 typed stage and projection units; just unit-rust-computation; just codegen-contracts-check; just adr-lint.
 ---
@@ -120,3 +120,4 @@ record does not claim that formal acceptance or implementation has completed.
 ## Status history
 
 - 2026-09-23 — proposed before the region implementation; maintainer-authorized W09 scope.
+- 2026-09-24 — superseded by ADR-0082.

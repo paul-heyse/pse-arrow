@@ -14,9 +14,15 @@ use pse_schema::model::{Authority, Namespace, SnapshotClass};
 #[test]
 fn target_registry_has_no_legacy_arithmetic_transport_or_placeholder_normalizer() {
     let registry = pse_schema::registry().expect("registry");
-    assert!(registry.relations().iter().all(|r| !r.key.name.starts_with("math_") || r.qualified_name() == "reference.math_context"));
+    assert!(registry.relations().iter().all(
+        |r| !r.key.name.starts_with("math_") || r.qualified_name() == "reference.math_context"
+    ));
     assert!(registry.algorithms().iter().all(|a| a.name != "P3"));
-    assert!(registry.relation("reference.function_capabilities").is_some());
+    assert!(
+        registry
+            .relation("reference.function_capabilities")
+            .is_some()
+    );
 }
 
 #[test]

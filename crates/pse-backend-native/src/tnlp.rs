@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Shared TNLP boundary for library presolve and native POUNCE execution.
-use crate::{NlpOracle, ProblemError, callback::CallbackState, nlp_pattern::Pattern, solve::*};
+use crate::{
+    NlpOracle, ProblemError,
+    callback::CallbackState,
+    nlp_pattern::Pattern,
+    solve::{Candidate, Event, Metric},
+};
 use pounce_nlp::tnlp::{
     BoundsInfo, IDX_NAMES, IndexStyle, IpoptCq, IpoptData, IterStats, MetaData, NlpInfo, Solution,
     SparsityRequest, StartingPoint, TNLP,
@@ -21,15 +26,15 @@ impl pounce_nlp::expression_provider::ExpressionProvider for Adapter {
         use pounce_nlp::expression_provider::FbbtOp;
         let f = self.oracle.presolve_facts()?;
         let mut tape = f.tapes.get(i)?.clone();
-        if self.normalize_affine {
-            if let Some(row) = f.affine.get(i)?.as_ref() {
-                let n = tape.len();
-                if n == 0 {
-                    return None;
-                }
-                tape.ops.push(FbbtOp::Const(row.constant));
-                tape.ops.push(FbbtOp::Sub(n - 1, n));
+        if self.normalize_affine
+            && let Some(row) = f.affine.get(i)?.as_ref()
+        {
+            let n = tape.len();
+            if n == 0 {
+                return None;
             }
+            tape.ops.push(FbbtOp::Const(row.constant));
+            tape.ops.push(FbbtOp::Sub(n - 1, n));
         }
         Some(tape)
     }
@@ -172,13 +177,13 @@ impl TNLP for Adapter {
                 copy(&upper, b.x_u)?;
                 copy(&gl, b.g_l)?;
                 copy(&gu, b.g_u)?;
-                if self.normalize_affine {
-                    if let Some(f) = self.oracle.presolve_facts() {
-                        for (r, row) in f.affine.iter().enumerate() {
-                            if let Some(row) = row {
-                                b.g_l[r] -= row.constant;
-                                b.g_u[r] -= row.constant;
-                            }
+                if self.normalize_affine
+                    && let Some(f) = self.oracle.presolve_facts()
+                {
+                    for (r, row) in f.affine.iter().enumerate() {
+                        if let Some(row) = row {
+                            b.g_l[r] -= row.constant;
+                            b.g_u[r] -= row.constant;
                         }
                     }
                 }
@@ -199,7 +204,7 @@ impl TNLP for Adapter {
                     ));
                 }
                 if s.init_x {
-                    copy(&self.initial, s.x)?
+                    copy(&self.initial, s.x)?;
                 }
                 if s.init_z || s.init_lambda {
                     let (l, u, r) = self.duals.as_ref().ok_or_else(|| {
@@ -207,10 +212,10 @@ impl TNLP for Adapter {
                     })?;
                     if s.init_z {
                         copy(l, s.z_l)?;
-                        copy(u, s.z_u)?
+                        copy(u, s.z_u)?;
                     }
                     if s.init_lambda {
-                        copy(r, s.lambda)?
+                        copy(r, s.lambda)?;
                     }
                 }
                 Ok(())
@@ -239,12 +244,12 @@ impl TNLP for Adapter {
             .evaluate("constraints", || {
                 let mut v = vec![0.0; out.len()];
                 self.oracle.constraints(x, &mut v)?;
-                if self.normalize_affine {
-                    if let Some(f) = self.oracle.presolve_facts() {
-                        for (v, row) in v.iter_mut().zip(&f.affine) {
-                            if let Some(row) = row {
-                                *v -= row.constant;
-                            }
+                if self.normalize_affine
+                    && let Some(f) = self.oracle.presolve_facts()
+                {
+                    for (v, row) in v.iter_mut().zip(&f.affine) {
+                        if let Some(row) = row {
+                            *v -= row.constant;
                         }
                     }
                 }

@@ -3,8 +3,8 @@
 
 //! Physically typed finite process definitions lowered directly to library mathematics.
 
-pub mod typed_math;
 pub mod source_binding;
+pub mod typed_math;
 
 mod physical_identity;
 /// Incremental semantic preparation and compiler-owned artifact requests.

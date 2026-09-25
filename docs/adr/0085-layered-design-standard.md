@@ -1,14 +1,14 @@
 ---
 id: ADR-0085
 title: Adopt a layered design standard with a process-simulator profile
-status: proposed
+status: accepted
 date: 2026-09-24
 deciders: [paul-heyse]
 level: decision
 principles: [DP-13, DP-16, DP-22, DP-23]
 blueprint: [§2.1]
-review: "not-required: maintainer-directed revision of the review standard itself; the maintainer decides whether a review against the new standard precedes acceptance"
-evidence: Implemented
+review: docs/design_review/reviews/design_review_m22-local-qualification_2026-09-24.md
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A second domain profile or a second repository adopts the core layer, or a review finds a principle it cannot apply without a repository-specific reading.
@@ -89,6 +89,21 @@ The next reviews apply the standard as described in `verification:`.
 - `docs/design_review/design_principles/profiles/process-simulator/principles.md`
 - `docs/design_review/design_principles/binding/pse-arrow.md`
 
+## M22 local qualification
+
+**Tested and Measured:** the [M22 packet](../plans/14-m22-execution.md#verification)
+records local Linux functional Q01–Q17, the 23 cached-development case-cost workloads,
+zero required failures and retained-origin conditions. It distinguishes admitted memory
+allowances from measured pool/RSS observations and excludes Rust build time.
+
+The [independent final review](../design_review/reviews/design_review_m22-local-qualification_2026-09-24.md)
+accepts the relevant scoped contracts with no open MUST finding. Companion runtime,
+scientific and claims reviews cover G1–G8 and PS-G1–PS-G3. Blueprint revision 51 and
+ADR-0087 govern local acceptance. Strict Clippy cleanup and release/remote/platform
+qualification remain separate; no broader clean or empirical claim follows.
+
 ## Status history
 
 - 2026-09-24 — proposed.
+
+- 2026-09-24 — accepted for local Linux M22 scope under ADR-0087 after independent final review; blueprint revision 51 reconciles the contracts. No remote or release qualification is claimed.

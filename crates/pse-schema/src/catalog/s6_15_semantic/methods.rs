@@ -147,13 +147,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ],
         "Complete parameter physical type and natural coordinate.",
     );
-
-
-
 }
-
-/// Both realization routes produce an actual symbol. Only the producer-specific
-/// correspondence is alternative; it cannot erase the common output identity.
 
 fn index_coordinate() -> T {
     T::structure(vec![

@@ -102,8 +102,14 @@ def test_import_checks_compatibility_without_exhaustive_class_scan() -> None:
             sys.executable,
             "-c",
             (
-                "import sys, pse; assert 'pse.governance' not in sys.modules; "
-                "assert 'pse.contracts.authored' not in sys.modules"
+                "import sys\n"
+                "def observe(frame, event, arg):\n"
+                "    if (event == 'call' and frame.f_code.co_name == 'check'\n"
+                "        and frame.f_globals.get('__name__') == 'pse.governance'):\n"
+                "        raise AssertionError('exhaustive contract scan during import')\n"
+                "sys.setprofile(observe)\n"
+                "import pse\n"
+                "sys.setprofile(None)\n"
             ),
         ],
         check=True,

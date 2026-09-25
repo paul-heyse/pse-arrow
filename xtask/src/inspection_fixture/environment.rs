@@ -10,9 +10,7 @@ use pse_catalog::{
     artifact::{ArtifactPlan, PublicationTarget},
     delta::publication::{Publication, PublicationRoot},
 };
-use pse_relations::{
-    generated::{enums::PublicationKind, runtime::publications},
-};
+use pse_relations::generated::{enums::PublicationKind, runtime::publications};
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 use workflow_runtime::WorkflowRuntime;
 
@@ -34,18 +32,54 @@ impl Environment {
         bundles: &[pse_runtime::authoring_driver::document::DocumentBundle],
     ) -> Result<ArtifactPlan> {
         let rows = pse_runtime::authoring_driver::p1::source_batches(bundles, &self.registry)?;
-        let rows = rows.into_iter().map(|(id, batch)| {
-            Ok((self.registry.relation_by_id(id).context("source relation absent")?.key, batch))
-        }).collect::<Result<BTreeMap<_, _>>>()?;
+        let mut rows = rows
+            .into_iter()
+            .map(|(id, batch)| {
+                Ok((
+                    self.registry
+                        .relation_by_id(id)
+                        .context("source relation absent")?
+                        .key,
+                    batch,
+                ))
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
+        for (key, batch) in self.registry.schema_batches() {
+            let spec = self
+                .registry
+                .relation_by_key(*key)
+                .context("registry reflection declaration absent")?;
+            rows.insert(
+                *key,
+                pse_relations::columnar::FieldCheckedBatch::admit(
+                    &self.registry,
+                    spec,
+                    batch.clone(),
+                )?,
+            );
+        }
         let keys = rows.keys().copied().collect::<Vec<_>>();
-        let session = self.sessions.candidate_checked(rows, Arc::clone(&self.registry), &self.cancel)?;
+        let session =
+            self.sessions
+                .candidate_checked(rows, Arc::clone(&self.registry), &self.cancel)?;
         let mut outputs = BTreeMap::new();
         for key in keys {
             let reference = session.table_reference(&key)?;
-            let reference = ResolvedTableReference { catalog: reference.catalog().context("source catalog")?.into(), schema: reference.schema().context("source schema")?.into(), table: reference.table().into() };
+            let reference = ResolvedTableReference {
+                catalog: reference.catalog().context("source catalog")?.into(),
+                schema: reference.schema().context("source schema")?.into(),
+                table: reference.table().into(),
+            };
             let plan = session.relation_plan(&reference)?.plan().clone();
-            let relation_id = self.registry.relation(&key.qualified_name()).context("source declaration")?.id;
-            outputs.insert(reference, pse_catalog::artifact::RelationOutput { relation_id, plan });
+            let relation_id = self
+                .registry
+                .relation(&key.qualified_name())
+                .context("source declaration")?
+                .id;
+            outputs.insert(
+                reference,
+                pse_catalog::artifact::RelationOutput { relation_id, plan },
+            );
         }
         Ok(ArtifactPlan::new(session, outputs, &self.cancel)?)
     }

@@ -11,10 +11,6 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_variable_semantic_role_vocabulary(builder);
 }
 
-
-
-
-
 fn declare_solver_variable_type_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
@@ -37,5 +33,3 @@ fn declare_variable_semantic_role_vocabulary(builder: &mut RegistryBuilder) {
         ],
     );
 }
-
-

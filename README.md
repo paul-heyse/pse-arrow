@@ -5,7 +5,7 @@ relations as model authority. The target is a library-owned mathematical and the
 with native solvers. Arrow, DataFusion and Delta Lake serve useful data-boundary,
 relational and storage roles. Python package `pse-arrow` (import `pse`).
 
-**Status: Plan 14 M00–M20 is implemented; full qualification remains open.**
+**Status: Plan 14 M00–M22 is complete for local Linux design-stage qualification.**
 [Plan 14](docs/plans/14-library-owned-process-simulator.md) supersedes Plan 13.
 Typed finite definitions compile to guarded Symbolica/Numerica values and derivatives.
 FeOS supplies the selected PC-SAFT/DIPPR package; faer owns sparse assembly and
@@ -20,11 +20,11 @@ Shared presolve/postsolve, public Rust/Python model workflows, exact publication
 Diffsol BDF dynamics and steady/transient/mixed fitting are implemented. Residual
 crate/generator cleanup and the native acceptance tests, offline physical references
 and measurement tooling are also in place. The
-[M19–M20 execution packet](docs/plans/14-m19-m20-execution.md) records targeted evidence
-and compiled/discovered acceptance scope. M21 final closure and M22 scientific,
-runtime, performance and whole-repository qualification remain. The
-[foundation contract](docs/plans/14-math-foundation-contract.md) records supported
-profiles and limitations; a complete simulator workflow is not yet qualified.
+[M22 execution packet](docs/plans/14-m22-execution.md) records native scientific and
+Python workflow tests, 23 process-case cost measurements and independent reviews.
+The [foundation contract](docs/plans/14-math-foundation-contract.md) records supported
+profiles and limitations. Strict Clippy cleanup, release/distribution and other-platform
+qualification remain separate under the maintainer-selected ADR-0087 scope.
 
 Plan 13's [repair checkpoint](docs/plans/13-w19-repair-checkpoint.md) remains historical
 evidence: W19 was incomplete and W20 unrun. Those campaigns are not an automatically

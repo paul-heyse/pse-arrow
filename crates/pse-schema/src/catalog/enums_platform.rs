@@ -218,8 +218,6 @@ fn declare_rule_vocabularies(builder: &mut RegistryBuilder) {
     declare_null_vocabularies(builder);
 }
 
-/// Native rule dependency roles.
-
 /// Algorithm determinism (blueprint §14.1).
 fn declare_policy_vocabularies(builder: &mut RegistryBuilder) {
     builder.declare_enum(EnumDecl::platform(

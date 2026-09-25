@@ -3,6 +3,7 @@
 """Guarded Criterion collector: fresh process per cost case, separate pool and RSS metrics."""
 
 from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -10,7 +11,9 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from scripts import implementation_phase as phase, validation
+
+from scripts import implementation_phase as phase
+from scripts import validation
 from scripts.plan14_acceptance import native_provenance
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,10 +31,11 @@ def main() -> int:
     phase.guard(ROOT, ["plan14-measure"])
     declaration = phase.manifest(ROOT)
     case = next(
-        c for c in declaration["cases"] if c.get("artifact") == "process-cost-v1"
+        c for c in declaration["cases"] if c.get("artifact") == "process-cost-v2"
     )
     started = time.time()
     before = source_digest(ROOT)
+    profile = next(p for p in declaration["profiles"] if p["id"] == case["profile"])
     command = [
         "cargo",
         "bench",
@@ -40,6 +44,8 @@ def main() -> int:
         "--bench",
         "native_process",
         "--locked",
+        "--profile",
+        profile["cargo_profile"],
         "--features",
         "native-process,pse-relations/force-validate",
         "--no-run",
@@ -61,16 +67,17 @@ def main() -> int:
     if len(binaries) != 1:
         raise ValueError("expected one compiled benchmark executable")
     binary = Path(binaries.pop())
-    profile = next(p for p in declaration["profiles"] if p["id"] == case["profile"])
     native = native_provenance(profile, [str(binary)])
     cases = []
-    for name in case["tests"]:
+    for workload in case["workloads"]:
+        name = workload["id"]
         directory = output / "process-cost" / name
         directory.mkdir(parents=True, exist_ok=False)
         env = {
             **os.environ,
             "PSE_PLAN14_COST_CASE": name,
             "PSE_PLAN14_COST_OUTPUT": str(directory),
+            "PSE_PLAN14_COST_SPEC": json.dumps(workload),
         }
         with (directory / "process.log").open("w") as log:
             subprocess.run(
@@ -106,10 +113,11 @@ def main() -> int:
     if source_digest(ROOT) != before:
         raise ValueError("sources changed during measurement")
     report = {
-        "schema": "process-cost-v1",
+        "schema": "process-cost-v2",
         "profile": case["profile"],
         "started": started,
         "source_digest": before,
+        "compilation_timed": False,
         "binary_path": str(binary.resolve()),
         "binary_digest": native["files"][str(binary.resolve())],
         "toolchain": native["toolchain"],

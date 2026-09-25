@@ -1,7 +1,7 @@
 ---
 id: ADR-0086
 title: Retire orphaned rule execution and check structural governance contracts
-status: proposed
+status: accepted
 date: 2026-09-24
 deciders: [paul-heyse]
 level: decision
@@ -65,7 +65,7 @@ pse-relations/force-validate` passed all 1695 tests with zero failures and zero 
 The linked native dynamics/fitting selection passed all nine selected tests with
 `pse-runtime/native-solvers,pse-relations/force-validate`. The implementation record
 lists exact commands, conditions and remaining static qualification. Full Plan 14
-qualification remains M22; this evidence does not change the ADR's proposed status.
+qualification is subsequently recorded in the M22 packet under ADR-0087.
 
 ## Pros and cons
 
@@ -74,9 +74,25 @@ would require a separately reviewed new capability.
 
 ## More information
 
-See Plan 14's foundation contract and the linked design review. This proposed ADR
-requires an `adr` / `needs-review` PR and the associated blueprint revision before merge.
+See Plan 14's foundation contract and the linked design review. ADR-0087 authorizes
+local M22 acceptance and blueprint reconciliation. Ordinary remote merge requirements
+remain unchanged; no PR or merge result is claimed.
+
+## M22 local qualification
+
+**Tested and Measured:** the [M22 packet](../plans/14-m22-execution.md#verification)
+records local Linux functional Q01–Q17, the 23 cached-development case-cost workloads,
+zero required failures and retained-origin conditions. It distinguishes admitted memory
+allowances from measured pool/RSS observations and excludes Rust build time.
+
+The [independent final review](../design_review/reviews/design_review_m22-local-qualification_2026-09-24.md)
+accepts the relevant scoped contracts with no open MUST finding. Companion runtime,
+scientific and claims reviews cover G1–G8 and PS-G1–PS-G3. Blueprint revision 51 and
+ADR-0087 govern local acceptance. Strict Clippy cleanup and release/remote/platform
+qualification remain separate; no broader clean or empirical claim follows.
 
 ## Status history
 
 - 2026-09-24 — proposed following executable failure review and explicit retirement decision.
+
+- 2026-09-24 — accepted for local Linux M22 scope under ADR-0087 after independent final review; blueprint revision 51 reconciles the contracts. No remote or release qualification is claimed.

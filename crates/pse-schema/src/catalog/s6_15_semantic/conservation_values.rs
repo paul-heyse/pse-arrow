@@ -6,7 +6,18 @@ use super::{RegistryBuilder, T, enumeration};
 use crate::model::TaggedAlternative;
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
-    enumeration(builder, "ContributionSubjectKind", ["total", "energy", "momentum", "species", "element", "phase_species"]);
+    enumeration(
+        builder,
+        "ContributionSubjectKind",
+        [
+            "total",
+            "energy",
+            "momentum",
+            "species",
+            "element",
+            "phase_species",
+        ],
+    );
     enumeration(builder, "PhysicalCoordinateKind", ["fixed", "axis"]);
     enumeration(builder, "ContributionSign", ["positive", "negative"]);
     enumeration(

@@ -4,8 +4,8 @@
 use super::invalid;
 use crate::SchemaError;
 use arrow_array::{
-    Array, ArrayRef, BooleanArray, FixedSizeBinaryArray, Int64Array, ListArray,
-    StringArray, StructArray,
+    Array, ArrayRef, BooleanArray, FixedSizeBinaryArray, Int64Array, ListArray, StringArray,
+    StructArray,
 };
 use arrow_buffer::{NullBuffer, OffsetBuffer, ScalarBuffer};
 use arrow_schema::{DataType, Field};

@@ -6,8 +6,7 @@
 use super::declarations::{column, enumeration, relation};
 use crate::RegistryBuilder;
 use crate::model::{
-    Authority, DerivationGranularity, FieldContract as T, Namespace as N,
-    SnapshotClass as S,
+    Authority, DerivationGranularity, FieldContract as T, Namespace as N, SnapshotClass as S,
 };
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
@@ -70,16 +69,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     );
     declare_units(builder);
 }
-
-
-
-
-
-
-
-
-
-
 
 fn declare_units(builder: &mut RegistryBuilder) {
     let Some(mut units) = builder

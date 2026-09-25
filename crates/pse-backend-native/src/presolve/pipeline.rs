@@ -7,10 +7,19 @@ use crate::{
     callback::CallbackState,
     nlp_pattern::Pattern,
     quality::{self, Tolerances},
-    solve::*,
+    solve::{
+        Assurance, Candidate, Compatibility, Execution, Metric, NativeTermination, SolveReport,
+        Termination, WarmPayload, WarmStart,
+    },
     tnlp::Adapter,
 };
-use pounce_nlp::{SolverReturn, expression_provider::ExpressionProvider, tnlp::*};
+use pounce_nlp::{
+    SolverReturn,
+    expression_provider::ExpressionProvider,
+    tnlp::{
+        BoundsInfo, IndexStyle, IpoptCq, IpoptData, Solution, SparsityRequest, StartingPoint, TNLP,
+    },
+};
 use pounce_presolve::{LinearEqElimTnlp, PresolveMap, PresolveTnlp};
 use pse_math::{binding::ObjectiveSense, sparse::AssemblyMatrix};
 use std::{cell::RefCell, rc::Rc};
@@ -88,6 +97,10 @@ impl Pipeline {
         Ok(Some(report))
     }
     /// Qualify, build and project one source start using native wrapper interfaces.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Presolve admission needs the independent solver, scaling, warm-start, and resource contracts"
+    )]
     pub fn new(
         oracle: Box<dyn NlpOracle>,
         initial: &[f64],
@@ -385,7 +398,7 @@ impl Pipeline {
         self.warm.as_ref()
     }
     /// Exact transformed native reuse identity.
-    pub fn compatibility(&self) -> &Compatibility {
+    pub fn native_compatibility(&self) -> &Compatibility {
         &self.native
     }
     /// Project only the selected physical acceptance scales for native diagnostics.

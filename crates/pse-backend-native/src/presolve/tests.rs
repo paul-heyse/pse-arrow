@@ -150,6 +150,131 @@ fn stamp() -> Compatibility {
 fn execution() -> Execution {
     Execution::new(Default::default(), &Controls::default())
 }
+#[cfg(all(feature = "ipopt", feature = "pounce"))]
+#[test]
+fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
+    fn run(backend: Backend, policy: &Policy, warm: Option<&WarmStart>) -> SolveReport {
+        let mut compatibility = stamp();
+        compatibility.backend = backend;
+        let mut pipeline = Pipeline::new(
+            Box::new(Mixed::new()),
+            &[1., 3.],
+            policy,
+            &tolerances(),
+            Some(&Scaling {
+                objective: 0.5,
+                variables: vec![2., 3.],
+                constraints: vec![4., 5.],
+            }),
+            execution(),
+            warm,
+            compatibility,
+            1000,
+        )
+        .unwrap();
+        let mut oracle = pipeline.take_oracle().unwrap();
+        let controls = Controls {
+            tolerance: 1e-10,
+            ..Default::default()
+        };
+        let report = match backend {
+            Backend::Ipopt => crate::ipopt::Session::new().solve(
+                &mut oracle,
+                pipeline.initial(),
+                ObjectiveSense::Minimize,
+                &controls,
+                execution(),
+                &pipeline.tolerances(&tolerances()),
+                None,
+                pipeline.warm(),
+                pipeline.native_compatibility().clone(),
+            ),
+            Backend::Pounce => crate::pounce::Session::new().solve(
+                Box::new(oracle),
+                pipeline.initial(),
+                ObjectiveSense::Minimize,
+                &controls,
+                crate::pounce::Method::InteriorPoint,
+                Default::default(),
+                execution(),
+                &pipeline.tolerances(&tolerances()),
+                pipeline.warm(),
+                pipeline.native_compatibility().clone(),
+            ),
+            _ => unreachable!(),
+        }
+        .unwrap();
+        pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize)
+    }
+    for backend in [Backend::Ipopt, Backend::Pounce] {
+        for policy in [Policy::Off, Policy::Auto] {
+            let cold = run(backend, &policy, None);
+            for report in [&cold, &run(backend, &policy, cold.warm_start.as_ref())] {
+                assert!(
+                    matches!(
+                        report.termination.category,
+                        Termination::Success | Termination::Acceptable
+                    ),
+                    "{report:?}"
+                );
+                assert_eq!(
+                    report.termination.assurance,
+                    Assurance::LocalStationary,
+                    "{report:?}"
+                );
+                let candidate = report.candidate.as_ref().unwrap();
+                assert!(
+                    candidate.primal.iter().all(|v| (v - 2.).abs() < 1e-6),
+                    "{report:?}"
+                );
+                assert!((candidate.objective.unwrap() - 8.).abs() < 1e-6);
+                assert!(
+                    (candidate.row_dual.as_ref().unwrap()[0] + 4.).abs() < 1e-5,
+                    "{report:?}"
+                );
+                assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
+                assert!(
+                    report
+                        .observation
+                        .as_ref()
+                        .unwrap()
+                        .stationarity
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .all(|v| v.abs() < 1e-5),
+                    "{report:?}"
+                );
+                assert_eq!(
+                    report.preprocessing.as_ref().unwrap().dimensions,
+                    if matches!(policy, Policy::Auto) {
+                        (2, 2, 1, 1)
+                    } else {
+                        (2, 2, 2, 2)
+                    }
+                );
+            }
+            let mut incompatible = cold.warm_start.unwrap();
+            incompatible.compatibility.layout = ContentHash::from_bytes([99; 32]);
+            let mut compatibility = stamp();
+            compatibility.backend = backend;
+            assert!(
+                Pipeline::new(
+                    Box::new(Mixed::new()),
+                    &[1., 3.],
+                    &policy,
+                    &tolerances(),
+                    None,
+                    execution(),
+                    Some(&incompatible),
+                    compatibility,
+                    1000
+                )
+                .is_err()
+            );
+        }
+    }
+}
 #[test]
 fn shared_affine_transport_recovers_original_values_and_kkt() {
     let mut p = Pipeline::new(
@@ -272,7 +397,7 @@ fn off_is_identity_and_tape_edits_invalidate_native_reuse() {
         1000,
     )
     .unwrap();
-    assert_ne!(a.compatibility().layout, b.compatibility().layout);
+    assert_ne!(a.native_compatibility().layout, b.native_compatibility().layout);
 }
 #[test]
 fn failed_observation_preserves_native_status_and_candidate() {

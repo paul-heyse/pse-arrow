@@ -1,15 +1,15 @@
 ---
 status: proposed
-revision: 50
+revision: 51
 date: 2026-09-24
 ---
 
 # Arrow-native IDAES core: detailed design architecture blueprint
 
-**Status:** Proposed design blueprint, revision 50 (2026-09-24); implementation and numerical acceptance remain open. One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
+**Status:** Proposed design blueprint, revision 51 (2026-09-24); Plan 14 defines the current native simulator target and its local design-stage acceptance. One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
 **Reviews:** revisions 1 and 2 have historical reviews under `docs/design_review/reviews/`. The [revision-4 library-contract review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md) overturned several earlier enforcement claims. Revision 5 incorporates R4-01–R4-13 and L1–L9; §26 records disposition and [plan 02](../plans/02-blueprint-revision-5-contracts.md) names the remaining implementation gates. Library characterization is evidence about the pinned libraries, not acceptance of the skeletal platform.
 **Follows:** `docs/authoritative_design/proposal.md` (the proposal this document makes concrete)
-**Governing doctrine:** `docs/design_review/design_principles/DATA_MODEL_DESIGN_CHARTER.md` (DM-01–DM-60, gates G1–G7) applied through `AGENT_DESIGN_DIRECTIVE.md`. The P-numbered principles cited in §2.1 and §22.2 come from the doctrine texts this document was drafted against (*semantic_design_principles_holistic*, *Inference-Complete Process Metamodel Design Principles*, *semantic_math_basis*), which are not part of this repository.
+**Governing doctrine:** `docs/design_review/design_principles/standard.toml`: core DP-01–DP-24 and G1–G8, process-simulator PS-01–PS-13 and PS-G1–PS-G3, plus the repository binding (ADR-0085). Earlier DM/P citations record historical rationale.
 **Library evidence:** the capability maps under `docs/capability-maps/`, pinned DataFusion 55.1.0 / Arrow 59.3.0 source and rustdoc, and the retained review characterization probes. Context7 is a discovery aid; pinned interfaces and reproducible behavior determine capability claims. The `external/idaes-pse` reading copy at tag 2.12.0 is for behavior only (`just fetch-external`; never copy implementation or prose).
 
 ---
@@ -115,9 +115,14 @@ date: 2026-09-24
 | 49 | 2026-09-23 | Reconcile active computation placement and Plan 13 sequencing; delete universal native-stage authority, describe actual source-derived definition facets and predicate graph ownership, and retain functional/measurement gates. | authorized W15–W20 hard pivot; formal decision/design PR pending |
 | 50 | 2026-09-24 | Retire orphaned custom rule execution while retaining relational invariants; recognize structural diagnostic implementations and scoped unsafe allowances; reconcile the FeOS num-dual pin (ADR-0086). | authorized test-repair implementation; formal decision/design PR pending |
 
+| 51 | 2026-09-24 | Reconcile library-owned math, class-specific native execution, physical provider/dynamic contracts and local design-stage qualification (ADR-0082–0087). §0.5 explicitly withdraws displaced implementation requirements while preserving historical section identifiers. | maintainer-authorized local design reconciliation; no remote qualification claim |
+
 ## 0. Purpose, scope, and how to read this document
 
 ### 0.1 What this document is
+
+> Decision: ADR-0087
+> The current contract is §0.5; displaced mechanisms below are historical context.
 
 The proposal established the thesis: *make mathematical and physical semantics the data model, then compile every executable representation from it.* This document is the blueprint that turns that thesis into things an implementer can build and test:
 
@@ -185,6 +190,68 @@ Detailed capability-by-capability coverage appears in Appendix A.
 - Equations are written in plain text; `d/dt` is the time derivative, `Σ_j` is a reduction over the named domain.
 - "Authored" means written by a model author or package; "derived" means produced by a compiler pass and never authored; "reference" means shipped library data.
 - IDAES names are quoted where the platform deliberately preserves them (for example the property name `enth_mol_phase`) so that parity tests can map both ways.
+
+---
+
+### 0.5 Current native process-simulator contract
+
+> Decision: ADR-0082, ADR-0083, ADR-0084, ADR-0085, ADR-0086, ADR-0087
+
+This section replaces the earlier execution design wherever it described a custom
+MathIR, expression-node relation transport, custom differentiation/evaluation,
+DataFusion mathematical execution, production Pyomo/NL backends, generic rule fixed
+points, or mandatory discretization before dynamics. Those mechanisms and their
+unused crate identities are deleted. Their older schema, pass and adapter catalogues
+in §§3, 6, 7, 9, 13–18 and 21 remain historical design context, not executable contracts
+or requirements to restore them. Surviving physical, identity, Arrow-boundary,
+relational-invariant and exact-publication contracts remain in force.
+
+Authored typed process definitions are the model authority. Physical checking and
+original-domain obligations precede Symbolica algebra; admitted real-algebra
+simplification does not discard guards. Symbolica/Numerica own local value and
+derivative programs. `pse-math` owns narrow library integration and bindings, replacing
+`pse-mathir` and `pse-numerics`. `pse-compiler` owns finite specialization and pure Salsa
+preparation. Immutable artifacts have complete semantic/build/profile keys; mutable
+providers, evaluators and native workspaces belong to admitted attempts. No native
+solver state or effectful compilation resides in tracked queries. Arrow/DataFusion
+retain actual data and relational roles; Delta retains exact authored/result publication.
+
+The native NLP oracle feeds direct Ipopt C and POUNCE. KINSOL owns square continuous
+root and declared fixed-point iteration; pounce-presolve supplies matching/DM/BTF and
+qualified preprocessing, with independent original-coordinate postsolve validation.
+HiGHS consumes admitted LP/MILP/convex-QP coefficients and native tear MILPs; Clarabel
+consumes explicit cones, including the selected SDP feature. Unsupported integrality,
+convexity, representation, derivative or root-domain combinations are refused. Native
+termination, candidate availability, recomputed physical quality, local assurance and
+unavailable diagnostics remain distinct. Library-native callbacks contain failures;
+cancellation retains admission through thread and thread-local destruction.
+
+FeOS supplies the explicit-density methane/ethane/propane PC-SAFT/DIPPR provider with
+num-dual at the compatible workspace pin. Ports carry quantity, basis/reference,
+component order, data identity and phase. Declared operating envelopes are enforced;
+they do not establish empirical accuracy. Derivative capability does not imply phase
+regularity. Physical balances retain independent conservation checks. Diffsol BDF
+supports the selected ODE/index-1 fixed diag(I,0) mass profile, consistent starts,
+finite events and smooth forward sensitivities. Higher-index/general implicit DAE,
+hybrid gradients, global identifiability and uncertainty claims are not supported.
+Steady, transient and mixed fitting reuse the same native NLP and physical results.
+
+Rust/Python callers use immutable model revisions, explicit prepare/start operations,
+joined blocking/async jobs, retained Arrow results and explicit exact publication.
+Python is authoring and result convenience; Pyomo/IDAES are isolated reference tools.
+Advanced cone and causal-flow construction stays typed Rust functionality. The
+registry generates public declarations; generated contracts are not hand-maintained.
+`pse-plans`, `pse-kernels-ext`, `pse-backend-nl` and `pse-backend-pyomo` have no current
+workspace role. No compatibility compiler, solver fallback or empty backend is retained.
+
+Plan 14 closes on the maintainer-selected local Linux design-stage matrix: current
+functional/scientific/native/Python witnesses, repository contract checks, case-cost
+measurements and independent final review. Local ADR/blueprint reconciliation is
+explicitly authorized without a remote decision PR for this milestone. Release,
+coverage, exhaustive feature/platform/distribution campaigns remain separate. The
+known upstream proc-macro-error2 future-compatibility warning is accepted without a
+local patch. Rust compilation is untimed cached setup; cold/warm cost refers to case
+preparation/rebuild and complete process operations, preserving Cargo and compiler caches.
 
 ---
 
@@ -267,11 +334,9 @@ Every quantity-bearing column and every symbol carries a `quantity_type_id` reso
 
 ### D6. The math IR is richer than DataFusion `Expr`
 
-> Decision: ADR-0068
+> Decision: ADR-0082
 
-> Decision: ADR-0009, ADR-0047
-
-Expression nodes, arguments, and typed operator payloads are relations; indexed operators (`SumOver`, `Gather`, `Broadcast`, `Derivative`, `Integral`, `ImplicitSystem`, `KernelCall`) survive until a backend requires scalarization. Use native DataFusion `Expr` wherever it faithfully carries required symbolic meaning; relational payloads or native extensions carry additional indexed, guarded, implicit and physical meaning (§7).
+Physical process definitions and full quantity contracts are authoritative. Original-domain obligations precede CAS. Symbolica atoms and evaluators are derived specialization artifacts, with explicit instance/case bindings and real-algebra semantics on the admitted domain. Expression-node relations and the custom MathIR are removed; see §0.5.
 
 ### D7. Laws are templates over contributions
 
@@ -287,34 +352,27 @@ There is no lazy attribute construction. P6 closes demand extracted from normali
 
 ### D9. Kernels have one contract and generated adapters
 
-> Decision: ADR-0043
+> Decision: ADR-0084
 
-Every constitutive computation implemented in code is a `KernelSpec` with identity, signature (physical types), mathematical behavior, derivative availability, execution forms, failure behavior, and backend bindings. Scalar, batched Arrow, derivative, DataFusion UDF, NL external-function, and Pyomo adapters are generated only for its declared implementation-backed bindings (§18.5, §21.4). A signature does not supply an algorithm or prove support.
+Executable provider registration includes physical ports, data/component identity, selected phase, operating envelope, implemented derivative order, smoothness and typed recoverable/terminal failures. Generate only implemented public bindings. Derivative availability does not establish regularity; production Pyomo/NL adapters are removed (§0.5).
 
 ### D10. Choose computation per operation and preserve relational authority
 
-> Decision: ADR-0076
+> Decision: ADR-0082
 
-Typed Rust owns finite semantic compilation, Salsa owns semantic dependency validation,
-and qualified graph libraries own graph algorithms. Arrow/DataFusion own columnar and
-relational work; Delta owns authoritative releases and selected complete artifacts.
-All library capabilities remain eligible (§3.3.2). Per-operation RCA §9 contracts name
-inputs/equality, complete dependencies, bounds, failure, owners and effects. Preserve
-native session/cache integration for relational consumers. Hashes are not validation.
+Typed Rust owns physical finite compilation; Salsa owns pure dependency tracking; Symbolica/Numerica, FeOS and native solvers own their mathematical algorithms. Arrow/DataFusion retain relational and data-boundary work; Delta owns exact publication. Library capabilities remain eligible. Hashes never substitute for semantic admission (§0.5).
 
 ### D11. Native numerics own execution layouts
 
-> Decision: ADR-0068
+> Decision: ADR-0082
 
-> Decision: ADR-0047
-
-Native physical operators own evaluation programs, sparse Jacobian structures, initialization and solver workspaces derived from relations. They borrow Arrow buffers when layouts permit and copy when they do not. Zero-copy is a preference, not an obligation.
+Specialization-local immutable library programs and explicit sparse bindings feed admitted worker-local evaluators/providers/solvers. Native libraries own iteration and factorization. Runtime admission outlives native and thread-local destruction. No custom evaluator or differentiator remains (§0.5).
 
 ### D12. Pyomo is a generated, generic, coarse-grained backend
 
-> Decision: ADR-0015
+> Decision: ADR-0083
 
-One adapter consumes a `CanonicalMathProblem` bundle over the Arrow C stream interface and constructs Pyomo objects. No IDAES class hierarchy is recreated. The adapter exists for parity testing and for Pyomo-ecosystem tools (parmest, PyROS, GDPopt, DAE utilities) until native equivalents exist.
+Production execution uses class-specific native Rust libraries through one admitted lifecycle. Python supplies authoring and result convenience. Pyomo/IDAES remain isolated reference tools only; no production Pyomo or NL adapter survives (§0.5).
 
 ### D13. Cases and results never mutate the model
 
@@ -333,6 +391,9 @@ A model revision defines structure; a case revision defines values, bounds, fixe
 Every operation binds complete exact input versions/slices, absence states, implementation and semantic settings. Reuse requires actual equivalence of those dependencies; CDF may support qualified impact analysis. There is no mandatory artifact-hash memo or whole-stage restriction. Conservative recomputation is valid; undeclared reads are not.
 
 ### 2.1 Doctrine crosswalk
+
+> Decision: ADR-0085
+> The current contract is §0.5; displaced mechanisms below are historical context.
 
 | Doctrine principle | Realized by |
 |---|---|
@@ -421,6 +482,9 @@ These tables are the **pin** authority: what a named crate or library must decla
 External checkouts are reading copies only; verify their actual commits and manifest versions before use. At revision 34 the reading copies match Arrow 59.3.0 and DataFusion 55.1.0. Bind API claims to the resolved Cargo graph, versioned rustdoc and retained probe receipts; historical or absent `build/facts` extractions do not establish the current surface.
 
 ### 3.2 Cargo workspace layout
+
+> Decision: ADR-0082
+> The current contract is §0.5; displaced mechanisms below are historical context.
 
 > Decision: ADR-0076
 
@@ -2519,6 +2583,9 @@ execution and derivatives are not certified by descriptor registration.
 
 ## 7. The mathematical IR
 
+> Decision: ADR-0082
+> The current contract is §0.5; displaced mechanisms below are historical context.
+
 ### 7.1 Design constraints
 
 1. The expression graph is a DAG stored in `compiled.math_expr_nodes` and `math_expr_args`; the authoritative argument order is `argument_ordinal`. Packed adjacency arrays for evaluation are generated (§18.2), never maintained separately.
@@ -2801,6 +2868,9 @@ A relation of operation selections/conversions is included in the typed stage's 
 ---
 
 ## 9. Material systems and the property framework
+
+> Decision: ADR-0084
+> The current contract is §0.5; displaced mechanisms below are historical context.
 
 This section maps the IDAES Generic (Modular) Property Framework (`models/properties/modular_properties/**`) and the property base classes onto relations, templates, and kernels. The governing change: IDAES resolves properties lazily by attribute access (`build_on_demand` in `core/base/util.py`); the platform resolves them once, explicitly, in pass P6, and persists the resolution.
 
@@ -3428,6 +3498,9 @@ Second derivatives use `adotdot` (collocation) or the standard three-point stenc
 
 ### 13.6 Trajectory backends
 
+> Decision: ADR-0084
+> The current contract is §0.5; displaced mechanisms below are historical context.
+
 - **Fully discretized NLP (default).** The problem after P11 is an algebraic system; any NLP backend solves it. Consistent initial conditions are a first stage of the dynamic plan (solve at `t0` with everything else inactive).
 - **PETSc TS through the NL backend.** The IDAES `petsc_dae_by_time_element` workflow is reproduced as a plan: per time interval, the NL writer emits the subsystem at the target node with the `dae_suffix` (`ALGEBRAIC = 0`, `DIFFERENTIAL = 1`, `DERIVATIVE = 2`, `TIME = 3`) and `dae_link` suffixes generated from `math_dae_links`, runs `petsc_ts` with `--ts_init_time`/`--ts_max_time`, reads the trajectory, and writes `runtime.solutions` for the interval, interpolating skipped nodes. A fixed derivative with a non-zero value and a fixed differential variable paired with a free derivative are the same errors IDAES raises (`dae.fixed_derivative`, `dae.fixed_state_free_derivative`).
 - **`diffsol` (optional).** A native DAE integrator fed directly from the evaluation program (residual and Jacobian-vector-product callbacks; the evaluation program's sparse rows supply the product). It is a backend binding; the IR is unchanged; DiffSL, its own model language, is never used. `diffsol` carries its own linear-algebra stack (`diffsol-la`/`diffsol-nl`, not `faer`), accepted for the trajectory backend only; whether every discretized process model of §13 is a semi-explicit DAE that `diffsol` accepts is verified per model by P16 (`backend.unsupported_dae_class`).
@@ -3435,6 +3508,9 @@ Second derivatives use `adotdot` (collocation) or the standard three-point stenc
 ---
 
 ## 14. The compiler
+
+> Decision: ADR-0082
+> The current contract is §0.5; displaced mechanisms below are historical context.
 
 > Decision: ADR-0068
 
@@ -3877,6 +3953,9 @@ The postcheck (`check(residuals ≤ constraint_tolerance·sf; no missing values)
 
 ## 18. Backends
 
+> Decision: ADR-0083
+> The current contract is §0.5; displaced mechanisms below are historical context.
+
 > Decision: ADR-0068
 
 ### 18.1 The `CanonicalMathProblem`
@@ -4111,6 +4190,9 @@ target identity/reuse requirement needs them; physical encoding is not model ide
 ---
 
 ## 21. The Python boundary and the Pyomo adapter
+
+> Decision: ADR-0083
+> The current contract is §0.5; displaced mechanisms below are historical context.
 
 > Decision: ADR-0069
 

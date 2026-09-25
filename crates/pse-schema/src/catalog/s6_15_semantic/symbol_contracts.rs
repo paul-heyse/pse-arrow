@@ -6,8 +6,6 @@
 use super::{N, RegistryBuilder, S, T, column, relation};
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
-
-
     relation(
         builder,
         N::Authored,

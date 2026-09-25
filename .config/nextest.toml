@@ -9,8 +9,8 @@
 solver = { max-threads = 2 }
 # Serialize resource-intensive object-store and source-pipeline admission tests.
 serial = { max-threads = 1 }
-# Each engineering workflow has its own 32 GiB ceiling and two workers.
-# At most two such processes run together (64 GiB aggregate declared ceiling).
+# Each engineering workflow has its own 64 GiB ceiling and two workers.
+# At most two such processes run together (128 GiB aggregate declared ceiling).
 engineering = { max-threads = 4 }
 
 [profile.default]
@@ -27,7 +27,7 @@ slow-timeout = { period = "300s", terminate-after = 2 }
 [[profile.default.overrides]]
 # Ordinary workflows consume two scheduler slots. Pure catalog/engine units use
 # normal nextest scheduling; no package-wide serialization remains.
-filter = 'package(pse-tests-engine)'
+filter = 'package(pse-tests-engine) | package(pse-tests-conformance)'
 test-group = "engineering"
 threads-required = 2
 

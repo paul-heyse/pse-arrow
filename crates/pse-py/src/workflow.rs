@@ -53,11 +53,11 @@ fn blocking<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + Send
                 None => value.map_err(|e| errors::diagnostic(py, &e)),
             };
         }
-        if signal.is_none() {
-            if let Err(e) = py.check_signals() {
-                cancel();
-                signal = Some(e);
-            }
+        if signal.is_none()
+            && let Err(e) = py.check_signals()
+        {
+            cancel();
+            signal = Some(e);
         }
     }
 }

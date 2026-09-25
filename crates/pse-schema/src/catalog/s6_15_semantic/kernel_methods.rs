@@ -18,5 +18,4 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ],
         "Exact kernel input name to declared method dependency ordinal; complete ordered signature admission is required.",
     );
-
 }

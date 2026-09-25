@@ -28,6 +28,9 @@ pub(crate) struct RunOptions {
     /// Qualified current functional campaign required before performance execution.
     #[arg(long)]
     functional_from: Option<PathBuf>,
+    /// Retain measurements with review collection explicitly pending.
+    #[arg(long, value_parser = ["plan14-measure"])]
+    stop_after: Option<String>,
 }
 impl Default for RunOptions {
     fn default() -> Self {
@@ -38,6 +41,7 @@ impl Default for RunOptions {
             change_reason: None,
             phase: "functional".into(),
             functional_from: None,
+            stop_after: None,
         }
     }
 }
@@ -59,6 +63,9 @@ pub(crate) fn run(root: &Path, output: &Path, options: &RunOptions) -> Result<()
         .args(["--phase", &options.phase, "--plan", &plan.to_string()]);
     if let Some(functional) = &options.functional_from {
         command.arg("--functional-from").arg(functional);
+    }
+    if let Some(gate) = &options.stop_after {
+        command.arg("--stop-after").arg(gate);
     }
     if let Some(parent) = &options.resume_from {
         command.arg("--resume-from").arg(parent);

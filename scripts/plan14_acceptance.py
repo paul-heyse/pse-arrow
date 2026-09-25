@@ -5,21 +5,26 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shlex
 import subprocess
 import sys
+import time
 import unittest
 from pathlib import Path
 
+import xmlrunner
+
 from scripts import implementation_phase as phase
 from scripts import validation, validation_receipts
+from scripts.validation_scope import development
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def expected(declaration: dict, profile: str) -> list[dict]:
+def expected(declaration: dict, profile: str) -> list[tuple[str, str]]:
     return sorted(
         {
             (c["source"] if c["runner"] == "pytest" else c["binary"], t)
@@ -92,10 +97,8 @@ def command(
 
 
 def native_provenance(profile: dict, binaries: list[str]) -> dict:
-    import hashlib
-    import time
 
-    def digest(path):
+    def digest(path: Path) -> str:
         with Path(path).open("rb") as stream:
             return hashlib.file_digest(stream, "sha256").hexdigest()
 
@@ -131,7 +134,6 @@ def native_provenance(profile: dict, binaries: list[str]) -> dict:
 
 
 def tools(output: Path, declaration: dict | None = None) -> int:
-    import xmlrunner
 
     output.mkdir(parents=True, exist_ok=True)
     declaration = declaration or phase.manifest(ROOT)
@@ -159,8 +161,6 @@ def main() -> int:
     declaration = phase.manifest(ROOT)
     phase.validate_sources(ROOT, declaration)
     if args.action == "development":
-        from scripts.validation_scope import development
-
         output = validation.fresh_output(ROOT, Path(args.profile))
         code = validation.run_gates(ROOT, output, development(), phase="development")
         if code == 0:
@@ -201,7 +201,9 @@ def main() -> int:
                 Path(provenance), native_provenance(profile, binaries)
             )
         return subprocess.call(cmd, cwd=ROOT)
-    result = subprocess.run(cmd, cwd=ROOT, text=True, stdout=subprocess.PIPE)
+    result = subprocess.run(
+        cmd, cwd=ROOT, text=True, stdout=subprocess.PIPE, check=False
+    )
     print(result.stdout, end="")
     if result.returncode:
         return result.returncode

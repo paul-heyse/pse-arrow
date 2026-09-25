@@ -12,7 +12,8 @@ thermodynamics and native solvers replace custom MathIR/evaluation and productio
 Pyomo integration. Arrow/DataFusion/Delta retain useful data-boundary, relational and
 storage roles. Plan 14 M00–M21 implements typed compilation, FeOS properties, native
 solvers, public workflows, dynamics/fitting and executable acceptance tooling.
-M21 closes implementation/deletion contracts; M22 full scientific/runtime qualification remains open.
+M22 closes the local Linux scientific/runtime/case-cost scope; see its execution packet
+for evidence and the maintainer-approved strict Clippy/release exclusions.
 
 It is a **clean-room re-implementation** of core IDAES-PSE capabilities, parity-tested
 against `idaes-pse==2.12.0`. **Not affiliated with IDAES.** Read `external/idaes-pse`
@@ -28,10 +29,12 @@ Crates are `pse-*` under `crates/`. The Python package is imported as `pse` and 
 [Plan 14](docs/plans/14-library-owned-process-simulator.md) is the current implementation
 direction. M00–M21 and their approved hard-cut deletions are implemented; see the
 [foundation contract](docs/plans/14-math-foundation-contract.md) and
-[execution inventory](docs/plans/14-execution-inventory.md). Start next with M22's
-full qualification; see the [M21 packet](docs/plans/14-m21-execution.md).
-Targeted units pass. Qualification runs directly against current source and records
-its executed evidence; no M21 source seal is required. Complete process acceptance bodies are compiled and discovered, not qualified. ADR-0082–0084 remain proposed; full qualification is M22.
+[execution inventory](docs/plans/14-execution-inventory.md). The
+[M22 packet](docs/plans/14-m22-execution.md) records local Linux qualification,
+measurements, independent reviews and the supported boundary under ADR-0087.
+Qualification records executed evidence and authenticated retained origins; no M21
+source seal is required. The scoped closure does not claim strict Clippy, remote CI,
+release or other-platform acceptance.
 It supersedes Plan 13's execution scope: no unfinished package, acceptance ID,
 campaign or old source seal is inherited automatically. Retain a graph, Salsa,
 publication or resource mechanism only when evidence establishes its role in the new

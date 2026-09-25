@@ -14,7 +14,6 @@
 //! - [`invariant`] — the commit contract, declared.
 //! - [`migration`] — schema migrations.
 //! - [`algorithm`] — finite algorithm contracts, typed arguments and results.
-//! - [`rule`] — native inference queries and domain policies.
 //! - [`document`] — authoring document shapes.
 
 pub mod algorithm;

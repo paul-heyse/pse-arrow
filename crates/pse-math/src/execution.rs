@@ -324,6 +324,10 @@ impl PreparedBody {
 }
 
 #[derive(Clone)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Evaluator stages stay inline to avoid an allocation for each compiled stage"
+)]
 enum CompiledStage {
     Block {
         evaluator: ExpressionEvaluator<f64>,
@@ -486,7 +490,7 @@ impl Worker {
             }
             result.values.push(jet[0]);
             if order >= DerivativeOrder::First {
-                result.jacobian.extend_from_slice(&jet[1..1 + n]);
+                result.jacobian.extend_from_slice(&jet[1..=n]);
             }
             if order >= DerivativeOrder::Second {
                 for (k, &(i, j)) in layout.pairs.iter().enumerate() {
@@ -505,6 +509,10 @@ struct BuildAllowance {
     providers: usize,
     entries: usize,
 }
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Compilation receives distinct symbol, budget, and cancellation contexts"
+)]
 fn compile_stages(
     stages: &[Stage],
     parameters: &[Atom],
@@ -973,11 +981,15 @@ fn dense_second(first: &BTreeSet<usize>) -> BTreeSet<(usize, usize)> {
         .flat_map(|&i| first.range(i..).map(move |&j| (i, j)))
         .collect()
 }
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Analysis propagates separate facts and obligation inventories through branches"
+)]
 fn analyze(
     stages: &[Stage],
     parameters: &[Atom],
     symbols: &HashMap<Symbol, usize>,
-    facts: &mut Vec<Fact>,
+    facts: &mut [Fact],
     controls: &mut BTreeSet<usize>,
     switches: &mut BTreeSet<usize>,
     providers: &mut BTreeMap<ProviderKey, ProviderSpec>,
@@ -1018,7 +1030,7 @@ fn analyze(
                         for &i in &fact.first {
                             let d = expr.derivative(
                                 Indeterminate::try_from(parameters[i].clone())
-                                    .map_err(|e| MathError::Library(e.to_string()))?,
+                                    .map_err(|e| MathError::Library(e.clone()))?,
                             );
                             for j in reads(std::slice::from_ref(&d), symbols)? {
                                 fact.second.insert((i.min(j), i.max(j)));
@@ -1078,8 +1090,8 @@ fn analyze(
                 controls.extend(&facts[*right].first);
                 switches.extend(&facts[*left].first);
                 switches.extend(&facts[*right].first);
-                let mut a = facts.clone();
-                let mut b = facts.clone();
+                let mut a = facts.to_vec();
+                let mut b = facts.to_vec();
                 analyze(
                     then,
                     parameters,

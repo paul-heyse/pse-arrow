@@ -22,7 +22,7 @@ def test_resident_reads_keep_exported_buffers_after_publication_close(
     )
     for _ in range(2):
         with (
-            publication.table("artifact", "reference", "schema_relations") as stream,
+            publication.table("workspace", "reference", "schema_relations") as stream,
             pa.RecordBatchReader.from_stream(stream) as reader,
         ):
             batches = list(reader)
@@ -34,7 +34,9 @@ def test_resident_reads_keep_exported_buffers_after_publication_close(
     )
     assert resident.hits > 0
     assert resident.pinned_bytes is not None
-    assert resident.pinned_bytes > 0
+    # Exhausted readers unpin the cache entry; the exported array owns its
+    # original buffers independently and remains readable after handle closure.
+    assert resident.pinned_bytes == 0
     publication.close()
     gc.collect()
     assert retained.to_pylist() == expected

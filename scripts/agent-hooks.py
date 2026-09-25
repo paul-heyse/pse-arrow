@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
+# ruff: noqa: N999 -- executable hook filename, not an importable module
 """Shared edit policy with Claude file inputs and Codex patch inputs."""
 
 from __future__ import annotations

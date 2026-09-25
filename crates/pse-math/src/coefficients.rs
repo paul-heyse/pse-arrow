@@ -66,16 +66,16 @@ impl CasePlan {
             ));
         }
         for variable in self.structure().variables().iter().filter(|v| v.fixed) {
-            if let Some(&value) = values.scalars.get(&variable.port.id) {
-                if !variable.domain.contains(
+            if let Some(&value) = values.scalars.get(&variable.port.id)
+                && !variable.domain.contains(
                     value,
                     variable.lower.unwrap_or(f64::NEG_INFINITY),
                     variable.upper.unwrap_or(f64::INFINITY),
-                ) {
-                    return Err(MathError::Contract(
-                        "fixed coefficient value outside declared domain".into(),
-                    ));
-                }
+                )
+            {
+                return Err(MathError::Contract(
+                    "fixed coefficient value outside declared domain".into(),
+                ));
             }
         }
         if term_limit == 0 {
@@ -202,7 +202,7 @@ impl CasePlan {
                     }
                     let derivative = expression.derivative(
                         Indeterminate::try_from(formal.clone())
-                            .map_err(|e| MathError::Library(e.to_string()))?,
+                            .map_err(|e| MathError::Library(e.clone()))?,
                     );
                     if c.target != Target::Objective
                         && !derivative.get_all_symbols(false).is_empty()
@@ -212,7 +212,7 @@ impl CasePlan {
                     for other in &formals[i..] {
                         let second = derivative.derivative(
                             Indeterminate::try_from(other.clone())
-                                .map_err(|e| MathError::Library(e.to_string()))?,
+                                .map_err(|e| MathError::Library(e.clone()))?,
                         );
                         if !second.get_all_symbols(false).is_empty() {
                             return Err(MathError::Contract("objective is not quadratic".into()));

@@ -43,6 +43,7 @@ impl MathService {
             artifacts.push(self.artifact(request.clone()).await?);
         }
         let plan = Arc::new(prepared.plan.as_ref().clone().with_owner(owner.clone()));
+        let _span = tracing::info_span!("pse.case.function_assembly").entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
         Ok(Arc::new(ExecutableCase {
@@ -73,11 +74,11 @@ impl MathService {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
                 })?;
                 compiler.publish(inputs)?;
-                if !compiler.validate_dynamic_partition(id, rows, columns, flag)? {
-                    return Err(pse_backend_native::ProblemError::Contract(
-                        "algebraic mass-zero partition has no complete structural matching; index-1 profile refused".into(),
-                    ).into());
-                }
+                let analysis = compiler.analyze_dynamic_partition(id, rows, columns, flag)?;
+                pse_backend_native::structural::admit(
+                    &analysis,
+                    pse_backend_native::structural::Mode::Roots,
+                )?;
                 Ok(())
             },
         );

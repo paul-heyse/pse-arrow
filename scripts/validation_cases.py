@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 
+import math
+import re
+
 from scripts.validation_receipts import qualified
 from scripts.validation_scope import comprehensive, expand
 
@@ -149,9 +152,6 @@ def coverage(declaration: dict, checks: list[dict], phase: str) -> dict:
 
 def validate_artifact(report: dict, case: dict) -> None:
     """Artifact cases require complete measurements or independent gate decisions."""
-    import math
-    import re
-
     rows = report.get("cases", [])
     if (
         report.get("schema") != case["artifact"]
@@ -163,17 +163,23 @@ def validate_artifact(report: dict, case: dict) -> None:
     names = [r.get("id") for r in rows]
     if len(names) != len(set(names)) or set(names) != set(case["tests"]):
         raise ValueError("artifact requires every exact witness once")
-    if case["artifact"] == "process-cost-v1":
+    if case["artifact"] == "process-cost-v2":
+        workloads = {row["id"]: row for row in case["workloads"]}
+        if set(workloads) != set(case["tests"]) or len(workloads) != len(
+            case["workloads"]
+        ):
+            raise ValueError("workload metadata must cover each exact case once")
+        if report.get("compilation_timed") is not False:
+            raise ValueError("Rust compilation is outside case measurements")
         if not report.get("toolchain") or not re.fullmatch(
             r"[0-9a-f]{64}", report.get("binary_digest", "")
         ):
             raise ValueError(
                 "measurement requires compiled binary and toolchain identity"
             )
-        threads = {
-            name: "1"
-            for name in ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"]
-        }
+        threads = dict.fromkeys(
+            ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"], "1"
+        )
         if report.get("thread_environment") != threads:
             raise ValueError("nested native thread budget differs")
         native = report.get("native", {})
@@ -210,13 +216,20 @@ def validate_artifact(report: dict, case: dict) -> None:
                 for digest in row["artifacts"].values()
             ):
                 raise ValueError("invalid measurement artifact digest")
-            _, size, threads = row["id"].split("-")
+            workload = workloads[row["id"]]
             if (
-                row.get("threads") != int(threads)
-                or row.get("blocks") != {"small": 1, "medium": 8, "large": 32}[size]
-                or row.get("variables") != 3 * row.get("blocks", 0)
+                row.get("workload") != workload
+                or row.get("threads") != workload["threads"]
+                or sorted(row.get("variables_observed", []))
+                != sorted(workload["variables"])
             ):
                 raise ValueError("wrong workload shape or thread profile")
+            phases = row.get("phase_seconds", {})
+            if not phases or any(
+                type(v) not in {int, float} or not math.isfinite(v) or v < 0
+                for v in phases.values()
+            ):
+                raise ValueError("missing or invalid measured phase costs")
             interval = row["confidence_interval"]
             if not (
                 0 < interval["confidence_level"] < 1

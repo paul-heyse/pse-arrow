@@ -50,9 +50,15 @@ impl ArtifactPlan {
         selected.remove(&wire::RELATION_ID);
         let present: BTreeSet<_> = self.outputs.values().map(|v| v.relation_id).collect();
         if !selected.is_subset(&present) {
-            return Err(invalid(
-                "product omits a required or explicitly requested relation",
-            ));
+            let missing = selected
+                .difference(&present)
+                .filter_map(|id| self.session.registry().relation_by_id(*id))
+                .map(|spec| spec.key.qualified_name())
+                .collect::<Vec<_>>();
+            return Err(invalid(&format!(
+                "product omits required or explicitly requested relations: {}",
+                missing.join(", ")
+            )));
         }
         self.outputs
             .retain(|_, value| selected.contains(&value.relation_id));

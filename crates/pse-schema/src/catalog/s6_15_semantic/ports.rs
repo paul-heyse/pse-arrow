@@ -18,8 +18,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "An actual declared connection template binds to its executable equality expansion; an arbitrary template identity does not establish connection semantics.",
     );
 
-
-
     relation(
         builder,
         N::Authored,
@@ -35,7 +33,4 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ],
         "The bound state template declares its complete port interface; variable and expression symbol declarations are equally supported.",
     );
-
 }
-
-

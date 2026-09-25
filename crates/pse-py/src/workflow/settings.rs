@@ -5,7 +5,10 @@ use super::invalid;
 use pse_backend_native::{
     presolve::{Policy, Scaling},
     quality::Tolerances,
-    solve::*,
+    solve::{
+        Backend, Controls, HessianMode, OptionValue, Options, ReusePolicy, SolveIntent,
+        SolverSelection,
+    },
 };
 use pse_runtime::math::solves::{BackendSettings, SolverProfile};
 use pyo3::{

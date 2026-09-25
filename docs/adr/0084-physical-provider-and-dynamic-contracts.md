@@ -1,15 +1,15 @@
 ---
 id: ADR-0084
 title: Separate physical provider validity from derivative and dynamic eligibility
-status: proposed
+status: accepted
 date: 2026-09-24
 deciders: [paul-heyse]
 level: decision
 principles: [DM-07, DM-22, DM-24, DM-43]
 blueprint: [§D9, §9, §13.6]
 review: docs/design_review/reviews/design_review_math-foundation-enhancements_2026-09-24.md
-evidence: Implemented
-supersedes: []
+evidence: Tested
+supersedes: [ADR-0022, ADR-0043]
 superseded-by: null
 revisit: The selected physical model requires a property or DAE capability outside the admitted profile.
 verification: Plan 14 M00–M21 targeted units and M22 qualification
@@ -35,10 +35,14 @@ change without a compatibility route. See [M21 execution](../plans/14-m21-execut
 
 The concrete replacement text is prepared in
 [Plan 14 foundation contract](../plans/14-math-foundation-contract.md#concrete-decision-amendment-prepared-for-the-design-pr).
-Apply it to the cited blueprint contracts through the designated design PR.
-This proposed record describes the implemented M00–M18 physical foundation, native
-execution, dynamic profile and fitting contracts. Whole-plan acceptance remains M22.
-Accepted decisions are reconciled through formal supersession before decision PR acceptance.
+Blueprint revision 51 applies it under the local authorization in ADR-0087.
+ADR-0087 authorizes this milestone's local reconciliation in blueprint §0.5.
+Superseding ADR-0022 removes the obsolete num-dual 0.15 prerequisite; the compatible
+workspace pin is authoritative. ADR-0043's typed failures and implemented-only
+bindings are preserved, with the removed Pyomo/NL bindings withdrawn.
+This record describes the implemented M00–M18 physical foundation, native
+execution, dynamic profile and fitting contracts. Local qualification is recorded in the M22 packet under ADR-0087.
+Displaced accepted decisions are reconciled through explicit supersession.
 
 ## Drivers
 
@@ -84,7 +88,7 @@ source-attributed failures and targeted positive/negative unit controls.
 ### Confirmation
 
 The package-specific units and deleted caller inventory establish implementation;
-Plan 14 M22 alone establishes full qualification.
+Plan 14 M22 establishes the scoped local qualification recorded in its execution packet.
 
 ## Pros and cons
 
@@ -99,6 +103,19 @@ independent M22 acceptance.
 
 [Execution packet](../plans/14-m00-m05-execution.md) and
 [main plan](../plans/14-library-owned-process-simulator.md).
+
+## M22 local qualification
+
+**Tested and Measured:** the [M22 packet](../plans/14-m22-execution.md#verification)
+records local Linux functional Q01–Q17, the 23 cached-development case-cost workloads,
+zero required failures and retained-origin conditions. It distinguishes admitted memory
+allowances from measured pool/RSS observations and excludes Rust build time.
+
+The [independent final review](../design_review/reviews/design_review_m22-scientific_2026-09-24.md)
+accepts the relevant scoped contracts with no open MUST finding. Companion runtime,
+scientific and claims reviews cover G1–G8 and PS-G1–PS-G3. Blueprint revision 51 and
+ADR-0087 govern local acceptance. Strict Clippy cleanup and release/remote/platform
+qualification remain separate; no broader clean or empirical claim follows.
 
 ## Status history
 
@@ -116,3 +133,5 @@ independent M22 acceptance.
   controls, physical derivative coordinates, source/result schemas and the generated
   FeOS factory are described in the [packet](../plans/14-m17-m18-execution.md).
   Analytical targeted controls are distinct from the outstanding physical M22 journeys.
+
+- 2026-09-24 — accepted for local Linux M22 scope under ADR-0087 after independent final review; blueprint revision 51 reconciles the contracts. No remote or release qualification is claimed.

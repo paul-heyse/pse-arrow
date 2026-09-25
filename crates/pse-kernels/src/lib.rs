@@ -30,6 +30,8 @@ impl ProviderRequest {
         }
     }
     /// Reject malformed demand and bounded output allocation before a library call.
+    /// # Errors
+    /// Returns cancellation, malformed-demand or result-allocation errors.
     pub fn validate(
         &self,
         spec: &ProviderSpec,
@@ -80,6 +82,8 @@ pub struct EvaluationContext<'a> {
 }
 impl EvaluationContext<'_> {
     /// Observe cancellation and reject a zero allocation allowance.
+    /// # Errors
+    /// Returns `Cancelled` or a zero-allowance limit error.
     pub fn check(&self) -> Result<(), ProviderError> {
         if self.cancelled.load(Ordering::Relaxed) {
             return Err(ProviderError::Cancelled);
@@ -210,6 +214,8 @@ impl ProviderValues {
     /// Validate every requested entry before returning any output to the caller.
     /// # Errors
     /// Unsupported derivative order, wrong lengths or nonfinite values.
+    /// # Errors
+    /// Returns cancellation, malformed-demand or result-allocation errors.
     pub fn validate(
         &self,
         spec: &ProviderSpec,
@@ -353,6 +359,8 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
     /// Immutable physical and numerical interpretation.
     fn spec(&self) -> &ProviderSpec;
     /// Construct fresh scratch; it must return exactly the declared provider contract.
+    /// # Errors
+    /// Returns the concrete provider construction failure.
     fn create(&self) -> Result<Box<dyn Provider>, ProviderError>;
 }
 /// Physically admitted registration backed by an executable factory.
@@ -372,6 +380,8 @@ impl AdmittedProvider {
 }
 impl Registration {
     /// Validate physical contracts and the concrete factory product before admission.
+    /// # Errors
+    /// Returns invalid physical contracts, factory failures or descriptor mismatch.
     pub fn new(
         factory: std::sync::Arc<dyn ProviderFactory>,
         registry: &QuantityRegistry,
@@ -394,6 +404,8 @@ impl Registration {
         self.descriptor.clone()
     }
     /// Fresh evaluation-local state, checked on every construction.
+    /// # Errors
+    /// Returns factory failure or a contract error when its product changes meaning.
     pub fn worker(&self) -> Result<Box<dyn Provider>, ProviderError> {
         let worker = self.factory.create()?;
         if worker.spec() != self.spec() {

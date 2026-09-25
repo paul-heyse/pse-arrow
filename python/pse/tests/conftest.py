@@ -198,8 +198,9 @@ def _ipc_round_trip(schema: pa.Schema) -> pa.Schema:
 def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSettings:
     """Shared explicit budget for native publication readers in this process."""
     return EngineSettings(
-        memory_limit_bytes=32 << 30,
-        threads=1,
+        memory_limit_bytes=64 << 30,
+        threads=2,
+        target_partitions=1,
         spill_dir=str(tmp_path_factory.mktemp("inspection-spill")),
         max_spill_bytes=1 << 30,
         batch_size=7,
@@ -208,6 +209,7 @@ def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSetti
             metadata_bytes=8 << 20,
             snapshot_bytes=64 << 20,
             resident_bytes=256 << 20,
+            concurrent_loads=2,
             inflight_bytes=64 << 20,
             inspection_bytes=4 << 20,
         ),

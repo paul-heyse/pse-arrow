@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+#![allow(
+    clippy::many_single_char_names,
+    clippy::too_many_lines,
+    reason = "compact numerical finite-difference fixtures"
+)]
 use super::*;
 use pse_quantity::*;
 use std::sync::atomic::AtomicBool;
@@ -48,7 +53,7 @@ fn fixture() -> (QuantityRegistry, FeosPorts) {
         .into_iter()
         .enumerate()
         .map(|(i, d)| {
-            let n = (i + 1) as u8;
+            let n = u8::try_from(i + 1).unwrap();
             let u = UnitId::from_id(id(n));
             let q = QuantityTypeId::from_id(id(n + 20));
             let k = QuantityKindId::from_id(id(n + 40));
@@ -119,11 +124,11 @@ fn mixture_outputs_partials_and_one_state_per_demand() {
         cancelled: &cancel,
         max_result_bytes: 4096,
     };
-    let x = [350.0, 34.565566349336066, 0.2, 0.3];
+    let x = [350.0, 34.565_566_349_336_066, 0.2, 0.3];
     let request = ProviderRequest::all(worker.spec(), DerivativeOrder::Second);
     let v = worker.evaluate(&x, &request, &context).unwrap();
     assert!((v.values[0] - 1e5).abs() < 1e-6);
-    assert!((v.values[1] - 3240.8891285471573).abs() < 1e-8);
+    assert!((v.values[1] - 3_240.889_128_547_157_3).abs() < 1e-8);
     assert_eq!(worker.state_evaluations(), 1);
     assert_eq!(worker.evaluate(&x, &request, &context).unwrap(), v);
     assert_eq!(worker.state_evaluations(), 1);
@@ -248,7 +253,7 @@ fn data_identity_contract_and_npt_initialization_are_explicit() {
     let state = package
         .initialize_npt(350.0, 1e5, [0.2, 0.3], InitialPhase::Vapor, false, &context)
         .unwrap();
-    assert!((state.molar_density - 34.565566349336066).abs() < 1e-10);
+    assert!((state.molar_density - 34.565_566_349_336_066).abs() < 1e-10);
     assert!(state.stable.is_none());
     assert!(
         package
@@ -331,7 +336,7 @@ fn independent_pcsaft_reference_values_and_caloric_increments() {
         .initialize_npt(350.0, 1e5, [0.2, 0.3], InitialPhase::Vapor, true, &context)
         .unwrap();
     assert_eq!(initialized.stable, Some(true));
-    assert!((initialized.molar_density - 34.565566349336066).abs() < 1e-10);
+    assert!((initialized.molar_density - 34.565_566_349_336_066).abs() < 1e-10);
 }
 
 #[test]
@@ -351,7 +356,7 @@ fn declared_envelopes_bind_identity_and_reject_unrequested_pressure() {
         outputs: vec![1],
         order: DerivativeOrder::Value,
     };
-    let good = [350., 34.565566349336066, 0.2, 0.3];
+    let good = [350., 34.565_566_349_336_066, 0.2, 0.3];
     let mut worker = first.worker();
     worker.evaluate(&good, &request, &context).unwrap();
     let mut bad = good;

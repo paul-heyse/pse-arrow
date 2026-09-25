@@ -2,9 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Finite prospective instance and typed value declarations.
-use super::{
-    N, RegistryBuilder, S, T, column, derived, enumeration, index, relation,
-};
+use super::{N, RegistryBuilder, S, T, column, derived, enumeration, index, relation};
 
 #[expect(
     clippy::too_many_lines,
@@ -67,7 +65,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "Reusable scope declaration bound once per actual template instance.",
     );
 
-
     enumeration(
         builder,
         "ConfigValueKind",
@@ -118,7 +115,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ],
         "Finite domain source, with only its tagged payload present (blueprint §6.15.1).",
     );
-
 
     derived(
         builder,

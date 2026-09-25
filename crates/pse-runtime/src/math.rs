@@ -52,10 +52,10 @@ pub struct MathPolicy {
 impl Default for MathPolicy {
     fn default() -> Self {
         Self {
-            artifact_bytes: 256 << 20,
+            artifact_bytes: 8 << 30,
             foreign_bytes: 64 << 20,
-            worker_bytes: 256 << 20,
-            workspace_bytes: 128 << 20,
+            worker_bytes: 2 << 30,
+            workspace_bytes: 4 << 30,
             stack_bytes: pse_structural::incidence::MATCHING_STACK,
             jobs: 4,
             flights: 128,
@@ -315,6 +315,7 @@ impl MathService {
                 .clone()
                 .with_owner(prepared.owner.clone()),
         );
+        let _span = tracing::info_span!("pse.case.program_assembly").entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
         Ok(Arc::new(ExecutableCase {

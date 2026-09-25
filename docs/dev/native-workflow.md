@@ -11,7 +11,7 @@ date: 2026-09-24
 the Salsa compiler, library-owned mathematics, native algebraic/dynamic solvers,
 parameter fitting, the existing supervisor and exact publication. Targeted
 contract tests establish the boundaries below. Full scientific and installed
-workflow qualification remains M22.
+workflow qualification is recorded in the M22 packet.
 
 ## Declare and prepare
 
@@ -128,7 +128,7 @@ conserved amount/internal energy with algebraic temperature, density and pressur
 It uses the same FeOS factory and expression compiler. Its documented role map
 requires explicit physical ports, operation contracts, values and positive scales;
 optional valve outflow requires the positive pressure-drop domain. The recipe is
-implemented; its physical process validation remains M22.
+implemented and exercised by the scoped M22 physical process tests.
 
 A fit declaration binds shared fixed/free parameters, steady or dynamic experiments
 and existing observation IDs. Included observations require finite physical values,
@@ -222,7 +222,8 @@ default profile and can replace that extension with a different linked capabilit
 set. For direct Python commands under the native profile, source
 `scripts/native-solver-env.sh` and prepend `$IPOPT_DIR/lib` to `LD_LIBRARY_PATH`.
 The compiled module's primary RUNPATH does not resolve transitive MUMPS libraries
-on its own. Distribution repair and installed-environment qualification remain M22.
+on its own. The local native editable profile supplies this path through its recipes. Portable
+distribution repair remains release work outside M22.
 
 A clean native build also needs libclang's matching development resource headers.
 When using a local LLVM installation, select its `LIBCLANG_PATH` and `CLANG_PATH`
@@ -234,14 +235,15 @@ and native test builds; do not mix resource headers from another LLVM version.
 
 The execution packets record exact executed counts and remaining gates. Targeted native units
 use `pse-relations/force-validate`. These are not convergence, storage fault, throughput,
-RSS-bound, scientific-validity or general solver-coverage claims.
+RSS-bound, empirical-validity or general solver-coverage claims; M22 records its
+selected process/convergence/publication evidence separately.
 
 [M19–M20](../plans/14-m19-m20-execution.md) supplies shared authored process fixtures
 in `tests/fixtures/plan14`, independent offline references, public Rust/Python
 acceptance bodies and guarded Criterion workloads. `just plan14-discover` compiles
 and enumerates the declared native selection without running it. Actual execution
 via `plan14-native`, `plan14-python`, `plan14-measure` and `plan14-reviews` belongs to
-M22 after M21 closure. See the [acceptance guide](architecture-acceptance.md) for
+the completed M22 local scope. See the [acceptance guide](architecture-acceptance.md) for
 profiles, evidence contracts and the functional-before-performance sequence.
 
 ## Physical contracts after M21
@@ -264,8 +266,8 @@ when balances are present. Diffsol controls these integrated physical flux error
 separately from state tolerances. `runtime.physical_checks` exposes closure, canonical
 unit, tolerance, nullable acceptance, errors and declaration provenance for solves,
 simulation and fitting. Read it alongside native status and mathematical feasibility.
-The same generated sources/results survive exact publication; M22 qualifies the
-complete installed-process and reopen journeys.
+The same generated sources/results survive exact publication; M22 exercised the
+selected installed-process and reopen journeys.
 
 Build caching, persistent native prefixes and experimental nightly commands are documented
 in [Rust build reuse](build-performance.md).

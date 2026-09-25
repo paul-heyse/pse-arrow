@@ -328,6 +328,143 @@ async fn actual_compile_failure_is_retryable_and_admission_is_finite() {
     );
 }
 
+#[cfg(feature = "native-solvers")]
+#[tokio::test]
+async fn native_staged_recycle_and_singular_block_preserve_original_values() {
+    use super::initialization::InitializationProfile;
+    use pse_backend_native::{
+        kinsol::Linear,
+        solve::{Controls, Termination},
+    };
+    for singular in [false, true] {
+        let s = service();
+        let mut input = inputs();
+        let q = pse_quantity::standard::ids::quantity("neutral");
+        let unit = input.quantities.quantity_type(q).unwrap().canonical_unit;
+        let x = Port {
+            id: id(1),
+            quantity: q,
+            unit,
+        };
+        let y = Port {
+            id: id(6),
+            quantity: q,
+            unit,
+        };
+        let d = input.definitions.get_mut(&id(2)).unwrap();
+        d.formals.push(Formal {
+            path: "y".into(),
+            quantity: q,
+        });
+        d.sources = if singular {
+            vec!["x+y".into(), "2*x+2*y".into()]
+        } else {
+            vec!["x-0.5*y".into(), "y-0.25*x".into()]
+        };
+        input.cases.get_mut(&id(5)).unwrap().structure = Arc::new(
+            CaseStructure::new(
+                vec![x.clone(), y.clone()]
+                    .into_iter()
+                    .map(|port| Variable {
+                        port,
+                        fixed: false,
+                        domain: VariableDomain::Continuous,
+                        lower: None,
+                        upper: None,
+                    })
+                    .collect(),
+                vec![],
+                vec![InstanceBinding {
+                    instance: id(3),
+                    body: ContentHash::from_bytes([0; 32]),
+                    slots: vec![
+                        SlotBinding::new(&x, &x, &input.quantities).unwrap(),
+                        SlotBinding::new(&y, &y, &input.quantities).unwrap(),
+                    ],
+                    contributions: vec![
+                        Contribution {
+                            output: 0,
+                            target: Target::Row(id(4)),
+                            scale: 1.,
+                        },
+                        Contribution {
+                            output: 1,
+                            target: Target::Row(id(7)),
+                            scale: 1.,
+                        },
+                    ],
+                }],
+                vec![
+                    Row {
+                        id: id(4),
+                        quantity: q,
+                        lower: 1.,
+                        upper: 1.,
+                    },
+                    Row {
+                        id: id(7),
+                        quantity: q,
+                        lower: if singular { 3. } else { 1. },
+                        upper: if singular { 3. } else { 1. },
+                    },
+                ],
+                None,
+                CaseLimits::default(),
+            )
+            .unwrap(),
+        );
+        let workspace = s.workspace(input, WorkspaceLimits::default()).unwrap();
+        let prepared = s
+            .prepare_initialization(workspace, id(5), profile())
+            .await
+            .unwrap();
+        assert_eq!(
+            prepared.boundaries().count(),
+            1,
+            "both recycle coordinates belong to the coupled block"
+        );
+        let initial = CaseValues {
+            scalars: BTreeMap::from([(id(1), 1000.), (id(6), -100.)]),
+        };
+        let result = s
+            .initialize(
+                prepared,
+                initial.clone(),
+                BTreeMap::new(),
+                InitializationProfile {
+                    controls: Controls::default(),
+                    linear: Linear::Klu,
+                    variable_tolerances: BTreeMap::from([(id(1), 1e-7), (id(6), 1e-7)]),
+                    row_tolerances: BTreeMap::from([(id(4), 1e-7), (id(7), 1e-7)]),
+                    stages: vec![BTreeMap::new(), BTreeMap::new()],
+                },
+            )
+            .unwrap()
+            .finish()
+            .await
+            .unwrap();
+        if singular {
+            assert_eq!(result.completed_stages, 0);
+            assert_eq!(
+                result.values.scalars, initial.scalars,
+                "failed trials must not commit"
+            );
+            assert!(!result.attempts[0].committed);
+            if let Ok(report) = &result.attempts[0].result {
+                assert!(!matches!(
+                    report.termination.category,
+                    Termination::Success | Termination::Acceptable
+                ));
+            }
+        } else {
+            assert_eq!(result.completed_stages, 2, "{result:?}");
+            assert!(result.attempts.iter().all(|attempt| attempt.committed));
+            assert!((result.values.scalars[&id(1)] - 12. / 7.).abs() < 1e-6);
+            assert!((result.values.scalars[&id(6)] - 10. / 7.).abs() < 1e-6);
+        }
+    }
+}
+
 #[tokio::test]
 async fn constant_sequence_uses_shared_lifecycle_and_retains_result_allowance() {
     use super::solves::*;

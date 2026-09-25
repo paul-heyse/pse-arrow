@@ -87,20 +87,12 @@ pub fn physical_identity(
     crate::physical_identity::identity(quantities, preconditions)
 }
 /// Evaluator-affecting profile, separate from semantic preparation and resource admission.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Profile {
     /// Optimization controls.
     pub optimization: Optimization,
     /// Local numeric limits affecting evaluator admission.
     pub evaluation: EvaluationLimits,
-}
-impl Default for Profile {
-    fn default() -> Self {
-        Self {
-            optimization: Optimization::default(),
-            evaluation: EvaluationLimits::default(),
-        }
-    }
 }
 /// Finite workspace metadata policy. Generations never escape as Salsa handles.
 #[derive(Clone, Copy, Debug)]
@@ -120,7 +112,7 @@ impl Default for WorkspaceLimits {
     fn default() -> Self {
         Self {
             entries: 4096,
-            input_bytes: 64 << 20,
+            input_bytes: 2 << 30,
             revisions: 64,
             preparations: 256,
             query_values: 64,
@@ -278,6 +270,7 @@ fn physical_key(db: &dyn CompilerDb, i: Inventory) -> ContentHash {
 }
 #[salsa::tracked(returns(clone), lru = 64)]
 fn admitted(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<AdmittedBody>> {
+    let _span = tracing::info_span!("pse.case.definition_admission").entered();
     checkpoint(db);
     let d =
         definition(db, i, id).ok_or_else(|| CompileError::Missing(format!("definition {id}")))?;
@@ -393,6 +386,7 @@ fn plan(
         c.structure.objective().cloned(),
         CaseLimits::default(),
     )?);
+    let _span = tracing::info_span!("pse.case.sparse_plan").entered();
     Ok(Planned(Arc::new(math_result(
         db,
         CasePlan::prepare(
@@ -408,6 +402,7 @@ fn plan(
 #[salsa::tracked(returns(clone), lru=64, heap_size=structure_heap)]
 fn structure(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<StructuralAnalysis>> {
     let p = plan(db, i, id, DerivativeOrder::Value)?.0;
+    let _span = tracing::info_span!("pse.case.structural_analysis").entered();
     let rows = p
         .structure()
         .rows()
@@ -466,7 +461,7 @@ fn algebraic_partition(
     id: SemanticId,
     rows: Vec<SemanticId>,
     columns: Vec<SemanticId>,
-) -> Result<bool> {
+) -> Result<Arc<StructuralAnalysis>> {
     let p = function_plan(
         db,
         i,
@@ -509,7 +504,7 @@ fn algebraic_partition(
     checkpoint(db);
     let result = graph.analyze(db.cancel());
     checkpoint(db);
-    Ok(result?.matching.len() == columns.len())
+    Ok(Arc::new(result?))
 }
 fn structure_heap(result: &Result<Arc<StructuralAnalysis>>) -> usize {
     result.as_ref().map_or(0, |a| {
@@ -549,6 +544,7 @@ impl ArtifactRequest {
     }
     /// Construct native programs only at the runtime effect boundary.
     pub fn build(&self, cancel: &Arc<AtomicBool>) -> std::result::Result<CompiledBody, MathError> {
+        let _span = tracing::info_span!("pse.case.program_optimization").entered();
         self.body.compile(
             &self.demand.outputs,
             &self.demand.coordinates,
@@ -869,14 +865,14 @@ impl CompilerWorkspace {
     pub fn cancellation_token(&self) -> salsa::CancellationToken {
         self.db.cancellation_token()
     }
-    /// Validate a mass-zero partition using a bounded pure library-matching query.
-    pub fn validate_dynamic_partition(
+    /// Analyze a mass-zero partition using a bounded pure library-matching query.
+    pub fn analyze_dynamic_partition(
         &mut self,
         id: SemanticId,
         rows: Vec<SemanticId>,
         columns: Vec<SemanticId>,
         cancel: Arc<AtomicBool>,
-    ) -> Result<bool> {
+    ) -> Result<Arc<StructuralAnalysis>> {
         if cancel.load(Ordering::Acquire) {
             return Err(CompileError::Cancelled);
         }

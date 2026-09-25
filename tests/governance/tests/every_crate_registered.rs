@@ -82,9 +82,19 @@ fn every_crate_directory_is_registered() {
 #[test]
 fn blueprint_crates_all_exist() {
     let on_disk: BTreeSet<String> = common::crate_dirs().into_iter().map(|(n, _)| n).collect();
-    let amendment = common::parse_toml(&common::workspace_root().join("tests/governance/layout_additions.toml"));
-    let removals: BTreeSet<_> = amendment["removals"].as_array().expect("explicit removal decisions").iter().map(|v| v.as_str().expect("crate name").to_owned()).collect();
-    assert!(removals.is_disjoint(&on_disk), "retired crate directories must be removed");
+    let amendment = common::parse_toml(
+        &common::workspace_root().join("tests/governance/layout_additions.toml"),
+    );
+    let removals: BTreeSet<_> = amendment["removals"]
+        .as_array()
+        .expect("explicit removal decisions")
+        .iter()
+        .map(|v| v.as_str().expect("crate name").to_owned())
+        .collect();
+    assert!(
+        removals.is_disjoint(&on_disk),
+        "retired crate directories must be removed"
+    );
     let missing: Vec<String> = blueprint_crates()
         .into_iter()
         .filter(|name| !on_disk.contains(name) && !removals.contains(name))

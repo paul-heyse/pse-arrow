@@ -8,6 +8,29 @@ import hashlib
 import json
 from decimal import Decimal, localcontext
 from pathlib import Path
+from typing import TYPE_CHECKING, Protocol
+
+import numpy as np
+import scipy
+import teqp
+from scipy.optimize import least_squares
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+
+class FlashModel(Protocol):
+    """The independent reference calls, without a product provider dependency."""
+
+    def get_R(self, composition: NDArray[np.float64]) -> float: ...  # noqa: N802 -- upstream spelling
+
+    def get_chempotVLE_autodiff(  # noqa: N802 -- upstream spelling
+        self, temperature: float, densities: NDArray[np.float64]
+    ) -> NDArray[np.float64]: ...
+
+    def get_Ar01(  # noqa: N802 -- upstream spelling
+        self, temperature: float, density: float, composition: NDArray[np.float64]
+    ) -> float: ...
 
 
 def caloric(coefficients: list[float], temperature: float) -> tuple[float, float]:
@@ -23,20 +46,16 @@ def caloric(coefficients: list[float], temperature: float) -> tuple[float, float
         return float(h), float(s)
 
 
-def flash_reference(model):
+def flash_reference(model: FlashModel) -> dict:
     """Independent isothermal ternary flash; teqp chemical potentials, SciPy iteration."""
-    import numpy as np
-    import scipy
-    from scipy.optimize import least_squares
-
     temperature, pressure = 280.0, 2e6
     feed = np.array([0.2, 0.3, 0.5])
 
-    def fractions(a):
+    def fractions(a: NDArray[np.float64]) -> NDArray[np.float64]:
         v = np.exp(np.array([*a, 0.0]))
         return v / sum(v)
 
-    def residual(a):
+    def residual(a: NDArray[np.float64]) -> NDArray[np.float64]:
         liquid, vapor = np.exp(a[:2])
         x, y, beta = fractions(a[2:4]), fractions(a[4:6]), a[6]
         rt = model.get_R(x) * temperature
@@ -74,24 +93,22 @@ def flash_reference(model):
     error = max(abs(result.fun))
     if not result.success or not np.isfinite(error) or error > 1e-10:
         raise ValueError("independent flash did not satisfy every physical equation")
-    return dict(
-        temperature=temperature,
-        pressure=pressure,
-        feed=feed.tolist(),
-        liquid_density=float(np.exp(result.x[0])),
-        vapor_density=float(np.exp(result.x[1])),
-        liquid=fractions(result.x[2:4]).tolist(),
-        vapor=fractions(result.x[4:6]).tolist(),
-        beta=float(result.x[6]),
-        maximum_scaled_residual=float(error),
-        scipy=scipy.__version__,
-        scope="two homogeneous phases satisfying chemical potential, pressure and material balances; no global stability certificate",
-    )
+    return {
+        "temperature": temperature,
+        "pressure": pressure,
+        "feed": feed.tolist(),
+        "liquid_density": float(np.exp(result.x[0])),
+        "vapor_density": float(np.exp(result.x[1])),
+        "liquid": fractions(result.x[2:4]).tolist(),
+        "vapor": fractions(result.x[4:6]).tolist(),
+        "beta": float(result.x[6]),
+        "maximum_scaled_residual": float(error),
+        "scipy": scipy.__version__,
+        "scope": "two homogeneous phases satisfying chemical potential, pressure and material balances; no global stability certificate",
+    }
 
 
 def main() -> None:
-    import numpy as np
-    import teqp
 
     root = Path(__file__).resolve().parents[1]
     data = root / "crates/pse-kernels/data"
@@ -138,7 +155,7 @@ def main() -> None:
     with localcontext() as context:
         context.prec = 100
         difficult = [
-            {"x": x, "log1px": str((1 + Decimal.from_float(x)).ln())}
+            {"x": x, "log1px": str((1 + Decimal(x)).ln())}
             for x in [-0.9999, 1e-8, 0.0001, 1.0, 10000.0]
         ]
     (root / "tests/fixtures/plan14/real-algebra-reference.json").write_text(

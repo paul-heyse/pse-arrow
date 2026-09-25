@@ -1,15 +1,15 @@
 ---
 id: ADR-0083
 title: Replace legacy math and Pyomo routes with native class-specific execution
-status: proposed
+status: accepted
 date: 2026-09-24
 deciders: [paul-heyse]
 level: decision
 principles: [DM-38, DM-43, DM-58]
 blueprint: [§D12, §18, §21]
 review: docs/design_review/reviews/design_review_unified-native-solvers_2026-09-24.md
-evidence: Implemented
-supersedes: []
+evidence: Tested
+supersedes: [ADR-0015, ADR-0075]
 superseded-by: null
 revisit: A concrete problem class needs an additional native interface.
 verification: Plan 14 M00–M21 targeted units and M22 qualification
@@ -32,10 +32,13 @@ physical closure observations remain separate from native termination and feasib
 
 The concrete replacement text is prepared in
 [Plan 14 foundation contract](../plans/14-math-foundation-contract.md#concrete-decision-amendment-prepared-for-the-design-pr).
-Apply it to the cited blueprint contracts through the designated design PR.
-This proposed record describes the implemented M00–M18 foundation, native Rust
-solver/integrator lifecycle and public model/result/fitting workflow. Whole-plan acceptance remains M22.
-Accepted decisions are reconciled through formal supersession before decision PR acceptance.
+Blueprint revision 51 applies it under the local authorization in ADR-0087.
+ADR-0087 authorizes this milestone's local reconciliation in blueprint §0.5.
+ADR-0015 and the unimplemented Pyomo tear decision ADR-0075 are superseded;
+reference parity remains isolated and native class-specific execution is authoritative.
+This record describes the implemented M00–M18 foundation, native Rust
+solver/integrator lifecycle and public model/result/fitting workflow. Local qualification is recorded in the M22 packet under ADR-0087.
+Displaced accepted decisions are reconciled through explicit supersession.
 
 ## Drivers
 
@@ -92,8 +95,7 @@ observations. M16 adds registry-authoritative model revisions, blocking/async Py
 jobs, physical Arrow results and explicit exact publication. Advanced cone and flow/map
 construction uses the existing typed Rust services. M17–M18 add generated dynamic,
 fitting and selected FeOS provider-factory declarations; the same public joined jobs,
-retained Arrow ownership and publication protocol serve these operations. Full scientific,
-installed workflow and governance qualification remains M22. No old code is retained
+retained Arrow ownership and publication protocol serve these operations. Local scientific, installed workflow and governance evidence is recorded in M22. No old code is retained
 as a fallback or as historical evidence.
 
 M18 shares `NlpOracle`, native adapters and library presolve with ordinary solving.
@@ -111,7 +113,7 @@ source-attributed failures and targeted positive/negative unit controls.
 ### Confirmation
 
 The package-specific units and deleted caller inventory establish implementation;
-Plan 14 M22 alone establishes full qualification.
+Plan 14 M22 establishes the scoped local qualification recorded in its execution packet.
 
 ## Pros and cons
 
@@ -126,6 +128,19 @@ independent M22 acceptance.
 
 [Execution packet](../plans/14-m00-m05-execution.md) and
 [main plan](../plans/14-library-owned-process-simulator.md).
+
+## M22 local qualification
+
+**Tested and Measured:** the [M22 packet](../plans/14-m22-execution.md#verification)
+records local Linux functional Q01–Q17, the 23 cached-development case-cost workloads,
+zero required failures and retained-origin conditions. It distinguishes admitted memory
+allowances from measured pool/RSS observations and excludes Rust build time.
+
+The [independent final review](../design_review/reviews/design_review_m22-runtime_2026-09-24.md)
+accepts the relevant scoped contracts with no open MUST finding. Companion runtime,
+scientific and claims reviews cover G1–G8 and PS-G1–PS-G3. Blueprint revision 51 and
+ADR-0087 govern local acceptance. Strict Clippy cleanup and release/remote/platform
+qualification remain separate; no broader clean or empirical claim follows.
 
 ## Status history
 
@@ -156,3 +171,5 @@ independent M22 acceptance.
   [packet](../plans/14-m17-m18-execution.md), which records targeted native/Python
   evidence. Scientific qualification, formal decision acceptance and blueprint
   reconciliation remain open.
+
+- 2026-09-24 — accepted for local Linux M22 scope under ADR-0087 after independent final review; blueprint revision 51 reconciles the contracts. No remote or release qualification is claimed.

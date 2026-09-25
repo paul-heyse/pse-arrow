@@ -11,8 +11,8 @@ mod law_contracts;
 mod material_constraints;
 mod methods;
 mod ports;
-mod source_occurrences;
 mod source_definitions;
+mod source_occurrences;
 mod symbol_contracts;
 
 use super::declarations::{column, enumeration, relation};

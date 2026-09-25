@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+tracing.workspace = true
 salsa.workspace = true
 pse-structural.workspace = true
 pse-buildinfo.workspace = true

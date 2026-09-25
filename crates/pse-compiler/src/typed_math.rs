@@ -176,7 +176,7 @@ impl Request<'_> {
             .values()
             .map(|v| v.members.members().len())
             .chain(self.groups.values().map(|v| v.slots.len()))
-            .try_fold(self.formals.len(), |n, m| n.checked_add(m))
+            .try_fold(self.formals.len(), usize::checked_add)
             .ok_or(MathError::Limit("preparation cardinality"))?;
         let names = self
             .formals
@@ -185,7 +185,7 @@ impl Request<'_> {
             .chain(self.domains.keys().map(String::len))
             .chain(self.groups.keys().map(String::len))
             .chain(self.units.keys().map(String::len))
-            .try_fold(0usize, |n, m| n.checked_add(m))
+            .try_fold(0usize, usize::checked_add)
             .ok_or(MathError::Limit("preparation text"))?;
         if entries > self.limits.occurrences
             || names > self.limits.occurrences.saturating_mul(256)
@@ -230,7 +230,11 @@ impl Request<'_> {
             definition: lower.hash.finish_hash(),
             structure: self.structure,
             physical: self.physical,
-            providers: math.providers().iter().map(|p| p.identity()).collect(),
+            providers: math
+                .providers()
+                .iter()
+                .map(pse_kernels::ProviderSpec::identity)
+                .collect(),
             policy: pse_math::binding::guarded_real_policy(),
         };
         Ok(AdmittedBody {

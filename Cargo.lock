@@ -5139,6 +5139,7 @@ dependencies = [
  "pse-kernels",
  "pse-quantity",
  "pse-relations",
+ "pse-rules",
  "pse-runtime",
  "pse-schema",
  "pse-testkit",
@@ -5246,6 +5247,7 @@ dependencies = [
  "pse-structural",
  "salsa",
  "thiserror 2.0.20",
+ "tracing",
 ]
 
 [[package]]
@@ -5484,6 +5486,7 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "toml",
+ "tracing",
  "url",
 ]
 

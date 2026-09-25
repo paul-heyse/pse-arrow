@@ -1,7 +1,7 @@
 ---
 id: ADR-0015
 title: Adopt D12: one generated Pyomo adapter, no IDAES class hierarchy
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D12, §21.1, §21.2]
 review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0083
 revisit: A Pyomo-ecosystem tool needs a per-node API the coarse-grained bundle cannot serve, or a native equivalent makes the adapter redundant
 verification: `python / parity` bundle round-trip; `python / test` `test_forbidden_extra_keys` and `test_any_lint`
 
@@ -61,3 +61,4 @@ Blueprint §D12, §21.1 (extension module), §21.2 (adapter algorithm), §21.5 (
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-24 — superseded by ADR-0083.

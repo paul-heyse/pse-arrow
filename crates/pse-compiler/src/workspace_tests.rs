@@ -98,6 +98,34 @@ fn inputs() -> Inputs {
         values: BTreeMap::from([(id(1), 2.), (id(2), 3.)]),
     }
 }
+#[test]
+fn generous_workspace_preserves_retention_and_refuses_tiny_budget() {
+    let mut source = inputs();
+    let mut workspace = CompilerWorkspace::new(source.clone(), WorkspaceLimits::default()).unwrap();
+    assert_eq!(workspace.limits.query_values, 64);
+    let definition = source.definitions[&id(10)].clone();
+    for n in 50..150 {
+        source.definitions.insert(id(n), definition.clone());
+    }
+    workspace.publish(source.clone()).unwrap();
+    assert_eq!(workspace.limits.query_values, 64);
+    assert_eq!(workspace.generation, 0);
+    // Published values still produce the same evaluator as a clean bounded workspace.
+    let profile = Profile::default();
+    let reused = workspace
+        .prepare(id(9), DerivativeOrder::Second, profile, false)
+        .unwrap();
+    let clean = CompilerWorkspace::new(source, WorkspaceLimits::default())
+        .unwrap()
+        .prepare(id(9), DerivativeOrder::Second, profile, false)
+        .unwrap();
+    assert_eq!(reused.artifacts, clean.artifacts);
+    let limits = WorkspaceLimits {
+        input_bytes: 1,
+        ..Default::default()
+    };
+    assert!(CompilerWorkspace::new(inputs(), limits).is_err());
+}
 fn prepare(w: &mut CompilerWorkspace) -> PreparedCase {
     w.prepare(id(9), DerivativeOrder::Second, Profile::default(), true)
         .unwrap()
@@ -300,7 +328,7 @@ fn finite_generations_cancel_retry_and_invalid_batch_are_atomic() {
     .unwrap();
     let old = prepare(&mut w);
     for n in 0..6 {
-        i.values.insert(id(2), n as f64 + 1.);
+        i.values.insert(id(2), f64::from(n) + 1.);
         w.publish(i.clone()).unwrap();
         prepare(&mut w);
     }

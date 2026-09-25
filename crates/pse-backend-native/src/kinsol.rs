@@ -352,11 +352,19 @@ unsafe extern "C" fn jacobian(
             }
         } else {
             let p = unsafe { ffi::SUNSparseMatrix_Data(matrix) };
-            if p.is_null() && !v.is_empty() {
+            let columns = unsafe { ffi::SUNSparseMatrix_IndexPointers(matrix) };
+            let rows = unsafe { ffi::SUNSparseMatrix_IndexValues(matrix) };
+            if columns.is_null() || (!v.is_empty() && (p.is_null() || rows.is_null())) {
                 return Err(ProblemError::Contract("null sparse values".into()));
             }
+            // KINSOL zeros the matrix before each Jacobian callback. SUNDIALS
+            // sparse zero clears both indices and values, including CSC pointers.
+            unsafe { std::ptr::copy_nonoverlapping(c.columns.as_ptr(), columns, c.columns.len()) };
             if !v.is_empty() {
-                unsafe { std::ptr::copy_nonoverlapping(v.as_ptr(), p, v.len()) };
+                unsafe {
+                    std::ptr::copy_nonoverlapping(c.rows.as_ptr(), rows, c.rows.len());
+                    std::ptr::copy_nonoverlapping(v.as_ptr(), p, v.len());
+                }
             }
         }
         Ok(())

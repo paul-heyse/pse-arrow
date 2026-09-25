@@ -138,10 +138,14 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub mod documents;
         },
     )?;
-    emit(&mut tree, "crates/pse-runtime/src/generated/mod.rs", quote! {
-        //! Mechanical declared document bridges.
-        pub(crate) mod document_adapters;
-    })?;
+    emit(
+        &mut tree,
+        "crates/pse-runtime/src/generated/mod.rs",
+        quote! {
+            //! Mechanical declared document bridges.
+            pub(crate) mod document_adapters;
+        },
+    )?;
     semantic::split(&mut tree, reg)?;
     semantic::facts(&mut tree, reg)?;
     Ok(tree)

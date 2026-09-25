@@ -2,14 +2,20 @@
 # Copyright (c) 2026 Paul Heyse
 """Isolated controls for current-source, exact-witness qualification contracts."""
 
+# unittest owns this runner and its assertion reporting.
+# ruff: noqa: PT009, PT027
 from __future__ import annotations
+
 import copy
-import json
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from scripts import implementation_phase as phase, validation, validation_cases as cases
+
+from scripts import implementation_phase as phase
+from scripts import validation
+from scripts import validation_cases as cases
 from scripts.plan14_acceptance import expected, verify_selection
 from scripts.validation_scope import comprehensive
 
@@ -17,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class AcceptanceTests(unittest.TestCase):
-    def test_removed_mechanisms_and_current_dependency_roles(self):
+    def test_removed_mechanisms_and_current_dependency_roles(self) -> None:
         self.assertFalse((ROOT / "crates/pse-plans").exists())
         self.assertFalse((ROOT / "crates/pse-kernels-ext").exists())
         source = (ROOT / "crates/pse-schema/src/catalog/s6_3_domains.rs").read_text()
@@ -32,7 +38,6 @@ class AcceptanceTests(unittest.TestCase):
             ROOT / "crates/pse-codegen/src/codegen/rust/semantic.rs"
         ).read_text()
         self.assertNotIn("fn share_payloads", semantic)
-        import tomllib
 
         py = tomllib.loads((ROOT / "pyproject.toml").read_text())
         self.assertFalse(
@@ -53,7 +58,7 @@ class AcceptanceTests(unittest.TestCase):
         self.assertFalse(any("/skills/deltalake/" in p for p in names))
         self.assertIn("Cargo.lock", names)
 
-    def test_exact_witnesses_and_phase_boundaries(self):
+    def test_exact_witnesses_and_phase_boundaries(self) -> None:
         declaration = phase.manifest(ROOT)
         phase.validate_sources(ROOT, declaration)
         self.assertEqual(len(declaration["acceptance"]), 18)
@@ -61,12 +66,21 @@ class AcceptanceTests(unittest.TestCase):
             {r["id"] for r in declaration["acceptance"] if r["phase"] == "performance"},
             {"Q18"},
         )
-        for gate in ("plan14-native", "plan14-python", "codegen-contracts-check", "codegen"):
+        for gate in (
+            "plan14-native",
+            "plan14-python",
+            "codegen-contracts-check",
+            "codegen",
+        ):
             phase.guard(ROOT, [gate])
         for gate in ("plan14-measure", "plan14-reviews", "bench-smoke"):
             with (
                 self.subTest(gate=gate),
-                patch.object(phase, "require_functional", side_effect=ValueError("functional evidence")),
+                patch.object(
+                    phase,
+                    "require_functional",
+                    side_effect=ValueError("functional evidence"),
+                ),
                 self.assertRaisesRegex(ValueError, "functional evidence"),
             ):
                 phase.guard(ROOT, [gate])
@@ -77,7 +91,7 @@ class AcceptanceTests(unittest.TestCase):
 
     def test_manifest_and_discovery_reject_partial_wrong_profile_and_stale_sources(
         self,
-    ):
+    ) -> None:
         declaration = phase.manifest(ROOT)
         selected = [
             dict(zip(("class", "name"), r, strict=True))
@@ -86,7 +100,7 @@ class AcceptanceTests(unittest.TestCase):
         verify_selection(declaration, "rust-native", selected)
         for wrong in [
             selected[:-1],
-            selected + [selected[0]],
+            [*selected, selected[0]],
             [{"class": "wrong", "name": r["name"]} for r in selected],
         ]:
             with self.assertRaises(ValueError):
@@ -138,22 +152,22 @@ class AcceptanceTests(unittest.TestCase):
                     c,
                 )
 
-    def test_measurement_and_review_content_contracts(self):
+    def test_measurement_and_review_content_contracts(self) -> None:
         declaration = phase.manifest(ROOT)
         cost = next(
-            c for c in declaration["cases"] if c.get("artifact") == "process-cost-v1"
+            c for c in declaration["cases"] if c.get("artifact") == "process-cost-v2"
         )
         digest = "1" * 64
-        threads = {
-            name: "1"
-            for name in ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"]
-        }
+        threads = dict.fromkeys(
+            ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"], "1"
+        )
         report = {
             "schema": cost["artifact"],
             "profile": cost["profile"],
             "source_digest": digest,
             "binary_digest": digest,
             "binary_path": "/fixture/benchmark",
+            "compilation_timed": False,
             "toolchain": "fixture toolchain",
             "thread_environment": threads,
             "native": {
@@ -166,9 +180,8 @@ class AcceptanceTests(unittest.TestCase):
             },
             "cases": [],
         }
-        for name in cost["tests"]:
-            _, size, count = name.split("-")
-            blocks = {"small": 1, "medium": 8, "large": 32}[size]
+        for workload in cost["workloads"]:
+            name = workload["id"]
             report["cases"].append(
                 {
                     "id": name,
@@ -178,9 +191,10 @@ class AcceptanceTests(unittest.TestCase):
                     "iterations": 20,
                     "sample_count": 10,
                     "native_threads": 1,
-                    "threads": int(count),
-                    "blocks": blocks,
-                    "variables": 3 * blocks,
+                    "threads": workload["threads"],
+                    "workload": workload,
+                    "variables_observed": workload["variables"],
+                    "phase_seconds": {"preparation": 0.01},
                     "artifacts": {name + ".json": digest},
                     "confidence_interval": {
                         "confidence_level": 0.95,
@@ -198,12 +212,18 @@ class AcceptanceTests(unittest.TestCase):
             "native",
             "duplicate",
             "digest",
+            "rust-build",
+            "phase",
         ]:
             bad = copy.deepcopy(report)
             if edit == "metric":
                 bad["cases"][0]["pool_peak_bytes"] = float("nan")
             if edit == "shape":
-                bad["cases"][0]["variables"] += 1
+                bad["cases"][0]["variables_observed"] = [999]
+            if edit == "rust-build":
+                bad["compilation_timed"] = True
+            if edit == "phase":
+                bad["cases"][0]["phase_seconds"] = {}
             if edit == "threads":
                 bad["thread_environment"] = {"OMP_NUM_THREADS": "1"}
             if edit == "samples":

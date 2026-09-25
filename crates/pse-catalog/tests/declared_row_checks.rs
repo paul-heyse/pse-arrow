@@ -32,7 +32,6 @@ use pse_relations::generated::{enums::PublicationKind, runtime::publications};
 use pse_schema::{Registry, RegistryBuilder, model::*};
 use std::{collections::BTreeMap, sync::Arc};
 
-
 fn registry() -> Arc<Registry> {
     let mut builder = RegistryBuilder::new();
     builder.declare_relation(
@@ -271,4 +270,3 @@ async fn assert_complete_constraint_set(
         "cold reconstruction requires the recorded CHECK"
     );
 }
-

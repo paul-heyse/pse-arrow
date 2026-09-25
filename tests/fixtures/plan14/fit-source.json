@@ -1,0 +1,31 @@
+{
+  "fit_id": "6c15d8f697ba54b995a60be4c7a646a5",
+  "model_id": "fdc7ceebdda350c39dc89d36a46433b8",
+  "parameters": [
+    {
+      "symbol_id": "025b6cee4d165fb1a2818fb82018fd9a",
+      "fixed": false,
+      "value": 1.0,
+      "lower": 0.0,
+      "upper": 10.0,
+      "scale": 1.0
+    }
+  ],
+  "experiments": [
+    {
+      "experiment_id": "d4707c205bac53e6b43e0644984734d8",
+      "case_id": "d3325a4faf5356b184a851008dd8994a",
+      "dynamic_id": "eb03ee66dd9e54259c34c9e81dfb53e9"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "ca43d33251b75de88cc7348f6464ad7d",
+      "experiment_id": "d4707c205bac53e6b43e0644984734d8",
+      "output_id": "0de2475a468a53f1bec6bc0f7e37fbc5",
+      "time": 1.0,
+      "included": true,
+      "importance": 1.0
+    }
+  ]
+}

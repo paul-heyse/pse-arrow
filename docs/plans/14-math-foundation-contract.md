@@ -1,15 +1,16 @@
 ---
 title: Plan 14 mathematical foundation contracts and decision amendment
-status: in-progress
+status: done
 date: 2026-09-24
-adrs: [ADR-0082, ADR-0083, ADR-0084]
+adrs: [ADR-0082, ADR-0083, ADR-0084, ADR-0085, ADR-0086, ADR-0087]
 phase: 1
 ---
 
-# Mathematical foundation and native execution after M00–M21
+# Mathematical foundation and native execution after M00–M22
 
-This document records the implemented foundation and the concrete decision amendment
-prepared for the ADR/design PR. It does not amend the accepted blueprint by implication.
+This document records the implemented foundation reconciled by blueprint revision 51
+and ADR-0082–0087. The [M22 packet](14-m22-execution.md) owns local qualification
+evidence and the explicit design-stage exclusions.
 The [execution inventory](14-execution-inventory.md) owns package status; the
 [main plan](14-library-owned-process-simulator.md) owns the remaining target.
 
@@ -44,15 +45,15 @@ branch selection. The declared caloric convention is FeOS's 298.15 K integration
 reference without formation enthalpy. An explicit operating envelope is enforced for temperature, density, pressure and
 all three fractions, including NPT initialization. Its provenance and bounds enter
 provider identity. This declared window is not empirical certification; independent
-physical reference comparisons remain M22.
+physical reference comparisons are exercised by M22 within the declared test scope.
 
 M08 supplies explicit row accumulation, sparse Jacobians/Lagrangian Hessians,
 coefficient and native oracle views, and validated explicit cone data. All-fixed
 models evaluate as constants. M15–M16 connect those adapters to qualified library
 presolve, generated model declarations, immutable revisions, public Rust/Python jobs,
 physical result tables and explicit exact publication. The selected heater/flash
-simulator is **not scientifically qualified**: M22 still owns the installed process
-journeys and reference comparisons. M17–M18 implement native dynamics and fitting
+simulator has **Tested** M22 installed process journeys and independent reference
+comparisons; this is scoped numerical evidence, not empirical certification. M17–M18 implement native dynamics and fitting
 within the profiles below.
 M09–M10 add complete selected-case structural analysis, Salsa semantic reuse and
 bounded runtime artifact/worker ownership. Dynamics uses a fixed diag(I,0)
@@ -73,7 +74,7 @@ records why the resolved profiles are selected, rather than acting as another re
 | Clarabel 0.11.1, `serde`, defaults off; optional `sdp-netlib` | M14 implements explicit cone execution, native settings/info/results, source-space quality, upper-column svec PSD packing and bound-row maps. The full native profile selects serial LP64 netlib SDP. `faer-sparse` stays off. Reusable-data mode disables presolve/chordal decomposition/zero dropping and checks native update eligibility. No external iterate warm API is advertised. |
 | sundials-sys 0.6.2, `kinsol,klu,build_libraries,static_libraries`; suitesparse_sys 0.1.4 | M13 implements SUNDIALS 7.1.1 serial vectors, KLU/dense/analytic-SPGMR, Newton/line search and explicitly declared fixed-point/Picard/Anderson profiles. SuiteSparse 7.7.0 KLU is built from the pinned crate vendor source, static/PIC without CHOLMOD/CUDA/OpenMP. Sign constraints are admitted exactly; arbitrary boxes and constrained fixed-point/Picard are refused. |
 | POUNCE 0.12.0 plus pounce-feral 0.12.0 | Native TNLP/application, FERAL, interior point and explicit active-set SQP; library restoration, full statistics/timing and linear summaries, applicable starts and compatible application retention. Admitted local Rayon pools own parallel FERAL. M15 uses the shared qualified pounce-presolve TNLP wrappers; retained application does not imply retained factors. |
-| Diffsol 0.16.2, `faer`, defaults off | M17 implements BDF, consistent initialization, finite roots/resets/input changes, interpolation and smooth forward sensitivities through explicit native operators. Sequential faer context, fixed diag(I,0), known sparsity and typed failure containment; analytical contract controls pass, while physical trajectory qualification remains M22. |
+| Diffsol 0.16.2, `faer`, defaults off | M17 implements BDF, consistent initialization, finite roots/resets/input changes, interpolation and smooth forward sensitivities through explicit native operators. Sequential faer context, fixed diag(I,0), known sparsity and typed failure containment; analytical contract controls pass, while M22 exercises the selected physical trajectory and conservation witnesses. |
 
 The production derivative seam invokes fallible FeOS/num-dual workers outside
 Symbolica callbacks. Symbolica differentiates formal provider compositions to produce
@@ -157,7 +158,7 @@ completion-owned worker lifetimes; M22 must measure actual foreign/TLS/RSS behav
 | Package dependencies; runtime authoring P0 | Retain complete directed package projection and library topological order, including isolates and missing-dependency refusal. |
 | Rule execution; `pse-rules::strata` | Retire the orphaned executor, exclusive schema contracts, tests and benchmark callers under ADR-0086. Production declares no rules. Retain `pse-rules::invariants` for inspection and physical fixture validation. |
 | Old incidence/DM, containment, kernel/conversion graphs, tear helpers | Delete adapters and tests without current target consumers. Remove the rust-igraph dependency. M09 introduces matching/DM/BTF from library support and new bindings; M14 adds target tear selection; they do not inherit this old implementation. |
-| Engine sessions, checked relation construction, Delta publication | Retain for physical/source input and data/inspection consumers. Rehost a generic collection ownership test onto authored symbol expressions. Retired mathematical transports stay deleted. The current native workflow publishes generated source/result relations through the retained exact control-last path; end-to-end qualification remains M22. |
+| Engine sessions, checked relation construction, Delta publication | Retain for physical/source input and data/inspection consumers. Rehost a generic collection ownership test onto authored symbol expressions. Retired mathematical transports stay deleted. The current native workflow publishes generated source/result relations through the retained exact control-last path; M22 exercises the selected end-to-end publication/reopen journeys. |
 | Compiler Salsa products and old release-update reader | Delete MathIR-dependent products and their journeys. M10 establishes new-target inputs and queries in `CompilerWorkspace`. Generic relational cache ownership remains with its real consumers. |
 | `pse-mathir`, `pse-numerics`, `pse-templates`, NL/Pyomo stubs | Delete crates, exports, callers and dependent fixtures. `pse-math` contains new library integration, not renamed legacy arithmetic. |
 | Expression schemas/generators and legacy P3 declaration | Delete expression-node/predicate/equation/compiled math transports, generated sinks/loaders and unsupported derived outputs. Regenerate Rust, Python, docs and concrete invariant fixtures through their owners. |
@@ -189,10 +190,10 @@ The [M09–M10 packet](14-m09-m10-execution.md) owns targeted acceptance and dev
 
 ## Concrete decision amendment prepared for the design PR
 
-These are the proposed replacement contracts under ADR-0082–0084. Accepted ADR text
-remains immutable. Apply the blueprint amendment with a revision row and inline
-decision markers through the repository's ADR/design PR process; no PR was requested
-or opened by this implementation task.
+These replacement contracts are reconciled by blueprint revision 51 and ADR-0082–0084
+under the local authorization in ADR-0087. Accepted predecessor arguments remain
+immutable; explicit supersession replaces displaced decisions. No PR or remote
+qualification is implied.
 
 | Governed text | Replacement contract |
 |---|---|
@@ -200,12 +201,11 @@ or opened by this implementation task.
 | D10/D11, §3.2, §6.11, §18.2; relevant ADR-0037/0068/0076/0078 portions | Math uses specialization-local library artifacts with explicit bindings; native solvers own algorithms. DataFusion/Arrow retain actual relational/data work. Add `pse-math`, retire the five removed crates, remove expression relation transport and old compiler-query products. |
 | D9, §9, §13.6; relevant ADR-0022/0043 portions | Executable provider registration includes complete physical ports, data/component identity, selected phase, implemented derivatives, smoothness and typed trial/terminal failures. Derivative capability does not establish phase regularity. The initial dynamic claim is ODE/index-1 mass matrix. |
 | D12, §18–§21; ADR-0015 and affected ADR-0028/0038 portions | Production execution is native and class-specific. Python is authoring/results convenience; reference parity is separate. Remove Pyomo/NL production routes. Future result contracts separate solver termination from recomputed original-model quality. |
-| Proposed ADR-0075 and R-32 | Retire the proposed Pyomo tear route. M14 decides the native heuristic/exact route from actual process-structure consumers; no current tear capability is advertised. |
+| Superseded ADR-0075 and R-32 | ADR-0083 replaces the Pyomo tear route with native heuristic/exact tear selection and sequential initialization. M22 qualifies selected weighted native tear cases through acyclicity, exhaustive small-graph and actual initialization witnesses; no general convergence guarantee is claimed. R-32 watches requests for new policies or guarantees. |
 | Pending ADR-0076–0081 and old plan acceptance | Preserve only meanings with consumers listed above. Target M20/M22 owns new coverage and acceptance. Old source seals and failed/incomplete outcomes remain historical. |
 
-Formal supersession, blueprint acceptance, the ADR index and final governance/doc
-qualification remain part of the decision PR/final Plan 14 closure. The implementation
-does not claim those governance actions have already occurred.
+M22 records explicit supersession, blueprint/index reconciliation and local
+governance/document qualification under ADR-0087.
 
 ## M10–M14 solver lifecycle and supported boundaries
 
@@ -311,10 +311,10 @@ write retry or solver replay. Stored declarations support explicit rebuild;
 the selected generated FeOS factory can reconstruct its declared registration.
 Mutable evaluators, factors and integrator state are never durable authorities.
 
-M19 cleanup and M20 acceptance implementation are complete. M21 final closure and
-M22 qualification remain open, including whole-plan Clippy/static closure, formal
-decisions, full installed native/publication journeys, execution against the independent
-scientific references and resource/performance measurements.
+M19–M22 cleanup, implementation closure and local qualification are complete.
+The M22 packet records installed native/publication journeys, independent scientific
+references and case-cost/resource observations. Strict Clippy cleanup remains separate
+by explicit maintainer decision, with ordinary merge requirements unchanged.
 
 
 ## M17–M18 dynamics and fitting
@@ -408,3 +408,8 @@ The development barrier authenticates actual unit runner reports, exact test ide
 current source and current native binary/library bytes. It does not establish process
 validity or supply independent reviews. The M22 review set is G1–G8 plus PS-G1–PS-G3;
 none of these independent decisions is supplied by the implementation self-review.
+
+
+Earlier packet-specific future-tense statements record implementation handoffs.
+The current qualification boundary and limitations are in the M22 packet; they do
+not broaden the supported library profiles described here.

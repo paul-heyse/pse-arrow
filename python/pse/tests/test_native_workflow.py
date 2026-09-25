@@ -5,6 +5,7 @@
 import asyncio
 import contextlib
 import gc
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -15,8 +16,9 @@ import pytest
 
 import pse
 from pse import modeling as w
+from pse.contracts import authored as a
 from pse.contracts.enums import NativeVariableDomain
-from pse.contracts.values import SemanticId
+from pse.contracts.values import ContentHash, SemanticId, SourceSpan
 
 
 def identity(n: int) -> SemanticId:
@@ -192,7 +194,6 @@ def test_cancelled_async_waiter_does_not_consume_terminal_result(
 def test_simulation_controls_round_trip_exact_native_options(
     runtime: pse.Runtime,
 ) -> None:
-    import json
 
     settings = pse.SimulationSettings(
         start=0.0, end=1.0, samples=[0.0, 1.0], atol=[1e-8], parameter_scales=[1.0]
@@ -211,9 +212,6 @@ def test_simulation_controls_round_trip_exact_native_options(
 def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
-    from pse.contracts import authored as a
-    from pse.contracts.values import SourceSpan
-    from pse.contracts.values import ContentHash
 
     model = runtime.model(identity(150), "fit length", physical)
     model.definition(

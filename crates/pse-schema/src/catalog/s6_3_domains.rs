@@ -118,4 +118,3 @@ fn declare_inferred_valid_index_tuples(builder: &mut RegistryBuilder) {
         "blueprint §6.3 domain: valid_index_tuples.",
     );
 }
-

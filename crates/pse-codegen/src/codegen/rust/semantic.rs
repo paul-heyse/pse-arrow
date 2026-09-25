@@ -159,13 +159,14 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
                     .with_extension("")
                     .to_string_lossy()
                     .replace('/', ".");
-                if relative.components().count() > 1 && !consumers.contains(&consumer) {
-                    if let syn::Item::Struct(value) = &mut item {
-                        value.attrs.retain(|attr| {
-                            !attr.path().is_ident("derive") && !attr.path().is_ident("serde")
-                        });
-                        value.attrs.push(syn::parse_quote!(#[derive(Clone, Debug)]));
-                    }
+                if relative.components().count() > 1
+                    && !consumers.contains(&consumer)
+                    && let syn::Item::Struct(value) = &mut item
+                {
+                    value.attrs.retain(|attr| {
+                        !attr.path().is_ident("derive") && !attr.path().is_ident("serde")
+                    });
+                    value.attrs.push(syn::parse_quote!(#[derive(Clone, Debug)]));
                 }
                 model.push(item);
             } else {

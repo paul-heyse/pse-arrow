@@ -161,7 +161,7 @@ impl JetLayout {
             for _ in 0..degree {
                 result = result.derivative(
                     Indeterminate::try_from(var.clone())
-                        .map_err(|e| MathError::Library(e.to_string()))?,
+                        .map_err(|e| MathError::Library(e.clone()))?,
                 );
             }
         }
@@ -185,7 +185,7 @@ pub(crate) struct ProviderLift {
     pub output: Vec<f64>,
 }
 impl ProviderLift {
-    /// Symbolica differentiates an abstract composition f(a_0(z), ..., a_n(z)).
+    /// Symbolica differentiates an abstract composition `f(a_0(z)`, ..., `a_n(z)`).
     pub(crate) fn compile(
         arity: usize,
         layout: &JetLayout,
@@ -222,16 +222,16 @@ impl ProviderLift {
             for i in 0..arity {
                 let d = generic.derivative(
                     Indeterminate::try_from(local[i].clone())
-                        .map_err(|e| MathError::Library(e.to_string()))?,
+                        .map_err(|e| MathError::Library(e.clone()))?,
                 );
                 parameters.push(substitute(d.clone()));
                 inputs.push(LiftInput::First(i));
                 if layout.order >= DerivativeOrder::Second {
-                    for j in i..arity {
+                    for (j, atom) in local.iter().enumerate().skip(i) {
                         parameters.push(substitute(
                             d.derivative(
-                                Indeterminate::try_from(local[j].clone())
-                                    .map_err(|e| MathError::Library(e.to_string()))?,
+                                Indeterminate::try_from(atom.clone())
+                                    .map_err(|e| MathError::Library(e.clone()))?,
                             ),
                         ));
                         inputs.push(LiftInput::Second(i, j));

@@ -13,6 +13,8 @@ pub struct Interval {
 impl Eq for Interval {}
 impl Interval {
     /// Admit finite ordered bounds. NaN cannot enter equality or identity.
+    /// # Errors
+    /// Returns a contract error for nonfinite or nonincreasing bounds.
     pub fn new(lower: f64, upper: f64) -> Result<Self, ProviderError> {
         if !lower.is_finite() || !upper.is_finite() || lower >= upper {
             return Err(ProviderError::Contract(
@@ -29,6 +31,8 @@ impl Interval {
         [self.lower, self.upper]
     }
     /// Reject a trial outside its explicitly declared operating window.
+    /// # Errors
+    /// Returns `OutsideEnvelope` for nonfinite or out-of-range values.
     pub fn check(self, axis: &str, value: f64) -> Result<(), ProviderError> {
         if !value.is_finite() || value < self.lower || value > self.upper {
             return Err(ProviderError::OutsideEnvelope {
@@ -62,6 +66,8 @@ pub struct StateEnvelope {
 }
 impl StateEnvelope {
     /// Reject an invalid physical interpretation before registering a provider.
+    /// # Errors
+    /// Returns a contract error for missing provenance or nonphysical ranges.
     pub fn validate(&self) -> Result<(), ProviderError> {
         if self.provenance.trim().is_empty()
             || self.provenance.len() > 4096
@@ -80,6 +86,8 @@ impl StateEnvelope {
         Ok(())
     }
     /// Check temperature and all fractions; intrinsic interior restrictions apply separately.
+    /// # Errors
+    /// Returns `OutsideEnvelope` when temperature or any fraction is outside its window.
     pub fn thermal_composition(
         &self,
         temperature: f64,

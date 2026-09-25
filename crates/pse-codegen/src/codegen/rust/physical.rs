@@ -120,6 +120,7 @@ pub fn append_quantity_fixture(
         tree,
         path,
         quote! {
+            #![allow(clippy::unreadable_literal, clippy::too_many_lines, reason = "mechanical registry projection with fixed-width source UUIDs")]
             #(#ids)* #(#helpers)*
             /// Admit the full physical projection of the explicitly selected YAML packages.
             ///
@@ -172,6 +173,7 @@ pub fn append_element_fixture(
         tree,
         path,
         quote! {
+            #![allow(clippy::unreadable_literal, clippy::too_many_lines, reason = "mechanical registry projection with fixed-width source UUIDs")]
             #(#ids)*
             /// Admit the complete element projection of the selected physical package.
             ///
@@ -194,7 +196,9 @@ impl FixtureValues {
     fn declarations(&self) -> Vec<TokenStream> {
         self.ids.iter().map(|(value, name)| {
             let value = syn::LitInt::new(&format!("0x{:032x}_u128", u128::from_be_bytes(*value.as_bytes())), proc_macro2::Span::call_site());
-            quote! { const #name: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(#value.to_be_bytes()); }
+            quote! {
+                const #name: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(#value.to_be_bytes());
+            }
         }).collect()
     }
     fn dimension_values(&self) -> Vec<TokenStream> {

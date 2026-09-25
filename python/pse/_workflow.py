@@ -13,13 +13,13 @@ from pse._build import (
     DiagnosticReport,
     EngineSettings,
     ProgressEvent,
+    SimulationSettings,
     SolverCapability,
     SolveSettings,
-    SimulationSettings,
-    _NativePreparedOperation,
     _NativeModelRevision,
     _NativePhysicalContext,
     _NativePreparedCase,
+    _NativePreparedOperation,
     _NativePublicationAttempt,
     _NativeRunHandle,
     _NativeRunResult,
@@ -164,7 +164,8 @@ class ModelBuilder:
         conv.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
         previous = self._sources.get(family, [])
         if not isinstance(previous, list):
-            raise TypeError("source inventory must be a list")
+            message = "source inventory must be a list"
+            raise TypeError(message)
         self._sources[family] = [*previous, conv.unstructure(row)]
         return self
 

@@ -38,7 +38,13 @@ pub(crate) fn run(root: &Path, extension: Option<&Path>, check: bool) -> Result<
     let body = files
         .remove(Path::new("__init__.pyi"))
         .context("native stub root missing")?;
-    let output = format(root, &format!("{HEADER}{body}"))?;
+    // Explicit PyO3 annotations can name typing without the introspector adding it.
+    let imports = if body.contains("typing.") {
+        "import typing\n"
+    } else {
+        ""
+    };
+    let output = format(root, &format!("{HEADER}{imports}{body}"))?;
     let target = root.join(OUTPUT);
     super::reject_symlinks(root, Path::new(OUTPUT))?;
     if check {

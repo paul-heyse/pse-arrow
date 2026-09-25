@@ -1,10 +1,10 @@
 ---
 title: Library-owned process simulator hard pivot
-status: in-progress
+status: done
 date: 2026-09-24
-adrs: [ADR-0082, ADR-0083, ADR-0084]
+adrs: [ADR-0082, ADR-0083, ADR-0084, ADR-0085, ADR-0086, ADR-0087]
 phase: 1
-evidence: Implemented — M00-M21 and hard-cut replacements; targeted evidence in execution packets; M22 qualification remains open
+evidence: Tested and Measured — M00-M22 local Linux design-stage scope; commands, conditions and retained origins in the M22 packet
 ---
 
 # Library-owned process simulator hard pivot
@@ -25,7 +25,7 @@ only through an evidenced connection to the new target. Plan 13 and its receipts
 remain historical records; supersession does not turn their incomplete acceptance
 into success.
 
-**Current state (2026-09-24):** M00–M21 is implemented under the approved
+**Current state (2026-09-24):** M00–M22 is implemented and locally qualified under the approved
 [foundation](14-m00-m05-execution.md), [M06–M08](14-m06-m08-execution.md),
 [M09–M10](14-m09-m10-execution.md), [M10–M14](14-m10-m14-execution.md),
 [M15–M16](14-m15-m16-execution.md), [M17–M18](14-m17-m18-execution.md) and
@@ -45,12 +45,13 @@ profile; M18 adds steady, smooth transient and mixed fitting through the same na
 NLP lifecycle. Generated source/result contracts retain physical units and provenance.
 M19 removes residual empty crates and unused generated families and compacts physical
 fixtures. M20 implements the Q01–Q18 tests, references, profiles and evidence tooling;
-the native process bodies are compiled/discovered but unqualified. ADR-0082–0084
-remain proposed. M21 closes the remaining source-policy, property-envelope,
+M22 executes the native process bodies and independent physical references. M21 closes the remaining source-policy, property-envelope,
 conservation, structural-admission and implementation-evidence contracts; its
 [bounded review](../design_review/reviews/design_review_m21-design-closure_2026-09-24.md)
-records current library/consumer dispositions. M22 is next and alone establishes full
-scientific, runtime, performance and whole-plan static qualification.
+records current library/consumer dispositions. The [M22 closure packet](14-m22-execution.md)
+records Q01–Q18 evidence and the local Linux boundary under ADR-0087. Strict Clippy
+cleanup, release and other-platform qualification remain separate; no lint-clean or
+empirical certification claim is made.
 
 ### Intended outcome and completion boundary
 
@@ -271,7 +272,7 @@ second backend or bespoke algorithm is introduced just to compare candidates.
 | M19 | Final generated/dependency cleanup and optional-leverage dispositions | M03–M18 | implemented; targeted units pass |
 | M20 | Target-derived acceptance inventory and tooling | M00 scope; finalize after M19 | implemented; native acceptance compiled/discovered |
 | M21 | Implementation/deletion closure and capability review | M19, M20 | complete |
-| M22 | Full qualification, measurements and final documentation | M21 | planned |
+| M22 | Local qualification, measurements and final documentation | M21 | complete under ADR-0087 |
 
 Dependencies describe required contracts, not a mandate for parallel agent work.
 Owners below are responsibility boundaries. Independent details may be developed
@@ -953,12 +954,11 @@ M19/M21 catch residuals rather than postponing all deletion until the end.
 
 ### Qualification commands and evidence conditions
 
-The existing recipe surface supplies compilation, selected Rust units, generation,
-native solver execution, Python tests and repository quality. M00/M20 must wire
-Plan 14 scope selection before any end-to-end runner is used. A future invocation
-such as `just assessment <new-output> --plan 14` is **planned**, not claimed to work
-today. `just assessment-list --plan 14` must list the new target cases without
-executing them once that support exists.
+The [acceptance guide](../dev/architecture-acceptance.md) owns the implemented
+commands and evidence interfaces. The [M22 packet](14-m22-execution.md) and
+ADR-0087 define the local Linux design-stage qualification boundary. Application
+compilation is untimed setup; measurements cover process-case costs with Rust
+build caches preserved.
 
 At M22, use the recipes appropriate to the actual implemented consumers: Rust
 tests/doctests in required profiles, native solver and compiler/solver tests, fresh
@@ -977,8 +977,9 @@ new platforms are not automatic prerequisites for this local simulator target.
 
 Record commands, modes, native library/profile versions, source identity, physical
 inputs, seed/thread policy and result conditions. Keep pass/fail, unsupported,
-cancelled/interrupted, advisory and not_run outcomes distinct. The failure baseline
-is zero; a warning or failed required test remains open until repaired. Avoid
+cancelled/interrupted, advisory and not_run outcomes distinct. The required failure baseline
+is zero. The maintainer accepts the upstream `proc-macro-error2` warning; a failed
+required functional test remains open until repaired. Avoid
 per-command receipt logs in this plan; detailed evidence belongs with the relevant
 test/campaign artifacts, while checkpoints record state and next steps.
 
@@ -1222,3 +1223,24 @@ Earlier remaining-work paragraphs are historical checkpoints. M22 remains open f
 complete functional/scientific/runtime/static qualification, measurement, independent
 reviews and formal ADR/blueprint reconciliation. No end-to-end speedup or scientific
 qualification is claimed by closing M21.
+
+
+## Outcome — M22 local design-stage closure
+
+**Implemented, Tested and Measured:** M00–M22 and X01–X12 are complete for the
+maintainer-selected local Linux scope. The [M22 packet](14-m22-execution.md#verification)
+is the detailed evidence record for Q01–Q18, exact commands, zero-failure results,
+retained origins, 23 cached-build case-cost workloads and independent gate reviews.
+Blueprint revision 51 and ADR-0082–0087 reconcile the implemented ownership and
+supported profiles. Earlier remaining-work paragraphs are historical checkpoints.
+
+**Mistakes corrected:** actual KINSOL CSC restoration, stale DSL fixture syntax,
+source-support publication, named dynamic structural refusal and Python buffer/resource
+test contracts were repaired through their owners and affected tests. Repeating the
+already-passing workspace run was unnecessary; its result is now retained explicitly.
+
+**Deliberate deviations:** the 192 GB workstation uses larger finite allowances;
+Rust compilation is excluded from measurements and compiler caches remain intact.
+Strict Clippy cleanup and the known upstream future-compatibility warning do not block
+this design milestone by maintainer decision. Remote, distribution, exhaustive feature,
+release and empirical/global capability claims remain outside the qualified scope.

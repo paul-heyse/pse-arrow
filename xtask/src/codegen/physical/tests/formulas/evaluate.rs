@@ -42,20 +42,14 @@ pub(super) fn expression(
                 BinaryOp::Pow => left.powf(right),
             }
         }
-        ExprKind::Call {
-            function,
-            args,
-            named,
-        } => {
+        ExprKind::Call { function, args } => {
             if *function == Function::Broadcast {
                 assert_eq!(args.len(), 2);
-                assert!(named.is_empty());
                 // This oracle evaluates one already selected scalar member.
                 // Broadcast's second argument names its index, not a value.
                 return expression(&args[0], values, registry);
             }
             assert_eq!(args.len(), 1, "{function:?}");
-            assert!(named.is_empty());
             let value = expression(&args[0], values, registry);
             match function {
                 Function::Exp => value.exp(),

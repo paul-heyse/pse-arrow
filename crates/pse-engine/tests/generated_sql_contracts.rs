@@ -167,4 +167,3 @@ fn reserved_concat_refuses_before_allocation_and_keeps_its_claim_with_slices() {
     drop(slice);
     assert_eq!(budget.reserved(), 0);
 }
-

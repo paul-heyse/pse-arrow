@@ -23,6 +23,7 @@ native-process = ["pse-runtime/native-solvers"]
 [dev-dependencies]
 pse-diagnostics.workspace = true
 pse-runtime.workspace = true
+pse-rules.workspace = true
 pse-backend-native.workspace = true
 pse-kernels.workspace = true
 pse-compiler.workspace = true

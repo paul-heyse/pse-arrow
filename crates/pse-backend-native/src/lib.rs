@@ -313,7 +313,10 @@ pub struct ConicProblem {
 impl ConicProblem {
     /// Validate library CSC storage, explicit cone parameters, and PSD evidence.
     pub fn validate(&self, certificate: &GramCertificate) -> Result<(), ProblemError> {
-        use clarabel::solver::SupportedConeT::*;
+        use clarabel::solver::SupportedConeT::{
+            ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT,
+            ZeroConeT,
+        };
         self.contract.validate(DerivativeOrder::Value)?;
         self.quadratic
             .check_format()
@@ -346,7 +349,7 @@ impl ConicProblem {
                 ZeroConeT(d) | NonnegativeConeT(d) | SecondOrderConeT(d) if *d > 0 => *d,
                 ExponentialConeT() => 3,
                 #[cfg(feature = "sdp")]
-                PSDTriangleConeT(d) if *d > 0 => d
+                clarabel::solver::SupportedConeT::PSDTriangleConeT(d) if *d > 0 => d
                     .checked_add(1)
                     .and_then(|v| d.checked_mul(v))
                     .and_then(|v| v.checked_div(2))

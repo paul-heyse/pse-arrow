@@ -137,8 +137,14 @@ impl ModelBuilder {
         let mut enthalpy = pressure.clone();
         enthalpy.name = format!("vessel_enthalpy_{}", recipe.id.to_hex());
         enthalpy.output = 1;
-        let pe = format!("{}(temperature,density,methane,ethane)", pressure.name);
-        let he = format!("{}(temperature,density,methane,ethane)", enthalpy.name);
+        let pe = format!(
+            "kernel.{}(temperature,density,methane,ethane)",
+            pressure.name
+        );
+        let he = format!(
+            "kernel.{}(temperature,density,methane,ethane)",
+            enthalpy.name
+        );
         let outflow = if recipe.ports.valve.is_some() {
             "valve_k * sqrt(pressure - downstream)"
         } else {

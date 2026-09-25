@@ -24,19 +24,19 @@ from pse._workflow import (
 )
 
 __all__ = [
-    "DynamicDeclaration",
-    "FitDeclaration",
-    "NativeProviderDeclaration",
     "CaseDeclaration",
     "Contribution",
     "Definition",
     "Domain",
+    "DynamicDeclaration",
+    "FitDeclaration",
     "Formal",
     "Group",
     "GroupSlot",
     "Instance",
     "Literal",
     "ModelDeclaration",
+    "NativeProviderDeclaration",
     "Objective",
     "Parameter",
     "Port",
@@ -49,6 +49,10 @@ __all__ = [
 
 from pse.contracts.authored import (
     AuthoredDynamicCasesRow as DynamicDeclaration,
+)
+from pse.contracts.authored import (
     AuthoredFitCasesRow as FitDeclaration,
+)
+from pse.contracts.authored import (
     AuthoredNativeProvidersRow as NativeProviderDeclaration,
 )

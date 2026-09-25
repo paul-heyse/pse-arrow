@@ -472,6 +472,14 @@ fn sections(reg: &Registry) -> Result<Vec<ArrayRef>, SchemaError> {
     ])
 }
 
+fn functions() -> Vec<ArrayRef> {
+    let rows = pse_math::Function::all();
+    vec![
+        text(rows.iter().map(|f| Some(f.as_str()))),
+        text(rows.iter().map(|f| Some(f.implementation().as_str()))),
+    ]
+}
+
 #[cfg(test)]
 mod consolidation_unit {
     use super::*;
@@ -511,12 +519,4 @@ mod consolidation_unit {
         assert!(Arc::ptr_eq(clone.column(0), columns.column(0)));
         Ok(())
     }
-}
-
-fn functions() -> Vec<ArrayRef> {
-    let rows = pse_math::Function::all();
-    vec![
-        text(rows.iter().map(|f| Some(f.as_str()))),
-        text(rows.iter().map(|f| Some(f.implementation().as_str()))),
-    ]
 }

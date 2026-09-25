@@ -8,7 +8,7 @@
     reason = "a governance test reports by panicking with the offending path; the workspace panic policy governs library code"
 )]
 
-//! No `[patch]`/`[replace]` in the root manifest; Cargo uses mold only for x86_64 Linux.
+//! No `[patch]`/`[replace]` in the root manifest; Cargo uses mold only for `x86_64` Linux.
 //!
 //! A `[patch]` table makes the committed `Cargo.lock` a lie about what was built, and a
 //! `target-cpu` makes a developer machine and CI produce different floating-point

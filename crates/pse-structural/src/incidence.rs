@@ -293,11 +293,12 @@ impl CaseIncidence {
             return Err(invalid());
         }
         for (r, c) in m.row_to_var.iter().enumerate() {
-            if let Some(c) = c {
-                if *c >= inc.n_vars || m.var_to_row[*c] != Some(r) || !inc.neighbors(r).contains(c)
-                {
-                    return Err(invalid());
-                }
+            if let Some(c) = c
+                && (*c >= inc.n_vars
+                    || m.var_to_row[*c] != Some(r)
+                    || !inc.neighbors(r).contains(c))
+            {
+                return Err(invalid());
             }
         }
         let dm = DulmageMendelsohnPartition::from_matching(&inc, &m);
@@ -407,10 +408,10 @@ impl CaseIncidence {
         for (i, b) in blocks.iter().enumerate() {
             for &r in &b.eq_rows {
                 for c in inc.neighbors(r) {
-                    if let Some(&j) = owner.get(c) {
-                        if i != j {
-                            graph.add_edge(nodes[j], nodes[i], ());
-                        }
+                    if let Some(&j) = owner.get(c)
+                        && i != j
+                    {
+                        graph.add_edge(nodes[j], nodes[i], ());
                     }
                 }
             }

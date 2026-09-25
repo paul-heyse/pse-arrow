@@ -6,4 +6,4 @@
 //! refusal and ownership tests declare their deliberately smaller budgets locally.
 
 /// One shared pool for the workflow's sessions, leaving workstation headroom.
-pub(crate) const MEMORY_LIMIT_BYTES: usize = 32 << 30;
+pub(crate) const MEMORY_LIMIT_BYTES: usize = 64 << 30;

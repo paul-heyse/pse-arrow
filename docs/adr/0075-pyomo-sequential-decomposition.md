@@ -1,7 +1,7 @@
 ---
 id: ADR-0075
 title: Select flowsheet tears through Pyomo at run time and withdraw compiler tear selection
-status: proposed
+status: superseded
 date: 2026-09-23
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§3.1, §3.2, §3.3, §6.7, §6.11, §6.13, §6.15.5, §12.5, §14.1
 review: docs/design_review/reviews/design_review_pyomo-sequential-decomposition_2026-09-23.md
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0083
 revisit: The follow-up ADR that runs plan.sequential_modular@1 through Pyomo SequentialDecomposition and supersedes ADR-0015 is opened (register R-32); Pyomo changes select_tear_heuristic or pyomo.network's graph API; or a `plan.tear_selection` cycle-budget refusal occurs on a supported flowsheet.
 verification: Pyomo-adapter unit tests for `select_tears` (added with the implementation) — heuristic tear set equal to Pyomo's `select_tear_heuristic` first set on the Slice B recycle topology; `mip` and `weighted` objectives and acyclicity checked, including a solver returning 0.9999999; `plan.tear_selection` refusals (cycle budget, non-optimal MILP, cyclic result); a plan test that a changed `tear_method` or `tear_cost` takes effect on the next plan run; `authored.connections.tear_cost` row-check fixture; `governance / adr-lint`.
 ---
@@ -188,3 +188,4 @@ evidence is `Interface-checked`:
   execution deferred to R-32. `needs-review` until the review records Accept or
   Accept-scoped.
 - 2026-09-23 — re-review returned Revise (minor): `select_tears` became a plan stage that the plan binds by its own run (R1, R2); failure class, run binding, lexicographic weight, acyclic short-circuit, evidence paths and deletion list added (R3–R6).
+- 2026-09-24 — superseded by ADR-0083.

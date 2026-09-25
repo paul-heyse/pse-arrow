@@ -12,42 +12,11 @@ import pytest
 from pse.codec import converter, structure_rows
 from pse.contracts import values as contract_values
 from pse.contracts.authored import AuthoredPackagesRow
-from pse.contracts.compiled import CompiledSolvePlansRow
-from pse.contracts.enums import EquationFamily, EquationRole, SolvePlanClass
+from pse.contracts.enums import NativeVariableDomain
 from pse.contracts.extension_types import PseEnum, PseOrdinalRef
-from pse.contracts.normalized import NormalizedConfigValuesFieldValue
 from pse.contracts.reference import ReferenceUnitsRow
 from pse.contracts.runtime import RuntimePublicationsFieldMembersItemSelection
 from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
-
-
-@pytest.mark.unit
-def test_tagged_configuration_has_one_typed_payload() -> None:
-    value: dict[str, object] = {
-        "kind": "unsigned",
-        "boolean": None,
-        "signed": None,
-        "unsigned": {"value": 2**64 - 1},
-        "real": None,
-        "text": None,
-        "semantic_id": None,
-        "enumeration": None,
-        "index": None,
-        "quantity": None,
-    }
-    parsed = converter().structure(value, NormalizedConfigValuesFieldValue)
-    assert parsed.unsigned is not None
-    assert parsed.unsigned.value == 2**64 - 1
-    for change in (
-        {"kind": "invented"},
-        {"kind": "boolean"},
-        {"unsigned": None},
-        {"boolean": {"value": True}},
-        {"unsigned": {"value": -1}},
-        {"unsigned": {"value": 1, "legacy": True}},
-    ):
-        with pytest.raises((ValueError, cattrs.BaseValidationError)):
-            converter().structure(value | change, NormalizedConfigValuesFieldValue)
 
 
 @pytest.mark.unit
@@ -186,45 +155,6 @@ def test_parameterized_metadata_preserves_actual_binding() -> None:
         PseOrdinalRef.__arrow_ext_deserialize__(pa.int64(), b'{"v":1}')
 
 
-@pytest.mark.unit
-def test_equation_taxonomy_has_conservative_unclassified_and_producer_roles() -> None:
-    assert EquationFamily.UNCLASSIFIED.value == "UNCLASSIFIED"
-    assert EquationFamily.GENERAL_NONLINEAR.value == "GENERAL_NONLINEAR"
-    assert {member.value for member in EquationRole} == {
-        "HARD_FEASIBILITY",
-        "DEFINITION",
-        "LINKING",
-        "DOMAIN_GUARD",
-        "REPORTING",
-        "APPROXIMATION",
-    }
-
-
-@pytest.mark.unit
-def test_keyword_attribute_round_trips_exact_declared_wire_name() -> None:
-    values: dict[str, object] = {
-        "plan_id": bytes([1] * 16),
-        "problem_id": bytes([2] * 16),
-        "class": "SQUARE_NLE",
-        "justification": "square smooth equations with no objective",
-        "modifiers": ["continuation on failure"],
-    }
-    codec = converter()
-    row = codec.structure(values, CompiledSolvePlansRow)
-    assert row.class_ is SolvePlanClass.SQUARE_NLE
-    encoded = codec.unstructure(row)
-    assert encoded["class"] == values["class"]
-    assert "class_" not in encoded
-    assert codec.structure(encoded, CompiledSolvePlansRow) == row
-    for unknown in ("class_", "undeclared"):
-        with pytest.raises(cattrs.BaseValidationError):
-            codec.structure({**values, unknown: "NLP_LOCAL"}, CompiledSolvePlansRow)
-    alias_only = {key: value for key, value in values.items() if key != "class"}
-    alias_only["class_"] = "SQUARE_NLE"
-    with pytest.raises(cattrs.BaseValidationError):
-        codec.structure(alias_only, CompiledSolvePlansRow)
-
-
 @attrs.frozen(kw_only=True)
 class _KeywordCollision:
     class__: str = attrs.field(metadata={FIELD_NAME_METADATA: "class"})
@@ -254,8 +184,11 @@ def test_text_hook_preserves_actual_constructor_and_refuses_invalid_enum() -> No
     text = codec.structure("declared", _DeclaredText)
     assert type(text) is _DeclaredText
     assert text == "declared"
-    assert codec.structure("SQUARE_NLE", SolvePlanClass) is SolvePlanClass.SQUARE_NLE
+    assert (
+        codec.structure("continuous", NativeVariableDomain)
+        is NativeVariableDomain.CONTINUOUS
+    )
     with pytest.raises(ValueError):
-        codec.structure("undeclared", SolvePlanClass)
+        codec.structure("undeclared", NativeVariableDomain)
     with pytest.raises(ValueError):
         codec.structure(123, _DeclaredText)
