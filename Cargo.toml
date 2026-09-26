@@ -128,7 +128,7 @@ deltalake = { package = "deltalake-core", path = "vendor/delta-rs/crates/core", 
 url = { version = "=2.5.8", features = ["serde"] }
 
 # Required by DataFusion 55 (^0.13.2); 0.14.x exists on crates.io and must not be taken.
-object_store = "=0.13.2"
+object_store = "=0.14.2"
 
 # ---- Python boundary (pse-py only; features added in that crate) ----
 pyo3 = "=0.29.2"
