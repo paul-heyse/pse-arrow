@@ -205,7 +205,7 @@ feos-core = { version = "=0.10.1", default-features = false }
 num-dual = { version = "=0.14.2", default-features = false }
 nalgebra = { version = "=0.35.0", default-features = false, features = ["std"] }
 highs = "=2.4.0"
-highs-sys = "=1.14.3"
+highs-sys = "=1.15.0"
 clarabel = { version = "=0.11.1", default-features = false, features = [
   "serde",
 ] }
