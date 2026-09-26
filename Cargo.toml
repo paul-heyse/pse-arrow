@@ -79,26 +79,26 @@ pse-buildinfo = { path = "crates/pse-buildinfo" }
 # passed by every test invocation, never a default. `ipc_compression` and `prettyprint`
 # are never on an identity path; DataFusion's own features may unify lz4/zstd into
 # arrow-ipc, and the call-site bans (clippy.toml) keep them off pse.canon.v2 paths.
-arrow = { version = "=59.3.0", default-features = false, features = [
+arrow = { version = "=60.0.0", default-features = false, features = [
   "ipc",
   "ffi",
   "canonical_extension_types",
 ] }
-arrow-array = { version = "=59.3.0", default-features = false, features = [
+arrow-array = { version = "=60.0.0", default-features = false, features = [
   "ffi",
 ] }
-arrow-buffer = "=59.3.0"
-arrow-schema = { version = "=59.3.0", default-features = false, features = [
+arrow-buffer = "=60.0.0"
+arrow-schema = { version = "=60.0.0", default-features = false, features = [
   "ffi",
   "canonical_extension_types",
   "serde",
 ] }
-arrow-ipc = { version = "=59.3.0", default-features = false }
-arrow-select = "=59.3.0"
-arrow-cast = { version = "=59.3.0", default-features = false }
-arrow-ord = "=59.3.0"
-arrow-row = "=59.3.0"
-parquet = { version = "=59.3.0", default-features = false, features = [
+arrow-ipc = { version = "=60.0.0", default-features = false }
+arrow-select = "=60.0.0"
+arrow-cast = { version = "=60.0.0", default-features = false }
+arrow-ord = "=60.0.0"
+arrow-row = "=60.0.0"
+parquet = { version = "=60.0.0", default-features = false, features = [
   "arrow",
   "async",
   "object_store",
