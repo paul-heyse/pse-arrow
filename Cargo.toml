@@ -209,7 +209,7 @@ highs-sys = "=1.14.3"
 clarabel = { version = "=0.11.1", default-features = false, features = [
   "serde",
 ] }
-quantity = { version = "=0.14.0", default-features = false }
+quantity = { version = "=0.15.0", default-features = false }
 sundials-sys = { version = "=0.6.2", default-features = false, features = [
   "kinsol",
   "klu",
