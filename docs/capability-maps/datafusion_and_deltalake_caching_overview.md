@@ -8,8 +8,8 @@ date: 2026-09-17
 
 **Interface-checked; implementation described below is not performance certification.**
 This replaces the speculative cache-tier overview. Execution authority is
-[Plan 09](../plans/09-native-caching-and-pivot-completion.md) and the proposed
-[ADR-0070](../adr/0070-native-cache-lifetimes-and-consumed-inputs.md).
+[Plan 09](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/09-native-caching-and-pivot-completion.md) and the proposed
+[ADR-0070](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/adr/0070-native-cache-lifetimes-and-consumed-inputs.md).
 
 ## Versions and reproducibility
 

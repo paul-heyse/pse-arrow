@@ -12,8 +12,8 @@ reviewed: 2026-09-14
 DataFusion the default data and execution foundation; §3.3.1 makes every capability
 eligible. Historical Reject/defer/no-consumer language
 below records earlier assessments, not current prohibitions. Use the
-[full-capability deployment matrix](../design_review/reviews/full-arrow-datafusion-capability-matrix-2026-09-14.md)
-for current dispositions and the [review](../design_review/reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md)
+[full-capability deployment matrix](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/full-arrow-datafusion-capability-matrix-2026-09-14.md)
+for current dispositions and the [review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md)
 for actual implementation gaps. This update did not regenerate historical rustdoc
 JSON or probe receipts. New [pinned feature and behavioral evidence](../design_review/evidence/full-arrow-datafusion-2026-09-14/README.md)
 distinguishes native availability from PSE support, including raw ALL set-builder
@@ -29,7 +29,7 @@ The current design remains **Proposed**; pinned library mechanisms are
 
 `[review:E1]`–`[review:E6]` refer to the [retained six-group characterization](../design_review/evidence/blueprint-rev4-2026-09-13/README.md)
 and its conditions: Rust 1.98.1, Arrow 59.3.0, DataFusion 55.1.0, dev,
-Arrow force_validate, zero failure baseline. The [revision-4 review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+Arrow force_validate, zero failure baseline. The [revision-4 review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
 explains the counterexamples; these markers do not certify a platform implementation.
 
 | Current decision | Library mechanism and boundary | Evidence / adoption gate |
@@ -50,7 +50,7 @@ explains the counterexamples; these markers do not certify a platform implementa
 
 ## 0. Purpose, sourcing constraint, and evidence rules
 
-Per cluster: what DataFusion can actually do, which APIs the blueprint's requirements land on, what we deliberately will not use, and where the blueprint assumes a capability that does not exist or is under-specified. A second pass asks what the engine offers that the blueprint has *not* claimed, which would improve alignment with `design_principles/DATA_MODEL_DESIGN_CHARTER.md` (DM-01…DM-60, gates G1–G7).
+Per cluster: what DataFusion can actually do, which APIs the blueprint's requirements land on, what we deliberately will not use, and where the blueprint assumes a capability that does not exist or is under-specified. A second pass asks what the engine offers that the blueprint has *not* claimed, which would improve alignment with the design principles (`design_review/design_principles/core/design-principles.md`; charter IDs map through its §I) (DM-01…DM-60, gates G1–G7).
 
 **Sourcing constraint.** Written **without** the repository's existing Arrow/DataFusion material — no `docs/library_ref/` prose, no `datafusion-pyarrow-*` skills, no pre-existing `build/facts/df55-default` surface (which is at 55.0.0 and would misrepresent the pin), no vendored `datafusion/` checkout. Two of those are now moot rather than merely avoided: `docs/library_ref/` has been **deleted**, and the vendored checkouts survive only as orphaned worktrees whose parent repositories are gone, so their tags can no longer be verified. Five fresh lanes:
 
@@ -926,7 +926,7 @@ Selected from the 55.0.0 changelog `[gh:apache/datafusion@55.1.0/dev/changelog/5
 
 ## 13. Principle-alignment register (DataFusion)
 
-Capabilities the blueprint does **not** claim, which would improve alignment with `DATA_MODEL_DESIGN_CHARTER.md`. Every row names a principle and the hand-written work or risk it removes. Rejections are included, because a recorded rejection is worth as much as an adoption.
+Capabilities the blueprint does **not** claim, which would improve alignment with the design principles (`design_review/design_principles/core/design-principles.md`; charter IDs map through its §I). Every row names a principle and the hand-written work or risk it removes. Rejections are included, because a recorded rejection is worth as much as an adoption.
 
 In the previous edition this table combined Arrow and DataFusion rows. The Arrow rows now live in that map's §11; these are DataFusion's. Numbering is local to this map, and rows marked **new** come from §12's Pass-3 enumeration or from this edition's probes.
 

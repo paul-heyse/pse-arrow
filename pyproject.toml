@@ -411,7 +411,7 @@ forbidden_modules = [
   "pse._array",
   "pse._build",
 ]
-# Plan 10 N15 / ADR-0073: generated scalar identities use the sole native codec.
+# Generated scalar identities use the sole native codec (blueprint §21.5).
 ignore_imports = ["pse.contracts.values -> pse._build"]
 
 [tool.pytest.ini_options]

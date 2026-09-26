@@ -27,14 +27,14 @@ is enough". Cite `blueprint §N.M` rather than restating the design.*
 
 ## Context
 
-Two or three sentences: the situation that forces a decision, the blueprint
-section it governs, and the design-review finding that raised it, if any.
+Two or three sentences: the situation that forces a decision, the architecture
+section it governs (`blueprint §N.M`), and the design-review finding that raised it, if any.
 
 ## Scope
 
 What this record binds and what it deliberately leaves open. A `must-gap`
 narrows the supported scope here; it never claims compliance. If the record
-*amends* the blueprint rather than deviating from it, say so — that is why its
+*amends* the architecture sections rather than deviating from them, say so — that is why its
 level is `decision`.
 
 ## Drivers
@@ -73,7 +73,8 @@ A short list, or a two-row table, only when the options were genuinely close.
 
 ## More information
 
-Links: blueprint sections, the design-review finding, the capability-map
+Links: architecture sections, the design-review finding (or its `git:` source once
+retired), the capability-map
 evidence, the register row, and the plan/disposition owner that implements it.
 
 ## Status history

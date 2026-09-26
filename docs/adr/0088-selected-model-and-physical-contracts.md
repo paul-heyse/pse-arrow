@@ -1,13 +1,13 @@
 ---
 id: ADR-0088
 title: Selected model admission and physical provider contracts
-status: proposed
+status: accepted
 date: 2026-09-25
 deciders: [paul-heyse]
 level: decision
 principles: [DP-01, DP-03, DP-06, DP-08, DP-15, PS-01, PS-02, PS-03]
 blueprint: [§0.5, §6.4, §6.6, §9.8, §14.3]
-review: docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
 evidence: Implemented
 supersedes: []
 superseded-by: null
@@ -26,8 +26,8 @@ amends the active blueprint scope without rewriting accepted historical ADR bodi
 ## Scope
 
 The contract below and its existing owners; implementation sequencing is in
-[the execution packet](../plans/16-p00-p04-execution.md). Acceptance through the
-repository decision PR route remains pending; implementation is user-authorized.
+[the execution packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p00-p04-execution.md). Implementation was user-authorized;
+the maintainer accepted the decision after Plan 16 closed.
 
 ## Drivers
 
@@ -66,7 +66,7 @@ distinct; failed closure retains an unusable candidate unless explicit qualified
 is requested. P06 derives mathematical capability from admitted operations, shares
 bound-dependent affine/obligation facts and separates exact Gram evidence from opt-in
 numerical PSD qualification. These additions are Implemented; the
-[P05–P06 packet](../plans/16-p05-p06-execution.md) records scoped test evidence.
+[P05–P06 packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p05-p06-execution.md) records scoped test evidence.
 
 Existing callers and fixtures move with their replacement. No compatibility execution
 path survives merely to preserve old assumptions.
@@ -87,16 +87,18 @@ boundary; whole-system acceptance is not inferred from these targeted checks.
 One authority reduces semantic drift; explicit contracts require coordinated changes
 across consumers and versioned identities.
 
-The [P05–P06 execution packet](../plans/16-p05-p06-execution.md) and
-[implementation review](../design_review/reviews/design_review_plan16-numerics-facts_2026-09-25.md)
+The [P05–P06 execution packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p05-p06-execution.md) and
+[implementation review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_plan16-numerics-facts_2026-09-25.md)
 record the numerical/fact extensions and their scoped qualification.
 
 ## More information
 
-[Plan 16](../plans/16-data-model-architecture.md),
-[target review](../design_review/reviews/design_review_plan16-foundations_2026-09-25.md),
+[Plan 16](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-data-model-architecture.md),
+[target review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md),
 and blueprint sections named in the front matter.
 
 ## Status history
 
 - 2026-09-25 — proposed before affected implementation; decision PR acceptance pending.
+- 2026-09-26 — accepted by the maintainer as implemented through Plan 16 (review verdict Accept;
+  local Linux qualification and independent review recorded in blueprint §24.2).

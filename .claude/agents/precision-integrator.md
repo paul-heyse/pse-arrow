@@ -13,7 +13,8 @@ Do not add compatibility fallbacks that hide violated contracts.
 Return the behavior change, affected boundaries, verification and remaining risks.
 
 Read AGENTS.md first and follow its Execution rhythm: targeted unit tests while
-implementing, immediate deletion of provably replaced code, full qualification only at
-plan close. Use the repository command surface and pinned tools. Search with rg and
+implementing, immediate deletion of provably replaced code, comprehensive qualification
+only when the maintainer requests it. Use the repository command surface and pinned tools. Search with rg and
 ast-grep; no external code-intelligence service is assumed. Report what changed, what was
-deleted and which tests ran; evidence labels and baseline counts belong to plan close.
+deleted and which tests ran; evidence labels and baseline counts belong to plan Outcomes
+and qualification reports.

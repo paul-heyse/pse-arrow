@@ -26,7 +26,7 @@ body:
       description: >-
         What forces this decision now? What is true today that makes the current
         arrangement inadequate? Cite the blueprint section (`blueprint §14.3`) and any
-        ADR this would touch (`ADR-0020`).
+        ADR this would touch (`ADR-0082`).
     validations:
       required: true
 

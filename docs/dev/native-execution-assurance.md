@@ -6,9 +6,11 @@ planners, selected-source witnesses and lifetime guards. `pse-testkit` is develo
 only and uses the same `EngineResources` and `EngineFactory` constructors as runtime.
 This guide covers relational/storage execution, not the mathematical compiler or
 native solver lifecycle. The latter uses Salsa preparation and the runtime's joined
-native supervisor. See [ADR-0073](../adr/0073-native-engine-resource-boundaries.md) for
-the original engine boundary and the current [Plan 14 inventory](../plans/14-execution-inventory.md)
-and [workflow guide](native-workflow.md) for status and selected consumers.
+native supervisor. Crate boundaries are owned by
+[§3.2](../authoritative_design/sections/workspace-and-dependencies.md#section-3-2) and
+engine observation by
+[§23.1](../authoritative_design/sections/operations-and-validation.md#section-23-1); the
+[workflow guide](native-workflow.md) covers the solver-side consumers.
 
 ## Choose the evidence for the claim
 
@@ -48,7 +50,7 @@ invocation. Do not infer a common operation identity for earlier standalone prep
 Native phase spans and metrics replace repeated string inspection where their contracts
 answer the question. Diagnostic plan rendering remains useful for inspection behavior
 itself. Native observations complement the physical, ownership and publication
-witnesses in Plan 14's acceptance inventory. M22 qualifies those complete journeys.
+tests; comprehensive qualification covers those complete journeys.
 
 ## Isolated development fixture
 
@@ -107,11 +109,10 @@ qualification obligations.
 - `just family-check`: one native type universe; independently released tracing is
   classified separately and its Apache DataFusion dependencies remain checked.
 
-All failure baselines are zero. Plan 14's historical local Linux qualification is
-recorded in [M22](../plans/14-m22-execution.md); current remediation and qualification
-belong to the [Plan 16 execution packet](../plans/16-p14-p18-execution.md).
+All failure baselines are zero. The current qualification basis is
+[§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
 Targeted units and compilation support implementation. Full integration and quality
-checks run at the end of a plan.
+checks run when the maintainer requests qualification.
 
 `just assessment <output>` collects the full local default/native/Python scope without
 stopping at the first failure. `just native-test` and `just native-python <output>`
@@ -120,6 +121,7 @@ After functional qualification, `just case-measure <output> --functional-from <r
 collects the declared case campaign using Criterion CSV samples. Compilation is untimed
 setup. Reports distinguish fresh execution, unchanged-input reuse and explicitly
 reviewed transfer; neither a source digest nor a review document establishes behavior.
+The [qualification guide](validation-assessment.md) describes these commands.
 
 ## Pinned references
 

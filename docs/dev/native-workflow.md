@@ -6,12 +6,15 @@ date: 2026-09-24
 
 # Native workflow
 
-**Implemented:** Plan 14's [M15–M16](../plans/14-m15-m16-execution.md) and
-[M17–M18](../plans/14-m17-m18-execution.md) packets connect generated declarations,
+**Implemented:** the public Rust and Python workflow connects generated declarations,
 the Salsa compiler, library-owned mathematics, native algebraic/dynamic solvers,
 parameter fitting, the existing supervisor and exact publication. Targeted
-contract tests establish the boundaries below. Full scientific and installed
-workflow qualification is recorded in the M22 packet.
+contract tests establish the boundaries below. The architecture owners are
+[§13, §19 and §21](../authoritative_design/sections/workflows-and-results.md),
+[§18](../authoritative_design/sections/numerical-execution.md#section-18) and
+[§20](../authoritative_design/sections/identity-and-publication.md#section-20); the
+current qualification basis is
+[§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
 
 ## Declare and prepare
 
@@ -128,7 +131,7 @@ conserved amount/internal energy with algebraic temperature, density and pressur
 It uses the same FeOS factory and expression compiler. Its documented role map
 requires explicit physical ports, operation contracts, values and positive scales;
 optional valve outflow requires the positive pressure-drop domain. The recipe is
-implemented and exercised by the scoped M22 physical process tests.
+implemented and exercised by the native conformance process tests.
 
 A fit declaration binds shared fixed/free parameters, steady or dynamic experiments
 and existing observation IDs. Included observations require finite physical values,
@@ -223,7 +226,7 @@ set. For direct Python commands under the native profile, source
 `scripts/native-solver-env.sh` and prepend `$IPOPT_DIR/lib` to `LD_LIBRARY_PATH`.
 The compiled module's primary RUNPATH does not resolve transitive MUMPS libraries
 on its own. The local native editable profile supplies this path through its recipes. Portable
-distribution repair remains release work outside M22.
+distribution repair remains release work outside the local qualification scope.
 
 A clean native build also needs libclang's matching development resource headers.
 When using a local LLVM installation, select its `LIBCLANG_PATH` and `CLANG_PATH`
@@ -233,20 +236,17 @@ libclang installation can appear to work while generated bindings are cached, th
 fail fresh binding generation with a missing `stddef.h`. Use the same selection for generation, extension builds
 and native test builds; do not mix resource headers from another LLVM version.
 
-The execution packets record exact executed counts and remaining gates. Targeted native units
-use `pse-relations/force-validate`. These are not convergence, storage fault, throughput,
-RSS-bound, empirical-validity or general solver-coverage claims; M22 records its
-selected process/convergence/publication evidence separately.
+Targeted native units use `pse-relations/force-validate`. These are not convergence,
+storage fault, throughput, RSS-bound, empirical-validity or general solver-coverage
+claims; the process, convergence and publication evidence has its own scope.
 
-[M19–M20](../plans/14-m19-m20-execution.md) supplies shared authored process fixtures
-in `tests/fixtures/plan14`, independent offline references, public Rust/Python
-acceptance bodies and guarded Criterion workloads. `just plan14-discover` compiles
-and enumerates the declared native selection without running it. Actual execution
-via `plan14-native`, `plan14-python`, `plan14-measure` and `plan14-reviews` belongs to
-the completed M22 local scope. See the [acceptance guide](architecture-acceptance.md) for
-profiles, evidence contracts and the functional-before-performance sequence.
+Shared authored process fixtures in `tests/fixtures/plan14`, independent offline
+references, public Rust/Python process tests and guarded Criterion workloads exercise
+the workflow. `just native-test`, `just native-python <output>` and `just case-measure`
+execute them. See the [qualification guide](validation-assessment.md) for profiles,
+fixture generation, measurement conditions and the functional-before-performance order.
 
-## Physical contracts after M21
+## Physical contracts
 
 A native FeOS provider declaration includes a finite `envelope` for temperature,
 density, pressure and three ordered component fractions plus provenance. Pressure
@@ -266,8 +266,8 @@ when balances are present. Diffsol controls these integrated physical flux error
 separately from state tolerances. `runtime.physical_checks` exposes closure, canonical
 unit, tolerance, nullable acceptance, errors and declaration provenance for solves,
 simulation and fitting. Read it alongside native status and mathematical feasibility.
-The same generated sources/results survive exact publication; M22 exercised the
-selected installed-process and reopen journeys.
+The same generated sources/results survive exact publication; the native process
+tests exercise publication and reopening.
 
 Build caching, persistent native prefixes and experimental nightly commands are documented
 in [Rust build reuse](build-performance.md).

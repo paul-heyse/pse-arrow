@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Explicit generated-contract and dynamic-hook annotation checks (ADR-0074).
+"""Explicit generated-contract and dynamic-hook annotation checks (blueprint §21.5).
 
 Normal quality and code generation check the complete candidate contract tree.
 Converter hooks call ``check_class`` when a dynamic attrs class enters the boundary.

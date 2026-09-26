@@ -1,13 +1,13 @@
 ---
 id: ADR-0092
 title: Ordinary execution evidence and qualification
-status: proposed
+status: accepted
 date: 2026-09-25
 deciders: [paul-heyse]
 level: decision
 principles: [DP-16, DP-22, DP-23]
 blueprint: [§24.1, §24.3]
-review: docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
 evidence: Implemented
 supersedes: []
 superseded-by: null
@@ -26,8 +26,8 @@ amends the active blueprint scope without rewriting accepted historical ADR bodi
 ## Scope
 
 The contract below and its existing owners; implementation sequencing is in
-[the execution packet](../plans/16-p14-p18-execution.md). Acceptance through the
-repository decision PR route remains pending; implementation is user-authorized.
+[the execution packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p14-p18-execution.md). Implementation was user-authorized;
+the maintainer accepted the decision after Plan 16 closed.
 
 ## Drivers
 
@@ -69,10 +69,12 @@ across consumers and versioned identities.
 
 ## More information
 
-[Plan 16](../plans/16-data-model-architecture.md),
-[target review](../design_review/reviews/design_review_plan16-foundations_2026-09-25.md),
+[Plan 16](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-data-model-architecture.md),
+[target review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md),
 and blueprint sections named in the front matter.
 
 ## Status history
 
 - 2026-09-25 — proposed before affected implementation; decision PR acceptance pending.
+- 2026-09-26 — accepted by the maintainer as implemented through Plan 16 (review verdict Accept;
+  local Linux qualification and independent review recorded in blueprint §24.2).

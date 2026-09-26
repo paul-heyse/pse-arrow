@@ -18,10 +18,11 @@ Do not call a stub or a focused green check terminal acceptance. Delete each rep
 mechanism with its callers and tests once its replacement's targeted tests pass.
 
 Read AGENTS.md first and follow its Execution rhythm: targeted unit tests while
-implementing, immediate deletion of provably replaced code, full qualification only at
-plan close. Use the repository command surface and pinned tools. Search with rg and
+implementing, immediate deletion of provably replaced code, comprehensive qualification
+only when the maintainer requests it. Use the repository command surface and pinned tools. Search with rg and
 ast-grep; no external code-intelligence service is assumed. Report what changed, what was
-deleted and which tests ran; evidence labels and baseline counts belong to plan close.
+deleted and which tests ran; evidence labels and baseline counts belong to plan Outcomes
+and qualification reports.
 
 For architecture context, start at docs/authoritative_design/README.md and the relevant
 current-work owner. Follow stable section identities into focused documents, then inspect

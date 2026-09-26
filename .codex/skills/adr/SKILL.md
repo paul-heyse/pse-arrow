@@ -13,6 +13,10 @@ why its contracts read the way they do.** Design reviews under `docs/design_revi
 evidence, not authority. Plans under `docs/plans/` record how work is sequenced
 and are living documents; an ADR is immutable once accepted.
 
+The tree keeps only decisions whose rationale explains the current system (ADR-0096).
+Obsolete records were retired to Git history; their numbers are never reused, so the
+index has gaps. To understand the current system, read the owning section first.
+
 ## 1. Does this change need one?
 
 | Change | Needs |
@@ -31,7 +35,7 @@ just adr-new my-slug --title "Imperative one-liner"     # or:
 python3 scripts/adr.py new my-slug --title "Imperative one-liner"
 ```
 
-That allocates the next number, copies `docs/adr/template.md` and stamps today's
+That allocates the highest retained number plus one, copies `docs/adr/template.md` and stamps today's
 date. Then fill the front matter — these are the **design principles §H** fields, and the
 lint checks the required fields (optional traceability fields are described below):
 
@@ -42,12 +46,12 @@ lint checks the required fields (optional traceability fields are described belo
 | `status` | `proposed` \| `accepted` \| `rejected` \| `deprecated` \| `superseded`. |
 | `date` | `YYYY-MM-DD`, the day the decision was taken. |
 | `deciders` | GitHub handles. |
-| `level` | `decision` \| `should-deviation` \| `must-gap`. A `must-gap` **narrows the supported scope**; it never claims compliance. A record that *amends* the blueprint is a `decision`, not a deviation — say so in Scope. |
-| `principles` | The principle IDs this bears on: architectural foundations `AP-01` … `AP-06`, core refinements `DP-01` … `DP-24`, process-simulator profile `PS-01` … `PS-13` (see `docs/design_review/design_principles/standard.toml`). Accepted records keep their legacy `DM-nn` IDs. Cite the ones the decision actually turns on, not a wall. |
-| `blueprint` | The sections governed: `[§14.3, §D7]`. Every citation must resolve to one owning heading in `blueprint.md` or `authoritative_design/sections/`, including `§D1` … `§D14`. |
-| `review` | A path into `docs/design_review/reviews/…` (optionally `#anchor`) where a finding motivated this, **or** `not-required: <reason>`. |
+| `level` | `decision` \| `should-deviation` \| `must-gap`. A `must-gap` **narrows the supported scope**; it never claims compliance. A record that *amends* the architecture sections is a `decision`, not a deviation — say so in Scope. |
+| `principles` | The principle IDs this bears on: architectural foundations `AP-01` … `AP-06`, core refinements `DP-01` … `DP-24`, process-simulator profile `PS-01` … `PS-13` (see `docs/design_review/design_principles/standard.toml`). Accepted records keep their legacy `DM-nn` IDs from the retired charter. Cite the ones the decision actually turns on, not a wall. |
+| `blueprint` | The sections governed: `[§14.3, §D7]`. Every citation must resolve to one owning heading under `docs/authoritative_design/sections/`, including `§D1` … `§D14`. |
+| `review` | A path into `docs/design_review/reviews/…` (optionally `#anchor`) where a finding motivated this, an immutable historical source `git:<commit>:<path>[#anchor]` when that review was retired, **or** `not-required: <reason>`. |
 | `evidence` | A design principles §D label — `Proposed`, `Interface-checked`, `Implemented`, `Tested`, `Measured`, `Formally established`. |
-| `supersedes` / `superseded-by` | Symmetric: if A supersedes B, B's `superseded-by` is A and B's status is `superseded`. Use `just adr-supersede`. |
+| `supersedes` / `superseded-by` | Symmetric for a retained pair: if A supersedes B and both remain, B's `superseded-by` is A and B's status is `superseded`. Use `just adr-supersede`. A retained record may name a retired predecessor; a record superseded by a retired one is itself retired. |
 | `revisit` | An **observable trigger**, not a date. "A measurement shows X", "crate Y releases Z", "the first non-FFI `unsafe`". If the trigger is not imminent, add a row to `docs/adr/register.md` as well. |
 | `verification` | Name the scenario/property and the analysis, contract test, lint or measurement that can settle it. An architectural judgment names the review argument and scope; a syntax lint alone cannot establish architecture. Avoid an unspecified "code review". |
 | `standard` (optional) | Snapshot the reviewed core/profile versions when relevant; current version selection remains in `standard.toml`. |
@@ -55,8 +59,8 @@ lint checks the required fields (optional traceability fields are described belo
 
 Body sections: **Context · Scope · Drivers · Options · Outcome** (with
 *Consequences*, *Compensating controls*, *Confirmation*) **· Pros and cons ·
-More information · Status history**. Charter §H: *"a short, concrete decision
-record is sufficient"* — one to three sentences per section. Cite
+More information · Status history**. A short, concrete decision record is
+sufficient — one to three sentences per section. Cite
 `blueprint §14.3` instead of restating it.
 
 ### Architectural drivers and tracking
@@ -93,7 +97,7 @@ the design principles' §G "attractive claim" table is about.
 
 ### Citation forms
 
-`blueprint §14.3` · `§D7` · `ADR-0020` · `AP-06` · `DP-09` · `PS-10` · `G4` · register row `R-05`.
+`blueprint §14.3` · `§D7` · `ADR-0082` · `AP-06` · `DP-09` · `PS-10` · `G4` · register row `R-05`.
 In front matter, blueprint sections carry the `§`: `blueprint: [§3.1, §D1]`.
 
 ## 3. Lint, index, supersede
@@ -101,14 +105,15 @@ In front matter, blueprint sections carry the `§`: `blueprint: [§3.1, §D1]`.
 ```bash
 just adr-lint            # python3 scripts/adr.py lint  +  check_register.py --lint
 just adr-index           # regenerates docs/adr/README.md
-just adr-supersede 0020 0041
+just adr-supersede <old> <new>
 just register-check      # rows that are due, and runs the automatable checks
 ```
 
-`scripts/adr.py lint` checks the filename pattern, contiguous numbering from
-0001, the required keys, the enums, `AP-NN`/`DP-NN`/`PS-NN` (or legacy `DM-NN`) shapes, that every `§` citation
-resolves to a real blueprint heading, that the `review` path exists, symmetric
-supersession, and **immutability**. `scripts/adr.py index` regenerates
+`scripts/adr.py lint` checks the filename pattern, unique numbers, that the highest
+number issued on `origin/main` is still present (so allocation never reuses a number),
+the required keys, the enums, `AP-NN`/`DP-NN`/`PS-NN` (or legacy `DM-NN`) shapes, that
+every `§` citation resolves to one owning heading, that the `review` path or Git source
+exists, symmetric supersession of retained pairs, and **immutability**. `scripts/adr.py index` regenerates
 `docs/adr/README.md`; never hand-edit that generated index. Book navigation is derived
 during publication from `docs/site.toml`, not edited by the ADR tool.
 
@@ -124,6 +129,19 @@ can detect violations when the maintainer chooses to run them.
 changed and why, run `just adr-supersede <old> <new>`, and append the reason to
 the new record's Status history. Do not edit the old one's argument.
 
+**Reference relocation** is the one other permitted edit (ADR-0096): when a cited review
+or linked plan is retired, move the accepted record's `review` to
+`git:<commit>:<same path>` and a body link to the repository permalink of the same path
+at that commit. The lint verifies the path exists at the commit.
+
+### Retirement
+
+When a record's rationale no longer explains the current system — its mechanism is gone
+or a later decision fully replaced it — delete the file rather than rewrite it (ADR-0096).
+Move any surviving meaning to the owning section first, repair inbound links, and keep the
+highest-numbered record until a newer one exists. Retirement needs no per-record ADR;
+write a new current-basis record only when current rationale needs one.
+
 ## 4. The decision-PR rule
 
 An ADR enters the repository or changes status only in a pull request that:
@@ -133,7 +151,7 @@ An ADR enters the repository or changes status only in a pull request that:
    PR the ADR references) with a **revision-history row** in `blueprint.md` and an inline
    `> Decision: ADR-NNNN` line under each governed section's heading;
 3. preserves section identifiers — insert `§14.3.1`, never renumber. A move leaves an
-   anchor/link stub and one normative owner (ADR-0095; intended successor to ADR-0033);
+   anchor/link stub and one normative owner (ADR-0095);
 4. may merge with `status: proposed` **only** if it also carries `needs-review`.
 
 Maintainer merge is the approval (ADR-0034). If the decision defers something,

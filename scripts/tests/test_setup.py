@@ -6,7 +6,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import re
 import shutil
@@ -39,7 +41,33 @@ agents = load("agent-config")
 images = load("solver-images")
 adr = load("adr")
 doctor = load("doctor")
+register = load("check_register")
 agent_checks = load("check_agent_config")
+
+GIT_IDENTITY = (
+    "-c",
+    "commit.gpgsign=false",
+    "-c",
+    "user.name=Fixture",
+    "-c",
+    "user.email=fixture@example.invalid",
+)
+
+
+def git_fixture(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def commit_base(root: Path) -> str:
+    """Commit the fixture and mark it as origin/main, the immutability baseline."""
+    if not (root / ".git").exists():
+        git_fixture(root, "init", "-b", "main")
+    git_fixture(root, "add", "-A")
+    git_fixture(root, *GIT_IDENTITY, "commit", "-m", "fixture")
+    git_fixture(root, "update-ref", "refs/remotes/origin/main", "HEAD")
+    return git_fixture(root, "rev-parse", "HEAD")
 
 
 def tracked_skills() -> list[str]:
@@ -380,6 +408,236 @@ class ConfigurationTests(unittest.TestCase):
             path.write_text(path.read_text().replace("Original", "Altered"))
             with patch.object(adr, "ROOT", root):
                 self.assertTrue(adr.lint_immutability([path]))
+
+
+class DecisionRecordTests(unittest.TestCase):
+    """Selective retirement (ADR-0096): sparse IDs, retired peers and Git reviews."""
+
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.adrs = self.root / "docs/adr"
+        self.adrs.mkdir(parents=True)
+        blueprint = self.root / "docs/authoritative_design/blueprint.md"
+        (blueprint.parent / "sections").mkdir(parents=True)
+        blueprint.write_text("# Blueprint\n\n## 1. Summary\n")
+        for name, value in {
+            "ROOT": self.root,
+            "ADR_DIR": self.adrs,
+            "README": self.adrs / "README.md",
+            "BLUEPRINT": blueprint,
+        }.items():
+            patcher = patch.object(adr, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def record(self, number: int, **fields: str) -> Path:
+        front = {
+            "id": f"ADR-{number:04d}",
+            "title": f"Fixture {number}",
+            "status": "accepted",
+            "date": "2026-09-25",
+            "deciders": "[fixture]",
+            "level": "decision",
+            "principles": "[AP-01]",
+            "blueprint": "[§1]",
+            "review": "not-required: fixture",
+            "evidence": "Proposed",
+            "supersedes": "[]",
+            "superseded-by": "null",
+            "revisit": "a fixture trigger",
+            "verification": "a fixture check",
+            **fields,
+        }
+        text = "---\n" + "".join(f"{k}: {v}\n" for k, v in front.items())
+        path = self.adrs / f"{number:04d}-fixture-{number}.md"
+        path.write_text(text + "---\n\n## Context\n\nFixture.\n")
+        return path
+
+    def lint(self) -> list[str]:
+        stderr = io.StringIO()
+        with (
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(stderr),
+        ):
+            adr.index(check=False)
+            adr.lint()
+        return [line for line in stderr.getvalue().splitlines() if "error:" in line]
+
+    def test_sparse_ids_and_links_into_retired_history_are_valid(self) -> None:
+        self.record(1)
+        self.record(4, supersedes="[ADR-0002, ADR-0003]")
+        self.assertEqual(self.lint(), [])
+        self.assertEqual(adr.next_number(), 5)
+
+    def test_unissued_or_duplicate_ids_are_rejected(self) -> None:
+        self.record(1, supersedes="[ADR-0009]")
+        self.record(2)
+        (self.adrs / "0002-duplicate.md").write_text(
+            self.record(2).read_text().replace("Fixture 2", "Duplicate")
+        )
+        errors = self.lint()
+        self.assertTrue(any("unknown record ADR-0009" in e for e in errors))
+        self.assertTrue(any("issued more than once: [2]" in e for e in errors))
+
+    def test_retained_pairs_stay_symmetric(self) -> None:
+        self.record(1, status="superseded", **{"superseded-by": "ADR-0002"})
+        self.record(2)
+        self.assertTrue(any("does not name it in supersedes" in e for e in self.lint()))
+        self.record(2, supersedes="[ADR-0001]")
+        self.assertEqual(self.lint(), [])
+        (self.adrs / "0002-fixture-2.md").unlink()
+        self.record(3)
+        self.assertTrue(any("retire the superseded record" in e for e in self.lint()))
+
+    def test_review_sources_resolve_locally_or_at_a_commit(self) -> None:
+        review = self.root / "docs/review.md"
+        review.write_text("# Review\n")
+        self.record(1, review="docs/review.md")
+        commit = commit_base(self.root)
+        review.unlink()
+        self.assertTrue(any("does not exist" in e for e in self.lint()))
+        self.record(1, review=f"git:{commit[:12]}:docs/review.md")
+        self.assertEqual(self.lint(), [])
+        self.record(1, review=f"git:{commit}:docs/missing.md")
+        self.assertTrue(any("names no file at that commit" in e for e in self.lint()))
+        self.record(1, review="git:HEAD:docs/review.md")
+        self.assertTrue(any("must be git:" in e for e in self.lint()))
+
+    def test_accepted_review_relocation_is_the_only_new_edit(self) -> None:
+        review = self.root / "docs/review.md"
+        review.write_text("# Review\n")
+        path = self.record(1, review="docs/review.md#f1")
+        commit = commit_base(self.root)
+        relocated = f"git:{commit[:12]}:docs/review.md#f1"
+        self.record(1, review=relocated)
+        self.assertTrue(adr.lint_immutability([path]), "the local review still exists")
+        review.unlink()
+        self.assertEqual(adr.lint_immutability([path]), [])
+        self.record(1, review=f"git:{commit[:12]}:docs/review.md#f2")
+        self.assertTrue(adr.lint_immutability([path]))
+        self.record(1, title="Rewritten", review=relocated)
+        self.assertTrue(adr.lint_immutability([path]))
+
+    def test_relocation_must_cite_the_same_reachable_file(self) -> None:
+        review = self.root / "docs/review.md"
+        review.write_text("# Draft\n")
+        self.record(2)
+        early = commit_base(self.root)
+        review.write_text("# Final review\n")
+        path = self.record(1, review="docs/review.md")
+        commit_base(self.root)
+        review.unlink()
+        self.record(1, review=f"git:{early[:12]}:docs/review.md")
+        self.assertTrue(
+            adr.lint_immutability([path]), "earlier content is not the cited file"
+        )
+        git_fixture(self.root, "checkout", "-q", "-b", "side")
+        review.write_text("# Final review\n")
+        git_fixture(self.root, "add", "-A")
+        git_fixture(self.root, *GIT_IDENTITY, "commit", "-m", "side")
+        dangling = git_fixture(self.root, "rev-parse", "HEAD")
+        git_fixture(self.root, "checkout", "-q", "main")
+        git_fixture(self.root, "branch", "-q", "-D", "side")
+        review.unlink(missing_ok=True)
+        self.record(1, review=f"git:{dangling[:12]}:docs/review.md")
+        self.assertTrue(
+            adr.lint_immutability([path]), "an unreachable commit is not history"
+        )
+
+    def test_accepted_body_links_relocate_only_to_the_same_committed_path(self) -> None:
+        plan = self.root / "docs/plans/01-old.md"
+        plan.parent.mkdir(parents=True)
+        plan.write_text("# Old plan\n")
+        path = self.record(1)
+        path.write_text(
+            path.read_text()
+            + "See [plan](../plans/01-old.md#outcome) and [peer](0002-peer.md).\n"
+        )
+        (self.adrs / "0002-peer.md").write_text("peer\n")
+        commit = commit_base(self.root)
+        base = "https://github.com/owner/repo/blob"
+        original = path.read_text()
+        relocated = original.replace(
+            "../plans/01-old.md", f"{base}/{commit}/docs/plans/01-old.md"
+        ).replace("0002-peer.md", f"{base}/{commit}/docs/adr/0002-peer.md")
+        path.write_text(relocated)
+        self.assertTrue(adr.lint_immutability([path]), "the linked files still exist")
+        plan.unlink()
+        (self.adrs / "0002-peer.md").unlink()
+        self.assertEqual(adr.lint_immutability([path]), [])
+        path.write_text(
+            original.replace(
+                "../plans/01-old.md", f"{base}/{commit}/docs/plans/02-other.md"
+            )
+        )
+        errors = adr.lint_immutability([path])
+        self.assertTrue(any("names no file" in e for e in errors))
+        self.assertTrue(any("changed on an accepted record" in e for e in errors))
+
+    def test_status_history_is_append_only(self) -> None:
+        path = self.record(1)
+        path.write_text(
+            path.read_text() + "\n## Status history\n\n- 2026-09-25 — accepted.\n"
+        )
+        commit_base(self.root)
+        path.write_text(path.read_text() + "- 2026-09-26 — note.\n")
+        self.assertEqual(adr.lint_immutability([path]), [])
+        path.write_text(path.read_text().replace("accepted.", "proposed."))
+        self.assertTrue(any("append-only" in e for e in adr.lint_immutability([path])))
+
+    def test_highest_issued_record_is_retained(self) -> None:
+        for number in (1, 2, 3):
+            self.record(number)
+        commit_base(self.root)
+        (self.adrs / "0002-fixture-2.md").unlink()
+        self.assertEqual(self.lint(), [])
+        (self.adrs / "0003-fixture-3.md").unlink()
+        self.assertTrue(any("highest issued record" in e for e in self.lint()))
+        commit_base(self.root)  # the retirement reached main anyway
+        self.assertTrue(any("highest issued record" in e for e in self.lint()))
+        self.assertEqual(adr.next_number(), 4, "history still owns ADR-0003")
+
+    def test_register_ids_are_never_reused_or_lowered(self) -> None:
+        path = self.root / "docs/adr/register.md"
+        row = "| R-{:02d} | item | — | trigger | manual | owner | 2026-09-25 | 2099-01-01 | open |\n"
+        path.write_text(
+            "Highest issued row id: R-03.\n\n" + row.format(2) + row.format(3)
+        )
+        commit_base(self.root)
+        quiet = (
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()),
+        )
+        patches = (
+            patch.object(register, "REGISTER", path),
+            patch.object(register, "ROOT", self.root),
+        )
+        with patches[0], patches[1], quiet[0], quiet[1]:
+            path.write_text("Highest issued row id: R-03.\n\n" + row.format(3))
+            self.assertEqual(register.lint(), 0, "removing a row is allowed")
+            path.write_text("Highest issued row id: R-03.\n\n" + row.format(1))
+            self.assertEqual(register.lint(), 1, "R-01 was issued before")
+            path.write_text("Highest issued row id: R-02.\n\n" + row.format(2))
+            self.assertEqual(register.lint(), 1, "the mark may not fall")
+
+    def test_register_may_be_empty_but_keeps_its_high_water_mark(self) -> None:
+        path = self.root / "register.md"
+        path.write_text(
+            "# Deferred-decision register\n\nHighest issued row id: R-07.\n"
+        )
+        quiet = (
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()),
+        )
+        with patch.object(register, "REGISTER", path), quiet[0], quiet[1]:
+            self.assertEqual(register.lint(), 0)
+            row = "| R-08 | item | — | trigger | manual | owner | 2026-09-25 | 2099-01-01 | open |\n"
+            path.write_text(path.read_text() + "\n" + row)
+            self.assertEqual(register.lint(), 1, "a new row must raise the mark")
+            path.write_text("# Deferred-decision register\n\nNo open deferrals.\n")
+            self.assertEqual(register.lint(), 1, "the mark is required")
 
 
 if __name__ == "__main__":

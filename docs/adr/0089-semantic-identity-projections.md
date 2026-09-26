@@ -1,13 +1,13 @@
 ---
 id: ADR-0089
 title: Versioned semantic identity projections and compatibility
-status: proposed
+status: accepted
 date: 2026-09-25
 deciders: [paul-heyse]
 level: decision
 principles: [DP-04, DP-09, DP-11, DP-24]
 blueprint: [§5.1, §5.3, §14.4, §20.5]
-review: docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
 evidence: Implemented
 supersedes: []
 superseded-by: null
@@ -26,8 +26,8 @@ amends the active blueprint scope without rewriting accepted historical ADR bodi
 ## Scope
 
 The contract below and its existing owners; implementation sequencing is in
-[the execution packet](../plans/16-p00-p04-execution.md). Acceptance through the
-repository decision PR route remains pending; implementation is user-authorized.
+[the execution packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p00-p04-execution.md). Implementation was user-authorized;
+the maintainer accepted the decision after Plan 16 closed.
 
 ## Drivers
 
@@ -83,16 +83,18 @@ compatibility migration remains P12. Whole-system acceptance is not inferred her
 One authority reduces semantic drift; explicit contracts require coordinated changes
 across consumers and versioned identities.
 
-The [P05–P06 execution packet](../plans/16-p05-p06-execution.md) and
-[implementation review](../design_review/reviews/design_review_plan16-numerics-facts_2026-09-25.md)
+The [P05–P06 execution packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p05-p06-execution.md) and
+[implementation review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_plan16-numerics-facts_2026-09-25.md)
 record the numerical/fact extensions and their scoped qualification.
 
 ## More information
 
-[Plan 16](../plans/16-data-model-architecture.md),
-[target review](../design_review/reviews/design_review_plan16-foundations_2026-09-25.md),
+[Plan 16](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-data-model-architecture.md),
+[target review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md),
 and blueprint sections named in the front matter.
 
 ## Status history
 
 - 2026-09-25 — proposed before affected implementation; decision PR acceptance pending.
+- 2026-09-26 — accepted by the maintainer as implemented through Plan 16 (review verdict Accept;
+  local Linux qualification and independent review recorded in blueprint §24.2).

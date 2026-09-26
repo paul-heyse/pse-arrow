@@ -7,13 +7,11 @@ file directly).
 ## What this repository is
 
 `pse-arrow` is a process systems engineering core in Rust. Typed process definitions
-in authored relations remain the model authority. Library-owned mathematics,
-thermodynamics and native solvers replace custom MathIR/evaluation and production
-Pyomo integration. Arrow/DataFusion/Delta retain useful data-boundary, relational and
-storage roles. Plan 14 M00–M21 implements typed compilation, FeOS properties, native
-solvers, public workflows, dynamics/fitting and executable acceptance tooling.
-M22 closes the local Linux scientific/runtime/case-cost scope; see its execution packet
-for evidence and the maintainer-approved strict Clippy/release exclusions.
+in authored relations are the model authority. Library-owned mathematics (Symbolica/
+Numerica), FeOS thermodynamics and class-specific native solvers do the numerical work;
+Arrow/DataFusion/Delta serve data-boundary, relational and publication roles. Rust and
+Python workflows, dynamics and fitting are implemented and qualified locally on Linux;
+the architecture sections record the supported scope and its limits.
 
 It is a **clean-room re-implementation** of core IDAES-PSE capabilities, parity-tested
 against `idaes-pse==2.12.0`. **Not affiliated with IDAES.** Read `external/idaes-pse`
@@ -26,29 +24,19 @@ Crates are `pse-*` under `crates/`. The Python package is imported as `pse` and 
 
 ## Current implementation direction
 
-[Plan 16 P00–P04](docs/plans/16-p00-p04-execution.md) extends the implemented
-foundation with selected composition admission, exact powers, shared execution tags,
-scoped identities and explicit material/FeOS/reaction bindings. P05–P18 remain future
-work. The packet records the supported boundary and scoped verification; it does not
-replace the historical M22 qualification or authorize full Plan 16 acceptance.
+The [architecture](docs/authoritative_design/README.md) describes the current system:
+start with its [reading guide](docs/authoritative_design/sections/reading-guide.md) and
+[overview](docs/authoritative_design/sections/architecture-overview.md). Plans 01–18 are
+complete or superseded; their enduring meaning lives in those sections and the retained
+ADRs, and their records are retired to Git history (ADR-0096). The most recent completed
+qualification basis and its exclusions are summarized in
+[§24.2](docs/authoritative_design/sections/operations-and-validation.md). Retired plans,
+packets and reviews are not a backlog and authorize nothing.
 
-[Plan 14](docs/plans/14-library-owned-process-simulator.md) supplies the implemented
-baseline. M00–M21 and their approved hard-cut deletions are implemented; see the
-[foundation contract](docs/plans/14-math-foundation-contract.md) and
-[execution inventory](docs/plans/14-execution-inventory.md). The
-[M22 packet](docs/plans/14-m22-execution.md) records local Linux qualification,
-measurements, independent reviews and the supported boundary under ADR-0087.
-Qualification records executed evidence and authenticated retained origins; no M21
-source seal is required. The scoped closure does not claim strict Clippy, remote CI,
-release or other-platform acceptance.
-It supersedes Plan 13's execution scope: no unfinished package, acceptance ID,
-campaign or old source seal is inherited automatically. Retain a graph, Salsa,
-publication or resource mechanism only when evidence establishes its role in the new
-target. Plan 13's W19/W20 and older incomplete receipts remain historical outcomes.
-Build the target directly and remove replaced code/callers/tests without compatibility
-APIs or a second production compiler. Follow the execution rhythm below; full
-qualification occurs once at M22. Correctness tests retain explicit force-validation.
-Full library eligibility remains in force.
+[Current work](docs/plans/README.md) lists what is actually active; today no plan is.
+New work starts only when the maintainer authorizes it. Build a target directly and remove replaced
+code/callers/tests without compatibility APIs or a second production path. Correctness
+tests retain explicit force-validation. Full library eligibility remains in force.
 
 ## Execution rhythm: pivot first, qualify when requested
 
@@ -153,11 +141,11 @@ start or require CI.
 | `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle`, `structural` | `tests/fixtures/` contains source inputs, not a crate |
 | `benches/` | Criterion benchmarks (`pse-benches`) | No timing gate in CI; `just bench-smoke` only runs them |
 | `python/pse/` | The Python package (import name `pse`) | `python/pse/contracts/` is GENERATED |
-| `docs/authoritative_design/` | **Authoritative collection:** blueprint and numbered section owners | Start at its README; edits follow the design route below |
-| `docs/adr/` | Decision records, immutable once accepted | `just adr-new`; index via `just adr-index` |
-| `docs/plans/` | Implementation plans, living until done | `just plan <slug>` |
+| `docs/authoritative_design/` | **Authoritative collection:** current contracts in numbered `sections/` pages; `blueprint.md` keeps revisions and former anchors | Start at its README; edits follow the design route below |
+| `docs/adr/` | Retained decision records, immutable once accepted; obsolete ones retired to Git (ADR-0096) | `just adr-new`; index via `just adr-index` |
+| `docs/plans/` | Active plans, living until done; completed plans retire to Git | `just plan <slug>` |
 | `docs/capability-maps/` | Pinned third-party API maps + their evidence | `just lib-outline <file>` first; they are large |
-| `docs/design_review/` | The layered design standard (`design_principles/standard.toml`: core principles, process-simulator profile, pse-arrow binding) and the reviews written against it | The `design-review` and `design-review-process-simulator` skills' output contract |
+| `docs/design_review/` | The layered design standard (`design_principles/standard.toml`: core principles, process-simulator profile, pse-arrow binding) and reviews whose findings are still open | The `design-review` and `design-review-process-simulator` skills' output contract |
 | `docs/generated/` | `pse-schema` output | Never edit |
 | `external/` | Pinned read-only checkouts (`just fetch-external`) | **Not source.** Gitignored, never edited, never copied from |
 | `build/`, `target/` | Build output | **Not source.** Regenerable |
@@ -168,11 +156,12 @@ start or require CI.
 Do not restate these; cite them.
 
 - **`docs/authoritative_design/README.md`** — the entry to the authoritative architecture:
-  `blueprint.md` and numbered pages under `sections/`. Section identifiers have one owner
-  and remain stable when moved: cite `blueprint §14.3`, never a line number. The blueprint
-  retains the collection revision history; old locations retain anchor links.
+  numbered pages under `sections/`. Section identifiers have one owner and remain stable
+  when moved: cite `blueprint §14.3`, never a line number. `blueprint.md` retains the
+  collection revision history and maps former single-file anchors to their owners.
 - **`docs/adr/README.md`** (generated index) and the ADRs themselves — *why* a decision
-  was made. The blueprint says what is true; ADRs say why; reviews are evidence, not authority.
+  was made. The sections say what is true; ADRs say why; reviews are evidence, not authority.
+  Only decisions whose rationale explains the current system are retained (ADR-0096).
 - **`docs/adr/register.md`** — every deferred decision with its trigger, check and next
   review date. `just register-check` runs the ones that are due.
 - **`Cargo.toml` header comment** — why the arrow/datafusion/object_store/pyo3 pins are
@@ -278,6 +267,8 @@ contract, rationale or workflow changes. No documentation-specific source seal, 
 inventory, proof manifest or mandatory finding-to-test matrix is required. Mechanical
 publishing checks establish identity, syntax and links; architecture requires reasoned review.
 See `docs/dev/documentation.md`. Historical product evidence retains its original scope.
+When work closes, move enduring meaning to its owner and retire the completed plan and its
+resolved reviews; Git history is the archive, not a backlog (ADR-0096).
 
 ## Decisions and documentation
 
@@ -298,23 +289,23 @@ implementation acceptance. See `.claude/rules/decisions.md` and blueprint §24.4
 | Bug fixes, refactors within contracts, tests, docs wording, patch bumps inside a pinned family, adding, removing or upgrading a third-party dependency, tooling | Neither. An ordinary PR with the evidence field filled |
 
 An ADR enters or changes status only in a PR labeled `adr` and titled `adr: ADR-NNNN
-<title>`; the same PR (or a named follow-up `design:` PR) amends the blueprint with a
-revision row. `.codex/skills/adr/SKILL.md` explains the §H front-matter fields and when a
+<title>`; the same PR (or a named follow-up `design:` PR) amends the architecture sections
+and adds a revision row to `blueprint.md`. `.codex/skills/adr/SKILL.md` explains the §H front-matter fields and when a
 record is required.
 
-**Doc conventions.** New files are lowercase kebab-case (exceptions: the superseded
-UPPER_SNAKE and snake_case principle files, the root governance files, and the design-review skill's
-`design_review_{slug}_{date}.md`). YAML front matter on ADRs, plans, capability maps and
-the authoritative design. Citations are `blueprint §14.3`, `ADR-0020`, `AP-06`, `DP-09`, `PS-10`, `G4` —
+**Doc conventions.** New files are lowercase kebab-case (exceptions: the root governance
+files and the design-review skill's `design_review_{slug}_{date}.md`). YAML front matter on ADRs, plans, capability maps and
+the authoritative design. Citations are `blueprint §14.3`, `ADR-0082`, `AP-06`, `DP-09`, `PS-10`, `G4` —
 never line numbers. Generated docs carry `<!-- @generated by pse-schema; do not edit -->`.
 Plans go in `docs/plans/`, never in a home directory.
 
 ## Off-limits
 
-- `docs/authoritative_design/**` — the blueprint is amended by a `design:` PR that carries
-  a revision row, not by an edit in passing.
+- `docs/authoritative_design/**` — the architecture is amended through the decision/design
+  route with a revision row in `blueprint.md`, not by an edit in passing.
 - `docs/adr/NNNN-*.md` whose front matter `status:` is not `proposed` — accepted records
-  are immutable; supersede them (`just adr-supersede`) instead.
+  are immutable; supersede them (`just adr-supersede`) instead. Retiring an obsolete record
+  or relocating a retired reference follows ADR-0096.
 - The generated paths in prime directive 2, `external/`, `build/`, `target/`.
 
 A `PreToolUse` hook blocks writes to all of these, and `.claude/settings.json` denies the
@@ -329,7 +320,7 @@ anything named in `PSE_AGENT_WRITABLE`, and refuses every other path outside the
 so a stray edit cannot land in another checkout. That
 allowance is for runtime state — memory, scratch files, the runtime's own configuration.
 Project state still belongs here: plans go in `docs/plans/`, never in a private home
-directory. When a change to the blueprint or an accepted ADR is genuinely the work, set
+directory. When a change to the architecture sections or an accepted ADR is genuinely the work, set
 `PSE_DESIGN_EDIT=1` for that session and say in the PR why. The escape exists so the guard
 can stay strict; using it silently defeats it.
 
@@ -389,6 +380,6 @@ loads these through its native path rules; Codex follows this routing table:
 | Generated paths | `.claude/rules/generated.md` |
 | GitHub configuration and workflows | `.claude/rules/ci.md` |
 
-Wave 1 supplies registry model generators and regeneration equivalence under ADR-0051.
-API-reference doc lint remains deferred. Parity covers the environment and the explicitly
+Registry model generators and regeneration equivalence follow ADR-0031/0051.
+API-reference doc lint remains deferred (register R-20). Parity covers the environment and the explicitly
 exercised compatibility names; it does not establish numerical IDAES equivalence.

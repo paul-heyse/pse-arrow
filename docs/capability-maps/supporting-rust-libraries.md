@@ -11,7 +11,7 @@ reviewed: 2026-09-13
 **Current binding:** blueprint revision 5. The original survey and version/probe
 receipts below retain their historical scope; they were not regenerated in this
 update. Earlier revision comparisons and parked recommendations are historical.
-The [revision-4 review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+The [revision-4 review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
 and ADR-0039–ADR-0048 determine the corrected design bindings below. Platform
 integration remains **Proposed**; interface and probe evidence are labeled at
 their original scope. No Python behavioral corpus was re-audited by this revision.
@@ -36,7 +36,7 @@ their original scope. No Python behavioral corpus was re-audited by this revisio
 
 Blueprint §3.3 names **sixteen supporting-library rows** covering **24 Rust crates** (the seventeenth row is Python and belongs to the Python map), each with a one-line role and a one-line boundary. That is enough to justify a dependency and not enough to build against. This document answers, per crate: **what the library can actually do**, **which of its APIs the blueprint's stated requirements land on**, **what we deliberately will not use**, and **where the blueprint has assumed a capability the library does not provide**.
 
-A second pass asks what these libraries offer that the blueprint has *not* claimed, which would improve alignment with `design_principles/DATA_MODEL_DESIGN_CHARTER.md` (DM-01…DM-60, gates G1–G7). A third (§13) enumerates each library independently and asks what is being left on the table.
+A second pass asks what these libraries offer that the blueprint has *not* claimed, which would improve alignment with the design principles (`design_review/design_principles/core/design-principles.md`; charter IDs map through its §I) (DM-01…DM-60, gates G1–G7). A third (§13) enumerates each library independently and asks what is being left on the table.
 
 *(The previous edition said "twenty-two crates" while its own anchor table had 25 rows. The count above is reconciled against §3.3: 24 Rust crates plus the Ipopt C API, which is not a crate.)*
 
@@ -1222,7 +1222,7 @@ The denominator is §1.5's extraction — **26 crates, 589 public traits**. Most
 
 ## 14. Principle-alignment register (supporting libraries)
 
-Capabilities and disciplines that would improve alignment with `DATA_MODEL_DESIGN_CHARTER.md`. Every row names a principle and the hand-written work or risk it removes. Rejections are included, because a recorded rejection is worth as much as an adoption.
+Capabilities and disciplines that would improve alignment with the design principles (`design_review/design_principles/core/design-principles.md`; charter IDs map through its §I). Every row names a principle and the hand-written work or risk it removes. Rejections are included, because a recorded rejection is worth as much as an adoption.
 
 **The previous edition had no register and cited no DM principle at all** — the only one of the four capability maps in that position. Its findings were real; they were simply never connected to the charter. Numbering is local to this map.
 
@@ -1276,7 +1276,7 @@ Capabilities and disciplines that would improve alignment with `DATA_MODEL_DESIG
 ## 15. Acceptance-gate review (supporting libraries)
 
 The earlier survey's gates described revision 2. Current document-stage gates are
-assessed in the [revision-5 review](../design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md).
+assessed in the [revision-5 review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md).
 The following are **Proposed** platform contracts; historical library receipts do
 not certify their implementation.
 
@@ -1452,6 +1452,6 @@ new full-library probe run. Current pins are owned by Cargo.toml and Cargo.lock.
 | Thread and memory budgets | One declared thread budget, shared runtime, fallible platform reservations (ADR-0046) | Concurrent consumers and release; pool peaks alongside process peaks |
 | Maintenance, pins and optional instrumentation | Family/maintenance gates and ADR-0037 register triggers remain | Library upgrades require new evidence; no supporting-library re-resolution is claimed here |
 
-Use [plan 02](../plans/02-blueprint-revision-5-contracts.md) for the revision-5
+Use [plan 02](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/02-blueprint-revision-5-contracts.md) for the revision-5
 implementation handoff. Unchanged specialized numerical/provider questions remain
 unverified until their actual consumer is implemented and exercised.

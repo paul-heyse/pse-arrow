@@ -1,13 +1,14 @@
 ---
 title: Design-change workflow
-status: proposed
+status: current
 ---
 
 # Design-change workflow
 
 ### 24.4 Architecture review and design-change tracking
 
-> Decision: ADR-0094 — proposed governance record; implementation authorized by the maintainer.
+> Decision: [ADR-0094](../../adr/0094-architecture-first-design-review.md),
+> [ADR-0096](../../adr/0096-current-rationale-and-selective-retirement.md) (accepted).
 
 The [selected design standard](../../design_review/design_principles/standard.toml) governs
 architecture review. Its core foundations organize assessment around separation of concerns,
@@ -30,8 +31,7 @@ historical observations are never silently relabelled as current qualification.
 The [review template](../../design_review/design_principles/core/design-review-template.md) and
 [repository binding](../../design_review/design_principles/binding/pse-arrow.md) define the
 workflow and follow-up fields. Deterministic dependency/document checks support named facts;
-there is no automated architecture score or generated review approval. Plan 17's implementation
-checks do not claim pilot effectiveness or product qualification.
+there is no automated architecture score or generated review approval.
 
 Documentation changes follow enduring responsibilities. A function-body change normally needs
 no architecture edit. A contract change updates its owner and relevant product tests; a decision
@@ -39,3 +39,9 @@ change uses the existing ADR route. Read enough source to settle the claim, and 
 probe only when material uncertainty remains. Publishing checks establish document identity,
 rendering and links; they do not prove design implementation. No documentation-specific source
 seal, exhaustive symbol map or mandatory finding-to-test matrix is required.
+
+When work closes, its enduring meaning moves to the owning section (and, for a consequential
+choice, its rationale to an ADR); the plan leaves current work, and the completed plan and its
+resolved reviews retire from the working tree once nothing depends on them. A decision whose
+rationale no longer explains the current system is retired rather than rewritten. Git history
+is the archive; retired material is not a backlog (ADR-0096).

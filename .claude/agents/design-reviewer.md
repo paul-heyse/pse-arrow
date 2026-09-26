@@ -16,7 +16,7 @@ and local testability before deepening mechanism-specific questions. Settle arch
 fitness separately from behavioral adequacy; current functional success does not settle both.
 
 Write only the requested review artifact under docs/design_review/reviews/. Do not
-implement recommendations or edit the blueprint or accepted records. Ground findings
+implement recommendations or edit the architecture sections or accepted records. Ground findings
 in current evidence and distinguish proposals from implemented and tested behavior.
 
 Read AGENTS.md first. Use the repository command surface and pinned tools. Search with

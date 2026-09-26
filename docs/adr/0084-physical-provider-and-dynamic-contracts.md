@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DM-07, DM-22, DM-24, DM-43]
 blueprint: [§D9, §9, §13.6]
-review: docs/design_review/reviews/design_review_math-foundation-enhancements_2026-09-24.md
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_math-foundation-enhancements_2026-09-24.md
 evidence: Tested
 supersedes: [ADR-0022, ADR-0043]
 superseded-by: null
@@ -30,11 +30,11 @@ trial failure, without silent extrapolation. Declared operating bounds do not es
 empirical accuracy. Generated balances and independent physical closure share source
 contributions, not solver residuals. Diffsol output integration owns cumulative flux
 quadrature, including finite event/restart accounting. Public declaration/result schemas
-change without a compatibility route. See [M21 execution](../plans/14-m21-execution.md).
+change without a compatibility route. See [M21 execution](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m21-execution.md).
 
 
 The concrete replacement text is prepared in
-[Plan 14 foundation contract](../plans/14-math-foundation-contract.md#concrete-decision-amendment-prepared-for-the-design-pr).
+[Plan 14 foundation contract](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-math-foundation-contract.md#concrete-decision-amendment-prepared-for-the-design-pr).
 Blueprint revision 51 applies it under the local authorization in ADR-0087.
 ADR-0087 authorizes this milestone's local reconciliation in blueprint §0.5.
 Superseding ADR-0022 removes the obsolete num-dual 0.15 prerequisite; the compatible
@@ -97,21 +97,21 @@ an atomic caller/schema cut and explicit native/profile qualification.
 
 ## More information
 
-The [M21 implementation review](../design_review/reviews/design_review_m21-design-closure_2026-09-24.md)
+The [M21 implementation review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_m21-design-closure_2026-09-24.md)
 assesses the final contract/deletion changes at mechanism scope. It does not supply
 independent M22 acceptance.
 
-[Execution packet](../plans/14-m00-m05-execution.md) and
-[main plan](../plans/14-library-owned-process-simulator.md).
+[Execution packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m00-m05-execution.md) and
+[main plan](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-library-owned-process-simulator.md).
 
 ## M22 local qualification
 
-**Tested and Measured:** the [M22 packet](../plans/14-m22-execution.md#verification)
+**Tested and Measured:** the [M22 packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m22-execution.md#verification)
 records local Linux functional Q01–Q17, the 23 cached-development case-cost workloads,
 zero required failures and retained-origin conditions. It distinguishes admitted memory
 allowances from measured pool/RSS observations and excludes Rust build time.
 
-The [independent final review](../design_review/reviews/design_review_m22-scientific_2026-09-24.md)
+The [independent final review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_m22-scientific_2026-09-24.md)
 accepts the relevant scoped contracts with no open MUST finding. Companion runtime,
 scientific and claims reviews cover G1–G8 and PS-G1–PS-G3. Blueprint revision 51 and
 ADR-0087 govern local acceptance. Strict Clippy cleanup and release/remote/platform
@@ -131,7 +131,7 @@ qualification remain separate; no broader clean or empirical claim follows.
 
 - 2026-09-24: M17–M18 dynamic and fitting contracts implemented; complete native
   controls, physical derivative coordinates, source/result schemas and the generated
-  FeOS factory are described in the [packet](../plans/14-m17-m18-execution.md).
+  FeOS factory are described in the [packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m17-m18-execution.md).
   Analytical targeted controls are distinct from the outstanding physical M22 journeys.
 
 - 2026-09-24 — accepted for local Linux M22 scope under ADR-0087 after independent final review; blueprint revision 51 reconciles the contracts. No remote or release qualification is claimed.

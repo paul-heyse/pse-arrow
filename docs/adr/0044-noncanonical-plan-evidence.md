@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DM-15, DM-31, DM-48, DM-59]
 blueprint: [§4.3, §6.13, §14.2, §20.2]
-review: docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md#6-acceptance-gates
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md#6-acceptance-gates
 evidence: Proposed
 supersedes: [ADR-0019]
 superseded-by: null
@@ -43,7 +43,7 @@ Equivalent runs can carry different plan-evidence checksums without a cache miss
 
 ### Compensating controls
 
-The implementation gates are explicit in [plan 02](../plans/02-blueprint-revision-5-contracts.md). Document acceptance does not establish runtime behavior. Deferred optimizations remain disabled until their register trigger and conformance evidence are satisfied.
+The implementation gates are explicit in [plan 02](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/02-blueprint-revision-5-contracts.md). Document acceptance does not establish runtime behavior. Deferred optimizations remain disabled until their register trigger and conformance evidence are satisfied.
 
 ### Confirmation
 
@@ -55,7 +55,7 @@ Existing codecs and EXPLAIN remain useful evidence with checksum integrity. Equi
 
 ## More information
 
-See the governed blueprint sections, the [revision-4 review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md), its [reproducible library evidence](../design_review/evidence/blueprint-rev4-2026-09-13/README.md), the [revision-5 contract review](../design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md), and [plan 02](../plans/02-blueprint-revision-5-contracts.md).
+See the governed blueprint sections, the [revision-4 review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md), its [reproducible library evidence](../design_review/evidence/blueprint-rev4-2026-09-13/README.md), the [revision-5 contract review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md), and [plan 02](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/02-blueprint-revision-5-contracts.md).
 
 ## Status history
 

@@ -1,13 +1,13 @@
 ---
 id: ADR-0090
 title: Shared execution vocabulary and structured boundaries
-status: proposed
+status: accepted
 date: 2026-09-25
 deciders: [paul-heyse]
 level: decision
 principles: [DP-02, DP-17, DP-21, PS-10, PS-12]
 blueprint: [§4.2, §18.6, §21.1, §23.2]
-review: docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
 evidence: Implemented
 supersedes: []
 superseded-by: null
@@ -26,8 +26,8 @@ amends the active blueprint scope without rewriting accepted historical ADR bodi
 ## Scope
 
 The contract below and its existing owners; implementation sequencing is in
-[the execution packet](../plans/16-p00-p04-execution.md). Acceptance through the
-repository decision PR route remains pending; implementation is user-authorized.
+[the execution packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p00-p04-execution.md). Implementation was user-authorized;
+the maintainer accepted the decision after Plan 16 closed.
 
 ## Drivers
 
@@ -66,8 +66,8 @@ source-attributed presolve evidence, exact/numerical/inconclusive convexity evid
 and immutable candidate assessment. Native termination, numerical acceptance,
 physical closure and final usability remain separate facts. Public serialization
 consumes the completed assessment and does not perform another physical evaluation.
-The [P05–P06 execution packet](../plans/16-p05-p06-execution.md) and its
-[implementation review](../design_review/reviews/design_review_plan16-numerics-facts_2026-09-25.md)
+The [P05–P06 execution packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p05-p06-execution.md) and its
+[implementation review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_plan16-numerics-facts_2026-09-25.md)
 record the implemented extensions and their scoped qualification.
 
 The pure authored scalar-function vocabulary and exhaustive handler tags live in
@@ -98,10 +98,12 @@ across consumers and versioned identities.
 
 ## More information
 
-[Plan 16](../plans/16-data-model-architecture.md),
-[target review](../design_review/reviews/design_review_plan16-foundations_2026-09-25.md),
+[Plan 16](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-data-model-architecture.md),
+[target review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md),
 and blueprint sections named in the front matter.
 
 ## Status history
 
 - 2026-09-25 — proposed before affected implementation; decision PR acceptance pending.
+- 2026-09-26 — accepted by the maintainer as implemented through Plan 16 (review verdict Accept;
+  local Linux qualification and independent review recorded in blueprint §24.2).

@@ -28,3 +28,6 @@ refused during phases 0-1 (`docs/dev/dependency-policy.md`, ADR-0066). Apply the
 criteria in AGENTS.md: touching those files alone does not make every bug fix an
 architecture decision. Use the `adr` and `design-review` skills when
 required. Plans belong in `docs/plans/`, never in a runtime's private home directory.
+Current contracts and their rationale belong in `docs/authoritative_design/sections/` and
+the retained ADRs; when work closes, move its enduring meaning there and retire the plan
+and resolved reviews to Git history (ADR-0096).

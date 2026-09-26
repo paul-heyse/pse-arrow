@@ -35,7 +35,7 @@ enthalpy datum. No time derivative is silently set to zero.
 
 Dynamic behavior is excluded by an explicit feature rule. Numerical solving,
 phase equilibrium, initialization and transport correlations are outside this
-steady symbolic package. See blueprint §6.15 and §10.2 and ADR-0064 for the selected
+steady symbolic package. See blueprint §6.15 and §10.2 for the selected
 scope and compilation obligations.
 
 The law contracts name the exact representative child (`properties_out` for the control volume and `mixed_state` for the mixer) and its declared default feature. P8 uses these bindings only for `useDefault`; an explicit balance choice does not consult a default. A selected collection must agree on the same typed feature value.

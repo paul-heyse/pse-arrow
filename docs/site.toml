@@ -7,12 +7,7 @@ pagefind = "1.5.2"
 
 [publication]
 exclude = ["SUMMARY.md", "generated/rustdoc/**"]
-current_work = [
-  "plans/15-*.md",
-  "plans/16-*.md",
-  "plans/17-*.md",
-  "plans/18-*.md",
-]
+current_work = []
 entrypoints = [
   "README.md",
   "authoritative_design/README.md",
@@ -32,7 +27,7 @@ root = "authoritative_design"
 scope = "Current"
 
 [[collections]]
-title = "Current work and execution history"
+title = "Current work"
 root = "plans"
 scope = "History"
 
@@ -61,14 +56,13 @@ title = "Generated reference"
 root = "generated"
 scope = "Reference"
 
-# Mixed legacy specifications and historical standards must not masquerade as current guidance.
+# The blueprint keeps revisions and former anchors only; retained probes support library maps.
 [[overrides]]
-patterns = ["authoritative_design/blueprint.md"]
+patterns = [
+  "authoritative_design/blueprint.md",
+  "design_review/evidence/**/*.md",
+]
 scope = "Reference"
-
-[[overrides]]
-patterns = ["authoritative_design/proposal.md"]
-scope = "History"
 
 [[overrides]]
 patterns = [

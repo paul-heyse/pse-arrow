@@ -330,12 +330,12 @@ unit-typed-boundaries *args:
     cargo nextest {{ nextest_action }} -p pse-engine --test typed_collection --locked {{ validate }} {{ args }}
 
 [group('local')]
-[doc('Plan 10 N00–N05 isolated units with one Cargo feature graph; no integration journeys')]
+[doc('Isolated contract-foundation units with one Cargo feature graph; no integration journeys')]
 unit-contract-foundations *args:
     cargo nextest {{ nextest_action }} -p pse-ids -p pse-diagnostics -p pse-schema -p pse-relations -p pse-compiler -p pse-catalog --lib --locked {{ validate }} -E 'test(consolidation_unit::)' {{ args }}
 
 [group('local')]
-[doc('Plan 13 W00-W06 isolated foundation units; no compiler/storage/solver journeys')]
+[doc('Isolated Rust foundation units; no compiler/storage/solver journeys')]
 unit-rust-foundations *args:
     cargo nextest {{ nextest_action }} -p pse-buildinfo -p pse-codegen -p pse-compiler -p pse-structural -p pse-runtime -p pse-relations -p pse-columnar -p pse-engine --lib --locked {{ validate }} -E 'package(pse-columnar) and (test(diagnostic_unit::) or test(consolidation_unit::)) or test(foundation_unit) or package(pse-codegen) and test(consolidation_unit::) or package(pse-relations) and test(consolidation_unit::) or test(session::assembly::derived::integrated_performance_unit::)' {{ args }}
 
@@ -355,17 +355,17 @@ lock-python:
     uv lock
 
 [group('local')]
-[doc('Plan 13 isolated source/governance checks, including pure regeneration')]
+[doc('Isolated source/governance checks, including pure regeneration')]
 unit-rust-foundations-governance *args:
     cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --test no_shadow_structs --test every_crate_registered --test codegen_regeneration --test error_taxonomy --locked {{ validate }} {{ args }}
 
 [group('local')]
-[doc('Plan 10 N06 isolated engine and assurance units; no storage/compiler/solver journeys')]
+[doc('Isolated engine and assurance units; no storage/compiler/solver journeys')]
 dev-native-engine *args:
     cargo nextest {{ nextest_action }} -p pse-testkit -p pse-engine -p pse-relations --lib --locked {{ validate }} -E 'package(pse-testkit) and test(native_unit_) or package(pse-engine) and (test(session::config::tests::) or test(cache_service::policy::tests::) or test(session::execution::tests::))' {{ args }}
 
 [group('local')]
-[doc('Plan 10 N06 static manifest/error units; no product execution')]
+[doc('Static manifest/error governance units; no product execution')]
 dev-native-boundaries *args:
     cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --test every_crate_registered --test dependency_pins --test dependency_floors --test error_taxonomy --locked {{ validate }} {{ args }}
 
@@ -395,7 +395,7 @@ unit-ipopt-abi:
     cargo nextest run -p pse-ipopt-sys -p pse-relations --lib --locked --features pse-ipopt-sys/link,pse-relations/force-validate -E 'test(abi_tests::)'
 
 [group('local')]
-[doc('Compile Plan 14 native solver adapters and unit contracts; no solver journeys')]
+[doc('Compile native solver adapters and unit contracts; no solver journeys')]
 check-solver-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -415,7 +415,7 @@ lint-solver-contracts:
     cargo clippy --no-deps -p pse-backend-native -p pse-runtime -p pse-py -p pse-compiler -p pse-math --all-targets --locked --features pse-py/native-solvers,pse-relations/force-validate -- -D warnings
 
 [group('local')]
-[doc('Plan 14 callback, upload, status, ABI and lifetime units; no native convergence journeys')]
+[doc('Native callback, upload, status, ABI and lifetime units; no native convergence journeys')]
 unit-native-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -611,7 +611,7 @@ bench-smoke:
     cargo test --no-fail-fast --benches -p pse-benches -p pse-relations --locked {{ validate }}
 
 [group('local')]
-[doc('Plan 09 final-phase cache/round/reuse measurements; never run before the implementation/deletion barrier')]
+[doc('Native cache, round and reuse benchmark measurements')]
 bench-cache:
     cargo bench --no-fail-fast -p pse-benches -p pse-relations --bench native_cache --locked {{ validate }}
 
@@ -716,11 +716,12 @@ adr-supersede old new:
 plan slug:
     #!/usr/bin/env bash
     set -euo pipefail
-    n=$(ls docs/plans | grep -E '^[0-9]{2}-' | sort | tail -n1 | cut -c1-2)
+    # Numbers are never reused: count retained plans and every plan ever added (ADR-0096).
+    n=$( { ls docs/plans; git log --no-renames --diff-filter=A --name-only --format= -- docs/plans 2>/dev/null | sed 's#.*/##'; } | grep -E '^[0-9]{2}-' | sort | tail -n1 | cut -c1-2)
     next=$(printf '%02d' $((10#${n:-0} + 1)))
     f="docs/plans/${next}-{{ slug }}.md"
     [ -e "$f" ] && { echo "exists: $f" >&2; exit 1; }
-    printf -- '---\ntitle: {{ slug }}\nstatus: draft\ndate: %s\nadrs: []\nphase: 0\nreview_sources: []\nscenario_sources: []\n---\n\n# {{ slug }}\n\n## Context\n\n## Decisions\n\n## Architectural drivers and scenarios\n\nLink relevant scenario definitions; state responsibilities, consumed contracts and expected change boundaries.\n\n## Plan\n\n| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |\n|---|---|---|---|---|\n\n## Finding dispositions\n\nThis table owns adopted finding status; link packet evidence instead of copying execution reports.\n\n| Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |\n|---|---|---|---|---|\n\n## Verification\n\nTargeted checks accompany implementation; one final stage qualifies the applicable scope.\n\n## Open items\n\n## Outcome (recorded after implementation)\n\n### What was built\n\n### A mistake made and corrected\n\n### Deviations from the plan, deliberate\n' "$(date +%F)" > "$f"
+    printf -- '---\ntitle: {{ slug }}\nstatus: draft\ndate: %s\nadrs: []\nreview_sources: []\nscenario_sources: []\n---\n\n# {{ slug }}\n\n## Context\n\n## Decisions\n\n## Architectural drivers and scenarios\n\nLink relevant scenario definitions; state responsibilities, consumed contracts and expected change boundaries.\n\n## Plan\n\n| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |\n|---|---|---|---|---|\n\n## Finding dispositions\n\nThis table owns adopted finding status; link packet evidence instead of copying execution reports.\n\n| Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |\n|---|---|---|---|---|\n\n## Verification\n\nTargeted checks accompany implementation; one final stage qualifies the applicable scope.\n\n## Open items\n\n## Outcome (recorded after implementation)\n\n### What was built\n\n### A mistake made and corrected\n\n### Deviations from the plan, deliberate\n' "$(date +%F)" > "$f"
     echo "$f"
 
 [group('decisions')]
@@ -884,7 +885,7 @@ unit-consolidation-governance *args:
     cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --test error_taxonomy --locked {{ validate }} {{ args }}
 
 [group('local')]
-[doc('Plan 10 N07-N08 isolated native operation and function units; no compiler/storage/solver journeys')]
+[doc('Isolated native operation and function units; no compiler/storage/solver journeys')]
 dev-native-contracts *args:
     cargo nextest {{ nextest_action }} -p pse-engine -p pse-schema -p pse-relations --lib --locked {{ validate }} -E 'package(pse-engine) and (test(native_operation_unit::) or test(native_function_unit::) or test(session::contract::tests::) or test(session::round::tests::) or test(session::cache::tests::) or test(session::commands::deferred::tests::) or test(session::scalar::list_concat::tests::)) or package(pse-schema) and test(literal::consolidation_unit::)' {{ args }}
 
@@ -909,7 +910,7 @@ lint-native-data:
     cargo clippy --keep-going --workspace --all-targets --locked {{ validate }} -- -D warnings
 
 [group('local')]
-[doc('Plan 10 N14/N15 isolated Delta contracts, bounded IO, retention and Arrow stream units; no Delta commits or publication journeys')]
+[doc('Isolated Delta contract, bounded IO, retention and Arrow stream units; no Delta commits or publication journeys')]
 dev-delta-boundaries *args:
     cargo nextest {{ nextest_action }} -p pse-catalog -p pse-runtime -p pse-relations --lib --locked {{ validate }} -E 'test(delta_boundary_unit::) or package(pse-catalog) and (test(delta::contract::tests::) or test(delta::layout::tests::))' {{ args }}
 

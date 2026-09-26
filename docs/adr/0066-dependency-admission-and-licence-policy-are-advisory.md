@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DM-31, DM-56, DM-58, DM-59]
 blueprint: [§3.1, §3.3, §3.3.2, §24.1]
-review: docs/design_review/reviews/design_review_dependency-policy_2026-09-14.md#7-principle-findings
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_dependency-policy_2026-09-14.md#7-principle-findings
 evidence: Implemented
 supersedes: []
 superseded-by: null
@@ -137,7 +137,7 @@ still installed and runnable.
 ## More information
 
 - [Dependency and licence policy](../dev/dependency-policy.md) — the operational statement
-- [ADR-0065](0065-full-arrow-datafusion-capability-access.md) — the same argument, scoped
+- [ADR-0065](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/adr/0065-full-arrow-datafusion-capability-access.md) — the same argument, scoped
   to the Arrow/DataFusion surface
 - Blueprint §3.1, §3.3, §3.3.2, §24.1; register row R-31
 

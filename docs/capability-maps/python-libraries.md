@@ -11,7 +11,7 @@ reviewed: 2026-09-13
 **Current binding:** blueprint revision 5. The original survey and version/probe
 receipts below retain their historical scope; they were not regenerated in this
 update. Earlier revision comparisons and parked recommendations are historical.
-The [revision-4 review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+The [revision-4 review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
 and ADR-0039–ADR-0048 determine the corrected design bindings below. Platform
 integration remains **Proposed**; interface and probe evidence are labeled at
 their original scope. No Python behavioral corpus was re-audited by this revision.
@@ -33,7 +33,7 @@ their original scope. No Python behavioral corpus was re-audited by this revisio
 
 ### 0.1 What this document is
 
-Per cluster: what each library can actually do, which APIs the blueprint's requirements land on, what we deliberately will not use, and where the blueprint assumes a capability that does not exist or is under-specified. A second pass asks what these libraries offer that the blueprint has *not* claimed, which would improve alignment with `design_principles/DATA_MODEL_DESIGN_CHARTER.md` (DM-01…DM-60, gates G1–G7).
+Per cluster: what each library can actually do, which APIs the blueprint's requirements land on, what we deliberately will not use, and where the blueprint assumes a capability that does not exist or is under-specified. A second pass asks what these libraries offer that the blueprint has *not* claimed, which would improve alignment with the retired design charter (DM-01…DM-60, gates G1–G7; mapped by §I of `design_review/design_principles/core/design-principles.md`).
 
 This boundary deserves the scrutiny. Everything crossing it was already typed once, in Rust, against a registry. §4.4 asserts that Python consumers "register matching `pyarrow.ExtensionType` classes"; §21.5 asserts typed attrs classes with no `Any` fields. Those are **DM-42** and **G2** claims about a language with no compiler to enforce them — so they were measured rather than assumed.
 
@@ -646,7 +646,7 @@ Capabilities the blueprint does not claim, which would improve charter alignment
 ## 15. Acceptance-gate review (Python boundary)
 
 The survey's revision-2 gate results are historical. Blueprint §21 now specifies
-the following **Proposed** mechanisms. The [revision-5 review](../design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md)
+the following **Proposed** mechanisms. The [revision-5 review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md)
 assesses the changed contracts; no current end-to-end Python/backend certification
 is supplied by this map.
 
@@ -727,5 +727,5 @@ interpreter authority is pyproject.toml, uv.lock and blueprint §3.1.
 | L7: bounded coalescing | Blueprint §21.1, ADR-0048, R-24; stream ownership remains mandatory | Representative transfer/memory measurement and independent semantic equality |
 
 The implementation sequence and boundary fixtures are recorded in
-[plan 02](../plans/02-blueprint-revision-5-contracts.md). Performance and solver
+[plan 02](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/02-blueprint-revision-5-contracts.md). Performance and solver
 support remain unmeasured/unverified until those specific paths are exercised.

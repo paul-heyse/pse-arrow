@@ -1,10 +1,10 @@
 ---
 title: Current architecture documentation and legacy retirement
-status: draft
+status: done
 date: 2026-09-25
-adrs: [ADR-0094, ADR-0095]
+adrs: [ADR-0094, ADR-0095, ADR-0096]
 phase: 1
-review_sources: []
+review_sources: [docs/design_review/reviews/design_review_documentation-consolidation_2026-09-25.md]
 scenario_sources: []
 ---
 
@@ -13,7 +13,7 @@ scenario_sources: []
 ## Context
 
 **Proposed execution plan.** Fully migrate the remaining documentation onto the system
-delivered by [Plan 18](18-architectural-documentation.md). Current architecture and its
+delivered by [Plan 18](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/18-architectural-documentation.md). Current architecture and its
 rationale become the normal reading surface. This is a handoff for another agent, not
 a claim that the migration or product implementation has already happened.
 
@@ -30,12 +30,12 @@ records. Completion here is the recorded scoped outcome, not a new qualification
 
 | Work | Treatment for this migration |
 |---|---|
-| [Plan 16](16-data-model-architecture.md) | Complete for its documented local Linux scope, including maintainer-confirmed independent review; supplies the current implemented architecture |
-| [P10–P13 execution](16-p10-p13-execution.md) | Complete; historical implementation context, not a resume instruction |
-| [P14–P18 execution](16-p14-p18-execution.md) | Complete; owns final implementation, qualification, measurements and [independent-review closure](16-p14-p18-execution.md#independent-review-and-closure) |
+| [Plan 16](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-data-model-architecture.md) | Complete for its documented local Linux scope, including maintainer-confirmed independent review; supplies the current implemented architecture |
+| [P10–P13 execution](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p10-p13-execution.md) | Complete; historical implementation context, not a resume instruction |
+| [P14–P18 execution](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p14-p18-execution.md) | Complete; owns final implementation, qualification, measurements and [independent-review closure](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/16-p14-p18-execution.md#independent-review-and-closure) |
 | Plan 16 P00–P09 packets | Completed scoped context; retain useful facts until extracted, then retire by the same rule as the later packets |
-| [Plan 17](17-architecture-first-design-review.md) | Complete and inactive. The desired review system is in place. No pilot, process-effectiveness campaign or other rollout work remains |
-| [Plan 18](18-architectural-documentation.md) | Complete and inactive; its publisher and documentation rules are the baseline for this migration |
+| [Plan 17](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/17-architecture-first-design-review.md) | Complete and inactive. The desired review system is in place. No pilot, process-effectiveness campaign or other rollout work remains |
+| [Plan 18](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/18-architectural-documentation.md) | Complete and inactive; its publisher and documentation rules are the baseline for this migration |
 | Plans 01–15 and their packets | Complete and/or superseded as workstreams, even when their metadata says otherwise. They supply no implicit backlog or prerequisite to this migration |
 | This plan | Documentation migration and its necessary document-consumer cleanup; becomes active when execution is requested. No older workstream is an implicit prerequisite |
 
@@ -58,7 +58,7 @@ starting point, not tasks to repeat or capabilities to rebuild:
 | `just docs`, `docs-test`, `docs-serve`, `bootstrap-docs`; docs CI and doctor | One installed-tool/build path, optional rustdoc, successful-artifact replacement and failed-build recovery | Reuse recipes, fixtures and CI; no tool migration, installer or new publishing service |
 | AGENTS.md, shared rules, process skills, canonical/generated roles and entry READMEs | Documentation ownership and bounded-context guidance already deployed | Repair stale routes and align the new retirement policy; audit before editing |
 
-[Plan 18's verification](18-architectural-documentation.md#verification) records the
+[Plan 18's verification](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/18-architectural-documentation.md#verification) records the
 publisher, browser and link checks. Do not repeat its qualification merely to accept
 that baseline, or inherit its historical out-of-scope spelling findings as new work.
 ADR-0095's proposed status/formal supersession route is separate from the completed
@@ -209,14 +209,14 @@ boundary with ownership, actions, acceptance and deletion obligations.
 
 | Packet | Responsibility / dependencies | Scenarios | Replaced mechanism | Status |
 |---|---|---|---|---|
-| MD00 | Reconcile completed baselines and current routes; none | S1/S3 | Stale work selection, pilot wording and future-packet claims | pending |
-| MD01 | Current-rationale/retirement policy and ADR tooling; MD00 | S2/S5/S7 | Mandatory contiguous history and full-chain retention | pending |
-| MD02 | Extract enduring knowledge and identify live consumers; MD01 | S2/S3/S5 | Plan-owned enduring explanation and unnecessary history dependencies | pending |
-| MD03 | Modular architecture and residual layout-test coupling; MD02 | S2/S3/S4/S6 | Mixed legacy blueprint and duplicated layout authority | pending |
-| MD04 | Retire obsolete narratives, decisions, reviews and register history; MD02/MD03 | S2/S4/S5 | Retired working corpus and site output | pending |
-| MD05 | Publication, agent and workflow alignment; MD03/MD04 | S1–S7 | Legacy entry routes and duplicated lifecycle instructions | pending |
-| MD06 | Qualify the migrated reading surface once; MD05 | S1–S6 | Stale artifacts and broken references | pending |
-| MD07 | Verify retirement completion and close; MD06 | S5/S7 | Remaining migration-only retention and obsolete routes | pending; no P17/P18 dependency |
+| MD00 | Reconcile completed baselines and current routes; none | S1/S3 | Stale work selection, pilot wording and future-packet claims | done — README, plans README, AGENTS.md direction, `site.toml` current work; `STATUS.md` retired |
+| MD01 | Current-rationale/retirement policy and ADR tooling; MD00 | S2/S5/S7 | Mandatory contiguous history and full-chain retention | done — ADR-0096; `scripts/adr.py`/`check_register.py` retention mechanics with `DecisionRecordTests`; review C1–C8 resolved |
+| MD02 | Extract enduring knowledge and identify live consumers; MD01 | S2/S3/S5 | Plan-owned enduring explanation and unnecessary history dependencies | done — enduring content extracted into eleven section pages and `docs/dev/validation-assessment.md`; no live consumer of retired inputs found |
+| MD03 | Modular architecture and residual layout-test coupling; MD02 | S2/S3/S4/S6 | Mixed legacy blueprint and duplicated layout authority | done — mixed blueprint replaced; `every_crate_registered` uses Cargo membership; `layout_additions.toml` deleted |
+| MD04 | Retire obsolete narratives, decisions, reviews and register history; MD02/MD03 | S2/S4/S5 | Retired working corpus and site output | done — Plans 01–18, 66 ADRs, 49 review files, 22 review-evidence entries, old standard files and closed/stale register rows retired |
+| MD05 | Publication, agent and workflow alignment; MD03/MD04 | S1–S7 | Legacy entry routes and duplicated lifecycle instructions | done — publication scopes, entry routes, rules, ADR skill, binding and agent roles aligned |
+| MD06 | Qualify the migrated reading surface once; MD05 | S1–S6 | Stale artifacts and broken references | done — see Outcome |
+| MD07 | Verify retirement completion and close; MD06 | S5/S7 | Remaining migration-only retention and obsolete routes | done — plan closed and removed from Current |
 
 ### MD00 — Reconcile completed baselines and current routes
 
@@ -458,8 +458,9 @@ never use one input to justify keeping an entire historical plan family.
 
 | Material | Current consumer / reason | Removal event and owner |
 |---|---|---|
-| Blueprint layout table and `layout_additions.toml` | `every_crate_registered.rs` still reads them | MD03 replaces only that document coupling with Cargo membership checks, then removes the duplicated declarations |
-| Plan 16/18 narratives and earlier records used during extraction | Current rationale or qualification facts not yet transferred to their enduring owner | MD02 transfers selected content; MD04 retires narratives after retained links are repaired |
+| Blueprint layout table and `layout_additions.toml` | `every_crate_registered.rs` still reads them | Discharged: Cargo-membership checks replaced the parsing assertions; the table and TOML are deleted |
+| Plan 16/18 narratives and earlier records used during extraction | Current rationale or qualification facts not yet transferred to their enduring owner | Discharged: content extracted; narratives retired; retained ADRs cite them by immutable Git reference |
+| Two review-evidence probes (`blueprint-rev4-2026-09-13`, `full-arrow-datafusion-2026-09-14`) | Capability maps cite them for pinned Arrow/DataFusion behavior | Retained as Reference while those pins and map claims stand; not a migration exception |
 
 The old phase/acceptance-manifest reader, blueprint pin-table reader and pin exemption
 inventory are already gone. They are not retention exceptions or pending P17 work. If
@@ -474,6 +475,17 @@ if actually raised; do not recreate its completed F/N ledger or require a findin
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
+| [C1](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) relocation not bound to the cited file | S2 | resolved | MD01, `scripts/adr.py` | `relocated_review`/`unrelocate_links` require the same blob, a commit reachable from HEAD, this repository and a retired local path; `test_relocation_must_cite_the_same_reachable_file` |
+| [C2](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) number reuse after retirement merges | S5/S7 | resolved | MD01 | allocation and highest-issued lint read `git log --diff-filter=A`; `test_highest_issued_record_is_retained` |
+| [C3](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) plan/register numbering unenforced | S7 | resolved | MD01, `justfile`, `check_register.py` | `just plan` counts historical plans; checked register high-water mark; `test_register_may_be_empty_but_keeps_its_high_water_mark` |
+| [C4](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) retired peer indistinguishable from typo | S5 | resolved | MD01 | retired peers must appear in ADR history when available |
+| [C5](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) inconsistent shallow-clone handling | S2 | resolved | MD01 | shared `object_state` present/absent/unknown helper |
+| [C6](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) same-directory link relocation rejected | S2 | resolved | MD01 | permalinks compared as record-relative paths; fixture covers `0002-peer.md` |
+| [C7](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) ADR overclaim and incomplete exempt list | S2 | resolved | ADR-0096 | evidence `Tested`; Outcome 3/4 state per-namespace mechanisms and every permitted edit |
+| [C8](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) status history not append-only | S2 | resolved | MD01 | `test_status_history_is_append_only` |
+| [N1](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) rename detection hides issued numbers | S5/S7 | resolved | MD01 | `git log --no-renames` in ADR history and `just plan` |
+| [N2](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) second relocation beside an existing permalink rejected | S2 | resolved | MD01 | accepted and new text are both unrelocated before comparison |
+| [C3/C5 follow-up](../design_review/reviews/design_review_documentation-consolidation_2026-09-25.md) register reuse below the mark; shallow-clone relocation | S5/S2 | resolved / accepted limit | MD01 | `test_register_ids_are_never_reused_or_lowered`; shallow clones check shape only, CI clones full history |
 
 ## Verification
 
@@ -530,21 +542,78 @@ owners in this plan. If an unexpected product dependency is discovered, record t
 specific issue and continue independent migration work; do not manufacture whole-plan
 closure or revive a completed workstream as a placeholder blocker.
 
-This planning task changes only this document. Implementation, retirement, policy adoption
-and current-route edits begin when execution is requested. Commit, push, history rewriting
-and deployment are not implied.
+Execution was requested and is complete. The maintainer accepted ADR-0096 on 2026-09-26 after
+the scoped review's Accept-scoped follow-up, and ADR-0094/0095 as implemented through
+Plans 17–19, and ADR-0088–0093 as implemented through Plan 16; ADR-0095 supersedes the
+retired ADR-0033/0036. Commit, push and deployment are
+separate actions.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Pending execution. Record the current corpus, retired mechanisms and scoped results here.
+**Implemented:** eleven focused pages under `docs/authoritative_design/sections/` now own
+all 197 section identities (D1–D14 included) and describe the current system, its rationale
+and limits; each was written against current source and the retained ADRs. Retired
+mechanisms keep one-line identity pointers. `blueprint.md` shrank from 4,680 lines to a
+232-line revision history plus a table that maps every former heading anchor to its owner.
+§24.2 summarizes the completed Plan 16 qualification basis with its conditions and
+exclusions, linked by immutable permalink. `docs/dev/validation-assessment.md` now documents
+the ordinary qualification commands; the two stale acceptance guides are gone.
+
+**Implemented:** Plans 01–18 with their packets and acceptance TOMLs, 66 obsolete ADRs,
+49 review files, 22 review-evidence entries, the retired charter/directive/template/RCA
+files, `proposal.md`, `STATUS.md` and closed or stale register rows left the working tree.
+Markdown in `docs/` went from about 66,000 to 10,700 lines across ADRs, architecture,
+design review, plans and development guides. Twenty-nine ADRs remain (ADR-0036 retired at acceptance of ADR-0095); the register keeps 17
+genuine deferrals. Retained ADR references to retired files were relocated to the
+baseline commit `8950dd3d6ddb` (`git:` reviews, body permalinks).
+
+**Tested:** `just setup-test` — 86 tests, zero failures, including `DecisionRecordTests`
+(sparse IDs, retired peers, Git references, same-file relocation, append-only history,
+history-based allocation, register high-water mark). `just test-package pse-tests-governance
+-p pse-relations --test every_crate_registered --test blake3_owner` with explicit
+force-validation — 7 passed, zero skipped, including the non-member control. `cargo clippy -p
+pse-tests-governance -p pse-relations --tests -- -D warnings` — clean. `just docs-test` —
+passed. `just adr-lint` (front matter, index, register) — exit 0.
+`just lint-agents` — ok. `just docs` — 98 chapters indexed; a fresh build contains only
+retained pages. `lychee --offline --include-fragments` over the book — 0 errors; the same
+check over root, rule, role and ADR-skill Markdown — 0 errors. Scoped `typos`,
+`reuse lint-file`, `ruff check`/`format --check`, `rustfmt` and `taplo --check` on the
+changed files — clean. Baseline zero throughout; all local Linux, 2026-09-26.
+
+**Tested (manual acceptance, scripted):** the served artifact returns the entry, a small
+(reading guide) and a large (schema and relations) page, the former-anchor table and the
+section directory; former blueprint anchors and `#section-N-M` anchors resolve; Current
+holds 54 pages, Reference 44 and History one (the open consolidation review). Renderer and
+search components did not change, so Plan 18's recorded browser qualification stands; an
+interactive browser pass was not repeated.
 
 ### A mistake made and corrected
 
-Pending execution; record an actual correction, not an invented lesson.
+The first relocation rule accepted any file that existed at the named path and commit. The
+scoped review (C1) showed it accepted earlier content, dangling commits and foreign
+repositories, and the highest-issued guard lapsed once a retirement reached `main` (C2).
+Relocation now requires the same blob at a commit reachable from HEAD in this repository,
+and allocation reads Git history. Separately, the first append-only status-history check
+rejected legitimate link relocations inside that section; it now compares after
+unrelocating permalinks.
 
 ### Deviations from the plan, deliberate
 
-Pending execution. Explain any retained exception and its concrete consumer; do not silently
-convert temporary legacy retention into the permanent target.
+- **Git references for accepted records.** Retaining accepted ADRs whose cited reviews and
+  plans retired required relocating their references; ADR-0096 permits exactly that edit and
+  the lint verifies it, instead of keeping obsolete reviews as lint inputs.
+- **Section pages are longer than "focused" suggests** (about 250–640 lines). Every
+  identity cited by retained ADRs and source comments was kept with current content or a
+  pointer, so no citation dangles; a finer split is left to future substantive changes.
+- **ADR IDs in source comments, registry descriptions and capability maps** still name some
+  retired records. They are identifiers resolvable in Git, not links; rewriting registry text
+  would require product codegen for a prose change, which this plan excludes. Instruction
+  surfaces, manifests and reference-package docs were repointed.
+- **Retained evidence.** Two review-evidence probes stay because the capability maps cite
+  them for the still-pinned Arrow/DataFusion behavior.
+- **Charter crosswalk kept.** Twenty retained accepted ADRs cite `DM-nn` IDs, so the core's
+  §I mapping stays; the Core 2.0→3.0 transition and RCA lineage were removed.
+- **GitHub `phase/*` labels** in `.github/labels.yml` were not changed: label sync is an
+  outward-facing action outside this documentation migration.

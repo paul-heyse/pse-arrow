@@ -4,7 +4,7 @@
 # Physical data, version 1.0.0
 
 The package documents are the declaration authority. The Arrow-free quantity and
-material fixtures are generated from their admitted rows under ADR-0064. Scientific
+material fixtures are generated from their admitted rows (blueprint §6.15.7). Scientific
 checks use the sources below independently of regeneration equality.
 
 The seven SI base dimensions and coherent products follow the

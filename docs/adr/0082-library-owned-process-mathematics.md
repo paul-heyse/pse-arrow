@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DM-07, DM-24, DM-38, DM-56]
 blueprint: [§D6, §D10, §D11, §7, §14]
-review: docs/design_review/reviews/design_review_incremental-math-structure_2026-09-24.md
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_incremental-math-structure_2026-09-24.md
 evidence: Tested
 supersedes: [ADR-0047, ADR-0078]
 superseded-by: null
@@ -31,7 +31,7 @@ Existing data, graph, incremental and retention mechanisms require current consu
 
 
 The concrete replacement text is prepared in
-[Plan 14 foundation contract](../plans/14-math-foundation-contract.md#concrete-decision-amendment-prepared-for-the-design-pr).
+[Plan 14 foundation contract](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-math-foundation-contract.md#concrete-decision-amendment-prepared-for-the-design-pr).
 Blueprint revision 51 applies it under the local authorization in ADR-0087.
 For this milestone ADR-0087 authorizes local reconciliation; blueprint §0.5 now
 contains the governing replacement contract. Superseding ADR-0047 retains its
@@ -69,7 +69,7 @@ the native compiler/initialization owners and pse-kernels' actual FeOS provider 
 The unused expression-payload sharing pass is deleted. Generated semantic values and
 native codecs retain their existing owners, with typed AST transformations and compact
 physical fixtures; no second codec or allocator framework is introduced. See
-[M19–M20 execution](../plans/14-m19-m20-execution.md). The removals were recorded before
+[M19–M20 execution](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m19-m20-execution.md). The removals were recorded before
 implementation and are qualified locally by M22; blueprint revision 51 reconciles
 the current contract under ADR-0087.
 
@@ -81,7 +81,7 @@ construction, retention and mutable workers; neither native state nor cache side
 belong in tracked queries. The old preparation-local BodyStore is deleted.
 Structural matching and DM/BTF use pounce-presolve over complete all-branch support,
 with bounded stack admission and explicit inequality/objective coupling.
-See [M09–M10 execution](../plans/14-m09-m10-execution.md).
+See [M09–M10 execution](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m09-m10-execution.md).
 
 Native solving replacements are implemented through the later Plan 14 packages.
 No old code is retained as a fallback or as historical evidence. Compilation and
@@ -104,21 +104,21 @@ an atomic caller/schema cut and explicit native/profile qualification.
 
 ## More information
 
-The [M21 implementation review](../design_review/reviews/design_review_m21-design-closure_2026-09-24.md)
+The [M21 implementation review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_m21-design-closure_2026-09-24.md)
 assesses the final contract/deletion changes at mechanism scope. It does not supply
 independent M22 acceptance.
 
-[Execution packet](../plans/14-m00-m05-execution.md) and
-[main plan](../plans/14-library-owned-process-simulator.md).
+[Execution packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m00-m05-execution.md) and
+[main plan](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-library-owned-process-simulator.md).
 
 ## M22 local qualification
 
-**Tested and Measured:** the [M22 packet](../plans/14-m22-execution.md#verification)
+**Tested and Measured:** the [M22 packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m22-execution.md#verification)
 records local Linux functional Q01–Q17, the 23 cached-development case-cost workloads,
 zero required failures and retained-origin conditions. It distinguishes admitted memory
 allowances from measured pool/RSS observations and excludes Rust build time.
 
-The [independent final review](../design_review/reviews/design_review_m22-scientific_2026-09-24.md)
+The [independent final review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_m22-scientific_2026-09-24.md)
 accepts the relevant scoped contracts with no open MUST finding. Companion runtime,
 scientific and claims reviews cover G1–G8 and PS-G1–PS-G3. Blueprint revision 51 and
 ADR-0087 govern local acceptance. Strict Clippy cleanup and release/remote/platform

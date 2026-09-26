@@ -28,18 +28,33 @@ existing metadata belongs to its existing owner. New collection roots and delibe
 exceptions are configured in `docs/site.toml`. Keep supporting assets inside the documented
 collection. Do not hand-edit staged SUMMARY, derived section directories or generated schema docs.
 
-Search defaults to Current. The declaration selects current-work groups explicitly because old
-plan lifecycle fields are not reliable resume instructions. Accepted ADRs are Current according
-to their recorded status; proposed ADRs are Reference. Scope describes reading purpose, not
-semantic validity. The remaining mixed blueprint stays in Reference while the architecture
-entry page links its applicable contracts. History includes older work and observations.
+Search defaults to Current: entry pages, the architecture sections, development guides, the
+selected standard and active plans. The declaration selects current work explicitly because a
+plan's lifecycle field is not a resume instruction. Accepted ADRs are Current; proposed ADRs,
+library maps, generated schemas and the blueprint's revision/former-anchor page are Reference.
+History holds only the few deliberately retained records outside those groups, such as a
+closed plan kept as the highest-numbered record or a review whose findings are still open.
+Retired material is not published at all, so Everything searches only what is retained.
 Search engine/index data loads when the search dialog opens; ordinary page visits load only
-the component UI. Everything removes the scope restriction.
+the component UI. Scope describes reading purpose, not semantic validity.
 
-To move an authoritative section, preserve its numbered heading in one owner under
-`authoritative_design/sections/`. Leave the old anchor and a link at its previous location;
-remove the old normative body. Add the collection revision row to the blueprint through the
-normal design route. The shared ADR resolver checks identifiers, not the truth of their prose.
+To move an authoritative section, preserve its numbered heading in exactly one owner under
+`authoritative_design/sections/` and remove the old body. Links use the publisher's stable
+`#section-N-M` anchors, which follow the owner. When a cited mechanism is retired, keep its
+identity as a one-line pointer under the page's "Retired section identities". Add the
+collection revision row to `blueprint.md` through the normal design route. The shared ADR
+resolver checks identifiers, not the truth of their prose.
+
+## Lifecycle and retirement
+
+Keep a document only while it is needed to understand, change, operate or qualify the
+current system, or to complete active work (ADR-0096). When a plan closes, move its enduring
+meaning to the owning section or ADR, remove it from `current_work`, and delete the completed
+plan, its packets and resolved reviews once no reader, recipe, test or skill consumes them.
+Keep the highest-numbered plan and ADR until a newer one exists. Before deleting, search for
+inbound links and executable consumers (including constructed paths); repair links to the
+current owner, or to an immutable permalink when a historical record is genuinely needed.
+Git history is the archive: there is no archive tree, second book or retirement ledger.
 
 Use relative links for published documents, repository links for source files, and immutable
 Git links when citing a historical source version. Local-only capability references should be

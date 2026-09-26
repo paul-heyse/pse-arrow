@@ -16,7 +16,8 @@ done. When the code and a plan disagree, the code is what runs.
 `id`, `title`, `status` (`proposed` | `accepted` | `rejected` | `deprecated` |
 `superseded`), `date`, `deciders`, `level` (`decision` | `should-deviation` |
 `must-gap`), `principles` (`AP-xx` foundations, `DP-xx` refinements, `PS-xx` process-simulator profile; accepted records keep legacy `DM-xx`), `blueprint` (the sections governed), `review`
-(`path#finding`, or `not-required: <reason>`), `evidence` (a §D label),
+(`path#finding`, `git:<commit>:<path>#finding` for a retired review, or
+`not-required: <reason>`), `evidence` (a §D label),
 `supersedes`/`superseded-by`, `revisit` (an *observable* trigger, not a date alone),
 `verification` (the named scenario/property and analysis, test, lint or measurement that
 settles it). Optional `standard` and `scenarios` fields snapshot reviewed versions and link
@@ -34,7 +35,17 @@ section is not.
 An accepted ADR changes only in its status fields. A decision that turned out wrong is
 **superseded**, not edited: `just adr-supersede <old> <new>` writes symmetric links and a
 status-history entry. `just adr-lint` checks this against `origin/main`, so an edit in
-place is a red build, and a `PreToolUse` hook blocks it before that.
+place is a red build, and a `PreToolUse` hook blocks it before that. The one exception is
+reference relocation: a retired cited review or plan moves to the same path at an
+immutable commit (`git:` review or repository permalink), which the lint verifies.
+
+## Retention (ADR-0096)
+
+The tree keeps decisions whose rationale explains the current system. An obsolete record
+(mechanism gone, or fully replaced) is deleted, not rewritten, once its surviving meaning
+has an owner; Git history is the archive. IDs are never reused and gaps are expected;
+keep the highest-numbered record (and plan) until a newer one exists. Completed plans,
+packets and resolved reviews retire the same way. Retired material is not a backlog.
 
 ## The decision-PR rule
 
@@ -58,7 +69,9 @@ only if it also carries `needs-review`.
 `just plan <slug>` creates `docs/plans/NN-<slug>.md`. Front matter lists the ADRs the
 plan implements. When the work lands, append `## Outcome` with what was built, **a
 mistake made and corrected**, and **deviations that were deliberate**. Both of those
-sections are the point of the outcome; omitting them makes the plan a memo.
+sections are the point of the outcome; omitting them makes the plan a memo. Closing a plan
+also moves its enduring meaning to the contract/rationale owner and removes it from
+current work; the completed record then retires when nothing depends on it.
 
 ### Architecture and follow-up ownership
 
@@ -101,4 +114,5 @@ Structure every plan the way AGENTS.md *Execution rhythm* runs it:
 
 `docs/adr/register.md` holds every deferred decision with its trigger, its check, an
 owner and a next-review date. A decision deferred without an observable trigger is a
-decision forgotten. `just register-check` runs the rows that are due.
+decision forgotten. `just register-check` runs the rows that are due. A decided or
+satisfied row is removed; the register may be empty.

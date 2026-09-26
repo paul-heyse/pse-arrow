@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DM-28, DM-43, DM-48, DM-45]
 blueprint: [§18.3, §6.13, §26]
-review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Proposed
 supersedes: []
 superseded-by: null

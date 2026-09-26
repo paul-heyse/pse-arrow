@@ -7,7 +7,7 @@
 
 **Use the library.** During phases 0–1 no third-party dependency is refused, and no
 licence is grounds to refuse one. Adding a crate or a Python package needs no ADR, no
-design review, and no row in the blueprint. Nothing in CI blocks a merge because of what
+design review, and no revision row in the architecture. Nothing in CI blocks a merge because of what
 you depended on or what licence it carries.
 
 **This is not a constraint to design or execute around.** If a library gets the platform

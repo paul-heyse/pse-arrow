@@ -16,8 +16,10 @@ just build-storage
 `build-dev` is an experimental, dated nightly route. `.config/build.toml` owns its
 date, frontend threads, jobs and cache/storage budgets. It has one persistent target
 tree shared by compatible recipes. `build-stable` selects `rust-toolchain.toml` and
-the ordinary stable target. Nightly promotion requires the Plan 15 measurements and
-the governance amendment described there. Stable remains the canonical compiler.
+the ordinary stable target. Promoting nightly is a governance change backed by fresh
+`bench-builds` measurements; the retired
+[build-performance plan](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/15-rust-build-performance.md)
+records the earlier screening. Stable remains the canonical compiler.
 Invoke the stable route from a fresh shell if caller flags contain nightly options;
 the command refuses those flags rather than silently changing their meaning.
 
@@ -58,11 +60,11 @@ Fortran is unchanged. GMP/MPFR retains its upstream persistent cache mechanism.
 ## Measurements and retention
 
 ```bash
-just bench-builds build/plan15/baseline --cache off
-just bench-builds build/plan15/cached --cache on --cold-cache --recovery --second-worktree
-just bench-builds build/plan15/nightly-screen --mode nightly --frontend 4 --jobs 16 --screen
-just bench-builds build/plan15/profile-one --cache on --dependency-opt 1 --execute
-just bench-builds build/plan15/native-workflow --cache on --native --workflow
+just bench-builds build/build-measurements/baseline --cache off
+just bench-builds build/build-measurements/cached --cache on --cold-cache --recovery --second-worktree
+just bench-builds build/build-measurements/nightly-screen --mode nightly --frontend 4 --jobs 16 --screen
+just bench-builds build/build-measurements/profile-one --cache on --dependency-opt 1 --execute
+just bench-builds build/build-measurements/native-workflow --cache on --native --workflow
 ```
 
 Every output directory must be new. The runner snapshots dirty and untracked source
@@ -84,7 +86,7 @@ servers are explicitly excluded in reports. Wall time excludes cache-server star
 and shutdown. Inspect Cargo's timing HTML for the critical path;
 summed compilation durations are not wall time. The cold run is a screening sample;
 replicate leading candidates before claiming a cold speedup. Other active builds and
-source changes make a run diagnostic. No linker comparison is part of Plan 15.
+source changes make a run diagnostic. No linker comparison is included.
 
 Keep the stable and selected nightly working sets plus at most one temporary
 candidate. Run `just build-storage` before large campaigns. Below the configured
@@ -93,5 +95,5 @@ inactive campaign targets explicitly; preserve reports and the active incrementa
 compiler, downloaded-source and native caches. Avoid broad `cargo clean` recovery.
 No automatic deletion or second compiler-artifact cache is implemented.
 
-Plan 15 does not qualify Plan 14 M22. Cache reuse cannot substitute for current
-source, native-byte and executed-test evidence.
+Build measurements are not product qualification. Cache reuse cannot substitute for
+current source, native-byte and executed-test evidence.

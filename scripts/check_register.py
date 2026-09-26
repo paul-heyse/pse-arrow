@@ -30,6 +30,8 @@ REGISTER = ROOT / "docs" / "adr" / "register.md"
 ADR_DIR = ROOT / "docs" / "adr"
 
 ROW_RE = re.compile(r"^\|\s*(R-\d{2})\s*\|")
+# Row ids are never reused, including ids of removed rows (ADR-0096).
+MARK_RE = re.compile(r"^Highest issued row id: (R-\d{2})\.?$", re.MULTILINE)
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ADR_REF_RE = re.compile(r"ADR-(\d{4})")
 STATUSES = {"open", "watch", "closed"}
@@ -71,15 +73,39 @@ def known_adrs() -> set[str]:
     return {f"ADR-{p.name[:4]}" for p in ADR_DIR.glob("[0-9][0-9][0-9][0-9]-*.md")}
 
 
+def baseline() -> tuple[int, set[str]] | None:
+    """The high-water mark and row ids on `origin/main`, when that history is available."""
+    if not REGISTER.is_relative_to(ROOT):
+        return None
+    relative = REGISTER.relative_to(ROOT).as_posix()
+    proc = subprocess.run(
+        ["git", "-C", str(ROOT), "show", f"origin/main:{relative}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    mark = MARK_RE.search(proc.stdout)
+    ids = {m.group(1) for line in proc.stdout.splitlines() if (m := ROW_RE.match(line))}
+    return (int(mark.group(1)[2:]) if mark else 0), ids
+
+
 def lint() -> int:
     today = datetime.date.today()
     errors: list[str] = []
     seen: set[str] = set()
     adrs = known_adrs()
-    parsed = rows()
-    if not parsed:
-        print("error: docs/adr/register.md has no R-NN rows", file=sys.stderr)
-        return 1
+    parsed = rows()  # an empty register is valid: nothing is deferred (ADR-0096)
+    mark = MARK_RE.search(REGISTER.read_text(encoding="utf-8"))
+    if not mark:
+        errors.append("register.md: missing 'Highest issued row id: R-NN' line")
+    highest = int(mark.group(1)[2:]) if mark else 0
+    base = baseline()
+    if base and mark and highest < base[0]:
+        errors.append(
+            f"register.md: the highest issued row id may not fall below R-{base[0]:02d}"
+        )
 
     for row in parsed:
         where = f"register.md:{row['_lineno']} {row['id']}"
@@ -88,6 +114,10 @@ def lint() -> int:
             continue
         if row["id"] in seen:
             errors.append(f"{where}: duplicate row id")
+        if mark and int(row["id"][2:]) > highest:
+            errors.append(f"{where}: raise the highest issued row id to {row['id']}")
+        if base and int(row["id"][2:]) <= base[0] and row["id"] not in base[1]:
+            errors.append(f"{where}: reuses a retired row id; take the next id instead")
         seen.add(row["id"])
         if row["status"] not in STATUSES:
             errors.append(

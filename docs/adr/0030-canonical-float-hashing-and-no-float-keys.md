@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DM-40, DM-42, DM-08, DM-15]
 blueprint: [§5.3, §14.2, §19.2]
-review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
 superseded-by: null

@@ -8,100 +8,98 @@
     reason = "a governance test reports by panicking with the offending path; the workspace panic policy governs library code"
 )]
 
-//! Every crate directory is in the blueprint or in `layout_additions.toml`; every member
-//! inherits the workspace package metadata and lints; the feature that
-//! `[workspace.metadata.pse].validate-features` names actually exists.
+//! Every crate directory is an actual Cargo workspace member; the declared members are
+//! exactly the packages Cargo resolves; every member inherits the workspace package
+//! metadata and lints; the feature that `[workspace.metadata.pse].validate-features` names
+//! actually exists.
 //!
-//! Blueprint §3.2's code block is the layout authority. A crate that appears on disk
-//! without appearing there (or in the amendment file beside this test) is a boundary
-//! nobody decided on (blueprint §24.1 "Schema governance").
+//! Cargo owns workspace membership. A directory under `crates/` that Cargo does not build
+//! is a boundary nobody decided on (blueprint §24.1); adding or removing a crate is an ADR
+//! (GOVERNANCE.md), and blueprint §3.2 explains the roles without being parsed.
 
 mod common;
 
 use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
 
-use regex::Regex;
 use toml::Value;
 
-/// Crate names from the §3.2 code block: indented `pse-<name>/` entries.
-fn blueprint_crates() -> BTreeSet<String> {
-    let blueprint = common::workspace_root().join("docs/authoritative_design/blueprint.md");
-    let text = common::read(&blueprint);
-    let re = Regex::new(r"(?m)^\s+(pse-[a-z0-9-]+)/").expect("static regex");
-    re.captures_iter(&text)
-        .map(|caps| caps[1].to_owned())
-        .collect()
-}
-
-/// The amendment file: crates §3.2 does not list, each covered by an ADR.
-fn layout_additions() -> BTreeSet<String> {
-    let path = common::workspace_root().join("tests/governance/layout_additions.toml");
-    let doc = common::parse_toml(&path);
-    let reason = doc
-        .get("reason")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .trim();
-    assert!(
-        !reason.is_empty(),
-        "layout_additions.toml must carry a `reason` naming the ADR that amends §3.2"
-    );
-    doc.get("additions")
-        .and_then(Value::as_array)
-        .expect("layout_additions.toml `additions`")
+/// Package directories Cargo resolves as workspace members.
+fn cargo_member_dirs() -> BTreeSet<PathBuf> {
+    let metadata = common::metadata();
+    metadata
+        .packages
         .iter()
-        .map(|v| {
-            v.as_str()
-                .expect("additions entries are strings")
-                .to_owned()
+        .filter(|pkg| metadata.workspace_members.contains(&pkg.id))
+        .map(|pkg| {
+            let manifest: &Path = pkg.manifest_path.as_std_path();
+            let dir = manifest
+                .parent()
+                .expect("a manifest has a parent directory");
+            dir.canonicalize()
+                .unwrap_or_else(|err| panic!("resolving {}: {err}", dir.display()))
         })
         .collect()
 }
 
+/// Crate directories that are not Cargo workspace members, by directory name.
+fn unregistered(dirs: &[(String, PathBuf)], members: &BTreeSet<PathBuf>) -> Vec<String> {
+    dirs.iter()
+        .filter(|(_, path)| {
+            !path
+                .canonicalize()
+                .is_ok_and(|resolved| members.contains(&resolved))
+        })
+        .map(|(name, _)| name.clone())
+        .collect()
+}
+
 #[test]
-fn every_crate_directory_is_registered() {
-    let registered: BTreeSet<String> = blueprint_crates()
-        .union(&layout_additions())
-        .cloned()
-        .collect();
-
-    let unregistered: Vec<String> = common::crate_dirs()
-        .into_iter()
-        .map(|(name, _)| name)
-        .filter(|name| !registered.contains(name))
-        .collect();
-
+fn every_crate_directory_is_a_workspace_member() {
+    let unregistered = unregistered(&common::crate_dirs(), &cargo_member_dirs());
     assert!(
         unregistered.is_empty(),
-        "crates/ contains directories that blueprint §3.2 does not list and \
-         tests/governance/layout_additions.toml does not amend in: {unregistered:?}. \
-         Adding a crate is an ADR (GOVERNANCE.md)."
+        "crates/ contains directories Cargo does not build as workspace members: \
+         {unregistered:?}. Add the crate through an ADR (GOVERNANCE.md) or remove the \
+         directory."
     );
 }
 
 #[test]
-fn blueprint_crates_all_exist() {
-    let on_disk: BTreeSet<String> = common::crate_dirs().into_iter().map(|(n, _)| n).collect();
-    let amendment = common::parse_toml(
-        &common::workspace_root().join("tests/governance/layout_additions.toml"),
+fn unregistered_crate_directory_is_detected() {
+    let members: BTreeSet<PathBuf> = cargo_member_dirs();
+    let stray =
+        std::env::temp_dir().join(format!("pse-governance-stray-crate-{}", std::process::id()));
+    std::fs::create_dir_all(&stray).expect("creating the control directory");
+    let dirs = vec![
+        (
+            "pse-ids".to_owned(),
+            common::workspace_root().join("crates/pse-ids"),
+        ),
+        ("pse-stray".to_owned(), stray.clone()),
+    ];
+    let found = unregistered(&dirs, &members);
+    std::fs::remove_dir_all(&stray).expect("removing the control directory");
+    assert_eq!(
+        found,
+        ["pse-stray"],
+        "control: a non-member directory must be reported"
     );
-    let removals: BTreeSet<_> = amendment["removals"]
-        .as_array()
-        .expect("explicit removal decisions")
-        .iter()
-        .map(|v| v.as_str().expect("crate name").to_owned())
-        .collect();
-    assert!(
-        removals.is_disjoint(&on_disk),
-        "retired crate directories must be removed"
-    );
-    let missing: Vec<String> = blueprint_crates()
+}
+
+#[test]
+fn declared_members_are_cargo_members() {
+    let declared: BTreeSet<PathBuf> = common::member_dirs()
         .into_iter()
-        .filter(|name| !on_disk.contains(name) && !removals.contains(name))
+        .map(|dir| {
+            dir.canonicalize()
+                .unwrap_or_else(|err| panic!("resolving {}: {err}", dir.display()))
+        })
         .collect();
-    assert!(
-        missing.is_empty(),
-        "blueprint §3.2 lists crates that do not exist under crates/: {missing:?}"
+    let resolved = cargo_member_dirs();
+    assert_eq!(
+        declared, resolved,
+        "[workspace] members in Cargo.toml and Cargo's resolved workspace members differ"
     );
 }
 

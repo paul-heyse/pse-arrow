@@ -17,7 +17,7 @@
 
 These mechanisms are complementary, not a ranking from “good” to “bad” representations. Native algebra offers broad optimizer visibility, a UDF can encapsulate a useful numerical primitive, and a custom relational node can express multi-row semantics. Metadata contributes meaning only where consumers interpret it. A solver-oriented math IR can retain derivatives, implicit systems and domain operators that ordinary DataFusion `Expr` does not represent.
 
-In `pse-arrow`, the relevant architecture is the native-plan target alongside the retained quantity/MathIR/kernel boundaries: [blueprint §3.3.3, D5–D6, D9–D11](../authoritative_design/blueprint.md) and [Plan 05](../plans/05-native-logical-plan-hard-pivot.md). This reference describes library mechanisms that can serve that design; it is not a replacement execution plan.
+In `pse-arrow`, the relevant architecture is the native-plan target alongside the retained quantity/MathIR/kernel boundaries: [blueprint §3.3.3, D5–D6, D9–D11](../authoritative_design/blueprint.md) and [Plan 05](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/05-native-logical-plan-hard-pivot.md). This reference describes library mechanisms that can serve that design; it is not a replacement execution plan.
 
 ## 2. AnalyzerRule: semantic processing over plans
 

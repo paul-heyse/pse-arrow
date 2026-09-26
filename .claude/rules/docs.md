@@ -8,25 +8,30 @@ paths:
 
 ## Authority, and how to cite it
 
-`docs/authoritative_design/README.md` routes to the authoritative blueprint and numbered
-pages under `sections/`. Each section has one owner; ADRs record *why* and design reviews
-are evidence, not authority. Cite the owner instead of restating it.
+`docs/authoritative_design/README.md` routes to the numbered pages under `sections/`,
+which describe the current system; `blueprint.md` keeps revisions and maps former anchors.
+Each section has one owner; ADRs record *why* and design reviews are evidence, not
+authority. Cite the owner instead of restating it.
 
 Citations are stable identifiers, never line numbers or file positions:
-`blueprint §14.3`, `ADR-0020`, `AP-06`, `DP-09`, `PS-10`, `G4`. Section numbers in the collection are
+`blueprint §14.3`, `ADR-0082`, `AP-06`, `DP-09`, `PS-10`, `G4`. Section numbers in the collection are
 citation targets: insert `§14.3.1`, never renumber.
 
 Intended specification, observed implementation and historical evidence have distinct roles.
 State which a document records; reconcile divergence without discarding the specification.
 Link the owner of current plan/packet status and finding disposition instead of duplicating
-live state in summaries. New reviews record the standard version; historical reviews keep
-their original observations and verdicts.
+live state in summaries. New reviews record the standard version.
+
+The working corpus keeps what is needed to understand, change, operate or qualify the
+current system, or to complete active work (ADR-0096). When work closes, move enduring
+meaning to its owner, then retire the completed plan, packets and resolved reviews; Git
+history is the archive. Repair inbound links to the current owner, or to an immutable
+permalink when a historical record is genuinely needed. Do not recreate an archive tree.
 
 ## Conventions
 
-- **File names** are lowercase kebab-case. The exceptions are the superseded
-  UPPER_SNAKE and snake_case principle files under `docs/design_review/design_principles/`, the root governance
-  files, and the design-review skill's `design_review_<slug>_<date>.md`.
+- **File names** are lowercase kebab-case. The exceptions are the root governance files
+  and the design-review skill's `design_review_<slug>_<date>.md`.
 - **Front matter** (YAML) is required on ADRs, plans, the capability maps (`pins:`,
   `regenerated:`) and the authoritative design (`status:`; collection `revision:` lives only in the blueprint).
 - **Evidence labels** — *Proposed*, *Interface-checked*, *Implemented*, *Tested*,
@@ -39,9 +44,9 @@ their original observations and verdicts.
 
 ## The large documents
 
-`docs/capability-maps/` and the blueprint are tens of thousands of lines. Run
-`just lib-outline <file>` to see the heading structure and read the section you need.
-Reading one end to end wastes a context window.
+`docs/capability-maps/` are tens of thousands of lines. Run `just lib-outline <file>` to
+see the heading structure and read the section you need. Architecture pages are focused;
+read the one that owns your area.
 
 API-reference doc lint is deferred in phase 0 (register R-20). Preserve backticked
 identifiers and rustdoc markers; their presence is not evidence that the stub checked
@@ -51,7 +56,9 @@ them. Ordinary book building and internal-link checks remain active.
 
 `docs/site.toml` selects collections and current-work search groups. Publication derives
 SUMMARY and the section directory in ignored staging; never maintain a second page list.
-Move a section without renumbering, retaining its old anchor and a link at the old location.
+Move a section without renumbering. Link sections through the publisher's stable
+`#section-N-M` anchors, which follow the owner; a retired cited identity keeps a one-line
+pointer at its owner.
 `just docs` builds HTML/search; CI separately checks offline links. Read
 `docs/dev/documentation.md` for the tool/preview commands.
 

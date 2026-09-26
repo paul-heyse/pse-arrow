@@ -1,97 +1,172 @@
 ---
-title: Current Plan 14 validation and evidence
-status: implemented
-date: 2026-09-24
+title: Qualification commands
+status: current
 ---
 
-# Current Plan 14 validation
+# Qualification commands
 
-**Implemented, unqualified:** the assessment runner collects the active Plan 14
-campaign. M19–M20 supplies executable cases and evidence controls; M21 must close
-implementation/deletions before M22 runs the campaign. The
-[acceptance guide](architecture-acceptance.md) gives the sequence. Earlier Plan 10–13
-campaigns and seals cannot authorize or satisfy this target.
+This guide describes the ordinary command surface for checking the current implementation.
+[Blueprint §24](../authoritative_design/sections/operations-and-validation.md#section-24)
+owns the test layers and measurement rules, and
+[§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2)
+records the current qualification basis and its exclusions.
+[ADR-0092](../adr/0092-ordinary-execution-evidence.md) gives the rationale.
+`just --list` is the authority for recipe names.
 
-`just assessment-list --phase functional` and `just assessment-list --phase performance`
-print declared gates, profiles, cases and exclusions. Listing reads the manifest;
-it does not compile, import `pse`, execute tests, seal sources or create receipts.
-`just plan14-discover` is a distinct operation: it compiles/enumerates Nextest tests
-and collects pytest identities without executing them.
+Comprehensive qualification is requested by the maintainer (`AGENTS.md`, *Execution
+rhythm*). It is not a prerequisite for a commit, push, merge or plan close. During
+implementation, use `just check-package`, targeted `just unit-package` and `just codegen`.
+The failure baseline is zero. A report names the command, mode, scope and result.
 
-## Scope and order
+## Common conditions
 
-`scripts/validation_scope.py` owns explicit functional/performance classifications
-and expands aggregate recipes. `scripts/implementation_phase.py` validates the
-current acceptance manifest and requires current functional evidence before product
-performance campaigns. The M21 source seal and inventory-closure gate were removed
-at the maintainer's request. Qualification executes directly against current source.
+- Every Rust test recipe passes `--features pse-relations/force-validate` explicitly.
+- Native recipes run through `scripts/native_exec.sh`, which sources
+  `scripts/native-execution-env.sh`. That script loads the build, solver and math
+  environments and optional local `.envrc.local` overrides. It prepends `$IPOPT_DIR/lib`
+  to `LD_LIBRARY_PATH` and sets `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS` and
+  `MKL_NUM_THREADS` to `1`. A missing native library or capability fails; it is never
+  skipped.
+- Results are local outputs under the ignored `build/` directory; they are not
+  committed. The runner refuses an output path that Git does not ignore or that
+  already exists.
 
-Functional qualification includes current format/lint/governance/generation/family/
-documentation checks, workspace and native tests, release/doctest/feature/coverage
-profiles, linked Python workflows and surviving inspection/storage consumers. The
-runner first installs the native editable Python profile with `py-sync-native`.
-The explicit `plan14-native`, `plan14-python` and `plan14-tools` gates own target
-case witnesses. Other configurations remain useful repository checks; a default
-build cannot stand in for a linked native case. All Rust test profiles use explicit
-Arrow force-validation. The failure baseline is zero.
+## Full local assessment
 
-Performance contains only the current complete-process measurements and independent
-G1–G7 review collection. It requires successful current-source functional evidence;
-a functional campaign containing a benchmark cannot evade that ordering. Historical
-benchmarks remain available only under the same phase constraints and do not
-substitute for the current process workloads.
+| Command | What it does |
+|---|---|
+| `just assessment-list [--group <name>]` | Prints the declared gates as JSON (name, role, recipe, arguments, dependencies, mode, profile) and the explicit exclusions. Executes nothing. |
+| `just assessment [<output>] [flags]` | Runs every gate in `scripts/validation_scope.py::comprehensive` and continues after failures. The default output is `build/assessment/<UTC timestamp>/`; pass `""` for it when adding flags. |
 
-The campaign covers the pinned Linux development environment. Remote wheel/platform
-matrices, alternative toolchains, IDAES parity environments, solver-image rebuilding,
-cloud/destructive operations and unselected mutation campaigns require separate
-scope. `assessment-list` carries the exact exclusions. Native capability and scientific
-qualification are separate from distribution/platform qualification.
+The comprehensive scope runs these gates in order:
 
-## Evidence and failure collection
+1. `py-sync-native`, then the formatting, TOML and both Clippy gates.
+2. Quality: Python contracts, format, lint, types and imports; repository lint; agent
+   configuration; setup controls through `setup-test-report`; solver pins.
+3. Governance (`governance-tests`, the four `codegen-*-check` gates, `family-check`) and
+   ADR, index and register lint.
+4. `check`, `docs-rust`, `docs`, `conformance-fixtures-check` and `python-stubs --check`.
+5. `test --profile ci`, `doctest` and `native-test --profile ci`.
+6. `inspection-fixture` and `native-python`.
 
-Each new gitignored output directory retains scope, per-check logs, fresh reports,
-source provenance, `checks.json` version 3, review indexes and artifact hashes.
-Existing output directories are never overwritten. Independent gates continue after
-failures; interruption leaves incomplete evidence. Compilation and environment
-prerequisites can fail, and their dependent outcomes remain visible.
+A gate whose dependency did not qualify is recorded as `blocked`; the run continues.
 
-Nextest JSON enumeration and pytest collection establish exact selected identities.
-A required case needs every named witness once with passed status, in its declared
-mode/profile. Missing, duplicate, skipped, wrong-profile or interrupted results do
-not qualify. Requirement coverage is separate from command exit status. Manifest
-rows remain `implemented-unqualified`; only authenticated execution proves coverage.
+Each run directory holds:
 
-One bounded product-input inventory owns execution provenance and continuation. It includes
-source, manifests/locks, generated contracts, reference packages, selected governance
-skills/rules, plans and design documents. Hashes preserve additions, removals, executable
-modes and symlink destinations. Build output, credentials in `.envrc.local`, local
-library-reference corpora and unrelated workspace state are excluded. The archive and
-diff use the same path scope. Native profile artifacts bind actual executable/extension
-and resolved linked-library hashes, toolchain and serial native thread settings.
-They never retain the Symbolica license value.
+- source provenance over one declared product-input path set (file hashes, diff, status,
+  revision and an archive of untracked files);
+- `host.json`, copies of the manifests, lockfiles and nextest configuration, and
+  `cargo-metadata.json`;
+- `scope.json`, one `<gate>.log` per gate and a JUnit copy for each gate that produces one;
+- `checks.json` (version 4), `failures.json`, `test-findings.json` and `summary.md`.
 
-Criterion reports bind 12 distinct cold/warm size/thread workloads, at least ten
-samples per workload, confidence intervals, complete operation/teardown timing,
-tracked pool peak, process RSS and raw artifacts. Pool memory and RSS have different
-scopes. Review artifacts retain independently authored decisions and copies of their
-cited evidence; identity, source digest, scope, verdict and unresolved mandatory
-findings are checked. Neither collector manufactures a review verdict.
+Before `test` and `native-test` run, nextest lists the selected test identities; pytest
+records its collected node IDs. A selected identity without a terminal result becomes
+`not_run`, and skipped, failed, duplicate or unexpected results fail the gate.
+`native-test` and `native-python` also record a `native-profile-v1` identity: hashes of
+the executed binaries and their `ldd`-resolved libraries, `rustc -Vv`, and the thread
+settings.
 
-A command can finish while qualification fails. `complete` means every declared gate
-was attempted; `required_checks_covered`, exact case coverage, source stability and
-artifact authentication must also pass. Advisory dependency findings retain their
-advisory status; tool failures remain failures. The zero-finding target is unchanged.
+The command exits 0 only when `required_checks_covered` holds: every gate was attempted
+and qualified, sources did not change during the run, and provenance was captured without
+error. A gate qualifies when it passed, when it is advisory with findings, or when it is
+deferred and unsupported. Ctrl-C stops the current gate and records the remaining gates
+as `not_run`, which leaves the run incomplete.
 
-## Repairs and continuation
+**Continuation.** Every run writes a new directory. `--reuse-from <prior-output>` names
+a version-4 report, and each retained gate takes one of two repeatable flags:
 
-Use a fresh output directory with `--resume-from`, repeat `--rerun` for all invalidated
-gates and state `--change-reason`. Retained results must remain compatible with the
-current scope, source changes and their authenticated origin/artifact chain. A prior
-passing summary alone is insufficient. Performance receives the complete functional
-campaign through `--functional-from`; missing or stale coverage is refused.
+- `--reuse <gate>` keeps a qualified observation only if its declared scope, sources,
+  environment, retained artifact hashes and native bytes are all unchanged.
+- `--transfer <gate>` keeps a qualified observation despite changed inputs. It requires
+  `--change-reason`, and the record lists the changed inputs.
 
-The isolated controls are `.venv/bin/python -m unittest
-scripts.tests.test_implementation_phase scripts.tests.test_validation
-scripts.tests.test_plan14_acceptance`. They test phase, source, exact identity, report,
-continuation, measurement and independent-review contracts without running the product.
-They establish tooling behavior, not scientific or integrated acceptance.
+Retained records keep their origin and are labelled `unchanged-input-reuse` or
+`reviewed-transfer`, never fresh execution.
+
+**Aggregates and advisory checks.** `quality`, `governance`, `ci-fast`, `ci-pr`, `clippy`,
+`fmt-check`, `codegen-check`, `adr-lint`, `deps-report` and `policy` call the same runner
+with `--group`. Each writes its own `build/assessment/<timestamp>/` directory without
+source provenance. The `audit-*` gates are advisory: findings do not fail `deps-report`,
+but a tool failure does. `policy` runs the same audits as required gates. The
+`--advisory` flag passed by `deps-report` has no further effect.
+
+## Individual commands
+
+| Command | Scope |
+|---|---|
+| `just test [nextest args]` | The default workspace feature graph, run with `cargo nextest run --no-fail-fast` and force-validation. |
+| `just native-test [nextest args]` | The full workspace with `pse-runtime/native-solvers`, `pse-tests-conformance/native-acceptance` and force-validation, under the native environment. Nextest owns selection. `PSE_NEXTEST_ACTION="list --message-format json"` lists the selection without executing it. |
+| `just doctest` | Workspace doctests with force-validation. `pse-py` is excluded because Cargo cannot run cdylib doctests. `doctest-release` is the release-profile variant. |
+| `just py-sync-native` | Rebuilds the editable extension (`dev` profile, `force-validate,native-solvers`) and regenerates the compiled API stubs. `just py-sync` installs the default profile, which lacks native solvers. |
+| `just inspection-fixture <new-dir>` | Publishes and reopens a fresh native store for component tests. |
+| `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Component tests read `PSE_INSPECTION_PUBLICATION` (default `<output>/inspection`); create it first with `inspection-fixture`. Run `py-sync-native` after Rust edits. |
+| `just governance-tests [args]` | `pse-tests-governance` with force-validation. |
+| `just setup-test` | Stdlib `unittest` discovery over `scripts/tests`: setup, guards, runner, docs and build tooling. |
+| `just setup-test-report <output>` | The same discovery with an XML reporter, writing `setup-test.xml` and `setup-test-selected.json`. Fails on skips or an empty run. |
+| `just unit-consolidation-tools` | `scripts.tests.test_validation` only: runner selection, reports, reuse and transfer, and measurement CSV parsing. |
+
+These tooling tests establish runner behaviour, not product or scientific acceptance.
+
+## Case measurements
+
+`just case-measure <new-output> --functional-from <assessment-dir-or-checks.json>`
+measures the complete-process cases after functional qualification. It refuses a
+functional report unless the report is version 4, `required_checks_covered` holds, its
+scope equals the current comprehensive scope, its source files match the working tree,
+and its native identities still verify.
+
+- **Untimed build.** The benchmark is built with `cargo bench -p pse-benches --bench
+  native_process --no-run`, using the profile named in `.config/process-cases.json`
+  (currently `dev`) and `native-process,pse-relations/force-validate`. The compile is
+  untimed setup.
+- **Fresh process per case.** Each workload declared in `.config/process-cases.json`
+  runs in its own process: 10 flat Criterion samples, 250 ms warmup and a 1 s target
+  measurement time, which Criterion extends for slow operations.
+- **What a sample times.** Source admission, preparation or rebuild, joined native
+  execution, validation and results access, optional publication, and teardown. Cold
+  cases construct their runtime inside each sample; warm cases retain revision and
+  runtime.
+- **Statistics.** The collector reads Criterion's `raw.csv` and reports mean, sample
+  standard error (not a confidence interval), minimum and maximum.
+- **Pool versus RSS.** `pool_peak_bytes` is the runtime pool's per-operation observation
+  peak. `process_peak_rss_bytes` is the dedicated process's lifetime VmHWM. The scopes
+  differ, and neither attributes individual library allocations. Retained and
+  after-teardown pool reservations are reported separately.
+
+`case-measure.json` (`process-cost-v3`) binds the functional report digest, the source
+digest (a change during measurement is refused), the binary and linked-library hashes,
+the toolchain and the thread settings. Per-case artifacts are under `process-cost/<id>/`.
+These are local observations of the design-stage profile, not release-profile
+performance. For production-equivalent measurements, use `just bench-production`
+([§24.3](../authoritative_design/sections/operations-and-validation.md#section-24-3)).
+
+## Shared process fixtures and independent references
+
+`tests/fixtures/plan14` is a live test input; the directory name is historical. It
+holds the model, provider, binding, balance, dynamic, fit and dataset declarations, a
+physical package, and frozen references. Its consumers are the conformance
+`native-acceptance` process tests (through `tests/support/plan14.rs`),
+`benches/native_process`, the FeOS kernel and guarded-algebra unit tests, the runtime
+vessel recipe and `python/pse/tests/test_plan14_acceptance.py`.
+
+| Command | Generates | Consumes |
+|---|---|---|
+| `just plan14-reference` | `tests/fixtures/plan14/thermo-reference.json`, `real-algebra-reference.json` and `tests/fixtures/thermo-entropy-reference.json` | `crates/pse-kernels/data` parameter files. Runs in an isolated locked CPython 3.12 environment (`build/plan14-reference`, dependency group `thermo-reference` with teqp) with no product imports. |
+| `just plan14-fixtures` | The remaining `tests/fixtures/plan14` declarations and `package/` | `tests/fixtures/packages/physical-primitives`, kernel data and the frozen `thermo-reference.json`. Run it after `plan14-reference`. |
+| `just unit-plan14-sources` | Nothing | Decodes the shared declarations through generated Python contracts, without constructing a runtime or solving. |
+
+FeOS values are compared against offline teqp PC-SAFT states and Decimal-precision
+DIPPR100 caloric integrals from 298.15 K, within the tolerances recorded in the
+reference file. The ternary flash is compared against an independently solved set of
+pressure, chemical-potential and material-balance equations. That reference is not a
+global stability certificate, so stability has its own FeOS test. Analytic, exhaustive
+and reference checks establish the stated cases only.
+
+## Outside this scope
+
+`just assessment-list` prints these exclusions: other platforms, wheels and remote CI;
+release, coverage, feature powerset and alternate toolchains; IDAES parity (`just
+parity-container`); performance (`case-measure`); the time-dependent `register-check`;
+and architecture or scientific review, which is a judgement recorded by its owner, not
+command-exit evidence.

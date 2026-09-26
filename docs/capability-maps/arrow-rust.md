@@ -12,8 +12,8 @@ reviewed: 2026-09-14
 DataFusion the default data and execution foundation; §3.3.1 makes every capability
 eligible. Historical Reject/defer/no-consumer language
 below records earlier assessments, not current prohibitions. Use the
-[full-capability deployment matrix](../design_review/reviews/full-arrow-datafusion-capability-matrix-2026-09-14.md)
-for current dispositions and the [review](../design_review/reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md)
+[full-capability deployment matrix](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/full-arrow-datafusion-capability-matrix-2026-09-14.md)
+for current dispositions and the [review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md)
 for actual implementation gaps. This update did not regenerate historical rustdoc
 JSON or probe receipts. New [pinned feature and behavioral evidence](../design_review/evidence/full-arrow-datafusion-2026-09-14/README.md)
 distinguishes native availability from PSE support, including raw ALL set-builder
@@ -29,7 +29,7 @@ The current design remains **Proposed**; pinned library mechanisms are
 
 `[review:E1]`–`[review:E6]` refer to the [retained six-group characterization](../design_review/evidence/blueprint-rev4-2026-09-13/README.md)
 and its conditions: Rust 1.98.1, Arrow 59.3.0, DataFusion 55.1.0, dev,
-Arrow force_validate, zero failure baseline. The [revision-4 review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+Arrow force_validate, zero failure baseline. The [revision-4 review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
 explains the counterexamples; these markers do not certify a platform implementation.
 
 | Current decision | Library mechanism and boundary | Evidence / adoption gate |
@@ -51,7 +51,7 @@ explains the counterexamples; these markers do not certify a platform implementa
 
 ### 0.1 What this document is
 
-Per crate cluster: what Arrow can actually do, which of its APIs the blueprint's stated requirements land on, what we deliberately will not use, and where the blueprint assumes a capability that does not exist or is under-specified. A second pass asks a different question — what does Arrow offer that the blueprint has *not* claimed, which would improve alignment with `design_principles/DATA_MODEL_DESIGN_CHARTER.md` (DM-01…DM-60, gates G1–G7)?
+Per crate cluster: what Arrow can actually do, which of its APIs the blueprint's stated requirements land on, what we deliberately will not use, and where the blueprint assumes a capability that does not exist or is under-specified. A second pass asks a different question — what does Arrow offer that the blueprint has *not* claimed, which would improve alignment with the design principles (`design_review/design_principles/core/design-principles.md`; charter IDs map through its §I) (DM-01…DM-60, gates G1–G7)?
 
 ### 0.2 The sourcing constraint, and how it is enforced
 
@@ -649,7 +649,7 @@ Surveyed so that a future "we should use X" is already answered. None is adopted
 
 ## 11. Principle-alignment register (Arrow)
 
-Capabilities the blueprint does **not** claim, which would improve alignment with `DATA_MODEL_DESIGN_CHARTER.md`. Every row names a principle and the hand-written work or risk it removes. Rejections are included, because a recorded rejection is worth as much as an adoption.
+Capabilities the blueprint does **not** claim, which would improve alignment with the design principles (`design_review/design_principles/core/design-principles.md`; charter IDs map through its §I). Every row names a principle and the hand-written work or risk it removes. Rejections are included, because a recorded rejection is worth as much as an adoption.
 
 In the previous edition these rows lived in the DataFusion map as one combined 47-row table. They are split here so each map stands alone; the DataFusion rows are in that map's §13. Numbering is local to this map.
 

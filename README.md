@@ -5,31 +5,20 @@ relations as model authority. The target is a library-owned mathematical and the
 with native solvers. Arrow, DataFusion and Delta Lake serve useful data-boundary,
 relational and storage roles. Python package `pse-arrow` (import `pse`).
 
-**Status: Plan 14 M00–M22 is complete for local Linux design-stage qualification.**
-[Plan 14](docs/plans/14-library-owned-process-simulator.md) supersedes Plan 13.
-Typed finite definitions compile to guarded Symbolica/Numerica values and derivatives.
-FeOS supplies the selected PC-SAFT/DIPPR package; faer owns sparse assembly and
-matrix-vector products. Salsa prepares immutable model, coefficient, flow and block
-products. One admitted Rust runtime now drives Ipopt, POUNCE, KINSOL, HiGHS and
-Clarabel, with class routing, finite solve sequences, native reuse, original-space
-quality, cancellation and owned reports. Initialization and tear selection use the
-same lifecycle. Optional native features include semi-variable domains and SDP.
-The legacy compiler, numerical engine and production Pyomo/NL routes are removed.
+**Status: design-stage implementation, qualified locally on Linux.** Typed finite
+definitions compile to guarded Symbolica/Numerica values and derivatives. FeOS supplies
+the selected PC-SAFT/DIPPR package; faer owns sparse assembly. One admitted Rust runtime
+drives Ipopt, POUNCE, KINSOL, HiGHS and Clarabel with class routing, truthful outcomes,
+original-space quality and cancellation; Diffsol BDF supports the selected dynamic
+profile, and steady/transient/mixed fitting reuse the same models. Rust and Python
+workflows use immutable model revisions, explicit jobs and exact Delta publication.
 
-Shared presolve/postsolve, public Rust/Python model workflows, exact publication,
-Diffsol BDF dynamics and steady/transient/mixed fitting are implemented. Residual
-crate/generator cleanup and the native acceptance tests, offline physical references
-and measurement tooling are also in place. The
-[M22 execution packet](docs/plans/14-m22-execution.md) records native scientific and
-Python workflow tests, 23 process-case cost measurements and independent reviews.
-The [foundation contract](docs/plans/14-math-foundation-contract.md) records supported
-profiles and limitations. Strict Clippy cleanup, release/distribution and other-platform
-qualification remain separate under the maintainer-selected ADR-0087 scope.
-
-Plan 13's [repair checkpoint](docs/plans/13-w19-repair-checkpoint.md) remains historical
-evidence: W19 was incomplete and W20 unrun. Those campaigns are not an automatically
-inherited backlog. No published release or stable API is claimed. See
-[STATUS.md](STATUS.md) for earlier historical context.
+The [architecture](docs/authoritative_design/README.md) describes the current system,
+its supported scope and its limits. The most recent completed qualification is local
+Linux only ([§24.2](docs/authoritative_design/sections/operations-and-validation.md));
+no published release, stable API, other-platform or IDAES numerical-equivalence claim is
+made. Completed plans are retired to Git history; [current work](docs/plans/README.md)
+lists only work that is actually active.
 
 ## Relationship to IDAES
 
@@ -39,7 +28,7 @@ inherited backlog. No published release or stable API is claimed. See
 is never copied. The only durable coupling is the parity harness, which pins
 `idaes-pse==2.12.0` and compares numerical trajectories; moving that pin requires an ADR.
 A small set of enumerations is preserved by name for interoperability, and those are
-listed explicitly in the blueprint.
+listed explicitly in blueprint §6.14.
 
 See [`docs/relationship-to-idaes.md`](docs/relationship-to-idaes.md) for the full
 statement: the clean-room rule, the parity pin and how it moves, the trademark and
@@ -78,12 +67,12 @@ scripts/               stdlib helpers: doctor, bootstrap, adr, register, generat
 
 | Question | Authority |
 |---|---|
-| What the system is and how it is structured | [Architecture entrypoint](docs/authoritative_design/README.md), routing to the blueprint and numbered section owners |
+| What the system is and how it is structured | [Architecture entrypoint](docs/authoritative_design/README.md), routing to the numbered section owners |
 | Why a decision was made | `docs/adr/` (index: `docs/adr/README.md`) |
 | What is deferred, and what re-opens it | `docs/adr/register.md` |
 | What versions are pinned | `Cargo.toml`, `Cargo.lock`, `pyproject.toml`, `uv.lock` |
 | What a library can actually do | `docs/capability-maps/` and its `evidence/` |
-| How work is sequenced | [Current work and status owners](docs/plans/README.md) |
+| How work is sequenced | [Current work](docs/plans/README.md) |
 | How to contribute, and when an ADR is required | `CONTRIBUTING.md`, `GOVERNANCE.md` |
 
 Design reviews are evidence, not authority. When the code and a plan disagree, the code

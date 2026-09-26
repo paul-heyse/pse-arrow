@@ -25,11 +25,10 @@ The architecture is a re-implementation, not a translation:
   `external/` is on the agent configuration's deny list for edits.
 - The **only** coupling is the parity harness (`python/pse/parity/`), which
   imports `idaes` in a separate environment and compares results.
-- Names are preserved where parity requires a two-way mapping — the property
-  name `enth_mol_phase`, the enumerations listed in blueprint §6.14, the IDAES
-  default thresholds in §15.1, and the external-function symbol names in §26.
-  Those are interface facts, and each is enumerated in the blueprint rather than
-  absorbed silently.
+- Names are preserved where parity requires a two-way mapping — for example the
+  property name `enth_mol_phase` and the enumerations listed in blueprint §6.14.
+  Those are interface facts, and each is enumerated in the architecture rather
+  than absorbed silently.
 
 The architectural decisions are recorded in
 [ADR-0003](adr/0003-clean-room-relationship-and-parity-pin.md) (clean-room
@@ -67,8 +66,8 @@ Moving it is a decision, not a dependency bump:
 2. Update the `parity` group pin and the tag in `scripts/fetch-external.sh` in
    the same PR; the lint checks they agree.
 3. Re-run `python / parity` on every supported interpreter and record the
-   differences in the ADR's Consequences section with a charter §D evidence
-   label.
+   differences in the ADR's Consequences section with a core principles §D
+   evidence label.
 
 Dependabot never moves it: `idaes-pse` is in the `ignore` list of the uv
 configuration for exactly this reason (ADR-0035).
@@ -94,6 +93,7 @@ modular property frameworks, reactions, the generic unit model library, costing,
 initialization, scaling, diagnostics, solvers and DAE discretization,
 serialization and units, and parameter sweeps. Surrogates, the DMF, the UI,
 Pecos, the apps and the `models_extra` libraries are **out of scope**; surrogate
-*embedding* is covered by the kernel contract. Blueprint §0.2 carries the full
-table, and Appendix A maps every capability to its platform realization and its
-delivery phase.
+*embedding* would use the physical provider contract (blueprint §9.4). Blueprint §0.2
+carries the full table, and the
+[capability coverage appendix](authoritative_design/sections/scope-and-open-design.md#capability-coverage-against-idaes)
+records the current status of each capability.

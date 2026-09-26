@@ -64,7 +64,7 @@ A stronger check costs build time on every run; the weaker one cannot tell a cur
 
 ## More information
 
-Blueprint §4.2 (what is generated), §24.1 (test layers), §20.2 (the manifest), §22.1 (authoring documents); ADR-0004, ADR-0031; register rows R-20 and R-27; [plan 03](../plans/03-wave-1-foundations.md) packets R-1, A-6, A-8, A-9 and R-2.
+Blueprint §4.2 (what is generated), §24.1 (test layers), §20.2 (the manifest), §22.1 (authoring documents); ADR-0004, ADR-0031; register rows R-20 and R-27; [plan 03](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/03-wave-1-foundations.md) packets R-1, A-6, A-8, A-9 and R-2.
 
 ## Status history
 

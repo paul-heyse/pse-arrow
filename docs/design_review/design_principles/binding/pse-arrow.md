@@ -25,6 +25,9 @@ the version values. The core's version-transition table preserves historical DP/
   approved plan default to **conformance**.
 - **Reviews are evidence, not authority.** Their findings take effect through a plan, an ADR or
   a `design:` PR.
+- **Lifecycle:** a review stays in the tree while an open finding or a pending decision depends
+  on it. Once findings are dispositioned and enduring rationale has its owner, it retires to Git
+  history; retained ADRs cite it as `git:<commit>:<path>` (ADR-0096).
 
 ## Architecture scenarios
 
@@ -65,9 +68,9 @@ and semantic judgments remain separate; there is no generated approval or archit
 | Role (principle) | Authority in this repository |
 |---|---|
 | Architecture review and tracking (AP-01–AP-06, G9) | blueprint §24.4; ADR-0094; the current core and template |
-| Model authority and identity (DP-01, DP-04, DP-05) | blueprint §2 (D1–D14) and §5, as amended by Plan 14 |
-| Ownership of math, derivatives, sparse algebra, properties, structure and solvers (DP-13, DP-17, PS-07, PS-09) | [Plan 14](../../../plans/14-library-owned-process-simulator.md) D02 (crate ownership) and D03 (library and execution decisions); blueprint §1.3 and §3.3 |
-| Supported math, provider and solver scope (DP-15, PS-02, PS-10) | [Plan 14 foundation contract](../../../plans/14-math-foundation-contract.md) and ADR-0082–0084 |
+| Model authority and identity (DP-01, DP-04, DP-05) | blueprint §2 (D1–D14), §5 and §6; ADR-0088/0089 |
+| Ownership of math, derivatives, sparse algebra, properties, structure and solvers (DP-13, DP-17, PS-07, PS-09) | blueprint §1.3, §3.2, §3.3, §7, §14 and §18; ADR-0082–0084 |
+| Supported math, provider and solver scope (DP-15, PS-02, PS-10) | blueprint §9, §18 and §25; ADR-0082–0084 and ADR-0093 |
 | Library capability evidence (DP-15) | `docs/capability-maps/` (`just lib-outline <file>` first) and the library skills: `symbolica-faer-oximo`, `native-solver-libraries`, `salsa`, `rust-graphs`, `datafusion`, `deltalake`, `library-research` |
 | Error taxonomy (DP-21) | blueprint §23.2; every `pub enum *Error` derives `thiserror::Error` and implements `miette::Diagnostic` (AGENTS.md *Invariants*) |
 | Dependency admission (DP-13) | [dependency policy](../../../dev/dependency-policy.md) and ADR-0066: no library or licence is refused in phases 0–1, so licence is never a reason to reject a §F candidate |
@@ -85,7 +88,7 @@ Each is stated once in its authority; this list only points to it.
 | One resolved version per pinned dependency family | DP-15 | AGENTS.md *Invariants*; `just family-check` |
 | `force_validate` in every test run; `panic = "unwind"`; never `target-cpu=native` | DP-03, DP-19, DP-11 | AGENTS.md *Invariants* |
 | Delete replaced code, callers, tests and fixtures in the same change; no shims | DP-16 | AGENTS.md *Execution rhythm* |
-| No library capability is withheld for lack of a consumer; integration cost remains assessable under the core | DP-13, DP-16 | blueprint §3.3.1; ADR-0065 |
+| No library capability is withheld for lack of a consumer; integration cost remains assessable under the core | DP-13, DP-16 | blueprint §3.3.1 |
 | Design alignment is established by agent judgment and review; probes, tests and written records are used where uncertainty warrants, not as proof of diligence, and there is no dedicated alignment tooling | DP-23 | this binding (maintainer decision, 2026-09-24) |
 
 ## Commands for evidence
@@ -112,9 +115,11 @@ Each is stated once in its authority; this list only points to it.
 
 | # | Standard says | Repository text says | Until resolved |
 |---|---|---|---|
-| K1 | Library-first math, derivatives, properties and solvers (DP-13, PS-07, PS-09) | Blueprint D6, D9, D10–D12, D14 and §7 predate Plan 14 (custom math IR, Pyomo backend, relational math transport) | Follow Plan 14 D02–D04 and ADR-0082–0084; the amendments are listed in Plan 14 D04 |
-| K2 | Prefer runtime and library mechanisms over generated projections (DP-16) | Blueprint §4.2 and D9 prescribe schema-registry generation of adapters | Existing surviving generated contracts stand (Plan 14 D02). A new generator states why no runtime mechanism serves |
-| K3 | Foundation IDs `AP-nn`, refinement IDs `DP-nn`, profile IDs `PS-nn`; evidence vocabulary in principles §D; exceptions in §H | Accepted ADRs and earlier reviews cite `DM-nn`, "charter §D" and "charter §H" | Read through principles §I/§J and the RCA lineage below; accepted records are not edited |
+| K2 | Prefer runtime and library mechanisms over generated projections (DP-16) | Blueprint §4.2 and ADR-0031/0051 keep registry-generated Rust, Python and documentation contracts | Existing generated contracts stand. A new generator states why no runtime mechanism serves |
+| K3 | Foundation IDs `AP-nn`, refinement IDs `DP-nn`, profile IDs `PS-nn`; evidence vocabulary in principles §D; exceptions in §H | Retained accepted ADRs cite `DM-nn`, "charter §D" and "charter §H" | Read them through principles §I; accepted records are not edited |
+
+K1 (library-first mathematics versus pre-Plan 14 blueprint text) is resolved: the
+architecture sections now describe library-owned mathematics, providers and native solvers.
 
 ## Where defect shapes tend to land in this stack
 
@@ -142,22 +147,3 @@ Their absence proves nothing.
 | A whole-graph algorithm behind a DataFusion operator that claims a partitioning or exact pushdown | Global computation per partition | DP-08 |
 | Evaluator, property or solver workspace shared across attempts or held inside a tracked query | Owned-workspace violation | DP-19, DP-18 |
 | Solver return code mapped to success without the post-solve check | Status read as success | PS-10 |
-
-## Lineage: Rust computation architecture guidelines (RCA)
-
-The superseded RCA document's general requirements now live in the core; its library-specific
-material belongs to the library skills.
-
-| RCA | Now |
-|---|---|
-| §1 Backend selection and reuse boundary | DP-13 (placement), DP-09 (one reuse mechanism); Salsa specifics in the `salsa` skill |
-| §2 Semantics across representations; definition/specialization/instance/artifact | DP-01, DP-04, DP-06 |
-| §3 Dependency completeness, input ownership, derived-entity ownership | DP-09, DP-18, DP-04; Salsa specifics in the `salsa` skill |
-| §4 Query boundaries, sound equality, reproducibility | DP-09, DP-10, DP-11 |
-| §5 Relational fusion and graph projection; §5.1 specs; §5.3 heuristics | DP-13, DP-10, DP-07 |
-| §5.2 Graph backend selection, version compatibility, index mapping, algorithm identity | DP-15, DP-04; catalog and probes in the `rust-graphs` skill |
-| §5.4 Storage versions versus temporal semantics | DP-04, DP-11; Delta specifics in the `deltalake` skill |
-| §6 Recursion | DP-12 |
-| §7 Compilation, execution and publication | DP-19, DP-09, DP-18 |
-| §8 Persistence, memory and invalidation scope | DP-19, DP-20 |
-| §9 Implementation acceptance contract | Core 2.0 slot 4; Core 3.0 slot 5 with the profile's numerical columns |

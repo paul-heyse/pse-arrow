@@ -1,7 +1,7 @@
 # Full-capability pinned library characterization
 
 **Tested, 2026-09-14.** This is library behavior evidence for the
-[full-capability design review](../../reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md).
+[full-capability design review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md).
 It does not execute PSE's RulePlan compiler, sealed admission, optimizer profile,
 strata, provenance or publication. It is not a Wave 1 or Wave 2 acceptance run.
 

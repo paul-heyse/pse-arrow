@@ -20,7 +20,7 @@ work.
 **Reviewer (design).** For changes that require a design review, the reviewer is whoever
 runs the review and records it under `docs/design_review/reviews/`. Today that is the
 maintainer or an agent acting under the design-review skill. A review is *evidence*, not
-authority: a review cannot approve an ADR, and an ADR cannot overrule the blueprint
+authority: a review cannot approve an ADR, and an ADR cannot overrule the architecture
 without amending it.
 
 ### Adding a maintainer
@@ -56,11 +56,14 @@ fields and its status history — it is changed by superseding it, never by edit
 `scripts/adr.py lint` enforces this against `origin/main` and runs as
 `governance / adr-lint`.
 
-The maintainer-authorized Plan 05 hard pivot is recorded by ADR-0067 and blueprint
-revision 37. Implementation authorization is distinct from formal decision-PR
-acceptance. Historical accepted arguments remain immutable; scoped supersession
-links retire their replaced restrictions. Current work requires no additional
-compatibility approval or discarded-code qualification.
+**Retention (ADR-0096).** `docs/adr/` keeps the decisions whose rationale explains the
+current system. A record whose mechanism is gone, or which a later decision fully
+replaced, is retired: the file is deleted after its surviving meaning has an owner, and
+Git history is the archive. Numbers are never reused, so the index has gaps, and the
+highest-numbered record stays until a newer one exists. Retained accepted records remain
+immutable; when a cited review or plan is retired, the record's reference moves to the
+same path at an immutable commit (`git:<commit>:<path>` or a repository permalink).
+Implementation authorization is distinct from formal decision-PR acceptance.
 
 ### The decision-PR rule
 
@@ -115,21 +118,24 @@ ADR fields record the reviewed versions and links without changing old records.
 
 Deliberately deferred decisions are rows in `docs/adr/register.md`:
 `R-NN | item | ADR | trigger | check | owner | last-checked | next-check | status`. A row
-must have an **observable trigger** and a **check** that can be run. `register-review.yml`
-runs monthly, executes the automatable checks, and opens or updates a single
-`Register review YYYY-MM` issue labeled `register`. Closing a row means writing the ADR
-its trigger called for — not deleting the row.
+must have an **observable trigger** and a **check** that can be run. `just register-check`
+(or the manually dispatched `register-review.yml`) executes the automatable checks of due
+rows. When a row is decided, satisfied or no longer applicable, the decision lands at its
+owner and the row is removed; row ids are never reused. The register may be empty.
 
 ## 3. Authority, and what overrules what
 
 1. `docs/authoritative_design/README.md` — entry to the **authoritative collection**:
-   the blueprint and numbered pages under `sections/`. Each section has one owner;
-   identifiers survive moves, and collection revision history remains in the blueprint.
+   numbered pages under `sections/` that describe the current system. Each section has one
+   owner; identifiers survive moves; `blueprint.md` keeps the collection revision history and
+   maps former anchors.
 2. `docs/adr/` — **why**. ADRs explain and amend; an amendment is only real once the
    blueprint carries the revision row.
-3. `docs/design_review/reviews/` — **evidence**, never authority.
+3. `docs/design_review/reviews/` — **evidence**, never authority; removed once adopted
+   findings and enduring rationale have their owners.
 4. `docs/plans/` — **how work is sequenced**. Living until done, then closed with an
-   `## Outcome` recording a mistake made and corrected, and deliberate deviations.
+   `## Outcome` recording a mistake made and corrected, and deliberate deviations. A
+   completed plan retires once its enduring meaning has moved to the contract owner.
 5. The code. *When the code and a plan disagree, the code is what runs* — and one of the
    two is then a bug.
 

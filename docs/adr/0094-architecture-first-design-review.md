@@ -1,20 +1,20 @@
 ---
 id: ADR-0094
 title: Center design review on architecture and change scenarios
-status: proposed
+status: accepted
 date: 2026-09-25
 deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-02, AP-03, AP-04, AP-05, AP-06, DP-22, DP-23]
 blueprint: [§24.4]
 standard: Core 3.0; process-simulator 1.1
-scenarios: [docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md#s01, docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md#s03]
-review: docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md#12-decision
+scenarios: [git:8950dd3d6ddb:docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md#s01, git:8950dd3d6ddb:docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md#s03]
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md#12-decision
 evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A representative extension or subsystem review cannot distinguish architectural change cost from behavioral correctness.
-verification: Plan 17 document consistency review, just adr-lint, just lint-agents and just docs; effectiveness pilots are maintainer-owned follow-up.
+verification: Plan 17 document consistency review, just adr-lint, just lint-agents and just docs; effectiveness is judged in ordinary reviews, with no separate pilot campaign.
 ---
 
 # ADR-0094: Center design review on architecture and change scenarios
@@ -30,7 +30,7 @@ use than to decomposition, testability and the cost of architectural change.
 
 Amend blueprint §24.4 and the review standard, skills, roles and decision/plan guidance.
 This is a governance decision, not product architecture qualification. Implementation
-is authorized by the maintainer's request; formal decision-PR acceptance remains pending.
+is authorized by the maintainer's request and the maintainer accepted the decision.
 Historical reviews and accepted ADR bodies retain their original meaning. This extends
 the layered standard of ADR-0085 without replacing its scientific or evidence obligations.
 
@@ -84,9 +84,9 @@ Scenarios require judgment; a checklist of vocabulary would still miss real coup
 
 ## More information
 
-[Plan 17](../plans/17-architecture-first-design-review.md),
+[Plan 17](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/17-architecture-first-design-review.md),
 [standard declaration](../design_review/design_principles/standard.toml),
-[governance review](../design_review/reviews/design_review_architecture-first-standard_2026-09-25.md).
+[governance review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md).
 The blueprint edit uses `PSE_DESIGN_EDIT=1` because governance is the authorized work;
 the decision/design PR must retain that explanation and the revision row.
 
@@ -94,3 +94,5 @@ the decision/design PR must retain that explanation and the revision row.
 
 - 2026-09-25 — proposed before implementation; maintainer authorized the process revision
   and then reserved pilots for separate maintainer work.
+- 2026-09-26 — accepted by the maintainer as implemented (review verdict Accept, §12). No
+  pilot campaign remains an obligation (Plan 19).

@@ -11,7 +11,7 @@ regenerated: 2026-09-16
 **Interface-checked:** full-field expression/UDF hooks, native struct/list operations,
 and the distinction between `DataType::equals_datatype` and exact `Field` equality
 were checked against the pinned skills and source in the
-[schema review](../design_review/reviews/design_review_schema-engineering-typed-values_2026-09-16.md).
+[schema review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_schema-engineering-typed-values_2026-09-16.md).
 **Proposed:** application layouts, simplified consumers and performance benefits below.
 No nested Parquet I/O savings or Delta nested expression pushdown have been measured.
 The historical struct-filtering fix/backport claim below is unverified and supplies

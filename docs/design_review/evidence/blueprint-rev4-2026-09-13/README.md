@@ -1,7 +1,7 @@
 # Blueprint revision 4: library characterization evidence
 
 This evidence accompanies the
-[design review](../../reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md).
+[design review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md).
 It characterizes library mechanisms used by the proposed design; it does not
 exercise an implemented `pse` modeling pipeline.
 

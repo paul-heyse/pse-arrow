@@ -118,7 +118,7 @@ datafusion-physical-expr = "=55.1.0"
 datafusion-optimizer = "=55.1.0"
 datafusion-proto = "=55.1.0"
 
-# Delta's development API matches the DataFusion/Arrow family above (ADR-0068).
+# Delta's development API matches the DataFusion/Arrow family above (blueprint §20.1).
 # Its kernel branch is locked separately and checked against metadata.pse below.
 deltalake = { package = "deltalake-core", path = "vendor/delta-rs/crates/core", version = "=1.0.0", default-features = false, features = [
   "datafusion",
@@ -155,7 +155,7 @@ miette = "=7.6.0"
 
 # ---- serialization and documents ----
 serde = { version = "=1.0.229", features = ["derive", "rc"] }
-# Manifest and extension-metadata JSON only (ADR-0049): never a hash input, never
+# Manifest and extension-metadata JSON only (blueprint §4.3): never a hash input, never
 # relation data. Identity framing lives in pse-ids (blueprint §5.3).
 serde_json = "=1.0.151"
 bytes = "=1.12.1"
@@ -243,7 +243,7 @@ petgraph = { version = "=0.8.3", default-features = false, features = [
 # pse-ids is the only crate allowed to depend on blake3 (tests/governance/blake3_owner).
 blake3 = { version = "=1.8.7", features = ["rayon"] }
 # `explicit`-policy entity IDs, minted by `pse authoring assign-ids` only; P1 never
-# mints one (blueprint §5.1, ADR-0049).
+# mints one (blueprint §5.1).
 uuid = { version = "=1.26.1", features = ["v7"] }
 
 # ---- optional providers enter here WITH their consumer crate (blueprint §9.8, §13.6,
@@ -396,7 +396,7 @@ pyo3 = { version = "0.29", match = "minor", crates = [
   "pyo3-introspection",
 ] }
 
-# Resolved normal-dependency closures, checked by family-check (ADR-0076).
+# Resolved normal-dependency closures, checked by family-check (blueprint §3.1).
 [workspace.metadata.pse.dependency-ceilings.semantic]
 roots = [
   "pse-ids",

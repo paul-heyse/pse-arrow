@@ -2,7 +2,7 @@
 
 **Version 3.0 · 2026-09-25** · Core layer: repository- and domain-agnostic.
 Six architectural foundations organize the operational rules retained from Core 2.0.
-§J records the version transition; §I preserves the earlier charter lineage.
+§I maps the retired charter's IDs, which some retained decisions still cite.
 
 > **Localize change. Encode meaning structurally. Extend through composition.**
 
@@ -636,9 +636,10 @@ concrete record is enough for a small deviation.
 
 ## §I Lineage: Data Model–Based Design Charter 1.0
 
-Every charter ID maps to a principle here, so earlier citations remain interpretable. Charter
-gates G1–G7 keep their names and meaning; G8 is new. The charter's weighted assessment
-dimensions are retired in favour of gate verdicts and findings.
+The Data Model–Based Design Charter 1.0 is retired; its text is in Git history. Retained
+accepted decisions still cite its `DM-nn` IDs, so every charter ID maps to a principle here.
+Charter gates G1–G7 keep their names and meaning. Earlier Core 2.0 text is likewise in Git
+history; DP and PS identifiers were never renumbered.
 
 | Charter IDs | Now |
 |---|---|
@@ -666,25 +667,6 @@ dimensions are retired in favour of gate verdicts and findings.
 | DM-52, DM-56, DM-57, DM-58 | DP-16 (reframed: proportionality limits bespoke machinery, not library use) |
 | DM-53, DM-54, DM-60 | DP-23 |
 | Charter §D, §E, §F, §G, §H | §D, §E, §C, §G, §H |
-
-## §J Version transition: Core 2.0 → 3.0
-
-Historical reviews retain their reviewed version and verdict. A current review never upgrades
-an earlier observation merely because a gate or principle now exists. Prior text remains in
-Git history; the original DP and PS identifiers are not renumbered.
-
-| Core 2.0 concept | Core 3.0 treatment |
-|---|---|
-| DP-17 module ownership; DP-16 locality; §E extension journey | AP-01, AP-02, AP-03 and AP-06 make architectural outcomes mandatory; DP rules remain refinements |
-| DP-01–DP-12 authority, typing and computation | AP-04/AP-05 organize them; detailed contracts remain applicable where the mechanism exists |
-| DP-13–DP-16 library-first and economy | Library eligibility retained; DP-16 and §F now assess integration costs regardless of implementation source |
-| DP-17 library types | Intentional shared library data contracts distinguished from leaked incidental implementation types |
-| DP-24 evolution | Deliberate internal changes permitted; durable/external compatibility remains explicit |
-| G1–G8 | Identifiers and independent obligations retained; G9 is new |
-| Template slots 2–5 | Decomposition, contracts/authority, change scenarios, then mechanisms; profile slot routing changes with the template version |
-| Finding consequence and verdict | Change cost, coupling and test isolation are reportable; architecture and behavior both constrain acceptance |
-| Document/code disagreement | Intended specification and observed implementation are distinct roles; reconcile divergence |
-| DM/RCA lineage | §I and the repository binding preserve historical mappings |
 
 ## Closing standard
 

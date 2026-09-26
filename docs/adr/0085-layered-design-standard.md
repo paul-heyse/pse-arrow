@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DP-13, DP-16, DP-22, DP-23]
 blueprint: [§2.1]
-review: docs/design_review/reviews/design_review_m22-local-qualification_2026-09-24.md
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_m22-local-qualification_2026-09-24.md
 evidence: Tested
 supersedes: []
 superseded-by: null
@@ -91,12 +91,12 @@ The next reviews apply the standard as described in `verification:`.
 
 ## M22 local qualification
 
-**Tested and Measured:** the [M22 packet](../plans/14-m22-execution.md#verification)
+**Tested and Measured:** the [M22 packet](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/14-m22-execution.md#verification)
 records local Linux functional Q01–Q17, the 23 cached-development case-cost workloads,
 zero required failures and retained-origin conditions. It distinguishes admitted memory
 allowances from measured pool/RSS observations and excludes Rust build time.
 
-The [independent final review](../design_review/reviews/design_review_m22-local-qualification_2026-09-24.md)
+The [independent final review](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/design_review/reviews/design_review_m22-local-qualification_2026-09-24.md)
 accepts the relevant scoped contracts with no open MUST finding. Companion runtime,
 scientific and claims reviews cover G1–G8 and PS-G1–PS-G3. Blueprint revision 51 and
 ADR-0087 govern local acceptance. Strict Clippy cleanup and release/remote/platform

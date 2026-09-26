@@ -1,15 +1,15 @@
 ---
 id: ADR-0095
 title: Publish focused architectural documents with generated navigation and static search
-status: proposed
+status: accepted
 date: 2026-09-25
 deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-02, AP-04, AP-06, DP-23]
 blueprint: [§0.1, §0.3, §24.4]
-review: docs/design_review/reviews/design_review_documentation-system_2026-09-25.md
+review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_documentation-system_2026-09-25.md
 evidence: Proposed
-supersedes: []
+supersedes: [ADR-0033, ADR-0036]
 superseded-by: null
 revisit: A documented search or publishing limitation cannot be resolved through collection configuration or the existing tools without substantial bespoke machinery
 verification: Plan 18 publisher fixtures, real mdBook/Pagefind build, offline fragment checks and browser search scenarios
@@ -26,9 +26,9 @@ blueprint file increase reading and maintenance costs during frequent design cha
 ## Scope
 
 Documentation authority, section identity, publication, search and contributor guidance.
-Intended successor to ADR-0033 and ADR-0036; formal supersession metadata is deferred to the
-decision PR. Their historical bodies and existing section identifiers remain intact.
-Implementation is authorized by the maintainer; formal acceptance remains pending.
+Supersedes ADR-0033 (one blueprint file) and ADR-0036 (a committed `SUMMARY.md` with a
+generated ADR block); both are retired to Git history under ADR-0096. Existing section
+identifiers remain intact. Implementation was authorized and then accepted by the maintainer.
 
 ## Drivers
 
@@ -68,7 +68,7 @@ No proof manifest, symbol inventory, source seal or automatic architectural appr
 
 ### Confirmation
 
-[Plan 18](../plans/18-architectural-documentation.md) owns implementation and verification.
+[Plan 18](https://github.com/paul-heyse/pse-arrow/blob/8950dd3d6ddb3aa7c78acc0db7d0601497b302a8/docs/plans/18-architectural-documentation.md) owns implementation and verification.
 Tests establish publication behavior, not design-review effectiveness or product qualification.
 
 ## Pros and cons
@@ -80,8 +80,11 @@ blueprint content remains Reference until its sections move with substantive sub
 ## More information
 
 [Architecture entry](../authoritative_design/README.md),
-[Pagefind](https://pagefind.app/docs/), blueprint §§0.1, 0.3 and 24.4.
+[Pagefind](https://pagefind.app/docs/), blueprint §§0.1, 0.3 and 24.4. ADR-0096 extends this
+decision from incremental extraction to full consolidation of the current architecture.
 
 ## Status history
 
 - 2026-09-25 — proposed; maintainer authorized implementation, formal decision PR pending.
+- 2026-09-26 — accepted by the maintainer as implemented through Plans 18 and 19 (review
+  verdict Accept); supersedes the retired ADR-0033 and ADR-0036.

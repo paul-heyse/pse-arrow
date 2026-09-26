@@ -4,7 +4,7 @@
 # Reference packages
 
 These versioned YAML/TOML packages are ordinary authored inputs under blueprint
-§22.1 and ADR-0064. Their explicit IDs, complete physical quantities, expressions,
+§22.1 and §6.15.7. Their explicit IDs, complete physical quantities, expressions,
 parameter values and exact package dependencies are the source authority.
 
 | Package | Contents |
