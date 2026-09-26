@@ -173,7 +173,7 @@ libtest-mimic = "=0.8.2"
 
 # ---- code generation (pse-schema and xtask only) ----
 # syn 3, not the ecosystem's syn 2; a prettyplease upgrade is a regeneration commit.
-syn = { version = "=3.0.5", features = [
+syn = { version = "=3.0.6", features = [
   "full",
   "extra-traits",
   "visit",
