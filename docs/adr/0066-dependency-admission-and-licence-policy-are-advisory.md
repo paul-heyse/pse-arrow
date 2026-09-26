@@ -1,7 +1,7 @@
 ---
 id: ADR-0066
 title: Make dependency admission and licence policy advisory during phases 0-1
-status: proposed
+status: accepted
 date: 2026-09-14
 deciders: [paul-heyse]
 level: decision
@@ -12,7 +12,7 @@ evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: The first crate flips to `publish = true`, or the first PyPI release — register row R-31
-verification: `tests/governance/tests/pins_match_blueprint.rs`; `rust / family-check`; `just deps-report` and `just policy`; `rust / deny` present and `continue-on-error`
+verification: `tests/governance/tests/dependency_pins.rs`; `rust / family-check`; `just deps-report` and `just policy`; `rust / deny` present and `continue-on-error`
 
 ---
 
@@ -123,7 +123,7 @@ library.
 
 `just deps-report` and `just policy` both run against the full graph; `cargo deny
 --all-features --locked check` reports `advisories ok, bans ok, licenses ok, sources ok`
-on the current lockfile. `tests/governance/tests/pins_match_blueprint.rs` passes with the
+on the current lockfile. `tests/governance/tests/dependency_pins.rs` passes with the
 drift arm intact and the undescribed-dependency arm demoted to a note.
 
 ## Pros and cons
@@ -145,3 +145,5 @@ still installed and runnable.
 
 - 2026-09-14 — proposed after explicit maintainer direction to remove library and licence
   constraints while keeping the infrastructure for a manual check.
+- 2026-09-26 — accepted by the maintainer as implemented (review verdict Accept-scoped);
+  the pin check now lives in `dependency_pins.rs`.

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 57
+revision: 58
 date: 2026-09-26
 ---
 
@@ -26,6 +26,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 |---|---|---|---|
 | 56 | 2026-09-26 | ADR-0096 / Plan 19: the mixed legacy blueprint is replaced by focused current contracts under `sections/`; retired mechanisms keep one-line identity pointers; former anchors map below. Product contracts unchanged. | ADR-0096 accepted by the maintainer |
 | 57 | 2026-09-26 | ADR-0088–0095 accepted as implemented (Plan 16 contracts in §0.5–§0.6, §5, §9, §13, §18, §20, §24; §0.1, §0.3, §24.4); ADR-0095 supersedes the retired ADR-0033/0036. No contract text changed. | maintainer acceptance |
+| 58 | 2026-09-26 | ADR-0066 accepted as implemented (§3.3.2); no contract text changed. | maintainer acceptance |
 
 ## Former anchors
 
