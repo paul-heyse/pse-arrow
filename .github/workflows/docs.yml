@@ -45,7 +45,7 @@ jobs:
         id: docs-tools
         run: echo "tools=$(python3 -m scripts.docs tool-specs)" >> "$GITHUB_OUTPUT"
       - name: Install documentation tools
-        uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
           tool: ${{ steps.docs-tools.outputs.tools }}
       - name: ADR index is current
