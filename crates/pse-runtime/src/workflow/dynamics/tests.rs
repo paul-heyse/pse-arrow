@@ -6,6 +6,72 @@ use crate::workflow::{
     ModelBuilder,
     tests::{compiler_profile, id, physical, runtime},
 };
+#[cfg(feature = "solver-diffsol")]
+#[tokio::test]
+async fn dynamic_derivative_reuse_covers_all_varying_inputs_and_cancellation() {
+    let mut source = source();
+    source.declaration_mut().definitions[0].sources[0] = "parameter/parameter".into();
+    let mut declaration = source.sources.dynamics[0].clone();
+    declaration.modes.push(declaration.modes[0].clone());
+    source.sources.dynamics[0] = declaration;
+    let prepared = source
+        .freeze()
+        .unwrap()
+        .prepare_simulation(
+            id(50),
+            profile(),
+            compiler_profile(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut reused = prepared.worker(cancel.clone()).unwrap();
+    let mut clean = prepared.worker(Arc::new(AtomicBool::new(false))).unwrap();
+    let a = reused
+        .evaluate(0, Function::Rhs, 0.0, &[0.0], &[2.0], true)
+        .unwrap();
+    for _ in 0..4 {
+        let b = reused
+            .evaluate(0, Function::Rhs, 0.0, &[0.0], &[2.0], true)
+            .unwrap();
+        assert_eq!(a.values, b.values);
+        assert_eq!(
+            a.jacobian.as_ref().unwrap().val(),
+            b.jacobian.as_ref().unwrap().val()
+        );
+    }
+    assert_eq!(reused.functions[&(0, Function::Rhs)].evaluations, 1);
+    for (time, state, parameter) in [(1.0, 0.0, 2.0), (1.0, 1.0, 2.0), (1.0, 1.0, 3.0)] {
+        let a = reused
+            .evaluate(0, Function::Rhs, time, &[state], &[parameter], true)
+            .unwrap();
+        let b = clean
+            .evaluate(0, Function::Rhs, time, &[state], &[parameter], true)
+            .unwrap();
+        assert_eq!(a.values, b.values);
+        assert_eq!(a.jacobian.unwrap().val(), b.jacobian.unwrap().val());
+    }
+    assert_eq!(reused.functions[&(0, Function::Rhs)].evaluations, 4);
+    reused
+        .evaluate(1, Function::Rhs, 1.0, &[1.0], &[3.0], true)
+        .unwrap();
+    assert_eq!(reused.functions[&(1, Function::Rhs)].evaluations, 1);
+    assert!(
+        reused
+            .evaluate(0, Function::Rhs, 1.0, &[1.0], &[0.0], true)
+            .is_err()
+    );
+    assert!(reused.functions[&(0, Function::Rhs)].cache.is_none());
+    reused
+        .evaluate(0, Function::Rhs, 1.0, &[1.0], &[3.0], true)
+        .unwrap();
+    cancel.store(true, std::sync::atomic::Ordering::Release);
+    assert!(matches!(
+        reused.evaluate(0, Function::Rhs, 1.0, &[1.0], &[3.0], true),
+        Err(ProblemError::Math(pse_math::MathError::Cancelled))
+    ));
+}
 pub(in crate::workflow) fn source() -> ModelBuilder {
     source_with_runtime(runtime())
 }
@@ -169,5 +235,66 @@ async fn simulation_requires_a_linked_adapter() {
         .unwrap_err();
     assert!(
         matches!(error, WorkflowError::Contract(ref message) if message == "Diffsol adapter is not linked")
+    );
+}
+
+#[cfg(feature = "solver-diffsol")]
+#[tokio::test]
+async fn checked_dynamic_rebind_matches_clean_preparation_and_shares_immutable_clones() {
+    let cancel = crate::CancelSource::new();
+    let revision = source().freeze().unwrap();
+    let prepared = revision
+        .prepare_simulation(id(50), profile(), compiler_profile(), &cancel)
+        .await
+        .unwrap();
+    assert!(Arc::ptr_eq(&prepared.programs, &prepared.clone().programs));
+    let mut selected = profile();
+    selected.samples = vec![0.0, 0.25, 0.5];
+    let rebound = prepared
+        .rebind(
+            &BTreeMap::from([(id(3), 4.0)]),
+            selected.clone(),
+            compiler_profile(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let mut clean = revision.edit();
+    clean.declaration_mut().cases[0]
+        .values
+        .iter_mut()
+        .find(|value| value.symbol_id == id(3))
+        .unwrap()
+        .value = 4.0;
+    let clean = clean
+        .freeze()
+        .unwrap()
+        .prepare_simulation(id(50), selected, compiler_profile(), &cancel)
+        .await
+        .unwrap();
+    assert_eq!(rebound.identity(), clean.identity());
+    assert_eq!(rebound.parameters, clean.parameters);
+    assert_ne!(prepared.identity(), rebound.identity());
+    assert!(
+        prepared
+            .rebind(
+                &BTreeMap::from([(id(99), 1.0)]),
+                profile(),
+                compiler_profile(),
+                &cancel
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        prepared
+            .rebind(
+                &BTreeMap::from([(id(3), f64::NAN)]),
+                profile(),
+                compiler_profile(),
+                &cancel
+            )
+            .await
+            .is_err()
     );
 }

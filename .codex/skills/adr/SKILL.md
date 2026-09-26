@@ -8,8 +8,8 @@ model-baseline: claude-5 (2026-08)
 
 # Decision records
 
-`docs/authoritative_design/blueprint.md` is the design. **ADRs record why it
-reads the way it does.** Design reviews under `docs/design_review/reviews/` are
+`docs/authoritative_design/README.md` routes to the design collection. **ADRs record
+why its contracts read the way they do.** Design reviews under `docs/design_review/reviews/` are
 evidence, not authority. Plans under `docs/plans/` record how work is sequenced
 and are living documents; an ADR is immutable once accepted.
 
@@ -33,7 +33,7 @@ python3 scripts/adr.py new my-slug --title "Imperative one-liner"
 
 That allocates the next number, copies `docs/adr/template.md` and stamps today's
 date. Then fill the front matter — these are the **design principles §H** fields, and the
-lint checks every one of them:
+lint checks the required fields (optional traceability fields are described below):
 
 | Field | Rule |
 |---|---|
@@ -43,19 +43,35 @@ lint checks every one of them:
 | `date` | `YYYY-MM-DD`, the day the decision was taken. |
 | `deciders` | GitHub handles. |
 | `level` | `decision` \| `should-deviation` \| `must-gap`. A `must-gap` **narrows the supported scope**; it never claims compliance. A record that *amends* the blueprint is a `decision`, not a deviation — say so in Scope. |
-| `principles` | The principle IDs this bears on: core `DP-01` … `DP-24`, process-simulator profile `PS-01` … `PS-13` (see `docs/design_review/design_principles/standard.toml`). Accepted records keep their legacy `DM-nn` IDs. Cite the ones the decision actually turns on, not a wall. |
-| `blueprint` | The sections governed: `[§14.3, §D7]`. Every citation must resolve to a heading in `blueprint.md`, including `§D1` … `§D14`. |
+| `principles` | The principle IDs this bears on: architectural foundations `AP-01` … `AP-06`, core refinements `DP-01` … `DP-24`, process-simulator profile `PS-01` … `PS-13` (see `docs/design_review/design_principles/standard.toml`). Accepted records keep their legacy `DM-nn` IDs. Cite the ones the decision actually turns on, not a wall. |
+| `blueprint` | The sections governed: `[§14.3, §D7]`. Every citation must resolve to one owning heading in `blueprint.md` or `authoritative_design/sections/`, including `§D1` … `§D14`. |
 | `review` | A path into `docs/design_review/reviews/…` (optionally `#anchor`) where a finding motivated this, **or** `not-required: <reason>`. |
 | `evidence` | A design principles §D label — `Proposed`, `Interface-checked`, `Implemented`, `Tested`, `Measured`, `Formally established`. |
 | `supersedes` / `superseded-by` | Symmetric: if A supersedes B, B's `superseded-by` is A and B's status is `superseded`. Use `just adr-supersede`. |
 | `revisit` | An **observable trigger**, not a date. "A measurement shows X", "crate Y releases Z", "the first non-FFI `unsafe`". If the trigger is not imminent, add a row to `docs/adr/register.md` as well. |
-| `verification` | The named test, lint, benchmark or CI job that shows the decision holds — `tests/governance/tests/pins_match_blueprint.rs`, `rust / family-check`, `governance / adr-lint`. Not "code review". |
+| `verification` | Name the scenario/property and the analysis, contract test, lint or measurement that can settle it. An architectural judgment names the review argument and scope; a syntax lint alone cannot establish architecture. Avoid an unspecified "code review". |
+| `standard` (optional) | Snapshot the reviewed core/profile versions when relevant; current version selection remains in `standard.toml`. |
+| `scenarios` (optional) | Inline list of repository-relative scenario references; link their definitions rather than copying them. |
 
 Body sections: **Context · Scope · Drivers · Options · Outcome** (with
 *Consequences*, *Compensating controls*, *Confirmation*) **· Pros and cons ·
 More information · Status history**. Charter §H: *"a short, concrete decision
 record is sufficient"* — one to three sentences per section. Cite
 `blueprint §14.3` instead of restating it.
+
+### Architectural drivers and tracking
+
+For architecture decisions, connect the selected option to concrete change scenarios and
+responsibility boundaries. Compare composition, consumed contracts, local test setup and
+integration costs as well as correctness. A new trait, crate or registry is not itself an
+improvement. Use the current review template; keep its architectural and behavioral judgments
+distinct and preserve the scope of each claim.
+
+The owning plan holds current finding dispositions and packet status. Link that owner from
+More information; accepting an ADR does not resolve implementation work. Accepted `evidence:`
+records support at decision time and is not rewritten with every later test run. Historical
+reviews retain their standard versions and observations. Deferred decisions still use the
+register and an observable trigger; ordinary rollout work belongs in its plan.
 
 ### The evidence-label rule
 
@@ -77,31 +93,32 @@ the design principles' §G "attractive claim" table is about.
 
 ### Citation forms
 
-`blueprint §14.3` · `§D7` · `ADR-0020` · `DP-09` · `PS-10` · `G4` · register row `R-05`.
+`blueprint §14.3` · `§D7` · `ADR-0020` · `AP-06` · `DP-09` · `PS-10` · `G4` · register row `R-05`.
 In front matter, blueprint sections carry the `§`: `blueprint: [§3.1, §D1]`.
 
 ## 3. Lint, index, supersede
 
 ```bash
 just adr-lint            # python3 scripts/adr.py lint  +  check_register.py --lint
-just adr-index           # regenerates docs/adr/README.md and the SUMMARY block
+just adr-index           # regenerates docs/adr/README.md
 just adr-supersede 0020 0041
 just register-check      # rows that are due, and runs the automatable checks
 ```
 
 `scripts/adr.py lint` checks the filename pattern, contiguous numbering from
-0001, the required keys, the enums, `DP-NN`/`PS-NN` (or legacy `DM-NN`) shapes, that every `§` citation
+0001, the required keys, the enums, `AP-NN`/`DP-NN`/`PS-NN` (or legacy `DM-NN`) shapes, that every `§` citation
 resolves to a real blueprint heading, that the `review` path exists, symmetric
 supersession, and **immutability**. `scripts/adr.py index` regenerates
-`docs/adr/README.md` and the block between `<!-- adr:begin -->` and
-`<!-- adr:end -->` in `docs/SUMMARY.md`; never hand-edit either.
+`docs/adr/README.md`; never hand-edit that generated index. Book navigation is derived
+during publication from `docs/site.toml`, not edited by the ADR tool.
 
 ### Immutability
 
 A record whose status on `origin/main` is anything other than `proposed` may
 change only in `status`, `superseded-by`, and the `## Status history` section.
 Everything else — every other front-matter key and every other body section — is
-frozen. `governance / adr-lint` fails the PR otherwise.
+frozen. `just adr-lint` and the manually dispatched `governance / adr-lint` check
+can detect violations when the maintainer chooses to run them.
 
 **To change a decision, supersede it.** Write a new record that states what
 changed and why, run `just adr-supersede <old> <new>`, and append the reason to
@@ -112,11 +129,11 @@ the new record's Status history. Do not edit the old one's argument.
 An ADR enters the repository or changes status only in a pull request that:
 
 1. is **labelled `adr`** and **titled** `adr: ADR-NNNN <title>`;
-2. amends `blueprint.md` in the same PR (or in a named follow-up `design:` PR the
-   ADR references) with a **revision-history row** and an inline
+2. amends the authoritative collection in the same PR (or in a named follow-up `design:`
+   PR the ADR references) with a **revision-history row** in `blueprint.md` and an inline
    `> Decision: ADR-NNNN` line under each governed section's heading;
-3. keeps every blueprint section number where it was — insert `§14.3.1`, never
-   renumber (ADR-0033);
+3. preserves section identifiers — insert `§14.3.1`, never renumber. A move leaves an
+   anchor/link stub and one normative owner (ADR-0095; intended successor to ADR-0033);
 4. may merge with `status: proposed` **only** if it also carries `needs-review`.
 
 Maintainer merge is the approval (ADR-0034). If the decision defers something,
@@ -124,11 +141,12 @@ add the register row in the same PR so the trigger has an owner and a date.
 
 ## 5. Before you finish
 
-Run these when the ADR PR is prepared or the plan closes, not while drafting mid-plan
-(AGENTS.md *Execution rhythm*):
+Run these when the maintainer requests an ADR check; they are not a commit, push or
+plan-close prerequisite (AGENTS.md *Execution rhythm*):
 
 - `just adr-lint` and `just adr-index` are clean.
 - The `verification:` field names something that exists or is created by this PR.
 - If the record defers anything, `docs/adr/register.md` has a row for it.
 - If the record supersedes another, both files changed and the lint agrees.
-- The blueprint carries the `> Decision:` marker and a revision row.
+- Each governed section's owner carries the `> Decision:` marker; the blueprint carries
+  the collection revision row.

@@ -3,14 +3,14 @@
 //! Accounted pure flow preparation and native/library tear selection.
 use super::{MathRuntimeError, MathService, Workspace, solves::SolveHandle};
 use pse_backend_native::{ProblemError, solve::*, tears};
-use pse_engine::cache_service::flight::FlightCancellation;
+use pse_columnar::flight::FlightCancellation;
 use pse_ids::SemanticId;
 use std::sync::Arc;
 /// Immutable physically admitted compiler product and its allocation owner.
 #[derive(Clone, Debug)]
 pub struct PreparedFlow {
     graph: Arc<pse_structural::flowsheet::FlowGraph>,
-    _owner: Arc<pse_columnar::AllocationLease>,
+    _owner: Arc<super::products::ProductOwner>,
 }
 impl PreparedFlow {
     /// Complete physical graph, SCCs, bindings and source identities.
@@ -43,11 +43,11 @@ impl MathService {
         revision: pse_compiler::workspace::Inputs,
         id: SemanticId,
     ) -> Result<PreparedFlow, MathRuntimeError> {
-        let owner = self.reserve("math:flow-product", self.policy.workspace_bytes)?;
-        let graph = self
-            .job(
+        let foreign = self.policy.foreign_bytes;
+        let (graph, lease) = self
+            .job_retained(
                 1,
-                self.policy.stack_bytes,
+                self.policy.workspace_bytes,
                 FlightCancellation::default(),
                 move |_| {
                     let _lease = workspace.lease;
@@ -55,10 +55,29 @@ impl MathService {
                         MathRuntimeError::Infrastructure("compiler lock poisoned".into())
                     })?;
                     compiler.publish(revision)?;
-                    compiler.prepare_flow(id).map_err(Into::into)
+                    let graph = compiler.prepare_flow(id)?;
+                    let d = graph.declaration();
+                    let bytes = d
+                        .nodes
+                        .iter()
+                        .map(|n| size_of_val(n) + size_of_val(n.ports.as_slice()))
+                        .sum::<usize>()
+                        + d.connections
+                            .iter()
+                            .map(|e| size_of_val(e) + size_of_val(e.bindings.as_slice()))
+                            .sum::<usize>()
+                        + size_of_val(d.decisions.as_slice());
+                    Ok((
+                        graph,
+                        bytes
+                            .checked_add(foreign)
+                            .ok_or(MathRuntimeError::Limit("flow product extent"))?,
+                    ))
                 },
             )
             .await?;
+        let owner =
+            self.shared_product(vec![2, Arc::as_ptr(&graph) as usize], graph.clone(), lease)?;
         Ok(PreparedFlow {
             graph,
             _owner: owner,

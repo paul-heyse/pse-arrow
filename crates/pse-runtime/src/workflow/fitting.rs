@@ -3,6 +3,7 @@
 //! Shared-parameter experiment compilation. Trial values never enter Salsa queries.
 mod oracle;
 mod results;
+mod sparse;
 use super::{FitDeclaration, ModelRevision, PreparedSimulation, WorkflowError, contract, math};
 use crate::math::{ExecutableCase, solves::SolverProfile};
 use pse_backend_native::{
@@ -35,7 +36,7 @@ pub struct FitProfile {
     pub simulations: BTreeMap<SemanticId, super::SimulationProfile>,
     /// Relative local response singular-value cutoff; not a confidence level.
     pub rank_tolerance: f64,
-    /// Hard cap for dense local response/rank storage and composed derivatives.
+    /// Separate cap for sparse derivative contributions and optional dense rank cells.
     pub max_cells: usize,
 }
 #[derive(Clone, Debug)]
@@ -72,7 +73,7 @@ enum Experiment {
     Transient(Box<PreparedSimulation>),
 }
 /// Immutable fitting product; mutable evaluators and native sessions are attempt-owned.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct FitProblem {
     pub(crate) revision: ModelRevision,
     pub(crate) declaration: FitDeclaration,
@@ -84,17 +85,19 @@ pub(crate) struct FitProblem {
     pub(crate) tolerances: native::quality::Tolerances,
     pub(crate) bytes: usize,
     contract: OracleContract,
+    layout: Arc<sparse::Layout>,
     bounds: Vec<(f64, f64)>,
     initial: Vec<f64>,
     parameter_ports: Vec<Port>,
     parameter_columns: Vec<Option<usize>>,
     experiments: Vec<Experiment>,
     measurements: Vec<Measurement>,
+    _owner: Arc<pse_columnar::AllocationLease>,
 }
 /// Fitting mathematics with an admitted execution route.
 #[derive(Clone, Debug)]
 pub struct PreparedFit {
-    pub(crate) problem: FitProblem,
+    pub(crate) problem: Arc<FitProblem>,
     route: native::routing::Route,
 }
 /// Joined native fit plus independently re-evaluated physical predictions.
@@ -115,7 +118,7 @@ pub struct FitReport {
     /// Predictions in binding order, including excluded observations when evaluable.
     pub predictions: Vec<Option<f64>>,
     /// Local response derivatives in observation by free-parameter order.
-    pub responses: Option<faer::Mat<f64>>,
+    pub responses: Option<pse_columnar::Leased<faer::Mat<f64>>>,
     /// Singular values of the weighted, parameter-scaled response Jacobian.
     pub singular_values: Vec<f64>,
     /// Local numerical column rank, when independently qualified.
@@ -124,6 +127,24 @@ pub struct FitReport {
     pub diagnostic: Option<String>,
 }
 impl FitReport {
+    /// Known result buffers; the solver's finite report allowance owns diagnostics.
+    pub(crate) fn numeric_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.physical.capacity() * size_of::<super::BalanceCheck>()
+            + self
+                .physical
+                .iter()
+                .filter_map(|b| b.value.as_ref().err())
+                .map(String::capacity)
+                .sum::<usize>()
+            + self.predictions.capacity() * size_of::<Option<f64>>()
+            + (self.constraint_values.capacity()
+                + self.singular_values.capacity()
+                + self.candidate.as_ref().map_or(0, Vec::capacity))
+                * size_of::<f64>()
+            // The optional dense response carries its own reservation.
+            + self.diagnostic.as_ref().map_or(0, String::capacity)
+    }
     /// A stationary feasible estimate with locally identifiable free parameters.
     /// This establishes neither global optimality nor a statistical confidence interval.
     pub fn estimate_qualified(&self) -> bool {
@@ -197,7 +218,10 @@ impl ModelRevision {
         .map_err(crate::math::MathRuntimeError::from)?;
         crate::math::solves::admit_profile(&problem.profile.solver, route)
             .map_err(crate::math::MathRuntimeError::from)?;
-        Ok(PreparedFit { problem, route })
+        Ok(PreparedFit {
+            problem: Arc::new(problem),
+            route,
+        })
     }
 
     async fn prepare_fit_problem(
@@ -207,6 +231,14 @@ impl ModelRevision {
         compiler: pse_compiler::workspace::Profile,
         cancel: &crate::CancelSource,
     ) -> Result<FitProblem, WorkflowError> {
+        // Preparation has its own lifetime, independent of any later solve job.
+        // Reserve before copying declarations or constructing sparse products.
+        let policy = &self.0.runtime.shared.budget().math;
+        let reservation = datafusion::execution::memory_pool::MemoryConsumer::new("fit:prepared")
+            .register(&self.0.runtime.shared.pool());
+        reservation
+            .try_grow(policy.workspace_bytes)
+            .map_err(crate::math::MathRuntimeError::from)?;
         let d = self
             .0
             .sources
@@ -721,15 +753,46 @@ impl ModelRevision {
                         )
                         .ok_or_else(|| contract("fit physical check extent"))
                 })?;
-        let cells = vars
-            .len()
-            .checked_mul(vars.len())
-            .and_then(|v| v.checked_add(vars.len().checked_mul(measurements.len() + rows.len())?))
-            .and_then(|v| v.checked_add(physical_cells))
-            .ok_or_else(|| contract("fit dense diagnostic extent"))?;
-        if cells > profile.max_cells {
-            return Err(contract("fit derivative/diagnostic cell allowance"));
-        }
+        // Finite metadata allowance includes coordinate/policy projections and
+        // opaque library metadata. It is accounting, not a private layout or RSS claim.
+        let metadata_bytes = [
+            d.parameters.len(),
+            d.observations.len(),
+            vars.len(),
+            rows.len(),
+            experiments.len(),
+        ]
+        .into_iter()
+        .try_fold(0usize, |n, v| n.checked_add(v))
+        .and_then(|n| n.checked_mul(1024))
+        .and_then(|n| n.checked_add(policy.foreign_bytes))
+        .ok_or_else(|| contract("fit preparation metadata allowance"))?;
+        // Each contribution may coexist with pair/refill maps, canonical CSC,
+        // transpose and symbolic-product scratch. Bound construction before faer.
+        let layout_limit = policy
+            .workspace_bytes
+            .checked_sub(metadata_bytes)
+            .map(|n| n / 256)
+            .filter(|n| *n > 0)
+            .ok_or_else(|| contract("fit preparation memory allowance"))?
+            .min(profile.max_cells);
+        let layout = Arc::new(
+            sparse::Layout::new(
+                &experiments,
+                &measurements,
+                &d.parameters.iter().map(|p| p.symbol_id).collect::<Vec<_>>(),
+                &parameter_columns,
+                rows.len(),
+                vars.len(),
+                order,
+                layout_limit,
+            )
+            .map_err(crate::math::MathRuntimeError::from)?,
+        );
+        let cells = layout
+            .cells
+            .checked_add(physical_cells)
+            .ok_or_else(|| contract("fit sparse derivative/report extent"))?;
         bytes = bytes
             .checked_add(
                 physical_cells
@@ -905,6 +968,11 @@ impl ModelRevision {
             derivatives: order,
             smoothness: order,
         };
+        let retained = metadata_bytes
+            .checked_add(layout.retained_bytes())
+            .filter(|n| *n <= reservation.size())
+            .ok_or_else(|| super::contract("fit preparation retained allowance"))?;
+        reservation.shrink(reservation.size() - retained);
         Ok(FitProblem {
             revision: self.clone(),
             declaration: d,
@@ -916,12 +984,14 @@ impl ModelRevision {
             tolerances,
             bytes,
             contract,
+            layout,
             bounds,
             initial,
             parameter_ports,
             parameter_columns,
             experiments,
             measurements,
+            _owner: pse_columnar::AllocationLease::new(reservation),
         })
     }
 }

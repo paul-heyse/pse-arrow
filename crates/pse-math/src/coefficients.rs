@@ -6,7 +6,7 @@ use crate::{
     MathError,
     assembly::CasePlan,
     binding::{CaseValues, Target},
-    library::{self, Optimization},
+    library,
     sparse::AssemblyMatrix,
 };
 use pse_ids::{ContentHash, FramedHasher};
@@ -38,6 +38,17 @@ pub struct Coefficients {
     pub row_constants: Vec<f64>,
 }
 impl Coefficients {
+    /// Known coefficient buffers, excluding map/allocator overhead.
+    pub fn retained_bytes(&self) -> usize {
+        let sparse = |m: &faer::sparse::SparseColMat<usize, f64>| {
+            size_of_val(m.val()) + size_of_val(m.row_idx()) + size_of_val(m.symbolic().col_ptr())
+        };
+        size_of::<Self>()
+            + sparse(&self.hessian)
+            + sparse(&self.constraints)
+            + (self.objective.capacity() + self.row_constants.capacity()) * size_of::<f64>()
+            + self.values.len() * size_of::<(pse_ids::SemanticId, u64)>()
+    }
     /// Reject a shared classification established from different consumed values.
     pub fn matches_facts(&self, facts: &crate::presolve::Facts) -> bool {
         self.structure == facts.structure && self.values == facts.values
@@ -59,19 +70,17 @@ impl CasePlan {
     pub fn coefficients(
         &self,
         values: &CaseValues,
-        optimization: Optimization,
         term_limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Coefficients, MathError> {
         let facts = self.presolve_facts(values, term_limit, cancel)?;
-        self.coefficients_with_facts(values, &facts, optimization, term_limit, cancel)
+        self.coefficients_with_facts(values, &facts, term_limit, cancel)
     }
     /// Consume the current shared bound facts rather than reclassifying affine rows.
     pub fn coefficients_with_facts(
         &self,
         values: &CaseValues,
         facts: &crate::presolve::Facts,
-        optimization: Optimization,
         term_limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Coefficients, MathError> {
@@ -203,7 +212,7 @@ impl CasePlan {
                     if degree > 2 {
                         return Err(MathError::Contract("unsupported coefficient degree".into()));
                     }
-                    let v = number(coefficient, optimization, cancel)? * c.scale;
+                    let v = number(coefficient, cancel)? * c.scale;
                     let factors: Vec<_> = exponents
                         .iter()
                         .enumerate()
@@ -268,20 +277,20 @@ impl CasePlan {
         })
     }
 }
-pub(crate) fn number(
-    atom: &Atom,
-    options: Optimization,
-    cancel: &Arc<AtomicBool>,
-) -> Result<f64, MathError> {
-    let mut evaluator = library::evaluator(std::slice::from_ref(atom), &[], options, cancel)?;
-    let mut output = [0.0];
-    evaluator
-        .try_evaluate(&[], &mut output)
+pub(crate) fn number(atom: &Atom, cancel: &Arc<AtomicBool>) -> Result<f64, MathError> {
+    if cancel.load(Ordering::Relaxed) {
+        return Err(MathError::Cancelled);
+    }
+    let output = atom
+        .evaluate(&std::collections::HashMap::<Atom, f64>::new())
         .map_err(|e| MathError::Library(e.to_string()))?;
-    if !output[0].is_finite() {
+    if cancel.load(Ordering::Relaxed) {
+        return Err(MathError::Cancelled);
+    }
+    if !output.is_finite() {
         return Err(MathError::Contract("nonfinite library coefficient".into()));
     }
-    Ok(output[0])
+    Ok(output)
 }
 
 /// Exact represented-rational verification of Q = sign * Rᵀ diag(w) R, w >= 0.

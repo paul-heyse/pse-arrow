@@ -501,3 +501,59 @@ fn symbolic_admission_order_agrees_across_fresh_processes() {
     };
     assert_eq!(run("forward"), run("reverse"));
 }
+
+#[test]
+fn shared_let_blocks_bound_repeated_nonlinear_tree_growth() {
+    crate::initialize().unwrap();
+    let registry = standard_registry().unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let mut value = builder
+        .input(0, ids::quantity("neutral"), IndexSet::new(), source())
+        .unwrap();
+    let (mut expected, mut first, mut second) = (0.2_f64, 1.0, 0.0);
+    for _ in 0..32 {
+        let sin = builder
+            .unary(Function::Sin, value.clone(), source())
+            .unwrap();
+        let cos = builder.unary(Function::Cos, value, source()).unwrap();
+        value = builder
+            .binary(Binary::Add, sin, cos, None, source())
+            .unwrap();
+        value = builder.bind(value).unwrap();
+        second = -(expected.sin() + expected.cos()) * first * first
+            + (expected.cos() - expected.sin()) * second;
+        first *= expected.cos() - expected.sin();
+        expected = expected.sin() + expected.cos();
+    }
+    let body = builder.prepare(&[value]).unwrap();
+    assert!(body.expression(0).is_none()); // optional flattening stopped; the shared program remains exact
+    let compiled = body
+        .compile(
+            &[0],
+            &[0],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let result = compiled
+        .worker()
+        .evaluate(
+            &[0.2],
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    assert!((result.values[0] - expected).abs() < 1e-12);
+    assert!((result.jacobian[0] - first).abs() < 1e-12);
+    assert!((result.hessians[0] - second).abs() < 1e-12);
+}

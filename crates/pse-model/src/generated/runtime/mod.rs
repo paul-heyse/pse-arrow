@@ -43,6 +43,8 @@ pub mod r#response_sensitivities;
 ///Generated relation contract.
 pub mod r#retained_versions;
 ///Generated relation contract.
+pub mod r#run_lineage;
+///Generated relation contract.
 pub mod r#simulation_events;
 ///Generated relation contract.
 pub mod r#simulation_samples;
@@ -54,5 +56,7 @@ pub mod r#solve_metrics;
 pub mod r#solve_runs;
 ///Generated relation contract.
 pub mod r#solve_variables;
+///Generated relation contract.
+pub mod r#solver_capabilities;
 ///Generated relation contract.
 pub mod r#validation_findings;

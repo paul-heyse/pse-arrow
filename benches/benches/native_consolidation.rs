@@ -12,8 +12,6 @@ use arrow::{
     datatypes::{DataType, Field, Schema},
 };
 use criterion::{Criterion, criterion_group, criterion_main};
-#[path = "native_consolidation/inference.rs"]
-mod inference;
 #[path = "native_consolidation/observation.rs"]
 mod observation;
 #[path = "native_consolidation/ownership.rs"]
@@ -142,6 +140,6 @@ fn configuration() -> Criterion {
         None => base,
     }
 }
-criterion_group! { name = benches; config = configuration(); targets = consolidation, validation::measure, observation::measure, ownership::measure, inference::measure }
+criterion_group! { name = benches; config = configuration(); targets = consolidation, validation::measure, observation::measure, ownership::measure }
 
 criterion_main!(benches);

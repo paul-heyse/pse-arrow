@@ -8,7 +8,7 @@ use pse_backend_native::{
     routing::{self, Route},
     solve::*,
 };
-use pse_engine::cache_service::flight::FlightCancellation;
+use pse_columnar::flight::FlightCancellation;
 use pse_ids::FramedHasher;
 pub use pse_math::convexity::ConvexityPolicy;
 use pse_math::{
@@ -102,6 +102,48 @@ pub struct PreparedSolve {
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl PreparedSolve {
+    /// Immutable compilation and normalization selected before attaching a seed.
+    pub fn preparation_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
+        let mut h = FramedHasher::new("pse.solve.preparation.v1");
+        h.hash(&profile_key(&self.profile)?)
+            .hash(&self.numerics.key);
+        match &self.representation {
+            Representation::Algebraic { prepared, .. } => {
+                h.str("algebraic")
+                    .hash(&prepared.compiled().plan.structure().key());
+                for artifact in prepared.compiled().artifacts.iter() {
+                    h.hash(&artifact.key());
+                }
+            }
+            Representation::Conic { .. } => {
+                h.str("conic");
+            }
+        }
+        if let Some(c) = &self.compatibility {
+            h.hash(&c.layout).hash(&c.data).str(c.backend.as_str());
+        }
+        Ok(h.finish_hash())
+    }
+    /// Complete selected request, including explicit seed payload and compatibility data.
+    pub fn request_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
+        let mut h = FramedHasher::new("pse.solve.request.v1");
+        h.hash(&self.preparation_identity()?)
+            .hash(&self.numerics.key);
+        if let Some(compatibility) = &self.compatibility {
+            h.bool(true)
+                .hash(&compatibility.layout)
+                .hash(&compatibility.data)
+                .str(compatibility.backend.as_str());
+        } else {
+            h.bool(false);
+        }
+        if let Some(start) = &self.explicit_start {
+            h.bool(true).str(&start.snapshot().to_string());
+        } else {
+            h.bool(false);
+        }
+        Ok(h.finish_hash())
+    }
     /// Construct a primal-only explicit seed in semantic source coordinates.
     pub fn with_primal_start(
         self,
@@ -504,7 +546,23 @@ impl MathService {
         numerical: NumericalInputs,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
-        let owner = self.reserve("math:prepared-solve", self.policy.workspace_bytes)?;
+        // Per-solve overlays are separate from the shared compiler product.
+        let structure = prepared.prepared.plan.structure();
+        let entries = structure
+            .variables()
+            .len()
+            .checked_add(structure.rows().len())
+            .and_then(|n| n.checked_add(numerical.targets.len()))
+            .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
+        let bytes = entries
+            .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
+            .and_then(|n| {
+                n.checked_add(values.scalars.len() * size_of::<(pse_ids::SemanticId, f64)>())
+            })
+            .and_then(|n| n.checked_add(size_of::<PreparedSolve>()))
+            .and_then(|n| n.checked_add(self.policy.foreign_bytes))
+            .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
+        let owner = self.reserve("math:prepared-solve", bytes)?;
         prepared
             .prepared
             .plan
@@ -714,7 +772,24 @@ impl MathService {
             )
             .into());
         }
-        let owner = self.reserve("math:prepared-conic", self.policy.workspace_bytes)?;
+        let sparse_bytes = [&problem.quadratic, &problem.constraints]
+            .iter()
+            .try_fold(0usize, |n, a| {
+                n.checked_add(
+                    a.colptr
+                        .capacity()
+                        .checked_add(a.rowval.capacity())?
+                        .checked_mul(size_of::<usize>())?,
+                )?
+                .checked_add(a.nzval.capacity().checked_mul(size_of::<f64>())?)
+            })
+            .ok_or(MathRuntimeError::Limit("conic product extent"))?;
+        let bytes = (problem.contract.variables.len() + problem.contract.rows.len())
+            .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
+            .and_then(|n| n.checked_add(sparse_bytes))
+            .and_then(|n| n.checked_add(self.policy.foreign_bytes))
+            .ok_or(MathRuntimeError::Limit("conic product extent"))?;
+        let owner = self.reserve("math:prepared-conic", bytes)?;
         let admitted = problem.clone();
         let proof = certificate.clone();
         self.job(
@@ -903,24 +978,7 @@ impl MathService {
         let control = cancel.clone();
         let service = self.clone();
         let (receive_tx, receiver) = tokio::sync::oneshot::channel();
-        let stacks = if cores > 1
-            && sequence
-                .steps
-                .iter()
-                .any(|s| s.route == Route::Native(Backend::Pounce))
-        {
-            cores
-        } else {
-            cores.saturating_sub(1)
-        };
-        let extra_stacks = stacks
-            .checked_mul(self.policy.stack_bytes)
-            .ok_or(MathRuntimeError::Limit("solver stack allowance"))?;
-        let bytes = self
-            .policy
-            .worker_bytes
-            .checked_add(extra_stacks)
-            .ok_or(MathRuntimeError::Limit("solver allowance"))?;
+        let bytes = self.policy.worker_bytes;
         tokio::spawn(async move {
             let runner = service.clone();
             let result = service
@@ -1422,15 +1480,12 @@ impl MathService {
                             .map_err(|e| ProblemError::Contract(e.to_string()))
                     })
                     .collect::<Result<_, _>>()?;
-                let ExecutionWorker {
-                    mut worker,
-                    _case,
-                    _lease,
-                } = self.worker(case, providers, execution.cancel.clone())?;
+                let ExecutionWorker { mut worker, _case } =
+                    self.worker(case, providers, execution.cancel.clone())?;
                 #[cfg(feature = "solver-kinsol")]
-                let mut owners = Some((_case, _lease));
+                let mut owners = Some(_case);
                 #[cfg(not(feature = "solver-kinsol"))]
-                let owners = Some((_case, _lease));
+                let owners = Some(_case);
                 if backend.is_none() {
                     let objective = prepared
                         .prepared
@@ -1509,6 +1564,7 @@ impl MathService {
                         .compatibility
                         .ok_or_else(|| ProblemError::Contract("missing nonlinear stamp".into()))?;
                     let mut oracle = native::assembled::AlgebraicOracle::new(worker, values)?
+                        .with_structural_analysis(prepared.prepared.structure.clone())
                         .with_presolve_facts(prepared.prepared.presolve.clone())?
                         .with_normalization(step.normalization.clone())?;
                     if let Some(c) = &prepared.prepared.coefficients {
@@ -1687,10 +1743,10 @@ impl MathService {
                             let normalized_warm = warm
                                 .map(|w| native::transport::warm(w, &step.normalization, true))
                                 .transpose()?;
-                            let reused = matches!(retained,Retained::Kinsol{session,..}if session.matches_layout(&stamp));
+                            let reused = matches!(retained,Retained::Kinsol{session,..}if session.matches_layout(&stamp) && session.matches_settings(&settings));
                             if reused {
                                 if let Retained::Kinsol { session, _owners } = retained {
-                                    session.replace(function, stamp)?;
+                                    session.replace(function, settings, stamp)?;
                                     *_owners = owners.take();
                                 }
                             } else {
@@ -1742,7 +1798,7 @@ impl MathService {
                     };
                     quality::record_kkt(&mut report, &step.normalization, &controls.accuracy);
                     quality::qualify(&mut report, &controls.accuracy);
-                    // _case and _lease outlive every callback/native handle above.
+                    // The case owner and enclosing job reservation outlive every native callback.
                     drop(owners);
                     Ok(Outcome::Native(Box::new(report)))
                 }
@@ -1757,7 +1813,7 @@ enum Retained {
     #[cfg(feature = "solver-kinsol")]
     Kinsol {
         session: native::kinsol::Session,
-        _owners: Option<(Arc<ExecutableCase>, Arc<pse_columnar::AllocationLease>)>,
+        _owners: Option<Arc<ExecutableCase>>,
     },
     #[cfg(feature = "solver-ipopt")]
     Ipopt(native::ipopt::Session),

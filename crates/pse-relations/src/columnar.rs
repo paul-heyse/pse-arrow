@@ -744,7 +744,7 @@ impl FieldCheckedBatch {
     pub(crate) fn for_generated(
         &self,
         relation_id: SemanticId,
-        expected: &'static pse_schema::resolved_contract::GeneratedContracts,
+        expected: &'static [pse_schema::resolved_contract::ExpectedContract],
     ) -> Result<&RecordBatch, RelationError> {
         if self.relation_id != relation_id {
             return Err(mismatch("the requested generated relation identity"));

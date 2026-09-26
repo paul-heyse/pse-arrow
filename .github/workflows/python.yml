@@ -1,26 +1,20 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The Python pull-request gate: `python / lint`, `python / test`, `python / parity`.
+# Python checks run only when the maintainer dispatches this workflow.
 #
-# These named contexts are required by the full main ruleset.
-#
-# `test` is an aggregating job over the interpreter matrix. A matrix leg's check name
-# carries its matrix values (`python / test (3.11)`), so a matrix job can never be a
-# single required context; `test-matrix` does the work and `test` is the context.
+# `test` aggregates the interpreter matrix for a single manual result.
 name: python
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -129,8 +123,7 @@ jobs:
 
   test:
     name: python / test
-    # The single required context. It does no work: it exists because required status
-    # checks cannot name a matrix leg.
+    # Aggregates the interpreter matrix for a single manual result.
     needs: [test-matrix]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04

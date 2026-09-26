@@ -1,0 +1,106 @@
+{
+  "sources": [
+    {
+      "id": "SRC-01",
+      "kind": "source_extracted_numerical_body",
+      "repository": "CalebBell/thermo",
+      "path": "thermo/nrtl.py",
+      "commit": "2bb466e98439c2395a004e7095d07f9b97a5a0f0",
+      "blob_sha": "816d8eb7034bfc553b9d651acbb8dfeba9432cbf",
+      "function": "NRTL_gammas",
+      "retrieved_windows": [
+        [
+          2010,
+          2200
+        ],
+        [
+          1,
+          35
+        ]
+      ],
+      "url": "https://github.com/CalebBell/thermo/blob/2bb466e98439c2395a004e7095d07f9b97a5a0f0/thermo/nrtl.py",
+      "treatment": "Numerical body manually transcribed; original docstring/package context omitted; math.exp supplied; MIT notice retained. Not full package or exact original-file bytes.",
+      "accessed_project_date": "2026-09-25"
+    },
+    {
+      "id": "SRC-02",
+      "kind": "source_extracted_numerical_body",
+      "repository": "CalebBell/chemicals",
+      "path": "chemicals/rachford_rice.py",
+      "commit": "e79047588b30cfabc564c79fb26d760c746877d7",
+      "blob_sha": "ef08efe5244f742525e7b914ac95736219febd9f",
+      "function": "Rachford_Rice_flash_error",
+      "retrieved_windows": [
+        [
+          610,
+          735
+        ],
+        [
+          1,
+          24
+        ]
+      ],
+      "url": "https://github.com/CalebBell/chemicals/blob/e79047588b30cfabc564c79fb26d760c746877d7/chemicals/rachford_rice.py",
+      "treatment": "Numerical body and signature transcribed; upstream docstring omitted; MIT notice retained. Host Brent solver is not the upstream flash dispatcher.",
+      "accessed_project_date": "2026-09-25"
+    },
+    {
+      "id": "SRC-03",
+      "kind": "official_documentation_worked_example",
+      "url": "https://thermo.readthedocs.io/thermo.nrtl.html",
+      "purpose": "Activity coefficients, parameter conversion and rounded excess enthalpy example. Same-model numerical regression, not independent physical validation.",
+      "accessed_project_date": "2026-09-25"
+    },
+    {
+      "id": "SRC-04",
+      "kind": "official_documentation_worked_example",
+      "url": "https://chemicals.readthedocs.io/chemicals.rachford_rice.html",
+      "purpose": "Specified K-value residual and allocation result. Inner algebraic split, not a complete equilibrium thermodynamic package.",
+      "accessed_project_date": "2026-09-25"
+    },
+    {
+      "id": "SRC-05",
+      "kind": "official_documentation_unexecuted_native_runner",
+      "url": "https://coolprop.org/coolprop/HighLevelAPI.html",
+      "purpose": "PropsSI input/output semantics and pure saturation usage; not executed here.",
+      "accessed_project_date": "2026-09-25"
+    },
+    {
+      "id": "SRC-06",
+      "kind": "official_documentation_unexecuted_native_runner",
+      "url": "https://coolprop.org/coolprop/LowLevelAPI.html",
+      "purpose": "Version/backend/state semantics; not executed here.",
+      "accessed_project_date": "2026-09-25"
+    },
+    {
+      "id": "SRC-07",
+      "kind": "official_documentation_unexecuted_native_runner",
+      "url": "https://thermo.readthedocs.io/thermo.flash.html",
+      "purpose": "Explicit CEOS/FlashVL assembly used in blocked full-package runner.",
+      "accessed_project_date": "2026-09-25"
+    },
+    {
+      "id": "SRC-08",
+      "kind": "official_documentation_unexecuted_native_runner",
+      "url": "https://thermo.readthedocs.io/thermo.heat_capacity.html",
+      "purpose": "HeatCapacityGas polynomial representation in blocked worker.",
+      "accessed_project_date": "2026-09-25"
+    },
+    {
+      "id": "SRC-09",
+      "kind": "publisher_release_metadata",
+      "url": "https://pypi.org/project/CoolProp/8.0.0/",
+      "purpose": "Target version and downloadable wheel exist; retrieval here failed. No installation claim.",
+      "accessed_project_date": "2026-09-25"
+    },
+    {
+      "id": "SRC-10",
+      "kind": "publisher_release_metadata",
+      "url": "https://pypi.org/project/thermo/0.6.1/",
+      "purpose": "Target version, not an installed build.",
+      "accessed_project_date": "2026-09-25"
+    }
+  ],
+  "extracted_module_sha256": "8a9368b3fbba94aa859501648d2390339f53077120fc93ad90203d66eebf51df",
+  "notice": "File checksums identify bundled artifacts; upstream blob hashes identify retrieved original source, not complete packages installed in this runtime."
+}

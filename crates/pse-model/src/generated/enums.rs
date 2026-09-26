@@ -387,218 +387,38 @@ impl core::str::FromStr for BalanceRole {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum BasisKind {
-    ///molar
-    #[serde(rename = "molar")]
-    Molar,
-    ///mass
-    #[serde(rename = "mass")]
-    Mass,
-    ///volume
-    #[serde(rename = "volume")]
-    Volume,
-    ///energy
-    #[serde(rename = "energy")]
-    Energy,
-    ///standard_volume
-    #[serde(rename = "standard_volume")]
-    StandardVolume,
-    ///dimensionless
-    #[serde(rename = "dimensionless")]
-    Dimensionless,
-}
+/// Physical dictionary owned by the quantity library.
+pub type BasisKind = pse_quantity::BasisKind;
 impl crate::SemanticEq for BasisKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl BasisKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Molar,
-        Self::Mass,
-        Self::Volume,
-        Self::Energy,
-        Self::StandardVolume,
-        Self::Dimensionless,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Molar => "molar",
-            Self::Mass => "mass",
-            Self::Volume => "volume",
-            Self::Energy => "energy",
-            Self::StandardVolume => "standard_volume",
-            Self::Dimensionless => "dimensionless",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Molar => 0usize,
-            Self::Mass => 1usize,
-            Self::Volume => 2usize,
-            Self::Energy => 3usize,
-            Self::StandardVolume => 4usize,
-            Self::Dimensionless => 5usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Molar => None,
-            Self::Mass => None,
-            Self::Volume => None,
-            Self::Energy => None,
-            Self::StandardVolume => None,
-            Self::Dimensionless => None,
-        }
+impl crate::HeapUsage for BasisKind {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for BasisKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "molar" => Ok(Self::Molar),
-            "mass" => Ok(Self::Mass),
-            "volume" => Ok(Self::Volume),
-            "energy" => Ok(Self::Energy),
-            "standard_volume" => Ok(Self::StandardVolume),
-            "dimensionless" => Ok(Self::Dimensionless),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(BasisKind).to_owned(),
-                    enumeration: stringify!(BasisKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for BasisKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum BasisRule {
-    ///preserve
-    #[serde(rename = "preserve")]
-    Preserve,
-    ///require_equal
-    #[serde(rename = "require_equal")]
-    RequireEqual,
-    ///registered_conversion
-    #[serde(rename = "registered_conversion")]
-    RegisteredConversion,
-    ///cancel
-    #[serde(rename = "cancel")]
-    Cancel,
-    ///declared_result
-    #[serde(rename = "declared_result")]
-    DeclaredResult,
-}
+/// Physical dictionary owned by the quantity library.
+pub type BasisRule = pse_quantity::BasisRule;
 impl crate::SemanticEq for BasisRule {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl BasisRule {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Preserve,
-        Self::RequireEqual,
-        Self::RegisteredConversion,
-        Self::Cancel,
-        Self::DeclaredResult,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Preserve => "preserve",
-            Self::RequireEqual => "require_equal",
-            Self::RegisteredConversion => "registered_conversion",
-            Self::Cancel => "cancel",
-            Self::DeclaredResult => "declared_result",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Preserve => 0usize,
-            Self::RequireEqual => 1usize,
-            Self::RegisteredConversion => 2usize,
-            Self::Cancel => 3usize,
-            Self::DeclaredResult => 4usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Preserve => None,
-            Self::RequireEqual => None,
-            Self::RegisteredConversion => None,
-            Self::Cancel => None,
-            Self::DeclaredResult => None,
-        }
+impl crate::HeapUsage for BasisRule {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for BasisRule {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "preserve" => Ok(Self::Preserve),
-            "require_equal" => Ok(Self::RequireEqual),
-            "registered_conversion" => Ok(Self::RegisteredConversion),
-            "cancel" => Ok(Self::Cancel),
-            "declared_result" => Ok(Self::DeclaredResult),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(BasisRule).to_owned(),
-                    enumeration: stringify!(BasisRule).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for BasisRule {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -1756,107 +1576,21 @@ impl core::str::FromStr for ComponentType {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum CompositionBasis {
-    ///mole_fraction
-    #[serde(rename = "mole_fraction")]
-    MoleFraction,
-    ///mass_fraction
-    #[serde(rename = "mass_fraction")]
-    MassFraction,
-    ///volume_fraction
-    #[serde(rename = "volume_fraction")]
-    VolumeFraction,
-    ///molality
-    #[serde(rename = "molality")]
-    Molality,
-    ///molarity
-    #[serde(rename = "molarity")]
-    Molarity,
-}
+/// Physical dictionary owned by the quantity library.
+pub type CompositionBasis = pse_quantity::CompositionBasis;
 impl crate::SemanticEq for CompositionBasis {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl CompositionBasis {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::MoleFraction,
-        Self::MassFraction,
-        Self::VolumeFraction,
-        Self::Molality,
-        Self::Molarity,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::MoleFraction => "mole_fraction",
-            Self::MassFraction => "mass_fraction",
-            Self::VolumeFraction => "volume_fraction",
-            Self::Molality => "molality",
-            Self::Molarity => "molarity",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::MoleFraction => 0usize,
-            Self::MassFraction => 1usize,
-            Self::VolumeFraction => 2usize,
-            Self::Molality => 3usize,
-            Self::Molarity => 4usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::MoleFraction => None,
-            Self::MassFraction => None,
-            Self::VolumeFraction => None,
-            Self::Molality => None,
-            Self::Molarity => None,
-        }
+impl crate::HeapUsage for CompositionBasis {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for CompositionBasis {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "mole_fraction" => Ok(Self::MoleFraction),
-            "mass_fraction" => Ok(Self::MassFraction),
-            "volume_fraction" => Ok(Self::VolumeFraction),
-            "molality" => Ok(Self::Molality),
-            "molarity" => Ok(Self::Molarity),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(CompositionBasis).to_owned(),
-                    enumeration: stringify!(CompositionBasis).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for CompositionBasis {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -2114,6 +1848,82 @@ impl core::str::FromStr for CompressorType {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(CompressorType).to_owned(),
                     enumeration: stringify!(CompressorType).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ComputationKind {
+    ///simulation
+    #[serde(rename = "simulation")]
+    Simulation,
+    ///fit
+    #[serde(rename = "fit")]
+    Fit,
+}
+impl crate::SemanticEq for ComputationKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ComputationKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Simulation, Self::Fit];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Simulation => "simulation",
+            Self::Fit => "fit",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Simulation => 0usize,
+            Self::Fit => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Simulation => None,
+            Self::Fit => None,
+        }
+    }
+}
+impl core::str::FromStr for ComputationKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "simulation" => Ok(Self::Simulation),
+            "fit" => Ok(Self::Fit),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ComputationKind).to_owned(),
+                    enumeration: stringify!(ComputationKind).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -3080,87 +2890,21 @@ impl core::str::FromStr for ControllerType {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum ConversionKind {
-    ///scale
-    #[serde(rename = "scale")]
-    Scale,
-    ///affine
-    #[serde(rename = "affine")]
-    Affine,
-    ///kernel
-    #[serde(rename = "kernel")]
-    Kernel,
-}
+/// Physical dictionary owned by the quantity library.
+pub type ConversionKind = pse_quantity::ConversionKind;
 impl crate::SemanticEq for ConversionKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl ConversionKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Scale, Self::Affine, Self::Kernel];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Scale => "scale",
-            Self::Affine => "affine",
-            Self::Kernel => "kernel",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Scale => 0usize,
-            Self::Affine => 1usize,
-            Self::Kernel => 2usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Scale => None,
-            Self::Affine => None,
-            Self::Kernel => None,
-        }
+impl crate::HeapUsage for ConversionKind {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for ConversionKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "scale" => Ok(Self::Scale),
-            "affine" => Ok(Self::Affine),
-            "kernel" => Ok(Self::Kernel),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ConversionKind).to_owned(),
-                    enumeration: stringify!(ConversionKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for ConversionKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -3415,82 +3159,6 @@ impl core::str::FromStr for DefaultScalingRecommendation {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(DefaultScalingRecommendation).to_owned(),
                     enumeration: stringify!(DefaultScalingRecommendation).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum DemandSource {
-    ///expression
-    #[serde(rename = "expression")]
-    Expression,
-    ///opaque_operation
-    #[serde(rename = "opaque_operation")]
-    OpaqueOperation,
-}
-impl crate::SemanticEq for DemandSource {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl DemandSource {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Expression, Self::OpaqueOperation];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Expression => "expression",
-            Self::OpaqueOperation => "opaque_operation",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Expression => 0usize,
-            Self::OpaqueOperation => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Expression => None,
-            Self::OpaqueOperation => None,
-        }
-    }
-}
-impl core::str::FromStr for DemandSource {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "expression" => Ok(Self::Expression),
-            "opaque_operation" => Ok(Self::OpaqueOperation),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(DemandSource).to_owned(),
-                    enumeration: stringify!(DemandSource).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -4763,6 +4431,23 @@ impl core::str::FromStr for DomainBindingSource {
         }
     }
 }
+/// Physical dictionary owned by the quantity library.
+pub type DomainKind = pse_quantity::DomainKind;
+impl crate::SemanticEq for DomainKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for DomainKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for DomainKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 /// A string enumeration projected from the registry.
 #[derive(
     Clone,
@@ -4780,103 +4465,51 @@ impl core::str::FromStr for DomainBindingSource {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
-pub enum DomainKind {
-    ///time
-    #[serde(rename = "time")]
-    Time,
-    ///length
-    #[serde(rename = "length")]
-    Length,
-    ///species
-    #[serde(rename = "species")]
-    Species,
-    ///phase
-    #[serde(rename = "phase")]
-    Phase,
-    ///phase_species
-    #[serde(rename = "phase_species")]
-    PhaseSpecies,
-    ///element
-    #[serde(rename = "element")]
-    Element,
-    ///reaction
-    #[serde(rename = "reaction")]
-    Reaction,
-    ///port_set
-    #[serde(rename = "port_set")]
-    PortSet,
-    ///stage
-    #[serde(rename = "stage")]
-    Stage,
-    ///cell
-    #[serde(rename = "cell")]
-    Cell,
-    ///face
-    #[serde(rename = "face")]
-    Face,
-    ///node
-    #[serde(rename = "node")]
-    Node,
-    ///custom
-    #[serde(rename = "custom")]
-    Custom,
+pub enum DualQualification {
+    ///evaluated_kkt_not_sensitivity_certified
+    #[serde(rename = "evaluated_kkt_not_sensitivity_certified")]
+    EvaluatedKktNotSensitivityCertified,
+    ///unavailable_or_invalid
+    #[serde(rename = "unavailable_or_invalid")]
+    UnavailableOrInvalid,
+    ///unavailable
+    #[serde(rename = "unavailable")]
+    Unavailable,
+    ///not_applicable_parameter
+    #[serde(rename = "not_applicable_parameter")]
+    NotApplicableParameter,
 }
-impl crate::SemanticEq for DomainKind {
+impl crate::SemanticEq for DualQualification {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl DomainKind {
+impl DualQualification {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 13usize] = [
-        Self::Time,
-        Self::Length,
-        Self::Species,
-        Self::Phase,
-        Self::PhaseSpecies,
-        Self::Element,
-        Self::Reaction,
-        Self::PortSet,
-        Self::Stage,
-        Self::Cell,
-        Self::Face,
-        Self::Node,
-        Self::Custom,
+    pub const ALL: [Self; 4usize] = [
+        Self::EvaluatedKktNotSensitivityCertified,
+        Self::UnavailableOrInvalid,
+        Self::Unavailable,
+        Self::NotApplicableParameter,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Time => "time",
-            Self::Length => "length",
-            Self::Species => "species",
-            Self::Phase => "phase",
-            Self::PhaseSpecies => "phase_species",
-            Self::Element => "element",
-            Self::Reaction => "reaction",
-            Self::PortSet => "port_set",
-            Self::Stage => "stage",
-            Self::Cell => "cell",
-            Self::Face => "face",
-            Self::Node => "node",
-            Self::Custom => "custom",
+            Self::EvaluatedKktNotSensitivityCertified => {
+                "evaluated_kkt_not_sensitivity_certified"
+            }
+            Self::UnavailableOrInvalid => "unavailable_or_invalid",
+            Self::Unavailable => "unavailable",
+            Self::NotApplicableParameter => "not_applicable_parameter",
         }
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
-            Self::Time => 0usize,
-            Self::Length => 1usize,
-            Self::Species => 2usize,
-            Self::Phase => 3usize,
-            Self::PhaseSpecies => 4usize,
-            Self::Element => 5usize,
-            Self::Reaction => 6usize,
-            Self::PortSet => 7usize,
-            Self::Stage => 8usize,
-            Self::Cell => 9usize,
-            Self::Face => 10usize,
-            Self::Node => 11usize,
-            Self::Custom => 12usize,
+            Self::EvaluatedKktNotSensitivityCertified => 0usize,
+            Self::UnavailableOrInvalid => 1usize,
+            Self::Unavailable => 2usize,
+            Self::NotApplicableParameter => 3usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -4887,43 +4520,27 @@ impl DomainKind {
     )]
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
-            Self::Time => None,
-            Self::Length => None,
-            Self::Species => None,
-            Self::Phase => None,
-            Self::PhaseSpecies => None,
-            Self::Element => None,
-            Self::Reaction => None,
-            Self::PortSet => None,
-            Self::Stage => None,
-            Self::Cell => None,
-            Self::Face => None,
-            Self::Node => None,
-            Self::Custom => None,
+            Self::EvaluatedKktNotSensitivityCertified => None,
+            Self::UnavailableOrInvalid => None,
+            Self::Unavailable => None,
+            Self::NotApplicableParameter => None,
         }
     }
 }
-impl core::str::FromStr for DomainKind {
+impl core::str::FromStr for DualQualification {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "time" => Ok(Self::Time),
-            "length" => Ok(Self::Length),
-            "species" => Ok(Self::Species),
-            "phase" => Ok(Self::Phase),
-            "phase_species" => Ok(Self::PhaseSpecies),
-            "element" => Ok(Self::Element),
-            "reaction" => Ok(Self::Reaction),
-            "port_set" => Ok(Self::PortSet),
-            "stage" => Ok(Self::Stage),
-            "cell" => Ok(Self::Cell),
-            "face" => Ok(Self::Face),
-            "node" => Ok(Self::Node),
-            "custom" => Ok(Self::Custom),
+            "evaluated_kkt_not_sensitivity_certified" => {
+                Ok(Self::EvaluatedKktNotSensitivityCertified)
+            }
+            "unavailable_or_invalid" => Ok(Self::UnavailableOrInvalid),
+            "unavailable" => Ok(Self::Unavailable),
+            "not_applicable_parameter" => Ok(Self::NotApplicableParameter),
             _ => {
                 Err(crate::ModelError::EnumMember {
-                    field: stringify!(DomainKind).to_owned(),
-                    enumeration: stringify!(DomainKind).to_owned(),
+                    field: stringify!(DualQualification).to_owned(),
+                    enumeration: stringify!(DualQualification).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -8108,101 +7725,6 @@ impl core::str::FromStr for InvariantKind {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(InvariantKind).to_owned(),
                     enumeration: stringify!(InvariantKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum KernelOutcome {
-    ///success
-    #[serde(rename = "success")]
-    Success,
-    ///missing_input
-    #[serde(rename = "missing_input")]
-    MissingInput,
-    ///domain_failure
-    #[serde(rename = "domain_failure")]
-    DomainFailure,
-    ///implementation_failure
-    #[serde(rename = "implementation_failure")]
-    ImplementationFailure,
-}
-impl crate::SemanticEq for KernelOutcome {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl KernelOutcome {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Success,
-        Self::MissingInput,
-        Self::DomainFailure,
-        Self::ImplementationFailure,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Success => "success",
-            Self::MissingInput => "missing_input",
-            Self::DomainFailure => "domain_failure",
-            Self::ImplementationFailure => "implementation_failure",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Success => 0usize,
-            Self::MissingInput => 1usize,
-            Self::DomainFailure => 2usize,
-            Self::ImplementationFailure => 3usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Success => None,
-            Self::MissingInput => None,
-            Self::DomainFailure => None,
-            Self::ImplementationFailure => None,
-        }
-    }
-}
-impl core::str::FromStr for KernelOutcome {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "success" => Ok(Self::Success),
-            "missing_input" => Ok(Self::MissingInput),
-            "domain_failure" => Ok(Self::DomainFailure),
-            "implementation_failure" => Ok(Self::ImplementationFailure),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(KernelOutcome).to_owned(),
-                    enumeration: stringify!(KernelOutcome).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -12127,411 +11649,21 @@ impl core::str::FromStr for ObservationTimeBasis {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum Opcode {
-    ///Const
-    #[serde(rename = "Const")]
-    Const,
-    ///SymbolRef
-    #[serde(rename = "SymbolRef")]
-    SymbolRef,
-    ///Add
-    #[serde(rename = "Add")]
-    Add,
-    ///Sub
-    #[serde(rename = "Sub")]
-    Sub,
-    ///Affine
-    #[serde(rename = "Affine")]
-    Affine,
-    ///WeightedMean
-    #[serde(rename = "WeightedMean")]
-    WeightedMean,
-    ///Mul
-    #[serde(rename = "Mul")]
-    Mul,
-    ///Div
-    #[serde(rename = "Div")]
-    Div,
-    ///Pow
-    #[serde(rename = "Pow")]
-    Pow,
-    ///Neg
-    #[serde(rename = "Neg")]
-    Neg,
-    ///Abs
-    #[serde(rename = "Abs")]
-    Abs,
-    ///Exp
-    #[serde(rename = "Exp")]
-    Exp,
-    ///Log
-    #[serde(rename = "Log")]
-    Log,
-    ///Log10
-    #[serde(rename = "Log10")]
-    Log10,
-    ///Sqrt
-    #[serde(rename = "Sqrt")]
-    Sqrt,
-    ///Sin
-    #[serde(rename = "Sin")]
-    Sin,
-    ///Cos
-    #[serde(rename = "Cos")]
-    Cos,
-    ///Tan
-    #[serde(rename = "Tan")]
-    Tan,
-    ///Asin
-    #[serde(rename = "Asin")]
-    Asin,
-    ///Acos
-    #[serde(rename = "Acos")]
-    Acos,
-    ///Atan
-    #[serde(rename = "Atan")]
-    Atan,
-    ///Sinh
-    #[serde(rename = "Sinh")]
-    Sinh,
-    ///Cosh
-    #[serde(rename = "Cosh")]
-    Cosh,
-    ///Tanh
-    #[serde(rename = "Tanh")]
-    Tanh,
-    ///Erf
-    #[serde(rename = "Erf")]
-    Erf,
-    ///SmoothMax
-    #[serde(rename = "SmoothMax")]
-    SmoothMax,
-    ///SmoothMin
-    #[serde(rename = "SmoothMin")]
-    SmoothMin,
-    ///SmoothAbs
-    #[serde(rename = "SmoothAbs")]
-    SmoothAbs,
-    ///SafeSqrt
-    #[serde(rename = "SafeSqrt")]
-    SafeSqrt,
-    ///SafeLog
-    #[serde(rename = "SafeLog")]
-    SafeLog,
-    ///Conditional
-    #[serde(rename = "Conditional")]
-    Conditional,
-    ///SumOver
-    #[serde(rename = "SumOver")]
-    SumOver,
-    ///ProdOver
-    #[serde(rename = "ProdOver")]
-    ProdOver,
-    ///MinOver
-    #[serde(rename = "MinOver")]
-    MinOver,
-    ///MaxOver
-    #[serde(rename = "MaxOver")]
-    MaxOver,
-    ///Gather
-    #[serde(rename = "Gather")]
-    Gather,
-    ///Broadcast
-    #[serde(rename = "Broadcast")]
-    Broadcast,
-    ///Derivative
-    #[serde(rename = "Derivative")]
-    Derivative,
-    ///Integral
-    #[serde(rename = "Integral")]
-    Integral,
-    ///KernelCall
-    #[serde(rename = "KernelCall")]
-    KernelCall,
-    ///ImplicitRef
-    #[serde(rename = "ImplicitRef")]
-    ImplicitRef,
-    ///UnitConvert
-    #[serde(rename = "UnitConvert")]
-    UnitConvert,
-    ///PiecewiseLinear
-    #[serde(rename = "PiecewiseLinear")]
-    PiecewiseLinear,
-}
+/// Physical dictionary owned by the quantity library.
+pub type Opcode = pse_quantity::Opcode;
 impl crate::SemanticEq for Opcode {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl Opcode {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 43usize] = [
-        Self::Const,
-        Self::SymbolRef,
-        Self::Add,
-        Self::Sub,
-        Self::Affine,
-        Self::WeightedMean,
-        Self::Mul,
-        Self::Div,
-        Self::Pow,
-        Self::Neg,
-        Self::Abs,
-        Self::Exp,
-        Self::Log,
-        Self::Log10,
-        Self::Sqrt,
-        Self::Sin,
-        Self::Cos,
-        Self::Tan,
-        Self::Asin,
-        Self::Acos,
-        Self::Atan,
-        Self::Sinh,
-        Self::Cosh,
-        Self::Tanh,
-        Self::Erf,
-        Self::SmoothMax,
-        Self::SmoothMin,
-        Self::SmoothAbs,
-        Self::SafeSqrt,
-        Self::SafeLog,
-        Self::Conditional,
-        Self::SumOver,
-        Self::ProdOver,
-        Self::MinOver,
-        Self::MaxOver,
-        Self::Gather,
-        Self::Broadcast,
-        Self::Derivative,
-        Self::Integral,
-        Self::KernelCall,
-        Self::ImplicitRef,
-        Self::UnitConvert,
-        Self::PiecewiseLinear,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Const => "Const",
-            Self::SymbolRef => "SymbolRef",
-            Self::Add => "Add",
-            Self::Sub => "Sub",
-            Self::Affine => "Affine",
-            Self::WeightedMean => "WeightedMean",
-            Self::Mul => "Mul",
-            Self::Div => "Div",
-            Self::Pow => "Pow",
-            Self::Neg => "Neg",
-            Self::Abs => "Abs",
-            Self::Exp => "Exp",
-            Self::Log => "Log",
-            Self::Log10 => "Log10",
-            Self::Sqrt => "Sqrt",
-            Self::Sin => "Sin",
-            Self::Cos => "Cos",
-            Self::Tan => "Tan",
-            Self::Asin => "Asin",
-            Self::Acos => "Acos",
-            Self::Atan => "Atan",
-            Self::Sinh => "Sinh",
-            Self::Cosh => "Cosh",
-            Self::Tanh => "Tanh",
-            Self::Erf => "Erf",
-            Self::SmoothMax => "SmoothMax",
-            Self::SmoothMin => "SmoothMin",
-            Self::SmoothAbs => "SmoothAbs",
-            Self::SafeSqrt => "SafeSqrt",
-            Self::SafeLog => "SafeLog",
-            Self::Conditional => "Conditional",
-            Self::SumOver => "SumOver",
-            Self::ProdOver => "ProdOver",
-            Self::MinOver => "MinOver",
-            Self::MaxOver => "MaxOver",
-            Self::Gather => "Gather",
-            Self::Broadcast => "Broadcast",
-            Self::Derivative => "Derivative",
-            Self::Integral => "Integral",
-            Self::KernelCall => "KernelCall",
-            Self::ImplicitRef => "ImplicitRef",
-            Self::UnitConvert => "UnitConvert",
-            Self::PiecewiseLinear => "PiecewiseLinear",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Const => 0usize,
-            Self::SymbolRef => 1usize,
-            Self::Add => 2usize,
-            Self::Sub => 3usize,
-            Self::Affine => 4usize,
-            Self::WeightedMean => 5usize,
-            Self::Mul => 6usize,
-            Self::Div => 7usize,
-            Self::Pow => 8usize,
-            Self::Neg => 9usize,
-            Self::Abs => 10usize,
-            Self::Exp => 11usize,
-            Self::Log => 12usize,
-            Self::Log10 => 13usize,
-            Self::Sqrt => 14usize,
-            Self::Sin => 15usize,
-            Self::Cos => 16usize,
-            Self::Tan => 17usize,
-            Self::Asin => 18usize,
-            Self::Acos => 19usize,
-            Self::Atan => 20usize,
-            Self::Sinh => 21usize,
-            Self::Cosh => 22usize,
-            Self::Tanh => 23usize,
-            Self::Erf => 24usize,
-            Self::SmoothMax => 25usize,
-            Self::SmoothMin => 26usize,
-            Self::SmoothAbs => 27usize,
-            Self::SafeSqrt => 28usize,
-            Self::SafeLog => 29usize,
-            Self::Conditional => 30usize,
-            Self::SumOver => 31usize,
-            Self::ProdOver => 32usize,
-            Self::MinOver => 33usize,
-            Self::MaxOver => 34usize,
-            Self::Gather => 35usize,
-            Self::Broadcast => 36usize,
-            Self::Derivative => 37usize,
-            Self::Integral => 38usize,
-            Self::KernelCall => 39usize,
-            Self::ImplicitRef => 40usize,
-            Self::UnitConvert => 41usize,
-            Self::PiecewiseLinear => 42usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Const => None,
-            Self::SymbolRef => None,
-            Self::Add => None,
-            Self::Sub => None,
-            Self::Affine => None,
-            Self::WeightedMean => None,
-            Self::Mul => None,
-            Self::Div => None,
-            Self::Pow => None,
-            Self::Neg => None,
-            Self::Abs => None,
-            Self::Exp => None,
-            Self::Log => None,
-            Self::Log10 => None,
-            Self::Sqrt => None,
-            Self::Sin => None,
-            Self::Cos => None,
-            Self::Tan => None,
-            Self::Asin => None,
-            Self::Acos => None,
-            Self::Atan => None,
-            Self::Sinh => None,
-            Self::Cosh => None,
-            Self::Tanh => None,
-            Self::Erf => None,
-            Self::SmoothMax => None,
-            Self::SmoothMin => None,
-            Self::SmoothAbs => None,
-            Self::SafeSqrt => None,
-            Self::SafeLog => None,
-            Self::Conditional => None,
-            Self::SumOver => None,
-            Self::ProdOver => None,
-            Self::MinOver => None,
-            Self::MaxOver => None,
-            Self::Gather => None,
-            Self::Broadcast => None,
-            Self::Derivative => None,
-            Self::Integral => None,
-            Self::KernelCall => None,
-            Self::ImplicitRef => None,
-            Self::UnitConvert => None,
-            Self::PiecewiseLinear => None,
-        }
+impl crate::HeapUsage for Opcode {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for Opcode {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "Const" => Ok(Self::Const),
-            "SymbolRef" => Ok(Self::SymbolRef),
-            "Add" => Ok(Self::Add),
-            "Sub" => Ok(Self::Sub),
-            "Affine" => Ok(Self::Affine),
-            "WeightedMean" => Ok(Self::WeightedMean),
-            "Mul" => Ok(Self::Mul),
-            "Div" => Ok(Self::Div),
-            "Pow" => Ok(Self::Pow),
-            "Neg" => Ok(Self::Neg),
-            "Abs" => Ok(Self::Abs),
-            "Exp" => Ok(Self::Exp),
-            "Log" => Ok(Self::Log),
-            "Log10" => Ok(Self::Log10),
-            "Sqrt" => Ok(Self::Sqrt),
-            "Sin" => Ok(Self::Sin),
-            "Cos" => Ok(Self::Cos),
-            "Tan" => Ok(Self::Tan),
-            "Asin" => Ok(Self::Asin),
-            "Acos" => Ok(Self::Acos),
-            "Atan" => Ok(Self::Atan),
-            "Sinh" => Ok(Self::Sinh),
-            "Cosh" => Ok(Self::Cosh),
-            "Tanh" => Ok(Self::Tanh),
-            "Erf" => Ok(Self::Erf),
-            "SmoothMax" => Ok(Self::SmoothMax),
-            "SmoothMin" => Ok(Self::SmoothMin),
-            "SmoothAbs" => Ok(Self::SmoothAbs),
-            "SafeSqrt" => Ok(Self::SafeSqrt),
-            "SafeLog" => Ok(Self::SafeLog),
-            "Conditional" => Ok(Self::Conditional),
-            "SumOver" => Ok(Self::SumOver),
-            "ProdOver" => Ok(Self::ProdOver),
-            "MinOver" => Ok(Self::MinOver),
-            "MaxOver" => Ok(Self::MaxOver),
-            "Gather" => Ok(Self::Gather),
-            "Broadcast" => Ok(Self::Broadcast),
-            "Derivative" => Ok(Self::Derivative),
-            "Integral" => Ok(Self::Integral),
-            "KernelCall" => Ok(Self::KernelCall),
-            "ImplicitRef" => Ok(Self::ImplicitRef),
-            "UnitConvert" => Ok(Self::UnitConvert),
-            "PiecewiseLinear" => Ok(Self::PiecewiseLinear),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(Opcode).to_owned(),
-                    enumeration: stringify!(Opcode).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for Opcode {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -14148,80 +13280,21 @@ impl core::str::FromStr for PumpType {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum QuantityAdditionKind {
-    ///additive
-    #[serde(rename = "additive")]
-    Additive,
-    ///origin_sensitive
-    #[serde(rename = "origin_sensitive")]
-    OriginSensitive,
-}
+/// Physical dictionary owned by the quantity library.
+pub type QuantityAdditionKind = pse_quantity::QuantityAdditionKind;
 impl crate::SemanticEq for QuantityAdditionKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl QuantityAdditionKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Additive, Self::OriginSensitive];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Additive => "additive",
-            Self::OriginSensitive => "origin_sensitive",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Additive => 0usize,
-            Self::OriginSensitive => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Additive => None,
-            Self::OriginSensitive => None,
-        }
+impl crate::HeapUsage for QuantityAdditionKind {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for QuantityAdditionKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "additive" => Ok(Self::Additive),
-            "origin_sensitive" => Ok(Self::OriginSensitive),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(QuantityAdditionKind).to_owned(),
-                    enumeration: stringify!(QuantityAdditionKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for QuantityAdditionKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -14303,293 +13376,55 @@ impl core::str::FromStr for QuantityPreconditionKind {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum QuantityScaleRule {
-    ///preserve
-    #[serde(rename = "preserve")]
-    Preserve,
-    ///point
-    #[serde(rename = "point")]
-    Point,
-    ///difference
-    #[serde(rename = "difference")]
-    Difference,
-    ///addition
-    #[serde(rename = "addition")]
-    Addition,
-    ///weighted_mean
-    #[serde(rename = "weighted_mean")]
-    WeightedMean,
-}
+/// Physical dictionary owned by the quantity library.
+pub type QuantityScaleRule = pse_quantity::QuantityScaleRule;
 impl crate::SemanticEq for QuantityScaleRule {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl QuantityScaleRule {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Preserve,
-        Self::Point,
-        Self::Difference,
-        Self::Addition,
-        Self::WeightedMean,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Preserve => "preserve",
-            Self::Point => "point",
-            Self::Difference => "difference",
-            Self::Addition => "addition",
-            Self::WeightedMean => "weighted_mean",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Preserve => 0usize,
-            Self::Point => 1usize,
-            Self::Difference => 2usize,
-            Self::Addition => 3usize,
-            Self::WeightedMean => 4usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Preserve => None,
-            Self::Point => None,
-            Self::Difference => None,
-            Self::Addition => None,
-            Self::WeightedMean => None,
-        }
+impl crate::HeapUsage for QuantityScaleRule {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for QuantityScaleRule {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "preserve" => Ok(Self::Preserve),
-            "point" => Ok(Self::Point),
-            "difference" => Ok(Self::Difference),
-            "addition" => Ok(Self::Addition),
-            "weighted_mean" => Ok(Self::WeightedMean),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(QuantityScaleRule).to_owned(),
-                    enumeration: stringify!(QuantityScaleRule).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for QuantityScaleRule {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum QuantityShapeRule {
-    ///scalar
-    #[serde(rename = "scalar")]
-    Scalar,
-    ///preserve
-    #[serde(rename = "preserve")]
-    Preserve,
-    ///same_indices
-    #[serde(rename = "same_indices")]
-    SameIndices,
-    ///explicit_broadcast
-    #[serde(rename = "explicit_broadcast")]
-    ExplicitBroadcast,
-    ///reduce_bound_index
-    #[serde(rename = "reduce_bound_index")]
-    ReduceBoundIndex,
-}
+/// Physical dictionary owned by the quantity library.
+pub type QuantityShapeRule = pse_quantity::QuantityShapeRule;
 impl crate::SemanticEq for QuantityShapeRule {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl QuantityShapeRule {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Scalar,
-        Self::Preserve,
-        Self::SameIndices,
-        Self::ExplicitBroadcast,
-        Self::ReduceBoundIndex,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Scalar => "scalar",
-            Self::Preserve => "preserve",
-            Self::SameIndices => "same_indices",
-            Self::ExplicitBroadcast => "explicit_broadcast",
-            Self::ReduceBoundIndex => "reduce_bound_index",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Scalar => 0usize,
-            Self::Preserve => 1usize,
-            Self::SameIndices => 2usize,
-            Self::ExplicitBroadcast => 3usize,
-            Self::ReduceBoundIndex => 4usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Scalar => None,
-            Self::Preserve => None,
-            Self::SameIndices => None,
-            Self::ExplicitBroadcast => None,
-            Self::ReduceBoundIndex => None,
-        }
+impl crate::HeapUsage for QuantityShapeRule {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for QuantityShapeRule {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "scalar" => Ok(Self::Scalar),
-            "preserve" => Ok(Self::Preserve),
-            "same_indices" => Ok(Self::SameIndices),
-            "explicit_broadcast" => Ok(Self::ExplicitBroadcast),
-            "reduce_bound_index" => Ok(Self::ReduceBoundIndex),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(QuantityShapeRule).to_owned(),
-                    enumeration: stringify!(QuantityShapeRule).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for QuantityShapeRule {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum RateBasis {
-    ///per_volume
-    #[serde(rename = "per_volume")]
-    PerVolume,
-    ///per_mass
-    #[serde(rename = "per_mass")]
-    PerMass,
-    ///per_area
-    #[serde(rename = "per_area")]
-    PerArea,
-}
+/// Physical dictionary owned by the quantity library.
+pub type RateBasis = pse_quantity::RateBasis;
 impl crate::SemanticEq for RateBasis {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl RateBasis {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::PerVolume, Self::PerMass, Self::PerArea];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::PerVolume => "per_volume",
-            Self::PerMass => "per_mass",
-            Self::PerArea => "per_area",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::PerVolume => 0usize,
-            Self::PerMass => 1usize,
-            Self::PerArea => 2usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::PerVolume => None,
-            Self::PerMass => None,
-            Self::PerArea => None,
-        }
+impl crate::HeapUsage for RateBasis {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for RateBasis {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "per_volume" => Ok(Self::PerVolume),
-            "per_mass" => Ok(Self::PerMass),
-            "per_area" => Ok(Self::PerArea),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(RateBasis).to_owned(),
-                    enumeration: stringify!(RateBasis).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for RateBasis {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -14675,292 +13510,55 @@ impl core::str::FromStr for ReactionKind {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum ReductionKind {
-    ///sum
-    #[serde(rename = "sum")]
-    Sum,
-    ///prod
-    #[serde(rename = "prod")]
-    Prod,
-    ///min
-    #[serde(rename = "min")]
-    Min,
-    ///max
-    #[serde(rename = "max")]
-    Max,
-}
+/// Physical dictionary owned by the quantity library.
+pub type ReductionKind = pse_quantity::ReductionKind;
 impl crate::SemanticEq for ReductionKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl ReductionKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [Self::Sum, Self::Prod, Self::Min, Self::Max];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Sum => "sum",
-            Self::Prod => "prod",
-            Self::Min => "min",
-            Self::Max => "max",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Sum => 0usize,
-            Self::Prod => 1usize,
-            Self::Min => 2usize,
-            Self::Max => 3usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Sum => None,
-            Self::Prod => None,
-            Self::Min => None,
-            Self::Max => None,
-        }
+impl crate::HeapUsage for ReductionKind {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for ReductionKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "sum" => Ok(Self::Sum),
-            "prod" => Ok(Self::Prod),
-            "min" => Ok(Self::Min),
-            "max" => Ok(Self::Max),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ReductionKind).to_owned(),
-                    enumeration: stringify!(ReductionKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for ReductionKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum ReferenceRule {
-    ///preserve
-    #[serde(rename = "preserve")]
-    Preserve,
-    ///require_equal
-    #[serde(rename = "require_equal")]
-    RequireEqual,
-    ///registered_conversion
-    #[serde(rename = "registered_conversion")]
-    RegisteredConversion,
-    ///cancel
-    #[serde(rename = "cancel")]
-    Cancel,
-    ///declared_result
-    #[serde(rename = "declared_result")]
-    DeclaredResult,
-}
+/// Physical dictionary owned by the quantity library.
+pub type ReferenceRule = pse_quantity::ReferenceRule;
 impl crate::SemanticEq for ReferenceRule {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl ReferenceRule {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Preserve,
-        Self::RequireEqual,
-        Self::RegisteredConversion,
-        Self::Cancel,
-        Self::DeclaredResult,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Preserve => "preserve",
-            Self::RequireEqual => "require_equal",
-            Self::RegisteredConversion => "registered_conversion",
-            Self::Cancel => "cancel",
-            Self::DeclaredResult => "declared_result",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Preserve => 0usize,
-            Self::RequireEqual => 1usize,
-            Self::RegisteredConversion => 2usize,
-            Self::Cancel => 3usize,
-            Self::DeclaredResult => 4usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Preserve => None,
-            Self::RequireEqual => None,
-            Self::RegisteredConversion => None,
-            Self::Cancel => None,
-            Self::DeclaredResult => None,
-        }
+impl crate::HeapUsage for ReferenceRule {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for ReferenceRule {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "preserve" => Ok(Self::Preserve),
-            "require_equal" => Ok(Self::RequireEqual),
-            "registered_conversion" => Ok(Self::RegisteredConversion),
-            "cancel" => Ok(Self::Cancel),
-            "declared_result" => Ok(Self::DeclaredResult),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ReferenceRule).to_owned(),
-                    enumeration: stringify!(ReferenceRule).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for ReferenceRule {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum ReferenceStateKind {
-    ///elemental_at_conditions
-    #[serde(rename = "elemental_at_conditions")]
-    ElementalAtConditions,
-    ///compound_at_conditions
-    #[serde(rename = "compound_at_conditions")]
-    CompoundAtConditions,
-    ///ideal_gas_at_conditions
-    #[serde(rename = "ideal_gas_at_conditions")]
-    IdealGasAtConditions,
-    ///custom
-    #[serde(rename = "custom")]
-    Custom,
-}
+/// Physical dictionary owned by the quantity library.
+pub type ReferenceStateKind = pse_quantity::ReferenceStateKind;
 impl crate::SemanticEq for ReferenceStateKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl ReferenceStateKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::ElementalAtConditions,
-        Self::CompoundAtConditions,
-        Self::IdealGasAtConditions,
-        Self::Custom,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::ElementalAtConditions => "elemental_at_conditions",
-            Self::CompoundAtConditions => "compound_at_conditions",
-            Self::IdealGasAtConditions => "ideal_gas_at_conditions",
-            Self::Custom => "custom",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::ElementalAtConditions => 0usize,
-            Self::CompoundAtConditions => 1usize,
-            Self::IdealGasAtConditions => 2usize,
-            Self::Custom => 3usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::ElementalAtConditions => None,
-            Self::CompoundAtConditions => None,
-            Self::IdealGasAtConditions => None,
-            Self::Custom => None,
-        }
+impl crate::HeapUsage for ReferenceStateKind {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for ReferenceStateKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "elemental_at_conditions" => Ok(Self::ElementalAtConditions),
-            "compound_at_conditions" => Ok(Self::CompoundAtConditions),
-            "ideal_gas_at_conditions" => Ok(Self::IdealGasAtConditions),
-            "custom" => Ok(Self::Custom),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ReferenceStateKind).to_owned(),
-                    enumeration: stringify!(ReferenceStateKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for ReferenceStateKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -15033,89 +13631,6 @@ impl core::str::FromStr for RequirementSource {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(RequirementSource).to_owned(),
                     enumeration: stringify!(RequirementSource).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum ResolutionStatus {
-    ///resolved
-    #[serde(rename = "resolved")]
-    Resolved,
-    ///unresolved
-    #[serde(rename = "unresolved")]
-    Unresolved,
-    ///ambiguous
-    #[serde(rename = "ambiguous")]
-    Ambiguous,
-}
-impl crate::SemanticEq for ResolutionStatus {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl ResolutionStatus {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Resolved, Self::Unresolved, Self::Ambiguous];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Resolved => "resolved",
-            Self::Unresolved => "unresolved",
-            Self::Ambiguous => "ambiguous",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Resolved => 0usize,
-            Self::Unresolved => 1usize,
-            Self::Ambiguous => 2usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Resolved => None,
-            Self::Unresolved => None,
-            Self::Ambiguous => None,
-        }
-    }
-}
-impl core::str::FromStr for ResolutionStatus {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "resolved" => Ok(Self::Resolved),
-            "unresolved" => Ok(Self::Unresolved),
-            "ambiguous" => Ok(Self::Ambiguous),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ResolutionStatus).to_owned(),
-                    enumeration: stringify!(ResolutionStatus).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -15217,80 +13732,21 @@ impl core::str::FromStr for RetentionReason {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum ScaleKind {
-    ///point
-    #[serde(rename = "point")]
-    Point,
-    ///difference
-    #[serde(rename = "difference")]
-    Difference,
-}
+/// Physical dictionary owned by the quantity library.
+pub type ScaleKind = pse_quantity::ScaleKind;
 impl crate::SemanticEq for ScaleKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl ScaleKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Point, Self::Difference];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Point => "point",
-            Self::Difference => "difference",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Point => 0usize,
-            Self::Difference => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Point => None,
-            Self::Difference => None,
-        }
+impl crate::HeapUsage for ScaleKind {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for ScaleKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "point" => Ok(Self::Point),
-            "difference" => Ok(Self::Difference),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(ScaleKind).to_owned(),
-                    enumeration: stringify!(ScaleKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for ScaleKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -16455,194 +14911,38 @@ impl core::str::FromStr for StateIndex {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum SubjectKind {
-    ///species
-    #[serde(rename = "species")]
-    Species,
-    ///phase
-    #[serde(rename = "phase")]
-    Phase,
-    ///element
-    #[serde(rename = "element")]
-    Element,
-    ///reaction
-    #[serde(rename = "reaction")]
-    Reaction,
-    ///none
-    #[serde(rename = "none")]
-    None,
-}
+/// Physical dictionary owned by the quantity library.
+pub type SubjectKind = pse_quantity::SubjectKind;
 impl crate::SemanticEq for SubjectKind {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl SubjectKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Species,
-        Self::Phase,
-        Self::Element,
-        Self::Reaction,
-        Self::None,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Species => "species",
-            Self::Phase => "phase",
-            Self::Element => "element",
-            Self::Reaction => "reaction",
-            Self::None => "none",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Species => 0usize,
-            Self::Phase => 1usize,
-            Self::Element => 2usize,
-            Self::Reaction => 3usize,
-            Self::None => 4usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Species => None,
-            Self::Phase => None,
-            Self::Element => None,
-            Self::Reaction => None,
-            Self::None => None,
-        }
+impl crate::HeapUsage for SubjectKind {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for SubjectKind {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "species" => Ok(Self::Species),
-            "phase" => Ok(Self::Phase),
-            "element" => Ok(Self::Element),
-            "reaction" => Ok(Self::Reaction),
-            "none" => Ok(Self::None),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(SubjectKind).to_owned(),
-                    enumeration: stringify!(SubjectKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for SubjectKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum SubjectRule {
-    ///preserve
-    #[serde(rename = "preserve")]
-    Preserve,
-    ///require_equal
-    #[serde(rename = "require_equal")]
-    RequireEqual,
-    ///declared_result
-    #[serde(rename = "declared_result")]
-    DeclaredResult,
-}
+/// Physical dictionary owned by the quantity library.
+pub type SubjectRule = pse_quantity::SubjectRule;
 impl crate::SemanticEq for SubjectRule {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl SubjectRule {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
-        Self::Preserve,
-        Self::RequireEqual,
-        Self::DeclaredResult,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Preserve => "preserve",
-            Self::RequireEqual => "require_equal",
-            Self::DeclaredResult => "declared_result",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Preserve => 0usize,
-            Self::RequireEqual => 1usize,
-            Self::DeclaredResult => 2usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Preserve => None,
-            Self::RequireEqual => None,
-            Self::DeclaredResult => None,
-        }
+impl crate::HeapUsage for SubjectRule {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for SubjectRule {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "preserve" => Ok(Self::Preserve),
-            "require_equal" => Ok(Self::RequireEqual),
-            "declared_result" => Ok(Self::DeclaredResult),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(SubjectRule).to_owned(),
-                    enumeration: stringify!(SubjectRule).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for SubjectRule {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 /// A string enumeration projected from the registry.
@@ -17102,149 +15402,6 @@ impl core::str::FromStr for TemplateKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
-pub enum TerminationStatus {
-    ///optimal
-    #[serde(rename = "optimal")]
-    Optimal,
-    ///locally_infeasible
-    #[serde(rename = "locally_infeasible")]
-    LocallyInfeasible,
-    ///infeasible
-    #[serde(rename = "infeasible")]
-    Infeasible,
-    ///unbounded
-    #[serde(rename = "unbounded")]
-    Unbounded,
-    ///max_iterations
-    #[serde(rename = "max_iterations")]
-    MaxIterations,
-    ///max_time
-    #[serde(rename = "max_time")]
-    MaxTime,
-    ///restoration_failed
-    #[serde(rename = "restoration_failed")]
-    RestorationFailed,
-    ///solver_error
-    #[serde(rename = "solver_error")]
-    SolverError,
-    ///cancelled
-    #[serde(rename = "cancelled")]
-    Cancelled,
-    ///user_interrupt
-    #[serde(rename = "user_interrupt")]
-    UserInterrupt,
-}
-impl crate::SemanticEq for TerminationStatus {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl TerminationStatus {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 10usize] = [
-        Self::Optimal,
-        Self::LocallyInfeasible,
-        Self::Infeasible,
-        Self::Unbounded,
-        Self::MaxIterations,
-        Self::MaxTime,
-        Self::RestorationFailed,
-        Self::SolverError,
-        Self::Cancelled,
-        Self::UserInterrupt,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Optimal => "optimal",
-            Self::LocallyInfeasible => "locally_infeasible",
-            Self::Infeasible => "infeasible",
-            Self::Unbounded => "unbounded",
-            Self::MaxIterations => "max_iterations",
-            Self::MaxTime => "max_time",
-            Self::RestorationFailed => "restoration_failed",
-            Self::SolverError => "solver_error",
-            Self::Cancelled => "cancelled",
-            Self::UserInterrupt => "user_interrupt",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Optimal => 0usize,
-            Self::LocallyInfeasible => 1usize,
-            Self::Infeasible => 2usize,
-            Self::Unbounded => 3usize,
-            Self::MaxIterations => 4usize,
-            Self::MaxTime => 5usize,
-            Self::RestorationFailed => 6usize,
-            Self::SolverError => 7usize,
-            Self::Cancelled => 8usize,
-            Self::UserInterrupt => 9usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Optimal => None,
-            Self::LocallyInfeasible => None,
-            Self::Infeasible => None,
-            Self::Unbounded => None,
-            Self::MaxIterations => None,
-            Self::MaxTime => None,
-            Self::RestorationFailed => None,
-            Self::SolverError => None,
-            Self::Cancelled => None,
-            Self::UserInterrupt => None,
-        }
-    }
-}
-impl core::str::FromStr for TerminationStatus {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "optimal" => Ok(Self::Optimal),
-            "locally_infeasible" => Ok(Self::LocallyInfeasible),
-            "infeasible" => Ok(Self::Infeasible),
-            "unbounded" => Ok(Self::Unbounded),
-            "max_iterations" => Ok(Self::MaxIterations),
-            "max_time" => Ok(Self::MaxTime),
-            "restoration_failed" => Ok(Self::RestorationFailed),
-            "solver_error" => Ok(Self::SolverError),
-            "cancelled" => Ok(Self::Cancelled),
-            "user_interrupt" => Ok(Self::UserInterrupt),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(TerminationStatus).to_owned(),
-                    enumeration: stringify!(TerminationStatus).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
 pub enum ThermodynamicAssumption {
     ///isothermal
     #[serde(rename = "isothermal")]
@@ -17469,6 +15626,133 @@ impl core::str::FromStr for TimeCoordinateKind {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(TimeCoordinateKind).to_owned(),
                     enumeration: stringify!(TimeCoordinateKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum TrajectoryTermination {
+    ///completed
+    #[serde(rename = "completed")]
+    Completed,
+    ///event
+    #[serde(rename = "event")]
+    Event,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    Cancelled,
+    ///time_limit
+    #[serde(rename = "time_limit")]
+    TimeLimit,
+    ///step_limit
+    #[serde(rename = "step_limit")]
+    StepLimit,
+    ///event_limit
+    #[serde(rename = "event_limit")]
+    EventLimit,
+    ///failed
+    #[serde(rename = "failed")]
+    Failed,
+    ///panic
+    #[serde(rename = "panic")]
+    Panic,
+}
+impl crate::SemanticEq for TrajectoryTermination {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl TrajectoryTermination {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 8usize] = [
+        Self::Completed,
+        Self::Event,
+        Self::Cancelled,
+        Self::TimeLimit,
+        Self::StepLimit,
+        Self::EventLimit,
+        Self::Failed,
+        Self::Panic,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Completed => "completed",
+            Self::Event => "event",
+            Self::Cancelled => "cancelled",
+            Self::TimeLimit => "time_limit",
+            Self::StepLimit => "step_limit",
+            Self::EventLimit => "event_limit",
+            Self::Failed => "failed",
+            Self::Panic => "panic",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Completed => 0usize,
+            Self::Event => 1usize,
+            Self::Cancelled => 2usize,
+            Self::TimeLimit => 3usize,
+            Self::StepLimit => 4usize,
+            Self::EventLimit => 5usize,
+            Self::Failed => 6usize,
+            Self::Panic => 7usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Completed => None,
+            Self::Event => None,
+            Self::Cancelled => None,
+            Self::TimeLimit => None,
+            Self::StepLimit => None,
+            Self::EventLimit => None,
+            Self::Failed => None,
+            Self::Panic => None,
+        }
+    }
+}
+impl core::str::FromStr for TrajectoryTermination {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "completed" => Ok(Self::Completed),
+            "event" => Ok(Self::Event),
+            "cancelled" => Ok(Self::Cancelled),
+            "time_limit" => Ok(Self::TimeLimit),
+            "step_limit" => Ok(Self::StepLimit),
+            "event_limit" => Ok(Self::EventLimit),
+            "failed" => Ok(Self::Failed),
+            "panic" => Ok(Self::Panic),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(TrajectoryTermination).to_owned(),
+                    enumeration: stringify!(TrajectoryTermination).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -18263,80 +16547,21 @@ impl core::str::FromStr for VesselMaterial {
         }
     }
 }
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum WeightNormalization {
-    ///divide_by_sum
-    #[serde(rename = "divide_by_sum")]
-    DivideBySum,
-    ///certified_unit_sum
-    #[serde(rename = "certified_unit_sum")]
-    CertifiedUnitSum,
-}
+/// Physical dictionary owned by the quantity library.
+pub type WeightNormalization = pse_quantity::WeightNormalization;
 impl crate::SemanticEq for WeightNormalization {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
-impl WeightNormalization {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::DivideBySum, Self::CertifiedUnitSum];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::DivideBySum => "divide_by_sum",
-            Self::CertifiedUnitSum => "certified_unit_sum",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::DivideBySum => 0usize,
-            Self::CertifiedUnitSum => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::DivideBySum => None,
-            Self::CertifiedUnitSum => None,
-        }
+impl crate::HeapUsage for WeightNormalization {
+    fn heap_bytes(&self) -> usize {
+        0
     }
 }
-impl core::str::FromStr for WeightNormalization {
-    type Err = crate::ModelError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "divide_by_sum" => Ok(Self::DivideBySum),
-            "certified_unit_sum" => Ok(Self::CertifiedUnitSum),
-            _ => {
-                Err(crate::ModelError::EnumMember {
-                    field: stringify!(WeightNormalization).to_owned(),
-                    enumeration: stringify!(WeightNormalization).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
+impl crate::SemanticFrame for WeightNormalization {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
     }
 }
 impl crate::HeapUsage for ArtifactReconstruction {
@@ -18375,26 +16600,6 @@ impl crate::HeapUsage for BalanceRole {
     }
 }
 impl crate::SemanticFrame for BalanceRole {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for BasisKind {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for BasisKind {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for BasisRule {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for BasisRule {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -18519,16 +16724,6 @@ impl crate::SemanticFrame for ComponentType {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for CompositionBasis {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for CompositionBasis {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
 impl crate::HeapUsage for CompressorDriveType {
     fn heap_bytes(&self) -> usize {
         0
@@ -18555,6 +16750,16 @@ impl crate::HeapUsage for CompressorType {
     }
 }
 impl crate::SemanticFrame for CompressorType {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ComputationKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ComputationKind {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -18659,16 +16864,6 @@ impl crate::SemanticFrame for ControllerType {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for ConversionKind {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ConversionKind {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
 impl crate::HeapUsage for CubicType {
     fn heap_bytes(&self) -> usize {
         0
@@ -18695,16 +16890,6 @@ impl crate::HeapUsage for DefaultScalingRecommendation {
     }
 }
 impl crate::SemanticFrame for DefaultScalingRecommendation {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for DemandSource {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for DemandSource {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -18789,12 +16974,12 @@ impl crate::SemanticFrame for DomainBindingSource {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for DomainKind {
+impl crate::HeapUsage for DualQualification {
     fn heap_bytes(&self) -> usize {
         0
     }
 }
-impl crate::SemanticFrame for DomainKind {
+impl crate::SemanticFrame for DualQualification {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -19095,16 +17280,6 @@ impl crate::HeapUsage for InvariantKind {
     }
 }
 impl crate::SemanticFrame for InvariantKind {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for KernelOutcome {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for KernelOutcome {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -19489,16 +17664,6 @@ impl crate::SemanticFrame for ObservationTimeBasis {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for Opcode {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for Opcode {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
 impl crate::HeapUsage for OperationEffect {
     fn heap_bytes(&self) -> usize {
         0
@@ -19659,52 +17824,12 @@ impl crate::SemanticFrame for PumpType {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for QuantityAdditionKind {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for QuantityAdditionKind {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
 impl crate::HeapUsage for QuantityPreconditionKind {
     fn heap_bytes(&self) -> usize {
         0
     }
 }
 impl crate::SemanticFrame for QuantityPreconditionKind {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for QuantityScaleRule {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for QuantityScaleRule {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for QuantityShapeRule {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for QuantityShapeRule {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for RateBasis {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for RateBasis {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -19719,36 +17844,6 @@ impl crate::SemanticFrame for ReactionKind {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for ReductionKind {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ReductionKind {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for ReferenceRule {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ReferenceRule {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for ReferenceStateKind {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ReferenceStateKind {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
 impl crate::HeapUsage for RequirementSource {
     fn heap_bytes(&self) -> usize {
         0
@@ -19759,32 +17854,12 @@ impl crate::SemanticFrame for RequirementSource {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for ResolutionStatus {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ResolutionStatus {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
 impl crate::HeapUsage for RetentionReason {
     fn heap_bytes(&self) -> usize {
         0
     }
 }
 impl crate::SemanticFrame for RetentionReason {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for ScaleKind {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ScaleKind {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -19909,26 +17984,6 @@ impl crate::SemanticFrame for StateIndex {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for SubjectKind {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for SubjectKind {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for SubjectRule {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for SubjectRule {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
 impl crate::HeapUsage for SymbolRole {
     fn heap_bytes(&self) -> usize {
         0
@@ -19969,16 +18024,6 @@ impl crate::SemanticFrame for TemplateKind {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for TerminationStatus {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for TerminationStatus {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
 impl crate::HeapUsage for ThermodynamicAssumption {
     fn heap_bytes(&self) -> usize {
         0
@@ -20005,6 +18050,16 @@ impl crate::HeapUsage for TimeCoordinateKind {
     }
 }
 impl crate::SemanticFrame for TimeCoordinateKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for TrajectoryTermination {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for TrajectoryTermination {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -20085,16 +18140,6 @@ impl crate::HeapUsage for VesselMaterial {
     }
 }
 impl crate::SemanticFrame for VesselMaterial {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for WeightNormalization {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for WeightNormalization {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

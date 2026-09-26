@@ -1,0 +1,168 @@
+{
+  "fixture_revision": "predeclared-v1.1-independent-exposed-initial-guess",
+  "purpose": "Bounded numerical and model-contract probes; not real-fluid or full-package certification",
+  "seed": 20260925,
+  "tolerances": {
+    "source_regression_abs": 1e-12,
+    "composition_abs": 1e-10,
+    "equilibrium_residual_abs": 1e-08,
+    "energy_abs_J_per_mol": 1e-05,
+    "entropy_abs_J_per_mol_K": 1e-07,
+    "temperature_abs_K": 1e-06,
+    "derivative_relative": 1e-05,
+    "gibbs_duhem_abs": 1e-06,
+    "doc_excess_enthalpy_abs_J_per_mol": 0.01
+  },
+  "source_examples": {
+    "nrtl": {
+      "xs": [
+        0.252,
+        0.748
+      ],
+      "taus": [
+        [
+          0,
+          -0.178
+        ],
+        [
+          1.963,
+          0
+        ]
+      ],
+      "alphas": [
+        [
+          0,
+          0.2974
+        ],
+        [
+          0.2974,
+          0
+        ]
+      ],
+      "gammas": [
+        1.9363183763514304,
+        1.1537609663170014
+      ],
+      "source": "https://thermo.readthedocs.io/thermo.nrtl.html"
+    },
+    "nrtl_caloric": {
+      "T_K": 343.15,
+      "xs": [
+        0.252,
+        0.748
+      ],
+      "b_cal_per_mol": [
+        [
+          0,
+          -121.2691
+        ],
+        [
+          1337.8574,
+          0
+        ]
+      ],
+      "alpha": 0.2974,
+      "HE_J_per_mol": 582.96485,
+      "source": "https://thermo.readthedocs.io/thermo.nrtl.html"
+    },
+    "rr": {
+      "zs": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "Ks": [
+        1.685,
+        0.742,
+        0.532
+      ],
+      "beta": 0.6907302627738544,
+      "residual_at_half": 0.04406445591174976,
+      "source": "https://chemicals.readthedocs.io/chemicals.rachford_rice.html"
+    }
+  },
+  "synthetic_ideal_VLE": {
+    "label": "Authored ideal-gas / zero-liquid-volume binary fixture, not a real substance or property fit",
+    "components": [
+      "A",
+      "B"
+    ],
+    "Tref_K": 298.15,
+    "P0_Pa": 100000,
+    "R_J_per_mol_K": 8.31446261815324,
+    "cpL_equals_cpV_J_per_mol_K": [
+      80,
+      120
+    ],
+    "latent_J_per_mol": [
+      30000,
+      40000
+    ],
+    "Tb_at_P0_K": [
+      340,
+      380
+    ],
+    "zs": [
+      0.5,
+      0.5
+    ],
+    "T_K": 360,
+    "P_Pa": 100000,
+    "inverse_bounds_K": [
+      300,
+      600
+    ],
+    "assumptions": [
+      "Ideal phase mixing",
+      "constant equal gas/liquid Cp per component",
+      "temperature-independent latent heats",
+      "zero liquid volume approximation; no density claim",
+      "complete caloric equations used during inverse solves"
+    ]
+  },
+  "synthetic_LLE": {
+    "label": "Artificial symmetric NRTL mixture, not parameterized real material",
+    "T_K": 330,
+    "taus": [
+      [
+        0,
+        3
+      ],
+      [
+        3,
+        0
+      ]
+    ],
+    "alphas": [
+      [
+        0,
+        0.2
+      ],
+      [
+        0.2,
+        0
+      ]
+    ],
+    "zA": 0.4,
+    "total_mol": 10,
+    "candidate_search": "two symmetric liquid minima, no vapor or solids",
+    "stability_evidence": "sampled Gibbs-energy/common-tangent comparison, not a general global stability certificate"
+  },
+  "synthetic_reaction": {
+    "label": "Authored balanced isomerization A to B, equal molecular conservation unit",
+    "cp_J_per_mol_K": 100,
+    "delta_h0_J_per_mol": -20000,
+    "delta_s0_J_per_mol_K": -40,
+    "feed_T_K": 350,
+    "feed_A_mol": 1,
+    "Tref_K": 298.15,
+    "exposed_initial_guess": [
+      440.0,
+      0.45
+    ]
+  },
+  "native_targets": {
+    "CoolProp": "8.0.0",
+    "thermo": "0.6.1"
+  }
+}

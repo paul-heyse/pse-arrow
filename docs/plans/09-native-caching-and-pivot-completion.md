@@ -94,8 +94,8 @@ created the new plan using the repository recipe.
 **Interface-checked:** DataFusion **55.1.0**, Arrow/Parquet **59.3.0**, object_store
 **0.13.2**, delta-rs **58f07cd62bfbce3649a7e1c87c696288068ae184**, kernel
 **8ba063f8f84fec222000f66d40d70911d7c79675**. Research used the local
-[DataFusion skill](../../.codex/skills/datafusion/SKILL.md),
-[Delta Lake skill](../../.codex/skills/deltalake/SKILL.md), their indexed API pages,
+[DataFusion skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/SKILL.md),
+[Delta Lake skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/SKILL.md), their indexed API pages,
 Cargo metadata and exact checked-out sources. No Context7 was used for these families.
 The [planning evidence manifest](../design_review/evidence/native-caching-pivot-plan-2026-09-17.json)
 records source locators, revisions, hashes and the limits of inspection.
@@ -104,22 +104,22 @@ Primary capability references used:
 
 - `datafusion_execution::cache::{Cache, CacheKey, CacheValue}` and
   `cache_manager::{CacheManagerConfig, CachedFileMetadataEntry}`:
-  [cache contracts](../../.codex/skills/datafusion/content/api/datafusion_execution.cache.md)
-  and [manager injection](../../.codex/skills/datafusion/content/api/datafusion_execution.cache.cache_manager.md).
+  [cache contracts](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/api/datafusion_execution.cache.md)
+  and [manager injection](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/api/datafusion_execution.cache.cache_manager.md).
   Exact `default_cache.rs` and Parquet `metadata.rs` establish eviction and key behavior.
 - `datafusion_physical_plan::execution_plan::{ExecutionPlan, reset_plan_states}`:
-  [execution contract](../../.codex/skills/datafusion/content/api/datafusion_physical_plan.execution_plan.md)
+  [execution contract](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/api/datafusion_physical_plan.execution_plan.md)
   and the pinned source's traversal/default reset implementation.
 - `deltalake_core::kernel::snapshot::Snapshot::{update, try_new_with_engine}`,
   `table::DeltaTable::update_incremental`, `TableProviderBuilder::with_snapshot` and
-  `with_eager_snapshot`: [snapshot surface](../../.codex/skills/deltalake/content/api/deltalake_core.kernel.snapshot.md)
+  `with_eager_snapshot`: [snapshot surface](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/api/deltalake_core.kernel.snapshot.md)
   plus exact snapshot/provider/builder sources. Delta operations are on `DeltaTable`.
 - `buoyant_kernel::snapshot::{Snapshot, SnapshotBuilder, IncrementalReplay}`:
-  [builder/CRC scope](../../.codex/skills/deltalake/content/api/buoyant_kernel.snapshot.builder.md)
-  and [owned-heap/checksum methods](../../.codex/skills/deltalake/content/api/buoyant_kernel.snapshot.md).
+  [builder/CRC scope](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/api/buoyant_kernel.snapshot.builder.md)
+  and [owned-heap/checksum methods](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/api/buoyant_kernel.snapshot.md).
   Cargo exposes this crate under the name `delta_kernel`.
 - Native Parquet pushdown, predicate caching, page indexes, bloom filters and footer
-  hints: [configuration catalog](../../.codex/skills/datafusion/content/catalogs/config-options.md).
+  hints: [configuration catalog](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/catalogs/config-options.md).
   Load classes/checkpoint/commit behavior and CDF's private cache were checked in
   pinned delta-rs source, not inferred from a public builder name.
 

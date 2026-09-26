@@ -5,7 +5,7 @@
 # Apply the declared GitHub configuration in .github/setup/ to the repository,
 # idempotently (PUT/PATCH; rulesets are matched by name and updated in place).
 #
-#   scripts/gh-setup.sh            full required-check list (ruleset-main-full.json)
+#   scripts/gh-setup.sh            declared main ruleset (ruleset-main-full.json)
 #   scripts/gh-setup.sh --full     compatibility alias for the default
 #   scripts/gh-setup.sh --check    read-only comparison with declared settings
 #   scripts/gh-setup.sh --dry-run  print what would be sent

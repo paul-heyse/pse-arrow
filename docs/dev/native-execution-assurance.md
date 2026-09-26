@@ -107,14 +107,24 @@ qualification obligations.
 - `just family-check`: one native type universe; independently released tracing is
   classified separately and its Apache DataFusion dependencies remain checked.
 
-All failure baselines are zero. Plan 14's integration, storage/solver journeys and
-benchmarks wait for M21 closure and the M22 campaign. Targeted units and compilation
-support implementation; whole-plan lint/governance qualification also belongs to M22.
+All failure baselines are zero. Plan 14's historical local Linux qualification is
+recorded in [M22](../plans/14-m22-execution.md); current remediation and qualification
+belong to the [Plan 16 execution packet](../plans/16-p14-p18-execution.md).
+Targeted units and compilation support implementation. Full integration and quality
+checks run at the end of a plan.
+
+`just assessment <output>` collects the full local default/native/Python scope without
+stopping at the first failure. `just native-test` and `just native-python <output>`
+are ordinary linked execution commands; `just py-sync-native` refreshes the extension.
+After functional qualification, `just case-measure <output> --functional-from <report>`
+collects the declared case campaign using Criterion CSV samples. Compilation is untimed
+setup. Reports distinguish fresh execution, unchanged-input reuse and explicitly
+reviewed transfer; neither a source digest nor a review document establishes behavior.
 
 ## Pinned references
 
-Use the [DataFusion/Arrow skill](../../.codex/skills/datafusion/SKILL.md),
-[Delta skill](../../.codex/skills/deltalake/SKILL.md) and expanded
-[tracing skill](../../.codex/skills/datafusion-tracing/SKILL.md). The latter's execution,
+Use the [DataFusion/Arrow skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/SKILL.md),
+[Delta skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/SKILL.md) and expanded
+[tracing skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion-tracing/SKILL.md). The latter's execution,
 context, lifecycle, metrics, filtering and storage briefs distinguish source observations
 from executed consumer probes. The project lockfile remains the consumer version authority.

@@ -20,6 +20,7 @@ pub struct AlgebraicOracle {
     facts: crate::DerivativeFacts,
     normalization: Option<pse_math::normalization::Normalization>,
     presolve: Option<std::sync::Arc<pse_math::presolve::Facts>>,
+    structure: Option<std::sync::Arc<pse_structural::incidence::StructuralAnalysis>>,
 }
 impl AlgebraicOracle {
     /// Admit continuous NLP/NLE variables. All-fixed cases stay on constant evaluation.
@@ -52,7 +53,17 @@ impl AlgebraicOracle {
             facts: Default::default(),
             normalization: None,
             presolve: None,
+            structure: None,
         })
+    }
+    /// Attach a compiler analysis. Native admission checks its complete matching
+    /// witness against the current IDs, equality classification and sparse edges.
+    pub fn with_structural_analysis(
+        mut self,
+        analysis: std::sync::Arc<pse_structural::incidence::StructuralAnalysis>,
+    ) -> Self {
+        self.structure = Some(analysis);
+        self
     }
     /// Attach the immutable resolved coordinate projection before native preparation.
     pub fn with_normalization(
@@ -134,6 +145,9 @@ fn copy(source: &[f64], target: &mut [f64]) -> Result<(), ProblemError> {
     Ok(())
 }
 impl NlpOracle for AlgebraicOracle {
+    fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
+        self.structure.as_deref()
+    }
     fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
         self.normalization.as_ref()
     }
@@ -192,6 +206,9 @@ impl NlpOracle for AlgebraicOracle {
     }
 }
 impl NleOracle for AlgebraicOracle {
+    fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
+        self.structure.as_deref()
+    }
     fn guard_signs(
         &self,
     ) -> std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign> {
@@ -330,6 +347,9 @@ impl CoefficientProblem {
 #[derive(Debug)]
 pub struct FeasibilityOracle(pub Box<dyn NlpOracle>);
 impl NlpOracle for FeasibilityOracle {
+    fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
+        self.0.structural_analysis()
+    }
     fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
         self.0.normalization()
     }

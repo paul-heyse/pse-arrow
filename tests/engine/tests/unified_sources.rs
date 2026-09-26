@@ -159,6 +159,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
         vec![],
         &cancel,
     )
+    .map(|(command, _ticket)| command)
     .unwrap()
     .execute(&cancel)
     .await

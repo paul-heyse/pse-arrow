@@ -10,7 +10,7 @@ use pse_backend_native::{
     routing::Route,
     solve::{Event, Progress},
 };
-use pse_engine::cache_service::flight::FlightCancellation;
+use pse_columnar::flight::FlightCancellation;
 use pse_ids::SemanticId;
 use std::{
     collections::BTreeMap,
@@ -267,6 +267,7 @@ pub struct RunResult {
     pub(crate) physical:
         Result<Vec<pse_relations::generated::runtime::physical_checks::Row>, Arc<WorkflowError>>,
     pub(crate) assessments: Vec<pse_relations::generated::runtime::candidate_assessments::Row>,
+    pub(crate) completion: Result<super::completion::Completion, Arc<WorkflowError>>,
     pub(crate) batches: OnceLock<
         Result<
             BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>,
@@ -313,6 +314,7 @@ impl RunResult {
         }
         self.physical = self.evaluate_physical_checks().map_err(Arc::new);
         self.assessments = self.assess_candidates();
+        self.completion = self.capture_completion().map_err(Arc::new);
         self
     }
 
@@ -377,6 +379,7 @@ impl Runtime {
                     report,
                     physical: Ok(vec![]),
                     assessments: vec![],
+                    completion: Err(Arc::new(contract("completion has not been captured"))),
                     batches: OnceLock::new(),
                 }
                 .completed(),
@@ -409,7 +412,11 @@ impl super::PreparedSimulation {
                         flag,
                         progress,
                     )?;
-                    Ok(RunReport::Simulation(Box::new(report)))
+                    let retained = report
+                        .numeric_bytes()
+                        .checked_add(4 << 20)
+                        .ok_or(MathRuntimeError::Limit("trajectory result extent"))?;
+                    Ok((RunReport::Simulation(Box::new(report)), retained))
                 }
                 #[cfg(not(feature = "solver-diffsol"))]
                 {
@@ -438,6 +445,7 @@ impl super::PreparedSimulation {
                     report,
                     physical: Ok(vec![]),
                     assessments: vec![],
+                    completion: Err(Arc::new(contract("completion has not been captured"))),
                     batches: OnceLock::new(),
                 }
                 .completed(),
@@ -460,9 +468,18 @@ impl super::PreparedFit {
             self.problem.profile.solver.controls.threads,
             self.problem.bytes,
             move |flag, progress| {
-                prepared
-                    .execute(flag, progress)
-                    .map(|report| RunReport::Fit(Box::new(report)))
+                let allowance = prepared
+                    .problem
+                    .profile
+                    .solver
+                    .controls
+                    .report_allowance()?;
+                let report = prepared.execute(flag, progress)?;
+                let retained = report
+                    .numeric_bytes()
+                    .checked_add(allowance)
+                    .ok_or(MathRuntimeError::Limit("fit result extent"))?;
+                Ok((RunReport::Fit(Box::new(report)), retained))
             },
         )?;
         let lease = Arc::new(Lease(handle.cancellation()));
@@ -484,6 +501,7 @@ impl super::PreparedFit {
                     report,
                     physical: Ok(vec![]),
                     assessments: vec![],
+                    completion: Err(Arc::new(contract("completion has not been captured"))),
                     batches: OnceLock::new(),
                 }
                 .completed(),

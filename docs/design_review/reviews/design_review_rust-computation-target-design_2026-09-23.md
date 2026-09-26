@@ -220,10 +220,10 @@ available; incomplete results cannot be admitted as complete. These are proposed
 ### 4.3 Salsa: narrow semantic reuse with explicit external boundaries
 
 Use **salsa 0.28.4** as the candidate pin. It is absent from the current lockfile.
-The [struct-kind](../../../.codex/skills/salsa/content/capabilities/salsa.struct-kind.md),
-[backdating](../../../.codex/skills/salsa/content/capabilities/salsa.backdating.md),
-[cancellation](../../../.codex/skills/salsa/content/capabilities/salsa.cancellation.md)
-and [memory](../../../.codex/skills/salsa/content/capabilities/salsa.memory.md) briefs
+The struct-kind (`.codex/skills/salsa/content/capabilities/salsa.struct-kind.md`, local reference),
+backdating (`.codex/skills/salsa/content/capabilities/salsa.backdating.md`, local reference),
+cancellation (`.codex/skills/salsa/content/capabilities/salsa.cancellation.md`, local reference)
+and memory (`.codex/skills/salsa/content/capabilities/salsa.memory.md`, local reference) briefs
 support this allocation:
 
 | Salsa facility | Concrete role | Required boundary |
@@ -296,8 +296,8 @@ the same graph without a second adjacency copy. It is a candidate dependency, no
 locked; qualify its feature/dependency cost. Petgraph `toposort`, `kosaraju_scc`/`tarjan_scc`,
 visitors, `Reversed` and condensation cover most structural work already. Canonicalize SCC
 membership and order explicitly; do not assign persisted block identity from return order.
-See the [container](../../../.codex/skills/rust-graphs/content/capabilities/graph.container.md)
-and [DAG](../../../.codex/skills/rust-graphs/content/capabilities/graph.dag-analysis.md) briefs.
+See the container (`.codex/skills/rust-graphs/content/capabilities/graph.container.md`, local reference)
+and DAG (`.codex/skills/rust-graphs/content/capabilities/graph.dag-analysis.md`, local reference) briefs.
 
 | Projection | Preserved semantics | Algorithm/output and completeness boundary |
 |---|---|---|
@@ -319,7 +319,7 @@ not permit collapsing authored arcs or losing their provenance.
 **Matching selection.** Prefer the built-in
 `rust_igraph::maximum_bipartite_matching(&graph, &types)` in **0.7.0** as the first
 bipartite implementation to qualify. The captured
-[source](../../../.codex/skills/rust-graphs/content/corpus/rust-igraph/source/algorithms/matching.rs)
+source (`.codex/skills/rust-graphs/content/corpus/rust-igraph/source/algorithms/matching.rs`, local reference)
 returns partner indices and matching cardinality, validates the bipartition, and constructs
 an internal undirected adjacency. Budget that adjacency in addition to the input conversion.
 Its algorithm is push-relabel. No measured performance or Hopcroft–Karp asymptotic guarantee
@@ -379,10 +379,10 @@ placement mandate; it does not restrict the eligible library surface.
 | Incremental output consumption | `execute_stream`/partitioned streams | Stream errors and output ordering; account for blocking operators and retained consumers |
 | Exact Delta rows | Delta-aware provider with named projection | Exact snapshot selection, mapping/deletion-vector semantics and compatible Delta planner |
 
-The [consumption](../../../.codex/skills/datafusion/content/capabilities/df.consume.md),
-[source reuse](../../../.codex/skills/datafusion/content/capabilities/df.storage-reuse.md),
-[pushdown](../../../.codex/skills/datafusion/content/capabilities/df.pushdown.md) and
-[schema](../../../.codex/skills/datafusion/content/capabilities/arrow.schema.md) contracts
+The [consumption](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/capabilities/df.consume.md),
+[source reuse](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/capabilities/df.storage-reuse.md),
+[pushdown](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/capabilities/df.pushdown.md) and
+[schema](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/capabilities/arrow.schema.md) contracts
 are the implementation references. Schema metadata, nulls and domain semantics require
 checks through the actual operator path; a typed batch is not a domain-validity proof.
 
@@ -436,12 +436,12 @@ enablement, column-mapping restrictions and retention all matter. At this pin an
 head can clamp; never checkpoint an unobserved future version. The existing catalog already
 documents endpoint comparison when CDF is refused—preserve this correctness property.
 
-These choices follow the skill's [read](../../../.codex/skills/deltalake/content/capabilities/delta.read.md),
-[CDF](../../../.codex/skills/deltalake/content/capabilities/delta.cdf.md),
-[session](../../../.codex/skills/deltalake/content/capabilities/delta.session.md),
-[commit](../../../.codex/skills/deltalake/content/capabilities/delta.commit.md),
-[replay](../../../.codex/skills/deltalake/content/capabilities/delta.replay.md) and
-[retention](../../../.codex/skills/deltalake/content/capabilities/delta.retention.md) contracts.
+These choices follow the skill's [read](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/capabilities/delta.read.md),
+[CDF](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/capabilities/delta.cdf.md),
+[session](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/capabilities/delta.session.md),
+[commit](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/capabilities/delta.commit.md),
+[replay](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/capabilities/delta.replay.md) and
+[retention](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/capabilities/delta.retention.md) contracts.
 They do not certify the PSE multi-table protocol; its concurrency/failure tests remain required.
 
 ### 4.7 Numerical preparation, resources and crate boundaries

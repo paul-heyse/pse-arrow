@@ -23,6 +23,34 @@ inspection_exception!(InspectionError, PyException, {
     report: DiagnosticReport,
 });
 
+/// An authored occurrence and its optional UTF-8 source interval.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct DiagnosticSourceLocation(pse_model::diagnostic::SourceLocation);
+#[pymethods]
+impl DiagnosticSourceLocation {
+    #[getter]
+    fn source(&self) -> String {
+        self.0.source.to_hex()
+    }
+    #[getter]
+    fn path(&self) -> &str {
+        &self.0.path
+    }
+    #[getter]
+    fn name(&self) -> Option<&str> {
+        self.0.name.as_deref()
+    }
+    #[getter]
+    fn start(&self) -> Option<u32> {
+        self.0.start
+    }
+    #[getter]
+    fn end(&self) -> Option<u32> {
+        self.0.end
+    }
+}
+
 /// One original source in a native error chain.
 #[pyclass(frozen, skip_from_py_object, get_all, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -192,11 +220,8 @@ impl DiagnosticReport {
                 report.boundary = Some(boundary.clone());
                 break;
             }
-            // Transparent domain wrappers still expose their typed variant directly.
-            if let Some(pse_runtime::workflow::WorkflowError::Boundary(boundary)) =
-                cause.downcast_ref::<pse_runtime::workflow::WorkflowError>()
-            {
-                report.boundary = Some(boundary.clone());
+            if let Some(workflow) = cause.downcast_ref::<pse_runtime::workflow::WorkflowError>() {
+                report.boundary = Some(workflow.boundary_diagnostic());
                 break;
             }
             current = cause.source();
@@ -258,6 +283,17 @@ impl DiagnosticReport {
                 .iter()
                 .flat_map(|b| &b.sources)
                 .map(ToString::to_string)
+                .collect(),
+        )
+    }
+    #[getter]
+    fn source_locations(&self) -> Tuple<DiagnosticSourceLocation> {
+        Tuple(
+            self.boundary
+                .iter()
+                .flat_map(|boundary| &boundary.locations)
+                .cloned()
+                .map(DiagnosticSourceLocation)
                 .collect(),
         )
     }

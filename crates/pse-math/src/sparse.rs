@@ -12,6 +12,14 @@ pub struct AssemblyMatrix {
     refill: Vec<usize>,
 }
 impl AssemblyMatrix {
+    /// Known owned CSC and refill buffers, excluding allocator overhead.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + size_of_val(self.matrix.symbolic().col_ptr())
+            + size_of_val(self.matrix.row_idx())
+            + size_of_val(self.matrix.val())
+            + self.refill.capacity() * size_of::<usize>()
+    }
     /// Canonicalize once, retaining duplicates as independent refill contributions.
     pub fn new(
         rows: usize,

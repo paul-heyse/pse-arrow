@@ -9,7 +9,7 @@ phase: 1
 # Native logical-plan hard pivot — restart
 
 **Historical checkpoint, superseded on 2026-09-15.** Resume from
-[Plan 06](06-provider-contracts-hard-pivot.md) and [STATUS.md](../../STATUS.md).
+[Plan 06](06-provider-contracts-hard-pivot.md) and [STATUS.md](https://github.com/paul-heyse/pse-arrow/blob/main/STATUS.md).
 Plan 06 carries forward every unfinished Plan 05 outcome and replaces the execution
 order below with the provider-contract hard pivot. The saved code and receipts
 remain useful evidence; this file is no longer the restart instruction.
@@ -70,7 +70,7 @@ use one realization entry point with the actual pass context and selected inputs
 
 **Tested:** the nine-package foundation suite passes **567 tests, 0 failed/skipped**,
 14.926 s, default/force-validation/baseline 0, run
-`c5ff2ea8-f3f4-4a2b-a700-6ede82f27df3`. Exact command is in [STATUS.md](../../STATUS.md).
+`c5ff2ea8-f3f4-4a2b-a700-6ede82f27df3`. Exact command is in [STATUS.md](https://github.com/paul-heyse/pse-arrow/blob/main/STATUS.md).
 It covers the realization entry point, indexed-pressure difference, generated adapters,
 P3/P10/native-construction helpers, borrowed operands and symbol-ID-only support.
 The latest `just clippy` run reaches 71 compiler library findings (72 with library

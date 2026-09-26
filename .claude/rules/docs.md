@@ -8,12 +8,19 @@ paths:
 
 ## Authority, and how to cite it
 
-`docs/authoritative_design/blueprint.md` is authoritative; ADRs record *why*; design
-reviews are evidence, not authority. Do not restate the blueprint — cite it.
+`docs/authoritative_design/README.md` routes to the authoritative blueprint and numbered
+pages under `sections/`. Each section has one owner; ADRs record *why* and design reviews
+are evidence, not authority. Cite the owner instead of restating it.
 
 Citations are stable identifiers, never line numbers or file positions:
-`blueprint §14.3`, `ADR-0020`, `DP-09`, `PS-10`, `G4`. Section numbers in the blueprint are
+`blueprint §14.3`, `ADR-0020`, `AP-06`, `DP-09`, `PS-10`, `G4`. Section numbers in the collection are
 citation targets: insert `§14.3.1`, never renumber.
+
+Intended specification, observed implementation and historical evidence have distinct roles.
+State which a document records; reconcile divergence without discarding the specification.
+Link the owner of current plan/packet status and finding disposition instead of duplicating
+live state in summaries. New reviews record the standard version; historical reviews keep
+their original observations and verdicts.
 
 ## Conventions
 
@@ -21,7 +28,7 @@ citation targets: insert `§14.3.1`, never renumber.
   UPPER_SNAKE and snake_case principle files under `docs/design_review/design_principles/`, the root governance
   files, and the design-review skill's `design_review_<slug>_<date>.md`.
 - **Front matter** (YAML) is required on ADRs, plans, the capability maps (`pins:`,
-  `regenerated:`) and the authoritative design (`status:`, `revision:`).
+  `regenerated:`) and the authoritative design (`status:`; collection `revision:` lives only in the blueprint).
 - **Evidence labels** — *Proposed*, *Interface-checked*, *Implemented*, *Tested*,
   *Measured*, *Formally established* (design principles §D) — are mandatory in ADR `evidence:`
   fields, register rows, PR descriptions and a plan's Verification and Outcome sections
@@ -39,3 +46,16 @@ Reading one end to end wastes a context window.
 API-reference doc lint is deferred in phase 0 (register R-20). Preserve backticked
 identifiers and rustdoc markers; their presence is not evidence that the stub checked
 them. Ordinary book building and internal-link checks remain active.
+
+## Publishing and bounded context
+
+`docs/site.toml` selects collections and current-work search groups. Publication derives
+SUMMARY and the section directory in ignored staging; never maintain a second page list.
+Move a section without renumbering, retaining its old anchor and a link at the old location.
+`just docs` builds HTML/search; CI separately checks offline links. Read
+`docs/dev/documentation.md` for the tool/preview commands.
+
+Use focused source inspection and relevant tests for implementation claims. Ordinary code
+changes need documentation edits only when the enduring explanation or contract changes.
+Do not add source-proof manifests, exhaustive symbol maps or routine product qualification
+as prerequisites to documentation changes.

@@ -1,10 +1,10 @@
 ---
 title: Data-model architecture and consolidated review remediation
-status: in-progress
+status: done
 date: 2026-09-24
 adrs: [ADR-0082, ADR-0083, ADR-0084, ADR-0085, ADR-0086, ADR-0088, ADR-0089, ADR-0090, ADR-0091, ADR-0092, ADR-0093]
 phase: 1
-evidence: Implemented — P00–P09 scoped packets; P10–P18 and full-plan qualification pending
+evidence: Tested
 ---
 
 # Data-model architecture and consolidated review remediation
@@ -41,7 +41,13 @@ follow-up explains. Plan 15 remains the separate build-performance workstream.
 [execution packet](16-p00-p04-execution.md); its verification and supported boundary
 are recorded there. P05–P06 are implemented and scoped-qualified in the
 [numerics/facts packet](16-p05-p06-execution.md). P07–P09 are implemented and scoped-qualified
-in the [native strategies/dynamics packet](16-p07-p09-execution.md). P10–P18 remain pending.
+in the [native strategies/dynamics packet](16-p07-p09-execution.md).
+The [P10–P13 packet](16-p10-p13-execution.md) owns its implementation and qualification
+status; the [P14–P18 packet](16-p14-p18-execution.md) owns final implementation,
+dispositions, local qualification and case measurements. The maintainer confirmed
+the independent review's satisfactory outcome; the
+[closure record](16-p14-p18-execution.md#independent-review-and-closure) completes
+the plan's local Linux scope. Those packets are the execution evidence owners.
 The original reviews provide source
 analysis and selected prior observations, not executed acceptance of this target.
 A packet must resolve any unverified library claim that matters to its change
@@ -915,11 +921,14 @@ An unverified API name in a review is a candidate, not an implementation command
 
 ## Verification
 
-**Proposed.** No implementation acceptance or performance result is claimed by
-this plan. “Interface-checked” findings in the reviews remain at that strength
-until the named behavior executes. A final claim of **Tested** or **Measured** names
-its command, mode, conditions and zero-failure baseline; counts alone do not prove
-coverage. Unavailable observations are not recorded as zero.
+**Tested and Measured.** The [P14–P18 execution packet](16-p14-p18-execution.md#verification)
+owns the complete local qualification, acceptance-journey evidence routes and 33-case
+measurements, including commands, modes, conditions and the zero-failure baseline.
+Original review observations remain historical. The maintainer's satisfactory
+independent review is recorded separately in the
+[closure record](16-p14-p18-execution.md#independent-review-and-closure); the plan
+is complete for its local Linux scope. Unavailable observations are not recorded
+as zero.
 
 ### Public acceptance journeys
 
@@ -949,20 +958,18 @@ execute together in P18, including relevant negative and interruption cases.
 
 ### Final command surface
 
-P17 must leave these as ordinary, documented recipes. The three new names below
-are proposed replacements, not commands asserted to exist at plan creation.
-Reuse one aggregate invocation only if it covers this exact scope without running
-the same suite twice.
+P17 supplies ordinary, documented recipes. `just assessment <output>` collects this
+scope without running the same suite twice; the execution packet owns its results.
 
 | Scope | Command / mode | Completion condition |
 |---|---|---|
 | Rust workspace | `just test --no-fail-fast`; `just doctest` | Full default workspace and doctests, explicit force-validation; zero failures |
-| Linked native routes | Proposed `just native-test` | Required native feature graph and all V01–V18 native/component journeys; zero failures, no missing-case skips |
-| Python public boundary | `just py-sync-native`, then proposed `just native-python <output>` and the remaining `just py-test` scope | Fresh linked extension; unit/component/integration paths and public workflows, no duplicate selection |
+| Linked native routes | `just native-test` | Required native feature graph and all V01–V18 native/component journeys; zero failures, no missing-case skips |
+| Python public boundary | `just py-sync-native`, then `just native-python <output>` | Fresh linked extension; complete unit/component/integration paths and public workflows, no duplicate selection |
 | Physical references | Existing analytic/exhaustive/property reference harness extended for V04/V05/V10 | Independent reference inputs and declared tolerances; no IDAES parity claim from shared tests |
-| Case performance | Proposed `just case-measure <output>` | Complete scenario set below after functional qualification; no Rust build time in measurements |
+| Case performance | `just case-measure <output> --functional-from <report>` | Complete scenario set below after functional qualification; no Rust build time in measurements |
 | Rust/repository quality | `just fmt-rust-check`, `just clippy`, `just lint-typos`, `just lint-license`, `just quality` | Required checks green against zero baseline; aggregate deduplication permitted |
-| Generated/governance contracts | `just governance`, `just codegen-check`, `just architecture-manifest` after P17 removes stale plan coupling | Current generated/source mappings and family/governance invariants; no new design-verdict framework |
+| Generated/governance contracts | `just governance`, `just codegen-check` | Current generated/source mappings and family/governance invariants; the redundant architecture-manifest adapter is removed |
 | Decisions and docs | `just adr-lint`, `just adr-index`, `just lint-agents`, `just docs` | Current decision/index/links and book; run index generation before its final equality check |
 | Reference parity, if claimed by the implementation | `just parity-container` | Actual exercised parity against the repository pin; missing environment is not a passing skip |
 
@@ -1028,7 +1035,7 @@ planning or ask for approval of unfinished work.
 | Performance work destroys compiler reuse or imposes tiny memory ceilings | Stable paths/caches, untimed builds, configurable generous resource policy and separate case/RSS measurements |
 | Historical evidence is overstated or erased | Preserve M22 records, name applicability, and state new gaps/results prospectively |
 
-## Outcome (recorded after implementation)
+## Outcome
 
 ### What was built
 
@@ -1038,9 +1045,14 @@ mathematical/structural facts are recorded in the
 [numerics/facts packet](16-p05-p06-execution.md). P07–P09 contextual native qualification,
 explicit starts/strategies and shared dynamics/fitting are recorded in the
 [native strategies/dynamics packet](16-p07-p09-execution.md).
-**Proposed:** P10–P18 remain pending.
-Full-plan qualification and performance evidence belong to P18; the scoped packet's
-regressions do not establish whole-plan acceptance.
+P10–P13's result, reuse, publication and contract consolidation are recorded in
+[their packet](16-p10-p13-execution.md). P14–P17's resource ownership, sparse/library
+execution, deletion/retention and ordinary qualification tooling are recorded in
+the [final execution packet](16-p14-p18-execution.md#outcome).
+**Tested and Measured:** that final packet owns P18's completed local qualification
+and case campaign. The maintainer's independent review is complete with a satisfactory
+outcome, settling the final review obligation and closing this plan. No broader
+release or platform qualification is implied.
 
 ### A mistake made and corrected
 
@@ -1050,6 +1062,8 @@ The P05–P06 packet records the builtin-constant projection fix, final caller m
 and corrected native/generation qualification environment.
 The P07–P09 packet records native-status overclaims replaced by original KKT/gap
 qualification, complete fixture generation and final feature/boundary repairs.
+The P14–P18 packet records the literal-unit alias fix, bounded parser allowance,
+prepared-fit allocation ownership and precise warm-runtime teardown observations.
 
 ### Deviations from the plan, deliberate
 
@@ -1060,6 +1074,11 @@ packets and proposed ADR-0088–0093 for the detailed boundaries and decision PR
 P09 admits a narrow smooth IDAS recovery profile alongside Diffsol's qualified hybrid
 route. Presolve multiplier recovery and QP regularization can leave feasible candidates
 without stronger optimality qualification; the explicit alternatives are tested.
+P16 retains mechanisms with real surviving consumers. P17 uses ordinary runner-owned
+checks and explicit evidence transfers; historical receipts do not become product
+requirements. P18 reports current measurements without an incomparable historical
+speedup claim. The maintainer performed the independent final review and confirmed
+its satisfactory outcome, as recorded in the final packet's closure record.
 
 [R1]: ../design_review/reviews/design_review_comprehensive-codebase_2026-09-24.md
 [R2]: ../design_review/reviews/design_review_data-model-architecture-followup_2026-09-24.md

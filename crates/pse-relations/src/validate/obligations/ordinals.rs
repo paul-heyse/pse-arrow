@@ -6,10 +6,7 @@ use crate::native::{
     functions_aggregate::expr_fn::count,
     logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, lit},
 };
-use pse_schema::{
-    Registry,
-    model::{EXTENSION_TYPES, RelationSpec},
-};
+use pse_schema::{Registry, model::RelationSpec};
 pub(super) fn plans(
     input: &LogicalPlan,
     spec: &RelationSpec,
@@ -27,17 +24,17 @@ pub(super) fn plans(
                 .is_some_and(|name| name == "pse.ordinal_ref")
         },
     )? {
-        let text = occurrence
-            .field
-            .metadata()
-            .get(pse_schema::arrow::KEY_EXTENSION_METADATA)
-            .ok_or_else(|| DataFusionError::Plan("ordinal metadata absent".into()))?;
-        let target = crate::ext::ExtMetadata::parse(&EXTENSION_TYPES[6], text)?
-            .target_relation_id
-            .ok_or_else(|| DataFusionError::Plan("ordinal target absent".into()))?;
-        if registry.relation_by_id(target).is_none() {
-            return Err(DataFusionError::Plan("ordinal target not declared".into()));
-        }
+        let declaration = registry
+            .obligations(spec.key)
+            .map_err(pse_columnar::external)?
+            .ordinals
+            .iter()
+            .find(|obligation| obligation.path == occurrence.path)
+            .ok_or_else(|| DataFusionError::Plan("missing compiled ordinal occurrence".into()))?;
+        let target = registry
+            .relation(&declaration.target)
+            .ok_or_else(|| DataFusionError::Plan("ordinal target not declared".into()))?
+            .id;
         let value = occurrence.value()?;
         let invalid = if let Some(target) = inputs.get(&target) {
             let mut count_name = "__pse_ordinal_count".to_owned();

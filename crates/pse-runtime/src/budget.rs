@@ -30,7 +30,7 @@ use crate::error::RuntimeError;
 const KEY_SPILL_DIR: &str = "pse.runtime.spill_dir";
 
 /// Everything one process may consume (blueprint §14.3, §18.8).
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResourceBudget {
     /// The accounted memory limit. Non-zero because a pool that reports an unbounded
     /// limit cannot refuse anything, and §14.3's guarantee is the refusal.

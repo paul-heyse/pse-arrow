@@ -10,8 +10,7 @@
 #     pull request that moves part of a group is closed, not merged (GOVERNANCE.md §5).
 #
 #  2. `commit-message.prefix: deps` makes every Dependabot title a Conventional Commit,
-#     so `governance / pr-title` passes and git-cliff files it under "Dependencies"
-#     (`deps` is a type in cliff.toml).
+#     so git-cliff files it under "Dependencies" (`deps` is a type in cliff.toml).
 #
 # Renovate is the documented fallback if these groups prove too coarse (register row).
 

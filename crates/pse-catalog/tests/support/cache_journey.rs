@@ -162,6 +162,7 @@ async fn publish(
             vec![],
             cancel,
         )
+        .map(|(command, _ticket)| command)
         .unwrap()
         .execute(cancel)
         .await

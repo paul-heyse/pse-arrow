@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-kernel-config
+language: Rust
+severity: error
+message: "A kernel is a function of its explicit inputs, not engine session settings."
+files: ["crates/pse-kernels/src/**/*.rs"]
+rule:
+  pattern: $RECEIVER.config_options($$$ARGS)

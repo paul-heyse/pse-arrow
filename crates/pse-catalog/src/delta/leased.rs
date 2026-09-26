@@ -64,7 +64,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let location = url::Url::from_directory_path(directory.path()).unwrap();
         let cancel = pse_columnar::CancellationToken::new();
-        let lease = super::super::lease::read(&location, &cancel)
+        let lease = super::super::lease::write(&location, &cancel)
             .await
             .unwrap()
             .unwrap();

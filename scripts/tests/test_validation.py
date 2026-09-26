@@ -14,10 +14,11 @@ import tempfile
 import time
 import tomllib
 import unittest
+from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import validation, validation_cases, validation_receipts
+from scripts import case_measure, native_tests, validation, validation_receipts
 from scripts.validation_scope import GROUPS, Gate, comprehensive, expand
 
 
@@ -42,7 +43,6 @@ class ValidationTests(unittest.TestCase):
                 'validate := "--features pse-relations/force-validate"\n' + recipe
             )
             (root / "scripts").mkdir()
-            (root / "scripts/implementation_phase.py").write_text("")
             (root / "capture.py").write_text(
                 "import json, pathlib, sys\n"
                 "pathlib.Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
@@ -95,9 +95,6 @@ class ValidationTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        (self.root / "Cargo.toml").write_text(
-            "[workspace.metadata.pse.execution]\nactive-plan = 14\n"
-        )
         self.output = self.root / "evidence"
         self.output.mkdir()
 
@@ -143,51 +140,6 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validation.fresh_output(
                 self.root, self.root / "escape/uncontained-evidence"
-            )
-
-    def test_continuation_refuses_cross_plan_cross_phase_and_changed_ancestors(
-        self,
-    ) -> None:
-        parent = self.root / "parent"
-        parent.mkdir()
-        prior = {
-            "version": 3,
-            "plan": 14,
-            "mode": "functional",
-            "source_files": {},
-            "checks": [],
-            "parent": None,
-        }
-        receipt = parent / "checks.json"
-        receipt.write_text(json.dumps(prior))
-        validation_receipts.continuation(
-            parent, {}, set(), None, plan=14, mode="functional"
-        )
-        for plan, mode in ((11, "functional"), (14, "performance")):
-            with self.subTest(plan=plan, mode=mode), self.assertRaises(ValueError):
-                validation_receipts.continuation(
-                    parent, {}, set(), None, plan=plan, mode=mode
-                )
-        child = self.root / "child"
-        child.mkdir()
-        (child / "checks.json").write_text(
-            json.dumps(
-                {
-                    **prior,
-                    "parent": {
-                        "path": str(parent),
-                        "digest": validation_receipts.digest(receipt),
-                    },
-                }
-            )
-        )
-        validation_receipts.continuation(
-            child, {}, set(), None, plan=14, mode="functional"
-        )
-        receipt.write_text(json.dumps({**prior, "plan": 11}))
-        with self.assertRaises(ValueError):
-            validation_receipts.continuation(
-                child, {}, set(), None, plan=14, mode="functional"
             )
 
     def test_failed_process_does_not_prevent_later_checks(self) -> None:
@@ -291,54 +243,6 @@ class ValidationTests(unittest.TestCase):
         original["profile"]["ci"]["junit"]["path"] = str(self.output / "native.xml")
         self.assertEqual(original, actual)
 
-    def test_scope_has_no_duplicate_or_cross_environment_checks(self) -> None:
-        names = [gate.name for gate in comprehensive()]
-        self.assertEqual(len(names), len(set(names)))
-        self.assertFalse(
-            set(names)
-            & {
-                "wheels-check",
-                "parity",
-                "parity-container",
-                "solver-rebuild-check",
-                "msrv-check",
-                "udeps",
-                "gh-setup-check",
-                "test-release",
-                "doctest-release",
-                "coverage",
-                "features-combinations",
-                "features-no-default",
-                "clippy-default",
-                "clippy-no-default",
-                "governance-tests",
-            }
-        )
-        self.assertTrue(
-            {
-                "test",
-                "doctest",
-                "plan14-native",
-                "plan14-python",
-                "assessment-python-unit",
-                "assessment-python-component",
-                "assessment-python-integration",
-            }
-            <= set(names)
-        )
-        for group in GROUPS:
-            leaves = [gate.name for gate in expand((group,))]
-            self.assertEqual(len(leaves), len(set(leaves)))
-            self.assertFalse(set(leaves) & GROUPS.keys())
-        self.assertFalse(
-            {
-                "native-solver-test",
-                "native-compiler-solver-test",
-                "engineering-inspection",
-            }
-            & set(names)
-        )
-
     def test_failed_setup_blocks_only_dependents_and_records_unattempted_work(
         self,
     ) -> None:
@@ -380,232 +284,6 @@ class ValidationTests(unittest.TestCase):
             [c["status"] for c in receipt["checks"]], ["failed", "blocked", "passed"]
         )
         self.assertFalse((self.output / "dependent.log").exists())
-
-    def test_continuation_authenticates_logs_and_explicit_source_changes(self) -> None:
-        log = self.output / "one.log"
-        log.write_text("actual passed invocation\n")
-        check = {
-            "gate": "one",
-            "status": "passed",
-            "artifacts": {"one.log": validation_receipts.digest(log)},
-        }
-        validation.write_json(
-            self.output / "checks.json",
-            {
-                "version": 3,
-                "plan": 11,
-                "source_files": {"source": "old"},
-                "checks": [check],
-            },
-        )
-        with self.assertRaises(ValueError):
-            validation_receipts.continuation(
-                self.output, {"source": "new"}, set(), None, plan=11
-            )
-        parent, checks = validation_receipts.continuation(
-            self.output, {"source": "old"}, set(), None, plan=11
-        )
-        self.assertEqual(parent["changed_source"], [])
-        self.assertEqual(len(checks), 1)
-        log.write_text("replaced\n")
-        with self.assertRaises(ValueError):
-            validation_receipts.continuation(
-                self.output, {"source": "old"}, set(), None, plan=11
-            )
-
-    def test_observed_formatting_changes_require_explicit_impact_selection(
-        self,
-    ) -> None:
-        log = self.output / "test.log"
-        log.write_text("completed workspace tests")
-        check = {
-            "gate": "test",
-            "status": "passed",
-            "changed_source": ["src/lib.rs"],
-            "artifacts": {log.name: validation_receipts.digest(log)},
-        }
-        validation.write_json(
-            self.output / "checks.json",
-            {
-                "version": 3,
-                "plan": 14,
-                "mode": "functional",
-                "source_files": {"src/lib.rs": "before-formatting"},
-                "checks": [check],
-            },
-        )
-        current = {"src/lib.rs": "formatted"}
-        with self.assertRaises(ValueError):
-            validation_receipts.continuation(self.output, current, set(), None, plan=14)
-        link, retained = validation_receipts.continuation(
-            self.output,
-            current,
-            {"plan14-native"},
-            "reviewed formatting-only edits; exercise new native diagnostic",
-            plan=14,
-        )
-        self.assertEqual(len(retained), 1)
-        self.assertEqual(retained[0]["changed_source"], ["src/lib.rs"])
-        self.assertEqual(retained[0]["origin"], str(self.output))
-        child = self.root / "continued"
-        child.mkdir()
-        validation.write_json(
-            child / "checks.json",
-            {
-                "version": 3,
-                "plan": 14,
-                "mode": "functional",
-                "source_files": current,
-                "checks": retained,
-                "parent": link,
-            },
-        )
-        _, verified = validation_receipts.continuation(
-            child, current, set(), None, plan=14
-        )
-        self.assertEqual(verified, retained)
-        _, retained = validation_receipts.continuation(
-            self.output,
-            current,
-            {"test"},
-            "functional change requires workspace rerun",
-            plan=14,
-        )
-        self.assertEqual(retained, [])
-
-    def test_retained_measurement_allows_only_document_changes(self) -> None:
-        log = self.output / "measure.log"
-        log.write_text("actual operation samples")
-        sources = {
-            "docs/plans/14-m22-execution.md": "old",
-            "benches/benches/native_process.rs": "same",
-        }
-        check = {
-            "gate": "plan14-measure",
-            "status": "passed",
-            "artifacts": {log.name: validation_receipts.digest(log)},
-        }
-        validation.write_json(
-            self.output / "checks.json",
-            {
-                "version": 3,
-                "plan": 14,
-                "mode": "performance",
-                "source_files": sources,
-                "checks": [check],
-            },
-        )
-        updated = {**sources, "docs/plans/14-m22-execution.md": "new"}
-        _, retained = validation_receipts.continuation(
-            self.output, updated, {"plan14-reviews"}, "final documentation", plan=14
-        )
-        self.assertEqual(len(retained), 1)
-        self.assertEqual(retained[0]["origin"], str(self.output))
-        for name in [
-            "benches/benches/native_process.rs",
-            "tests/fixtures/plan14/model.json",
-            "scripts/plan14_measure.py",
-            "docs/plans/14-acceptance-cases.toml",
-            "Cargo.lock",
-            ".cargo/config.toml",
-        ]:
-            with (
-                self.subTest(name=name),
-                self.assertRaisesRegex(ValueError, "executable inputs changed"),
-            ):
-                validation_receipts.continuation(
-                    self.output,
-                    {**updated, name: "changed"},
-                    {"plan14-reviews"},
-                    "claimed docs update",
-                    plan=14,
-                )
-        _, retained = validation_receipts.continuation(
-            self.output,
-            {**updated, "Cargo.lock": "changed"},
-            {"plan14-measure", "plan14-reviews"},
-            "requalify changed executable",
-            plan=14,
-        )
-        self.assertEqual(retained, [])
-
-    def test_functional_scope_defers_benchmarks_and_includes_threaded_python(
-        self,
-    ) -> None:
-        functional = {gate.name for gate in comprehensive()}
-        self.assertEqual(
-            {gate.name for gate in comprehensive("performance")},
-            {"plan14-measure", "plan14-reviews"},
-        )
-        self.assertIn("assessment-python-integration", functional)
-        self.assertFalse(any(name.startswith("bench-") for name in functional))
-
-    def test_measurement_checkpoint_is_incomplete_and_resumes_without_remeasurement(
-        self,
-    ) -> None:
-        real = validation.execute
-        invoked = []
-
-        def execute(
-            root: Path, output: Path, name: str, command: list[str], env: dict[str, str]
-        ) -> dict:
-            del command, env
-            invoked.append(name)
-            return real(root, output, name, [sys.executable, "-c", "pass"], {})
-
-        gates = [Gate("plan14-measure"), Gate("plan14-reviews")]
-        with (
-            patch.object(validation, "execute", side_effect=execute),
-            patch.object(validation_receipts, "classify"),
-            patch.object(
-                validation.implementation_phase,
-                "require_functional",
-                return_value={"path": str(self.output)},
-            ),
-        ):
-            code = validation.run_gates(
-                self.root,
-                self.output,
-                gates,
-                capture=False,
-                phase="performance",
-                stop_after="plan14-measure",
-            )
-            receipt = json.loads((self.output / "checks.json").read_text())
-            self.assertEqual(code, 0)
-            self.assertEqual(invoked, ["plan14-measure"])
-            self.assertEqual(receipt["stopped_after"], "plan14-measure")
-            self.assertFalse(receipt["complete"])
-            self.assertFalse(receipt["required_checks_covered"])
-            self.assertEqual(
-                [c["status"] for c in receipt["checks"]], ["passed", "not_run"]
-            )
-            continuation = self.root / "continued"
-            continuation.mkdir()
-            code = validation.run_gates(
-                self.root,
-                continuation,
-                gates,
-                capture=False,
-                phase="performance",
-                resume_from=self.output,
-            )
-        self.assertEqual(code, 0)
-        self.assertEqual(invoked, ["plan14-measure", "plan14-reviews"])
-        receipt = json.loads((continuation / "checks.json").read_text())
-        self.assertTrue(receipt["complete"])
-        self.assertTrue(receipt["required_checks_covered"])
-        self.assertIsNone(receipt["stopped_after"])
-
-    def test_measurement_checkpoint_cannot_skip_functional_work(self) -> None:
-        with self.assertRaisesRegex(ValueError, "performance measurement"):
-            validation.run_gates(
-                self.root,
-                self.output,
-                [Gate("plan14-measure")],
-                capture=False,
-                stop_after="plan14-measure",
-            )
 
     def test_unsupported_and_advisory_findings_do_not_mask_tool_failure(self) -> None:
         self.assertTrue(
@@ -712,70 +390,168 @@ class ValidationTests(unittest.TestCase):
         )
         self.assertFalse(receipt["complete"])
 
-    def test_case_coverage_requires_current_binary_and_all_parameters(self) -> None:
-        case = {
-            "id": "m20.example",
-            "binary": "new",
-            "tests": ["check[first]", "check[second]"],
-            "mode": "force-validate",
-            "profile": "rust-native",
-            "runner": "nextest",
-            "source": "test.rs",
-        }
-        declaration = {
-            "plan": 14,
-            "cases": [case],
-            "acceptance": [
-                {"id": f"Q{i:02}", "cases": [case["id"]]} for i in range(1, 18)
+    def test_scope_runs_python_once_and_keeps_strict_checks(self) -> None:
+        names = [g.name for g in comprehensive()]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertTrue(
+            {
+                "test",
+                "native-test",
+                "native-python",
+                "clippy-default",
+                "clippy-no-default",
+                "governance-tests",
+            }
+            <= set(names)
+        )
+        self.assertNotIn("register-check", names)
+        self.assertNotIn("case-measure", names)
+        self.assertEqual(
+            [
+                g
+                for g in names
+                if "python" in g and g != "native-python" and g.startswith("assessment")
             ],
-        }
-        result = {"class": "new", "name": "check[first]", "status": "passed"}
+            [],
+        )
+        for group in GROUPS:
+            leaves = [g.name for g in expand((group,))]
+            self.assertEqual(len(leaves), len(set(leaves)))
+
+    def test_strict_policy_does_not_turn_findings_into_success(self) -> None:
+        for group, expected in (("deps-report", True), ("policy", False)):
+            for gate in expand((group,)):
+                self.assertEqual(
+                    validation_receipts.qualified(
+                        {"status": "findings", "role": gate.role}
+                    ),
+                    expected,
+                )
+        combined = expand(("policy", "deps-report"))
+        self.assertEqual(
+            next(g.role for g in combined if g.name == "audit-advisories"), "required"
+        )
+
+    def test_reuse_and_transfer_preserve_original_observation(self) -> None:
+        scope = [asdict(Gate("test"))]
+        log = self.output / "test.log"
+        log.write_text("original execution")
         check = {
             "gate": "test",
-            "mode": "force-validate",
-            "profile": "rust-native",
             "status": "passed",
-            "results": [result, {**result, "name": "check[second]"}],
+            "evidence_kind": "executed",
+            "artifacts": {log.name: validation_receipts.digest(log)},
         }
-        self.assertTrue(
-            validation_cases.coverage(declaration, [check], "functional")["complete"]
+        validation.write_json(
+            self.output / "checks.json",
+            {
+                "version": 4,
+                "source_files": {"src": "old"},
+                "environment": {},
+                "checks": [check],
+                "scope": scope,
+            },
         )
-        for change in (
-            {"mode": "production"},
-            {"profile": "other"},
-            {"results": [result]},
-            {"results": [result, result]},
-            {"results": [{**result, "status": "skipped"}]},
-        ):
-            with self.subTest(change=change):
-                self.assertFalse(
-                    validation_cases.coverage(
-                        declaration, [{**check, **change}], "functional"
-                    )["complete"]
-                )
-        declaration["acceptance"] = []
-        report = validation_cases.coverage(declaration, [check], "functional")
+        use = validation_receipts.reuse_checks
         self.assertEqual(
-            report["missing_obligations"], [f"Q{i:02}" for i in range(1, 18)]
+            use(self.output, {"src": "old"}, {}, scope, set(), set(), None), []
         )
-        self.assertFalse(report["complete"])
+        reused = use(self.output, {"src": "old"}, {}, scope, {"test"}, set(), None)[0]
+        self.assertEqual(reused["evidence_kind"], "unchanged-input-reuse")
+        with self.assertRaises(ValueError):
+            use(self.output, {"src": "new"}, {}, scope, {"test"}, set(), None)
+        with self.assertRaises(ValueError):
+            use(self.output, {"src": "new"}, {}, scope, set(), {"test"}, "")
+        transferred = use(
+            self.output,
+            {"src": "new"},
+            {},
+            scope,
+            set(),
+            {"test"},
+            "Reviewed only documentation changes",
+        )[0]
+        self.assertEqual(transferred["evidence_kind"], "reviewed-transfer")
+        self.assertEqual(transferred["changed_inputs"], ["src"])
+        log.write_text("tampered")
+        with self.assertRaises(ValueError):
+            use(self.output, {"src": "new"}, {}, scope, set(), {"test"}, "reviewed")
 
-    def test_aggregate_obligations_use_current_phase_and_actual_leaf_gates(
+    def test_native_identity_detects_changed_linked_library(self) -> None:
+        library = self.output / "library.so"
+        library.write_bytes(b"original")
+        native = {
+            "schema": "native-profile-v1",
+            "files": {str(library): validation_receipts.digest(library)},
+            "threads": dict.fromkeys(
+                ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"
+            ),
+        }
+        validation_receipts.verify_native(native)
+        library.write_bytes(b"replacement")
+        with self.assertRaises(ValueError):
+            validation_receipts.verify_native(native)
+
+    def test_csv_samples_use_units_and_iterations(self) -> None:
+        source = self.output / "raw.csv"
+        header = "sample_measured_value,unit,iteration_count\n"
+        source.write_text(header + "100,ns,2\n300,ns,3\n")
+        result = case_measure.samples(source)
+        self.assertEqual(result["mean_nanoseconds"], 80)
+        self.assertEqual(result["sample_count"], 2)
+        for rows in (
+            "nan,ns,2\n300,ns,3\n",
+            "100,ms,2\n300,ns,3\n",
+            "100,ns,0\n300,ns,3\n",
+            "100,ns,2\n",
+        ):
+            source.write_text(header + rows)
+            with self.assertRaises(ValueError):
+                case_measure.samples(source)
+
+    def test_native_command_preserves_filter_and_full_feature_graph(self) -> None:
+        selection = "test(=a) or test(=b); $(touch injected)"
+        command = native_tests.rust_command("list", ["-E", selection])
+        self.assertEqual(command[-2:], ["-E", selection])
+        self.assertIn("--workspace", command)
+        self.assertIn(
+            "pse-relations/force-validate", command[command.index("--features") + 1]
+        )
+
+    def test_native_python_refuses_empty_or_skipped_reports_despite_zero_exit(
         self,
     ) -> None:
-        declaration = {
-            "plan": 14,
-            "cases": [],
-            "acceptance": [
-                {"id": "Q18", "phase": "performance", "cases": ["m22.cost"]}
-            ],
-        }
-        report = validation_cases.coverage(declaration, [], "functional")
-        self.assertNotIn("Q18", report["obligations"])
-        self.assertNotIn("Q18", report["missing_obligations"])
-        self.assertFalse(
-            validation_cases.coverage(declaration, [], "performance")["complete"]
-        )
+        path = self.output / "native-python.xml"
+        for case, expected in (
+            ("", 1),
+            ('<testcase name="a"><skipped/></testcase>', 1),
+            ('<testcase name="a"/>', 0),
+        ):
+
+            def run(*_args: object, case: str = case, **_kwargs: object) -> int:
+                path.write_text(f"<testsuite>{case}</testsuite>")
+                return 0
+
+            with (
+                patch.object(
+                    sys, "argv", ["native_tests", "python", f"--junitxml={path}"]
+                ),
+                patch.dict(os.environ, {}, clear=True),
+                patch("subprocess.call", side_effect=run),
+            ):
+                self.assertEqual(native_tests.main(), expected)
+        with (
+            patch.object(sys, "argv", ["native_tests", "python"]),
+            patch.dict(os.environ, {}, clear=True),
+            patch("subprocess.call") as call,
+        ):
+            with self.assertRaises(ValueError):
+                native_tests.main()
+            call.assert_not_called()
+
+    def test_empty_nextest_selection_fails(self) -> None:
+        with self.assertRaisesRegex(ValueError, "no tests selected"):
+            validation_receipts.native_selection(json.dumps({"rust-suites": {}}))
 
 
 if __name__ == "__main__":

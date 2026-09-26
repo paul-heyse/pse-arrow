@@ -3,20 +3,52 @@
   "rows": {
     "runtime.computation_runs": [
       {
+        "backend": "[\"enum\",\"ipopt\"]",
+        "candidate_available": "[\"bool\",true]",
+        "candidate_kind": "[\"enum\",\"final_iterate\"]",
+        "completed_samples": "[\"i64\",1]",
+        "completed_time": "[\"f64\",\"3ff0000000000000\"]",
         "error": "[\"text\",\"value-1\"]",
-        "kind": "[\"text\",\"value-1\"]",
+        "estimate_qualified": "[\"bool\",true]",
+        "feasible": "[\"bool\",true]",
+        "kind": "[\"enum\",\"simulation\"]",
+        "native_code": "[\"i64\",1]",
+        "native_status": "[\"text\",\"value-1\"]",
         "profile_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "qualification": "[\"enum\",\"unqualified\"]",
+        "response_available": "[\"bool\",true]",
+        "response_condition": "[\"f64\",\"3ff0000000000000\"]",
+        "response_rank": "[\"i64\",1]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "source_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
-        "termination": "[\"text\",\"value-1\"]"
+        "state": "[\"enum\",\"native\"]",
+        "termination": "[\"enum\",\"success\"]",
+        "trajectory_termination": "[\"enum\",\"completed\"]",
+        "validation_error": "[\"text\",\"value-1\"]"
       },
       {
+        "backend": "[\"enum\",\"ipopt\"]",
+        "candidate_available": "[\"bool\",true]",
+        "candidate_kind": "[\"enum\",\"final_iterate\"]",
+        "completed_samples": "[\"i64\",1]",
+        "completed_time": "[\"f64\",\"3ff0000000000000\"]",
         "error": "[\"text\",\"value-1\"]",
-        "kind": "[\"text\",\"value-1\"]",
+        "estimate_qualified": "[\"bool\",true]",
+        "feasible": "[\"bool\",true]",
+        "kind": "[\"enum\",\"simulation\"]",
+        "native_code": "[\"i64\",1]",
+        "native_status": "[\"text\",\"value-1\"]",
         "profile_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "qualification": "[\"enum\",\"unqualified\"]",
+        "response_available": "[\"bool\",true]",
+        "response_condition": "[\"f64\",\"3ff0000000000000\"]",
+        "response_rank": "[\"i64\",1]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "source_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
-        "termination": "[\"text\",\"value-1\"]"
+        "state": "[\"enum\",\"native\"]",
+        "termination": "[\"enum\",\"success\"]",
+        "trajectory_termination": "[\"enum\",\"completed\"]",
+        "validation_error": "[\"text\",\"value-1\"]"
       }
     ]
   },

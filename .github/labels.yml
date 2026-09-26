@@ -90,7 +90,7 @@
   description: "ADRs, the register, and the decision process"
 - name: "area/ci"
   color: "c5def5"
-  description: "Workflows, required checks, and the solver image"
+  description: "Manual workflows and the solver image"
 - name: "area/tooling"
   color: "c5def5"
   description: "justfile, xtask, scripts, and the developer environment"

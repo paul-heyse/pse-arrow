@@ -200,12 +200,7 @@ fn distinct_columns_keep_one_off_diagonal_and_coefficient_views() {
     assert_eq!(h[(1, 0)], 1.0);
     assert_eq!(h[(0, 1)], 0.0);
     let c = a
-        .coefficients(
-            &x,
-            Optimization::default(),
-            1000,
-            &Arc::new(AtomicBool::new(false)),
-        )
+        .coefficients(&x, 1000, &Arc::new(AtomicBool::new(false)))
         .unwrap();
     assert_eq!(c.constraints.to_dense()[(0, 0)], 5.0);
     assert_eq!(c.constraints.to_dense()[(0, 1)], 5.0);
@@ -219,9 +214,7 @@ fn convexity_distinguishes_exact_numerical_indefinite_and_inconclusive() {
     use crate::convexity::*;
     let (a, values) = fixture(false, false);
     let cancel = Arc::new(AtomicBool::new(false));
-    let mut c = a
-        .coefficients(&values, Optimization::default(), 1000, &cancel)
-        .unwrap();
+    let mut c = a.coefficients(&values, 1000, &cancel).unwrap();
     let limits = ConvexityLimits {
         bytes: 1 << 20,
         exact_operations: 1000,
@@ -314,14 +307,10 @@ fn all_fixed_uses_constant_math_and_parameter_changes_reclassify() {
     assert_eq!(w.objective(&x).unwrap(), 4.0);
     assert!(w.gradient(&x).unwrap().is_empty());
     let cancel = Arc::new(AtomicBool::new(false));
-    let c = a
-        .coefficients(&x, Optimization::default(), 1000, &cancel)
-        .unwrap();
+    let c = a.coefficients(&x, 1000, &cancel).unwrap();
     assert_eq!(c.objective_constant, 4.0);
     x.scalars.insert(id(1), 3.0);
-    let d = a
-        .coefficients(&x, Optimization::default(), 1000, &cancel)
-        .unwrap();
+    let d = a.coefficients(&x, 1000, &cancel).unwrap();
     assert_eq!(d.objective_constant, 9.0);
     assert_ne!(c.assumptions, d.assumptions);
 }
@@ -330,12 +319,7 @@ fn gram_evidence_is_exact_nonnegative_and_current() {
     crate::initialize().unwrap();
     let (a, x) = fixture(true, false);
     let mut c = a
-        .coefficients(
-            &x,
-            Optimization::default(),
-            1000,
-            &Arc::new(AtomicBool::new(false)),
-        )
+        .coefficients(&x, 1000, &Arc::new(AtomicBool::new(false)))
         .unwrap();
     let factors = faer::Mat::from_fn(1, 2, |_, j| if j == 0 { 1.0 } else { 0.0 });
     let certificate = GramCertificate::new(&c.hessian, 1.0, &factors, &[2.0], 100).unwrap();
@@ -440,14 +424,10 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
             .obligations[&id(9)],
         crate::presolve::ObligationStatus::Discharged
     );
-    assert!(
-        prepare(0.0)
-            .coefficients(&values, Optimization::default(), 100, &cancel)
-            .is_err()
-    );
+    assert!(prepare(0.0).coefficients(&values, 100, &cancel).is_err());
     assert_eq!(
         prepare(1.0)
-            .coefficients(&values, Optimization::default(), 100, &cancel)
+            .coefficients(&values, 100, &cancel)
             .unwrap()
             .objective_constant,
         1.0
@@ -576,18 +556,14 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
     assert_eq!(worker.gradient(&values).unwrap(), vec![42.0]);
     assert_eq!(worker.hessian(&values, 1.0, &[0.0]).unwrap().val(), &[18.0]);
     assert_eq!(worker.jacobian(&values).unwrap().val(), &[6.0]);
-    let c = a
-        .coefficients(&values, Optimization::default(), 100, &cancel)
-        .unwrap();
+    let c = a.coefficients(&values, 100, &cancel).unwrap();
     assert_eq!(c.objective_constant, 1.0);
     assert_eq!(c.objective, vec![6.0]);
     assert_eq!(c.hessian.val(), &[18.0]);
     let factors = faer::Mat::from_fn(1, 1, |_, _| 3.0);
     let proof = GramCertificate::new(&c.hessian, 1.0, &factors, &[2.0], 100).unwrap();
     values.scalars.insert(id(2), -1.0);
-    let d = a
-        .coefficients(&values, Optimization::default(), 100, &cancel)
-        .unwrap();
+    let d = a.coefficients(&values, 100, &cancel).unwrap();
     assert_ne!(c.assumptions, d.assumptions);
     assert!(proof.validate(&d.hessian, 1.0).is_err());
     assert_eq!(

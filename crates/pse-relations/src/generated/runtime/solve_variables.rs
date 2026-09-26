@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#solve_variables::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    153u8, 247u8, 173u8, 45u8, 224u8, 51u8, 72u8, 98u8, 34u8, 84u8, 120u8, 18u8, 92u8,
-    128u8, 189u8, 253u8,
+    47u8, 227u8, 73u8, 54u8, 210u8, 232u8, 118u8, 142u8, 148u8, 158u8, 221u8, 140u8,
+    88u8, 169u8, 245u8, 41u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "solve_variables";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    16u8, 248u8, 21u8, 206u8, 28u8, 235u8, 45u8, 160u8, 120u8, 96u8, 7u8, 43u8, 238u8,
-    19u8, 136u8, 243u8, 79u8, 89u8, 26u8, 165u8, 146u8, 123u8, 224u8, 107u8, 249u8,
-    150u8, 14u8, 90u8, 104u8, 255u8, 93u8, 42u8,
+    241u8, 90u8, 216u8, 107u8, 125u8, 49u8, 219u8, 156u8, 180u8, 223u8, 186u8, 98u8,
+    85u8, 63u8, 216u8, 46u8, 156u8, 224u8, 46u8, 17u8, 82u8, 14u8, 81u8, 247u8, 45u8,
+    187u8, 156u8, 112u8, 126u8, 43u8, 59u8, 215u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolveVariablesRow {
     fn append(
@@ -138,7 +138,7 @@ impl crate::columnar::ArrowValue for RuntimeSolveVariablesRow {
         <Option<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::enums::DualQualification as crate::columnar::ArrowValue>::append_null(
             children[17usize].as_mut(),
         )?;
         output.append(false);
@@ -243,7 +243,7 @@ impl crate::columnar::ArrowValue for RuntimeSolveVariablesRow {
                 input.column(16usize).as_ref(),
                 index,
             )?,
-            r#dual_qualification: <String as crate::columnar::ArrowValue>::read(
+            r#dual_qualification: <crate::generated::enums::DualQualification as crate::columnar::ArrowValue>::read(
                 input.column(17usize).as_ref(),
                 index,
             )?,
@@ -272,7 +272,7 @@ fn check_declaration(
     reg: &pse_schema::Registry,
     spec: &pse_schema::model::RelationSpec,
 ) -> Result<(), crate::RelationError> {
-    reg.contract(spec)?.require_generated(crate::generated::contracts::expected()?)?;
+    reg.contract(spec)?.require_generated(crate::generated::contracts::expected())?;
     Ok(())
 }
 /// The schema built from the authoritative declaration.
@@ -541,7 +541,10 @@ impl crate::columnar::RelationRow for RuntimeSolveVariablesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#dual_qualification).len())?,
+            crate::columnar::allocation_add(
+                8,
+                (self.r#dual_qualification).as_str().len(),
+            )?,
         )?;
         Ok(bytes)
     }
@@ -738,7 +741,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
         owner: &'a crate::columnar::FieldCheckedBatch,
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
-            owner.for_generated(RELATION_ID, crate::generated::contracts::expected()?)?,
+            owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
         )
     }
     fn borrow_columns(

@@ -30,12 +30,16 @@ impl ArtifactDescriptor {
     /// # Errors
     /// Invalid or noncanonical complete validity descriptor.
     pub fn admit(row: wire::Row) -> Result<Self, ModelError> {
-        if row.descriptor_version != 1
-            || (row.profile == crate::generated::enums::PublicationKind::Run
-                && row.reconstruction != crate::generated::enums::ArtifactReconstruction::None)
+        if row.descriptor_version != 2 {
+            return Err(ModelError::MigrationRequired {
+                version: row.descriptor_version,
+                supported: 2,
+            });
+        }
+        if (row.profile == crate::generated::enums::PublicationKind::Run
+            && row.reconstruction != crate::generated::enums::ArtifactReconstruction::None)
             || row.requested_relations.is_empty()
             || !row.requested_relations.windows(2).all(|w| w[0] < w[1])
-            || row.profile_contract != row.implementation.registry
             || row.artifact_id != identity(&row)
             || !row
                 .value_assumptions
@@ -112,7 +116,7 @@ mod durability_unit {
         let hash = ContentHash::from_bytes([1; 32]);
         wire::Row {
             artifact_id: hash,
-            descriptor_version: 1,
+            descriptor_version: 2,
             profile: PublicationKind::Model,
             profile_contract: hash,
             requested_relations: vec![pse_ids::SemanticId::from_bytes([2; 16])],

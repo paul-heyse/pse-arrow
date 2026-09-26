@@ -64,16 +64,23 @@ async fn seed(context: &SessionContext, location: &url::Url) {
     let table = DeltaTableBuilder::from_url(location.clone())
         .unwrap()
         .build()
-        .unwrap()
-        .write(Vec::<RecordBatch>::new())
-        .with_input_plan(input)
-        .with_session_state(Arc::new(context.state()))
-        .with_session_fallback_policy(
-            deltalake::delta_datafusion::SessionFallbackPolicy::RequireSessionState,
-        )
-        .await
         .unwrap();
-    table
+    let plan = pse_catalog::delta::write::DeltaWrite::plan(
+        table,
+        input,
+        deltalake::protocol::SaveMode::Append,
+        CommitProperties::default(),
+    )
+    .unwrap();
+    native_execution::run(
+        &context.state(),
+        pse_schema::shared_registry().unwrap(),
+        &plan,
+    )
+    .await
+    .unwrap();
+    load(location)
+        .await
         .add_constraint()
         .with_constraint("positive", "id > 0 AND value >= 0")
         .with_session_state(Arc::new(context.state()))
@@ -477,6 +484,27 @@ async fn delete_counts_real_files_without_delta_row_statistics() {
         .with_actions(actions)
         .await
         .unwrap();
+    // Adopt the imported table through an actual writer. Read-only binding never
+    // creates retention ownership, and this empty append preserves missing stats.
+    let input = context
+        .sql("SELECT CAST(0 AS BIGINT) AS id, CAST(0 AS BIGINT) AS value WHERE false")
+        .await
+        .unwrap()
+        .into_unoptimized_plan();
+    let plan = pse_catalog::delta::write::DeltaWrite::plan(
+        load(&edit_location).await,
+        input,
+        deltalake::protocol::SaveMode::Append,
+        CommitProperties::default(),
+    )
+    .unwrap();
+    native_execution::run(
+        &context.state(),
+        pse_schema::shared_registry().unwrap(),
+        &plan,
+    )
+    .await
+    .unwrap();
     bind(&context, &edit_location).await;
     assert_eq!(
         sql_count(&context, &edit_location, "TRUNCATE TABLE edit")

@@ -32,11 +32,15 @@ pub(super) fn plans(
         },
     )? {
         let value = occurrence.value()?;
-        let reference =
-            ReferenceContract::for_contract(&FieldContract::from_field(occurrence.field))
-                .map_err(external)?
-                .ok_or_else(|| DataFusionError::Plan("missing reference contract".into()))?;
-        let local = components(&reference, &value);
+        let reference = &registry
+            .obligations(spec.key)
+            .map_err(external)?
+            .references
+            .iter()
+            .find(|obligation| obligation.path == occurrence.path)
+            .ok_or_else(|| DataFusionError::Plan("missing compiled reference occurrence".into()))?
+            .reference;
+        let local = components(reference, &value);
         let present = all(local.iter().cloned().map(Expr::is_not_null));
         let source = LogicalPlanBuilder::from(occurrence.input)
             .filter(present)?

@@ -14,8 +14,6 @@
 ///Generated namespace contracts.
 pub mod r#authored;
 ///Generated namespace contracts.
-pub mod r#inferred;
-///Generated namespace contracts.
 pub mod r#normalized;
 ///Generated namespace contracts.
 pub mod r#provenance;
@@ -32,9 +30,9 @@ pub mod extension_values;
 pub mod algorithm_arguments;
 /// Registry identity; validity is established by admission.
 pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    154u8, 242u8, 81u8, 224u8, 70u8, 8u8, 175u8, 23u8, 131u8, 18u8, 143u8, 132u8, 21u8,
-    253u8, 154u8, 106u8, 9u8, 139u8, 184u8, 119u8, 254u8, 170u8, 79u8, 241u8, 95u8, 98u8,
-    117u8, 106u8, 161u8, 25u8, 108u8, 157u8,
+    181u8, 158u8, 220u8, 141u8, 47u8, 63u8, 201u8, 105u8, 218u8, 254u8, 181u8, 168u8,
+    132u8, 16u8, 79u8, 225u8, 53u8, 240u8, 216u8, 34u8, 31u8, 69u8, 47u8, 168u8, 33u8,
+    23u8, 144u8, 4u8, 52u8, 69u8, 242u8, 53u8,
 ]);
 /// Resolves an exact declaration from the current registry.
 /// # Errors

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    140u8, 100u8, 45u8, 200u8, 226u8, 22u8, 28u8, 96u8, 188u8, 225u8, 173u8, 0u8, 255u8,
-    88u8, 72u8, 99u8, 172u8, 149u8, 240u8, 92u8, 1u8, 161u8, 54u8, 193u8, 79u8, 160u8,
-    66u8, 245u8, 38u8, 128u8, 85u8, 86u8,
+    221u8, 76u8, 40u8, 73u8, 138u8, 109u8, 83u8, 45u8, 197u8, 222u8, 242u8, 114u8, 83u8,
+    142u8, 99u8, 117u8, 195u8, 131u8, 89u8, 190u8, 40u8, 65u8, 126u8, 247u8, 230u8,
+    133u8, 147u8, 42u8, 180u8, 56u8, 126u8, 29u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceMethodParametersRow {
     fn append(
@@ -138,7 +138,7 @@ fn check_declaration(
     reg: &pse_schema::Registry,
     spec: &pse_schema::model::RelationSpec,
 ) -> Result<(), crate::RelationError> {
-    reg.contract(spec)?.require_generated(crate::generated::contracts::expected()?)?;
+    reg.contract(spec)?.require_generated(crate::generated::contracts::expected())?;
     Ok(())
 }
 /// The schema built from the authoritative declaration.
@@ -351,7 +351,7 @@ impl<'a> ReferenceMethodParametersView<'a> {
         owner: &'a crate::columnar::FieldCheckedBatch,
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
-            owner.for_generated(RELATION_ID, crate::generated::contracts::expected()?)?,
+            owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
         )
     }
     fn borrow_columns(

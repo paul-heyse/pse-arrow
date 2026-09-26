@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: rust-test-code
+language: Rust
+rule:
+  inside:
+    kind: mod_item
+    follows:
+      kind: attribute_item
+      regex: 'cfg\s*\(.*\btest\b'
+      stopBy:
+        not:
+          kind: attribute_item
+    stopBy: end

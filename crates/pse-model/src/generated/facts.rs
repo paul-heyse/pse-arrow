@@ -203,26 +203,10 @@ pub enum FactBatch {
     r#AuthoredTemplateSymbols(Vec<super::r#authored::r#template_symbols::Row>),
     #[doc = stringify!(r#AuthoredTemplates)]
     r#AuthoredTemplates(Vec<super::r#authored::r#templates::Row>),
-    #[doc = stringify!(r#InferredMethodResolutions)]
-    r#InferredMethodResolutions(Vec<super::r#inferred::r#method_resolutions::Row>),
-    #[doc = stringify!(r#InferredPhaseSpecies)]
-    r#InferredPhaseSpecies(Vec<super::r#inferred::r#phase_species::Row>),
-    #[doc = stringify!(r#InferredPropertyRequirements)]
-    r#InferredPropertyRequirements(Vec<super::r#inferred::r#property_requirements::Row>),
-    #[doc = stringify!(r#InferredStateFlashRequired)]
-    r#InferredStateFlashRequired(Vec<super::r#inferred::r#state_flash_required::Row>),
-    #[doc = stringify!(r#InferredValidIndexTuples)]
-    r#InferredValidIndexTuples(Vec<super::r#inferred::r#valid_index_tuples::Row>),
-    #[doc = stringify!(r#NormalizedDomainProducts)]
-    r#NormalizedDomainProducts(Vec<super::r#normalized::r#domain_products::Row>),
     #[doc = stringify!(r#NormalizedInstanceBindings)]
     r#NormalizedInstanceBindings(Vec<super::r#normalized::r#instance_bindings::Row>),
     #[doc = stringify!(r#NormalizedPackageGraph)]
     r#NormalizedPackageGraph(Vec<super::r#normalized::r#package_graph::Row>),
-    #[doc = stringify!(r#NormalizedPropertyDemandSeeds)]
-    r#NormalizedPropertyDemandSeeds(
-        Vec<super::r#normalized::r#property_demand_seeds::Row>,
-    ),
     #[doc = stringify!(r#NormalizedResolvedSourceOccurrences)]
     r#NormalizedResolvedSourceOccurrences(
         Vec<super::r#normalized::r#resolved_source_occurrences::Row>,
@@ -373,6 +357,8 @@ pub enum FactBatch {
     r#RuntimeResponseSensitivities(Vec<super::r#runtime::r#response_sensitivities::Row>),
     #[doc = stringify!(r#RuntimeRetainedVersions)]
     r#RuntimeRetainedVersions(Vec<super::r#runtime::r#retained_versions::Row>),
+    #[doc = stringify!(r#RuntimeRunLineage)]
+    r#RuntimeRunLineage(Vec<super::r#runtime::r#run_lineage::Row>),
     #[doc = stringify!(r#RuntimeSimulationEvents)]
     r#RuntimeSimulationEvents(Vec<super::r#runtime::r#simulation_events::Row>),
     #[doc = stringify!(r#RuntimeSimulationSamples)]
@@ -385,6 +371,8 @@ pub enum FactBatch {
     r#RuntimeSolveRuns(Vec<super::r#runtime::r#solve_runs::Row>),
     #[doc = stringify!(r#RuntimeSolveVariables)]
     r#RuntimeSolveVariables(Vec<super::r#runtime::r#solve_variables::Row>),
+    #[doc = stringify!(r#RuntimeSolverCapabilities)]
+    r#RuntimeSolverCapabilities(Vec<super::r#runtime::r#solver_capabilities::Row>),
     #[doc = stringify!(r#RuntimeValidationFindings)]
     r#RuntimeValidationFindings(Vec<super::r#runtime::r#validation_findings::Row>),
 }
@@ -878,42 +866,6 @@ impl FactBatch {
                     178u8, 249u8, 226u8, 4u8, 94u8, 135u8,
                 ])
             }
-            Self::r#InferredMethodResolutions(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    147u8, 226u8, 101u8, 220u8, 49u8, 255u8, 96u8, 67u8, 190u8, 108u8,
-                    46u8, 150u8, 70u8, 103u8, 44u8, 157u8,
-                ])
-            }
-            Self::r#InferredPhaseSpecies(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    157u8, 233u8, 108u8, 233u8, 202u8, 162u8, 56u8, 74u8, 170u8, 37u8,
-                    152u8, 191u8, 164u8, 28u8, 226u8, 255u8,
-                ])
-            }
-            Self::r#InferredPropertyRequirements(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    37u8, 207u8, 93u8, 147u8, 79u8, 240u8, 120u8, 192u8, 35u8, 7u8, 74u8,
-                    251u8, 63u8, 131u8, 152u8, 205u8,
-                ])
-            }
-            Self::r#InferredStateFlashRequired(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    239u8, 160u8, 26u8, 11u8, 122u8, 106u8, 78u8, 12u8, 165u8, 104u8,
-                    253u8, 101u8, 33u8, 22u8, 68u8, 16u8,
-                ])
-            }
-            Self::r#InferredValidIndexTuples(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    247u8, 69u8, 190u8, 127u8, 6u8, 175u8, 149u8, 95u8, 212u8, 165u8,
-                    57u8, 12u8, 194u8, 95u8, 243u8, 160u8,
-                ])
-            }
-            Self::r#NormalizedDomainProducts(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    149u8, 85u8, 56u8, 31u8, 127u8, 133u8, 105u8, 18u8, 249u8, 253u8,
-                    97u8, 104u8, 25u8, 4u8, 225u8, 203u8,
-                ])
-            }
             Self::r#NormalizedInstanceBindings(_) => {
                 pse_ids::SemanticId::from_bytes([
                     179u8, 104u8, 88u8, 64u8, 32u8, 58u8, 72u8, 241u8, 20u8, 76u8, 130u8,
@@ -924,12 +876,6 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     219u8, 27u8, 213u8, 189u8, 204u8, 237u8, 182u8, 92u8, 233u8, 192u8,
                     66u8, 95u8, 232u8, 102u8, 216u8, 25u8,
-                ])
-            }
-            Self::r#NormalizedPropertyDemandSeeds(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    42u8, 232u8, 136u8, 220u8, 22u8, 146u8, 19u8, 56u8, 35u8, 163u8,
-                    41u8, 107u8, 82u8, 0u8, 33u8, 15u8,
                 ])
             }
             Self::r#NormalizedResolvedSourceOccurrences(_) => {
@@ -1246,8 +1192,8 @@ impl FactBatch {
             }
             Self::r#RuntimeComputationRuns(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    175u8, 151u8, 143u8, 193u8, 119u8, 139u8, 43u8, 114u8, 13u8, 198u8,
-                    33u8, 203u8, 199u8, 83u8, 125u8, 59u8,
+                    68u8, 176u8, 56u8, 124u8, 206u8, 138u8, 85u8, 188u8, 92u8, 122u8,
+                    1u8, 155u8, 100u8, 117u8, 138u8, 118u8,
                 ])
             }
             Self::r#RuntimeDiagnosticsFindings(_) => {
@@ -1334,6 +1280,12 @@ impl FactBatch {
                     16u8, 114u8, 47u8, 126u8, 132u8, 242u8,
                 ])
             }
+            Self::r#RuntimeRunLineage(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    4u8, 113u8, 29u8, 76u8, 94u8, 73u8, 149u8, 27u8, 211u8, 53u8, 250u8,
+                    161u8, 85u8, 244u8, 5u8, 232u8,
+                ])
+            }
             Self::r#RuntimeSimulationEvents(_) => {
                 pse_ids::SemanticId::from_bytes([
                     68u8, 37u8, 108u8, 83u8, 90u8, 159u8, 135u8, 70u8, 231u8, 174u8,
@@ -1348,8 +1300,8 @@ impl FactBatch {
             }
             Self::r#RuntimeSolveConstraints(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    115u8, 140u8, 172u8, 164u8, 95u8, 53u8, 73u8, 173u8, 76u8, 130u8,
-                    96u8, 157u8, 132u8, 56u8, 242u8, 77u8,
+                    111u8, 1u8, 114u8, 49u8, 22u8, 99u8, 46u8, 7u8, 234u8, 91u8, 80u8,
+                    8u8, 132u8, 221u8, 64u8, 181u8,
                 ])
             }
             Self::r#RuntimeSolveMetrics(_) => {
@@ -1360,14 +1312,20 @@ impl FactBatch {
             }
             Self::r#RuntimeSolveRuns(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    16u8, 32u8, 107u8, 213u8, 82u8, 252u8, 243u8, 186u8, 180u8, 193u8,
-                    205u8, 152u8, 24u8, 239u8, 120u8, 42u8,
+                    135u8, 177u8, 81u8, 229u8, 235u8, 222u8, 208u8, 218u8, 247u8, 163u8,
+                    224u8, 71u8, 18u8, 116u8, 245u8, 28u8,
                 ])
             }
             Self::r#RuntimeSolveVariables(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    153u8, 247u8, 173u8, 45u8, 224u8, 51u8, 72u8, 98u8, 34u8, 84u8,
-                    120u8, 18u8, 92u8, 128u8, 189u8, 253u8,
+                    47u8, 227u8, 73u8, 54u8, 210u8, 232u8, 118u8, 142u8, 148u8, 158u8,
+                    221u8, 140u8, 88u8, 169u8, 245u8, 41u8,
+                ])
+            }
+            Self::r#RuntimeSolverCapabilities(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    223u8, 154u8, 86u8, 234u8, 87u8, 237u8, 32u8, 225u8, 181u8, 122u8,
+                    236u8, 20u8, 68u8, 100u8, 169u8, 160u8,
                 ])
             }
             Self::r#RuntimeValidationFindings(_) => {
@@ -1462,15 +1420,8 @@ impl FactBatch {
             Self::r#AuthoredTemplateSymbolProperties(rows) => rows.len(),
             Self::r#AuthoredTemplateSymbols(rows) => rows.len(),
             Self::r#AuthoredTemplates(rows) => rows.len(),
-            Self::r#InferredMethodResolutions(rows) => rows.len(),
-            Self::r#InferredPhaseSpecies(rows) => rows.len(),
-            Self::r#InferredPropertyRequirements(rows) => rows.len(),
-            Self::r#InferredStateFlashRequired(rows) => rows.len(),
-            Self::r#InferredValidIndexTuples(rows) => rows.len(),
-            Self::r#NormalizedDomainProducts(rows) => rows.len(),
             Self::r#NormalizedInstanceBindings(rows) => rows.len(),
             Self::r#NormalizedPackageGraph(rows) => rows.len(),
-            Self::r#NormalizedPropertyDemandSeeds(rows) => rows.len(),
             Self::r#NormalizedResolvedSourceOccurrences(rows) => rows.len(),
             Self::r#NormalizedSourceOccurrences(rows) => rows.len(),
             Self::r#NormalizedUnits(rows) => rows.len(),
@@ -1538,12 +1489,14 @@ impl FactBatch {
             Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
             Self::r#RuntimeResponseSensitivities(rows) => rows.len(),
             Self::r#RuntimeRetainedVersions(rows) => rows.len(),
+            Self::r#RuntimeRunLineage(rows) => rows.len(),
             Self::r#RuntimeSimulationEvents(rows) => rows.len(),
             Self::r#RuntimeSimulationSamples(rows) => rows.len(),
             Self::r#RuntimeSolveConstraints(rows) => rows.len(),
             Self::r#RuntimeSolveMetrics(rows) => rows.len(),
             Self::r#RuntimeSolveRuns(rows) => rows.len(),
             Self::r#RuntimeSolveVariables(rows) => rows.len(),
+            Self::r#RuntimeSolverCapabilities(rows) => rows.len(),
             Self::r#RuntimeValidationFindings(rows) => rows.len(),
         }
     }
@@ -1962,47 +1915,12 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#InferredMethodResolutions(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#InferredPhaseSpecies(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#InferredPropertyRequirements(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#InferredStateFlashRequired(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#InferredValidIndexTuples(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#NormalizedDomainProducts(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
             Self::r#NormalizedInstanceBindings(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
             Self::r#NormalizedPackageGraph(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#NormalizedPropertyDemandSeeds(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2342,6 +2260,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeRunLineage(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeSimulationEvents(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -2368,6 +2291,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeSolveVariables(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeSolverCapabilities(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2702,30 +2630,6 @@ impl FactBatch {
             Self::r#AuthoredTemplates(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredTemplates(vec![row.clone()]))
             }
-            Self::r#InferredMethodResolutions(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#InferredMethodResolutions(vec![row.clone()]))
-            }
-            Self::r#InferredPhaseSpecies(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#InferredPhaseSpecies(vec![row.clone()]))
-            }
-            Self::r#InferredPropertyRequirements(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#InferredPropertyRequirements(vec![row.clone()]))
-            }
-            Self::r#InferredStateFlashRequired(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#InferredStateFlashRequired(vec![row.clone()]))
-            }
-            Self::r#InferredValidIndexTuples(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#InferredValidIndexTuples(vec![row.clone()]))
-            }
-            Self::r#NormalizedDomainProducts(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#NormalizedDomainProducts(vec![row.clone()]))
-            }
             Self::r#NormalizedInstanceBindings(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#NormalizedInstanceBindings(vec![row.clone()]))
@@ -2733,10 +2637,6 @@ impl FactBatch {
             Self::r#NormalizedPackageGraph(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#NormalizedPackageGraph(vec![row.clone()]))
-            }
-            Self::r#NormalizedPropertyDemandSeeds(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#NormalizedPropertyDemandSeeds(vec![row.clone()]))
             }
             Self::r#NormalizedResolvedSourceOccurrences(rows) => {
                 rows.get(index)
@@ -3003,6 +2903,9 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeRetainedVersions(vec![row.clone()]))
             }
+            Self::r#RuntimeRunLineage(rows) => {
+                rows.get(index).map(|row| Self::r#RuntimeRunLineage(vec![row.clone()]))
+            }
             Self::r#RuntimeSimulationEvents(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeSimulationEvents(vec![row.clone()]))
@@ -3024,6 +2927,10 @@ impl FactBatch {
             Self::r#RuntimeSolveVariables(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeSolveVariables(vec![row.clone()]))
+            }
+            Self::r#RuntimeSolverCapabilities(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeSolverCapabilities(vec![row.clone()]))
             }
             Self::r#RuntimeValidationFindings(rows) => {
                 rows.get(index)
@@ -3857,69 +3764,6 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#InferredMethodResolutions(left),
-                Self::r#InferredMethodResolutions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#InferredPhaseSpecies(left), Self::r#InferredPhaseSpecies(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#InferredPropertyRequirements(left),
-                Self::r#InferredPropertyRequirements(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#InferredStateFlashRequired(left),
-                Self::r#InferredStateFlashRequired(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#InferredValidIndexTuples(left),
-                Self::r#InferredValidIndexTuples(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedDomainProducts(left),
-                Self::r#NormalizedDomainProducts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
                 Self::r#NormalizedInstanceBindings(left),
                 Self::r#NormalizedInstanceBindings(right),
             ) => {
@@ -3933,17 +3777,6 @@ impl FactBatch {
             (
                 Self::r#NormalizedPackageGraph(left),
                 Self::r#NormalizedPackageGraph(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedPropertyDemandSeeds(left),
-                Self::r#NormalizedPropertyDemandSeeds(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4638,6 +4471,14 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (Self::r#RuntimeRunLineage(left), Self::r#RuntimeRunLineage(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (
                 Self::r#RuntimeSimulationEvents(left),
                 Self::r#RuntimeSimulationEvents(right),
@@ -4690,6 +4531,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeSolveVariables(left),
                 Self::r#RuntimeSolveVariables(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeSolverCapabilities(left),
+                Self::r#RuntimeSolverCapabilities(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -5282,48 +5134,6 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#InferredMethodResolutions(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#InferredPhaseSpecies(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#InferredPropertyRequirements(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#InferredStateFlashRequired(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#InferredValidIndexTuples(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#NormalizedDomainProducts(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#NormalizedInstanceBindings(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -5332,13 +5142,6 @@ impl FactBatch {
                     })
             }
             Self::r#NormalizedPackageGraph(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#NormalizedPropertyDemandSeeds(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5814,6 +5617,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeRunLineage(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeSimulationEvents(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -5850,6 +5660,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeSolveVariables(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeSolverCapabilities(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -7009,99 +6826,6 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#InferredMethodResolutions(left),
-                Self::r#InferredMethodResolutions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#requirement_id,
-                            &right.r#requirement_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#InferredPhaseSpecies(left), Self::r#InferredPhaseSpecies(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#material_system_id,
-                            &right.r#material_system_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#phase_id,
-                                &right.r#phase_id,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#species_id,
-                                &right.r#species_id,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#InferredPropertyRequirements(left),
-                Self::r#InferredPropertyRequirements(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#requirement_id,
-                            &right.r#requirement_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#InferredStateFlashRequired(left),
-                Self::r#InferredStateFlashRequired(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#state_instance,
-                            &right.r#state_instance,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#InferredValidIndexTuples(left),
-                Self::r#InferredValidIndexTuples(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#product_id,
-                            &right.r#product_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#tuple,
-                                &right.r#tuple,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedDomainProducts(left),
-                Self::r#NormalizedDomainProducts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#product_id,
-                            &right.r#product_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
                 Self::r#NormalizedInstanceBindings(left),
                 Self::r#NormalizedInstanceBindings(right),
             ) => {
@@ -7125,17 +6849,6 @@ impl FactBatch {
                             &left.r#package_id,
                             &right.r#package_id,
                         )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedPropertyDemandSeeds(left),
-                Self::r#NormalizedPropertyDemandSeeds(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#seed_id, &right.r#seed_id)
                     }
                     _ => false,
                 }
@@ -8148,6 +7861,18 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (Self::r#RuntimeRunLineage(left), Self::r#RuntimeRunLineage(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                    }
+                    _ => false,
+                }
+            }
             (
                 Self::r#RuntimeSimulationEvents(left),
                 Self::r#RuntimeSimulationEvents(right),
@@ -8252,6 +7977,17 @@ impl FactBatch {
                                 &left.r#symbol_id,
                                 &right.r#symbol_id,
                             )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeSolverCapabilities(left),
+                Self::r#RuntimeSolverCapabilities(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#backend, &right.r#backend)
                     }
                     _ => false,
                 }
@@ -8640,33 +8376,6 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
             }
-            Self::r#InferredMethodResolutions(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#requirement_id, &mut hash);
-            }
-            Self::r#InferredPhaseSpecies(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#material_system_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#phase_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#species_id, &mut hash);
-            }
-            Self::r#InferredPropertyRequirements(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#requirement_id, &mut hash);
-            }
-            Self::r#InferredStateFlashRequired(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#state_instance, &mut hash);
-            }
-            Self::r#InferredValidIndexTuples(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#product_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#tuple, &mut hash);
-            }
-            Self::r#NormalizedDomainProducts(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#product_id, &mut hash);
-            }
             Self::r#NormalizedInstanceBindings(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#instance_id, &mut hash);
@@ -8674,10 +8383,6 @@ impl FactBatch {
             Self::r#NormalizedPackageGraph(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#package_id, &mut hash);
-            }
-            Self::r#NormalizedPropertyDemandSeeds(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#seed_id, &mut hash);
             }
             Self::r#NormalizedResolvedSourceOccurrences(rows) => {
                 let row = rows.get(index)?;
@@ -8996,6 +8701,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#through_version, &mut hash);
                 crate::SemanticFrame::frame(&row.r#reason, &mut hash);
             }
+            Self::r#RuntimeRunLineage(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+            }
             Self::r#RuntimeSimulationEvents(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -9031,6 +8741,10 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
                 crate::SemanticFrame::frame(&row.r#symbol_id, &mut hash);
+            }
+            Self::r#RuntimeSolverCapabilities(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#backend, &mut hash);
             }
             Self::r#RuntimeValidationFindings(rows) => {
                 let row = rows.get(index)?;
@@ -9566,48 +9280,6 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#InferredMethodResolutions(left),
-                Self::r#InferredMethodResolutions(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#InferredPhaseSpecies(left),
-                Self::r#InferredPhaseSpecies(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#InferredPropertyRequirements(left),
-                Self::r#InferredPropertyRequirements(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#InferredStateFlashRequired(left),
-                Self::r#InferredStateFlashRequired(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#InferredValidIndexTuples(left),
-                Self::r#InferredValidIndexTuples(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#NormalizedDomainProducts(left),
-                Self::r#NormalizedDomainProducts(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
                 Self::r#NormalizedInstanceBindings(left),
                 Self::r#NormalizedInstanceBindings(mut right),
             ) => {
@@ -9617,13 +9289,6 @@ impl FactBatch {
             (
                 Self::r#NormalizedPackageGraph(left),
                 Self::r#NormalizedPackageGraph(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#NormalizedPropertyDemandSeeds(left),
-                Self::r#NormalizedPropertyDemandSeeds(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -10079,6 +9744,10 @@ impl FactBatch {
                 left.append(&mut right);
                 Ok(())
             }
+            (Self::r#RuntimeRunLineage(left), Self::r#RuntimeRunLineage(mut right)) => {
+                left.append(&mut right);
+                Ok(())
+            }
             (
                 Self::r#RuntimeSimulationEvents(left),
                 Self::r#RuntimeSimulationEvents(mut right),
@@ -10114,6 +9783,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeSolveVariables(left),
                 Self::r#RuntimeSolveVariables(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeSolverCapabilities(left),
+                Self::r#RuntimeSolverCapabilities(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -10259,23 +9935,10 @@ impl crate::HeapUsage for FactBatch {
             }
             Self::r#AuthoredTemplateSymbols(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredTemplates(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#InferredMethodResolutions(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#InferredPhaseSpecies(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#InferredPropertyRequirements(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#InferredStateFlashRequired(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#InferredValidIndexTuples(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#NormalizedDomainProducts(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#NormalizedInstanceBindings(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#NormalizedPackageGraph(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#NormalizedPropertyDemandSeeds(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
             Self::r#NormalizedResolvedSourceOccurrences(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
@@ -10387,12 +10050,14 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeRetainedVersions(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeRunLineage(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSimulationEvents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSimulationSamples(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveConstraints(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveMetrics(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveRuns(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveVariables(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeSolverCapabilities(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeValidationFindings(rows) => crate::HeapUsage::heap_bytes(rows),
         }
     }

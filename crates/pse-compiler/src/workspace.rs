@@ -121,10 +121,10 @@ pub struct WorkspaceLimits {
     pub entries: usize,
     /// Maximum admitted input extent (including conservative owned metadata allowance).
     pub input_bytes: usize,
-    /// Publish count before rebuilding a fresh generation from current inputs.
-    pub revisions: usize,
-    /// Prepare calls before generation reconstruction, bounding query keys too.
-    pub preparations: usize,
+    /// Maximum retained Salsa ingredient entries, including owned query keys.
+    pub retained_entries: usize,
+    /// Maximum known retained Salsa bytes; foreign library heaps are not claimed here.
+    pub retained_bytes: usize,
     /// Retained values per expensive query.
     pub query_values: usize,
 }
@@ -133,8 +133,8 @@ impl Default for WorkspaceLimits {
         Self {
             entries: 4096,
             input_bytes: 2 << 30,
-            revisions: 64,
-            preparations: 256,
+            retained_entries: 16_384,
+            retained_bytes: 256 << 20,
             query_values: 64,
         }
     }
@@ -146,8 +146,16 @@ pub enum CompileError {
     #[error("missing compiler input: {0}")]
     Missing(String),
     /// Source parser failure.
-    #[error("source syntax: {0}")]
-    Syntax(Arc<pse_authoring::dsl::DslError>),
+    #[error("definition {definition} source {source_index}: {error}")]
+    Syntax {
+        /// Authored definition, independent of its changing byte offsets.
+        definition: SemanticId,
+        /// Ordered expression within the definition.
+        source_index: usize,
+        /// Exact parser failure and byte range.
+        #[source]
+        error: Arc<pse_authoring::dsl::DslError>,
+    },
     /// Physical/math rejection.
     #[error(transparent)]
     Math(Arc<MathError>),
@@ -164,14 +172,25 @@ pub enum CompileError {
 pse_diagnostics::impl_diagnostic! {
     CompileError,
     code(this) { Some(match this { Self::Cancelled=>pse_diagnostics::DiagnosticCode::RuntimeCancelled,Self::Limit(_)=>pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,_=>pse_diagnostics::DiagnosticCode::CompileMath }) },
-    forward(this) { match this {Self::Math(e)=>Some(e.as_ref()),Self::Structure(e)=>Some(e),_=>None} },
+    forward(this) { match this {Self::Math(e)=>Some(e.as_ref()),Self::Syntax{error,..}=>Some(error.as_ref()),Self::Structure(e)=>Some(e),_=>None} },
     help(_this) { None },related(_this) { None },source(_this) { None }
 }
 impl PartialEq for CompileError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Missing(a), Self::Missing(b)) => a == b,
-            (Self::Syntax(a), Self::Syntax(b)) => Arc::ptr_eq(a, b),
+            (
+                Self::Syntax {
+                    definition: a,
+                    source_index: ai,
+                    error: ae,
+                },
+                Self::Syntax {
+                    definition: b,
+                    source_index: bi,
+                    error: be,
+                },
+            ) => a == b && ai == bi && Arc::ptr_eq(ae, be),
             (Self::Math(a), Self::Math(b)) => Arc::ptr_eq(a, b),
             (Self::Structure(a), Self::Structure(b)) => a == b,
             (Self::Cancelled, Self::Cancelled) => true,
@@ -214,13 +233,27 @@ fn math_result<T>(db: &dyn CompilerDb, result: std::result::Result<T, MathError>
     checkpoint(db);
     result.map_err(CompileError::from)
 }
+#[salsa::interned(heap_size = name_key_heap)]
+struct NameKey<'db> {
+    text: String,
+}
+fn name_key_heap((text,): &(String,)) -> usize {
+    text.capacity()
+}
+#[salsa::interned(heap_size = selection_key_heap)]
+struct SelectionKey<'db> {
+    ids: Vec<SemanticId>,
+}
+fn selection_key_heap((ids,): &(Vec<SemanticId>,)) -> usize {
+    ids.capacity().saturating_mul(size_of::<SemanticId>())
+}
 #[salsa::input]
 struct Inventory {
     environment: ContentHash,
     flows: BTreeMap<SemanticId, pse_structural::flowsheet::Declaration>,
     quantities: Arc<QuantityRegistry>,
     preconditions: Arc<PhysicalPreconditions>,
-    definitions: BTreeMap<SemanticId, Definition>,
+    definitions: BTreeMap<SemanticId, Arc<Definition>>,
     domains: BTreeMap<String, Domain>,
     groups: BTreeMap<String, Group>,
     providers: BTreeMap<String, ProviderCall>,
@@ -228,20 +261,29 @@ struct Inventory {
     values: BTreeMap<SemanticId, u64>,
 }
 #[salsa::tracked(returns(clone), lru = 64)]
-fn definition(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Option<Definition> {
+fn definition(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Option<Arc<Definition>> {
     i.definitions(db).get(&id).cloned()
 }
-#[salsa::tracked(returns(clone), lru = 64)]
 fn domain(db: &dyn CompilerDb, i: Inventory, name: String) -> Option<Domain> {
-    i.domains(db).get(&name).cloned()
+    domain_query(db, i, NameKey::new(db, name))
 }
 #[salsa::tracked(returns(clone), lru = 64)]
+fn domain_query(db: &dyn CompilerDb, i: Inventory, name: NameKey<'_>) -> Option<Domain> {
+    i.domains(db).get(name.text(db)).cloned()
+}
 fn group(db: &dyn CompilerDb, i: Inventory, name: String) -> Option<Group> {
-    i.groups(db).get(&name).cloned()
+    group_query(db, i, NameKey::new(db, name))
 }
 #[salsa::tracked(returns(clone), lru = 64)]
+fn group_query(db: &dyn CompilerDb, i: Inventory, name: NameKey<'_>) -> Option<Group> {
+    i.groups(db).get(name.text(db)).cloned()
+}
 fn provider(db: &dyn CompilerDb, i: Inventory, name: String) -> Option<ProviderCall> {
-    i.providers(db).get(&name).cloned()
+    provider_query(db, i, NameKey::new(db, name))
+}
+#[salsa::tracked(returns(clone), lru = 64)]
+fn provider_query(db: &dyn CompilerDb, i: Inventory, name: NameKey<'_>) -> Option<ProviderCall> {
+    i.providers(db).get(name.text(db)).cloned()
 }
 #[salsa::tracked(returns(clone), lru = 64)]
 fn case(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Option<Case> {
@@ -298,7 +340,14 @@ fn admitted(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<Adm
     let expressions = d
         .sources
         .iter()
-        .map(|s| pse_authoring::dsl::parse_expr(s).map_err(|e| CompileError::Syntax(Arc::new(e))))
+        .enumerate()
+        .map(|(source_index, s)| {
+            pse_authoring::dsl::parse_expr(s).map_err(|e| CompileError::Syntax {
+                definition: id,
+                source_index,
+                error: Arc::new(e),
+            })
+        })
         .collect::<Result<Vec<_>>>()?;
     let domains = d
         .domains
@@ -475,7 +524,6 @@ fn structure(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<St
     let result = result?;
     Ok(Arc::new(result))
 }
-#[salsa::tracked(returns(clone), lru = 64)]
 fn algebraic_partition(
     db: &dyn CompilerDb,
     i: Inventory,
@@ -483,6 +531,24 @@ fn algebraic_partition(
     rows: Vec<SemanticId>,
     columns: Vec<SemanticId>,
 ) -> Result<Arc<StructuralAnalysis>> {
+    algebraic_partition_query(
+        db,
+        i,
+        id,
+        SelectionKey::new(db, rows),
+        SelectionKey::new(db, columns),
+    )
+}
+#[salsa::tracked(returns(clone), lru = 64)]
+fn algebraic_partition_query(
+    db: &dyn CompilerDb,
+    i: Inventory,
+    id: SemanticId,
+    rows: SelectionKey<'_>,
+    columns: SelectionKey<'_>,
+) -> Result<Arc<StructuralAnalysis>> {
+    let rows = rows.ids(db);
+    let columns = columns.ids(db);
     let p = function_plan(
         db,
         i,
@@ -562,6 +628,11 @@ pub struct ArtifactRequest {
     profile: Profile,
 }
 impl ArtifactRequest {
+    /// Preserve product accounting if the request outlives its preparation.
+    pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
+        self.body = Arc::new(self.body.as_ref().clone().with_owner(owner));
+        self
+    }
     /// Complete source/build/numerical identity.
     pub fn key(&self) -> ContentHash {
         self.key
@@ -613,7 +684,6 @@ fn artifact_requests(
         ArtifactRequest{key:h.finish_hash(),demand:d.clone(),body:p.bodies()[&d.body].clone(),profile}
     }).collect())
 }
-#[salsa::tracked(returns(clone), lru = 64)]
 fn function_plan(
     db: &dyn CompilerDb,
     i: Inventory,
@@ -622,10 +692,36 @@ fn function_plan(
     coordinates: Vec<SemanticId>,
     order: DerivativeOrder,
 ) -> Result<Planned> {
+    function_plan_query(
+        db,
+        i,
+        id,
+        SelectionKey::new(db, outputs),
+        SelectionKey::new(db, coordinates),
+        order,
+    )
+}
+#[salsa::tracked(returns(clone), lru = 64)]
+fn function_plan_query(
+    db: &dyn CompilerDb,
+    i: Inventory,
+    id: SemanticId,
+    outputs: SelectionKey<'_>,
+    coordinates: SelectionKey<'_>,
+    order: DerivativeOrder,
+) -> Result<Planned> {
+    let outputs = outputs.ids(db);
+    let coordinates = coordinates.ids(db);
     let source = plan(db, i, id, DerivativeOrder::Value)?.0;
     Ok(Planned(Arc::new(math_result(
         db,
-        source.functions(&outputs, coordinates, i.quantities(db), order, db.cancel()),
+        source.functions(
+            outputs,
+            coordinates.clone(),
+            i.quantities(db),
+            order,
+            db.cancel(),
+        ),
     )?)))
 }
 /// Pure general function projection; roles are supplied by the consuming physical workflow.
@@ -676,13 +772,7 @@ fn coefficients(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Coe
         db,
         plan(db, i, id, DerivativeOrder::Value)?
             .0
-            .coefficients_with_facts(
-                &values,
-                &presolve_facts(db, i, id)?.0,
-                Optimization::default(),
-                100_000,
-                db.cancel(),
-            ),
+            .coefficients_with_facts(&values, &presolve_facts(db, i, id)?.0, 100_000, db.cancel()),
     )?;
     checkpoint(db);
     Ok(CoefficientProduct(Arc::new(result)))
@@ -751,6 +841,25 @@ pub struct PreparedCase {
     pub occurrences: BTreeMap<SemanticId, Vec<Occurrence>>,
     /// Explicit optional coefficient projection; failure is not guessed as another class.
     pub coefficients: Option<Arc<Coefficients>>,
+}
+impl PreparedCase {
+    /// Known escaping payload, excluding opaque library/container overhead. This
+    /// observation is separate from the bounded live Salsa generation allowance.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.plan.retained_bytes()
+            + self.presolve.bytes()
+            + self.quantities.allocation_extent()
+            + structure_heap(&Ok(self.structure.clone()))
+            + self.coefficient_values.capacity() * size_of::<(SemanticId, u64)>()
+            + self.artifacts.capacity() * size_of::<ArtifactRequest>()
+            + self
+                .occurrences
+                .values()
+                .map(|v| v.capacity() * size_of::<Occurrence>())
+                .sum::<usize>()
+            + self.coefficients.as_ref().map_or(0, |c| c.retained_bytes())
+    }
 }
 /// Pure conditional block products; runtime attaches boundary values and evaluator owners.
 #[derive(Clone, Debug)]
@@ -821,8 +930,7 @@ pub struct CompilerWorkspace {
     inventory: Inventory,
     inputs: Inputs,
     limits: WorkspaceLimits,
-    revisions: usize,
-    calls: usize,
+
     generation: usize,
 }
 impl std::fmt::Debug for CompilerWorkspace {
@@ -836,12 +944,15 @@ impl CompilerWorkspace {
     /// Admit the complete selected physical/model contract without constructing an
     /// evaluator, presolve snapshot, native solver or analysis-specific derivatives.
     pub fn admit_selected_case(&mut self, id: SemanticId) -> Result<Arc<CasePlan>> {
+        if self.retention_exceeded() {
+            self.rebuild(self.inputs.clone())?;
+        }
         self.db.cancel = Arc::new(AtomicBool::new(false));
         let result = salsa::Cancelled::catch(|| {
             plan(&self.db, self.inventory, id, DerivativeOrder::Value).map(|v| v.0)
         })
         .map_err(|_| CompileError::Cancelled)?;
-        self.db.trigger_lru_eviction();
+        self.trim_queries()?;
         result
     }
     /// Admit finite inputs before allocating Salsa storage.
@@ -866,8 +977,7 @@ impl CompilerWorkspace {
             inventory,
             inputs,
             limits,
-            revisions: 0,
-            calls: 0,
+
             generation: 0,
         })
     }
@@ -877,9 +987,7 @@ impl CompilerWorkspace {
         if self.inputs == next {
             return Ok(());
         }
-        if self.revisions >= self.limits.revisions
-            || self.metadata_bytes() > self.limits.input_bytes / 4
-        {
+        if self.retention_exceeded() {
             self.rebuild(next)?;
             return Ok(());
         }
@@ -892,7 +1000,24 @@ impl CompilerWorkspace {
         }
         field!(quantities, set_quantities);
         field!(preconditions, set_preconditions);
-        field!(definitions, set_definitions);
+        if self.inputs.definitions != next.definitions {
+            let previous = self.inventory.definitions(&self.db);
+            let definitions = next
+                .definitions
+                .iter()
+                .map(|(id, value)| {
+                    (
+                        *id,
+                        previous
+                            .get(id)
+                            .filter(|old| old.as_ref() == value)
+                            .cloned()
+                            .unwrap_or_else(|| Arc::new(value.clone())),
+                    )
+                })
+                .collect();
+            self.inventory.set_definitions(&mut self.db).to(definitions);
+        }
         field!(domains, set_domains);
         field!(groups, set_groups);
         field!(providers, set_providers);
@@ -904,16 +1029,17 @@ impl CompilerWorkspace {
         }
         field!(flows, set_flows);
         self.inputs = next;
-        self.revisions += 1;
-        self.db.trigger_lru_eviction();
+        self.trim_queries()?;
         Ok(())
     }
     fn rebuild(&mut self, inputs: Inputs) -> Result<()> {
         let cancelled = self.db.cancellation_token().is_cancelled();
+        let worker_cancel = self.db.cancel.clone();
         let generation = self.generation + 1;
         let replacement = Self::new(inputs, self.limits)?;
         *self = replacement;
         self.generation = generation;
+        self.db.cancel = worker_cancel;
         if cancelled {
             self.db.cancellation_token().cancel();
         }
@@ -937,18 +1063,23 @@ impl CompilerWorkspace {
         if rows.len() > self.limits.entries || columns.len() > self.limits.entries {
             return Err(CompileError::Limit("dynamic partition"));
         }
-        if self.calls >= self.limits.preparations
-            || self.metadata_bytes() > self.limits.input_bytes / 4
-        {
+        if self.retention_exceeded() {
             self.rebuild(self.inputs.clone())?;
         }
+        if rows
+            .len()
+            .saturating_add(columns.len())
+            .saturating_mul(size_of::<SemanticId>())
+            > self.limits.retained_bytes
+        {
+            return Err(CompileError::Limit("dynamic partition key payload"));
+        }
         self.db.cancel = cancel;
-        self.calls += 1;
         let result = salsa::Cancelled::catch(|| {
             algebraic_partition(&self.db, self.inventory, id, rows, columns)
         })
         .map_err(|_| CompileError::Cancelled)?;
-        self.db.trigger_lru_eviction();
+        self.trim_queries()?;
         result
     }
     /// Prepare general functions through the same bounded pure Salsa database.
@@ -964,16 +1095,20 @@ impl CompilerWorkspace {
         if cancel.load(Ordering::Acquire) {
             return Err(CompileError::Cancelled);
         }
-        if self.calls >= self.limits.preparations
-            || self.metadata_bytes() > self.limits.input_bytes / 4
-        {
+        if self.retention_exceeded() {
             self.rebuild(self.inputs.clone())?;
         }
-        if coordinates.len() > self.limits.entries || outputs.len() > self.limits.entries {
+        if coordinates
+            .len()
+            .saturating_add(outputs.len())
+            .saturating_mul(size_of::<SemanticId>())
+            > self.limits.retained_bytes
+            || coordinates.len() > self.limits.entries
+            || outputs.len() > self.limits.entries
+        {
             return Err(CompileError::Limit("derivative coordinates"));
         }
         self.db.cancel = cancel;
-        self.calls += 1;
         let result = salsa::Cancelled::catch(|| {
             let plan = function_plan(&self.db, self.inventory, id, outputs, coordinates, order)?.0;
             Ok(PreparedFunctions {
@@ -982,7 +1117,7 @@ impl CompilerWorkspace {
             })
         })
         .map_err(|_| CompileError::Cancelled)?;
-        self.db.trigger_lru_eviction();
+        self.trim_queries()?;
         result
     }
     /// Prepare only each conditional block's demanded rows and derivative coordinates.
@@ -992,18 +1127,15 @@ impl CompilerWorkspace {
         profile: Profile,
         order: DerivativeOrder,
     ) -> Result<Arc<Vec<PreparedBlock>>> {
-        if self.calls >= self.limits.preparations
-            || self.metadata_bytes() > self.limits.input_bytes / 4
-        {
+        if self.retention_exceeded() {
             self.rebuild(self.inputs.clone())?;
         }
         self.db.cancel = Arc::new(AtomicBool::new(false));
-        self.calls += 1;
         let result = salsa::Cancelled::catch(|| {
             initialization_blocks(&self.db, self.inventory, id, profile, order).map(|v| v.0)
         })
         .map_err(|_| CompileError::Cancelled)?;
-        self.db.trigger_lru_eviction();
+        self.trim_queries()?;
         result
     }
     /// Pure tracked flow projection. Runtime callers serialize this workspace lease.
@@ -1011,16 +1143,13 @@ impl CompilerWorkspace {
         &mut self,
         id: SemanticId,
     ) -> Result<Arc<pse_structural::flowsheet::FlowGraph>> {
-        if self.calls >= self.limits.preparations
-            || self.metadata_bytes() > self.limits.input_bytes / 4
-        {
+        if self.retention_exceeded() {
             self.rebuild(self.inputs.clone())?;
         }
         self.db.cancel = Arc::new(AtomicBool::new(false));
-        self.calls += 1;
         let result = salsa::Cancelled::catch(|| flow_graph(&self.db, self.inventory, id))
             .map_err(|_| CompileError::Cancelled)?;
-        self.db.trigger_lru_eviction();
+        self.trim_queries()?;
         result
     }
     /// Pure tracked conditional block schedule; no solver state enters Salsa.
@@ -1028,17 +1157,44 @@ impl CompilerWorkspace {
         &mut self,
         id: SemanticId,
     ) -> Result<Arc<pse_structural::initialization::Plan>> {
-        if self.calls >= self.limits.preparations
-            || self.metadata_bytes() > self.limits.input_bytes / 4
-        {
+        if self.retention_exceeded() {
             self.rebuild(self.inputs.clone())?;
         }
         self.db.cancel = Arc::new(AtomicBool::new(false));
-        self.calls += 1;
         let result = salsa::Cancelled::catch(|| initialization_plan(&self.db, self.inventory, id))
             .map_err(|_| CompileError::Cancelled)?;
-        self.db.trigger_lru_eviction();
+        self.trim_queries()?;
         result
+    }
+    fn trim_queries(&mut self) -> Result<()> {
+        self.db.trigger_lru_eviction();
+        // A single oversized result may escape in its returned Arc, but is not
+        // retained as a memo for the next request. Input admission remains separate.
+        if self.retention_exceeded() {
+            self.rebuild(self.inputs.clone())?;
+        }
+        Ok(())
+    }
+    fn retention_exceeded(&self) -> bool {
+        let (entries, bytes) = self.retention_usage();
+        entries > self.limits.retained_entries || bytes > self.limits.retained_bytes
+    }
+    /// Actual retained ingredients and known bytes, including every owned query-key payload.
+    /// Library heaps without Salsa heap callbacks remain outside this observation.
+    pub fn retention_usage(&self) -> (usize, usize) {
+        let report = <dyn Database>::memory_usage(&self.db);
+        report.structs.iter().chain(report.queries.values()).fold(
+            (0usize, 0usize),
+            |(entries, bytes), info| {
+                (
+                    entries.saturating_add(info.count()),
+                    bytes
+                        .saturating_add(info.size_of_metadata())
+                        .saturating_add(info.size_of_fields())
+                        .saturating_add(info.heap_size_of_fields().unwrap_or(0)),
+                )
+            },
+        )
     }
     /// Salsa-reported metadata/inline bytes, excluding unreported foreign allocations.
     pub fn metadata_bytes(&self) -> usize {
@@ -1084,13 +1240,10 @@ impl CompilerWorkspace {
         if cancel.load(Ordering::Acquire) {
             return Err(CompileError::Cancelled);
         }
-        if self.calls >= self.limits.preparations
-            || self.metadata_bytes() > self.limits.input_bytes / 4
-        {
+        if self.retention_exceeded() {
             self.rebuild(self.inputs.clone())?;
         }
         self.db.cancel = cancel;
-        self.calls += 1;
         let result = salsa::Cancelled::catch(|| {
             let p = plan(&self.db, self.inventory, id, order)?.0;
             let structural = structure(&self.db, self.inventory, id)?;
@@ -1128,48 +1281,50 @@ impl CompilerWorkspace {
             })
         })
         .map_err(|_| CompileError::Cancelled)?;
-        self.db.trigger_lru_eviction();
-        let report = <dyn Database>::memory_usage(&self.db);
-        let known = report
-            .structs
-            .iter()
-            .chain(report.queries.values())
-            .fold(0usize, |n, i| {
-                n.saturating_add(i.heap_size_of_fields().unwrap_or(0))
-                    .saturating_add(i.size_of_metadata())
-                    .saturating_add(i.size_of_fields())
-            });
-        if known > self.limits.input_bytes {
-            self.rebuild(self.inputs.clone())?;
-        }
+        self.trim_queries()?;
         result
     }
 }
 fn inventory(db: &dyn CompilerDb, i: &Inputs, environment: ContentHash) -> Inventory {
-    Inventory::new(
-        db,
+    Inventory::builder(
         environment,
         i.flows.clone(),
         i.quantities.clone(),
         i.preconditions.clone(),
-        i.definitions.clone(),
+        i.definitions
+            .iter()
+            .map(|(id, value)| (*id, Arc::new(value.clone())))
+            .collect(),
         i.domains.clone(),
         i.groups.clone(),
         i.providers.clone(),
         i.cases.clone(),
         value_bits(&i.values),
     )
+    .environment_durability(salsa::Durability::HIGH)
+    .quantities_durability(salsa::Durability::HIGH)
+    .preconditions_durability(salsa::Durability::HIGH)
+    .definitions_durability(salsa::Durability::MEDIUM)
+    .domains_durability(salsa::Durability::MEDIUM)
+    .groups_durability(salsa::Durability::MEDIUM)
+    .providers_durability(salsa::Durability::MEDIUM)
+    .cases_durability(salsa::Durability::MEDIUM)
+    .flows_durability(salsa::Durability::MEDIUM)
+    .values_durability(salsa::Durability::LOW)
+    .new(db)
 }
 fn configure(db: &mut CompilerDatabase, n: usize) {
+    algebraic_partition_query::set_lru_capacity(db, n);
+    function_plan_query::set_lru_capacity(db, n);
     initialization_blocks::set_lru_capacity(db, n);
     flow_declaration::set_lru_capacity(db, n);
     flow_graph::set_lru_capacity(db, n);
     initialization_plan::set_lru_capacity(db, n);
     problem_facts::set_lru_capacity(db, n);
     definition::set_lru_capacity(db, n);
-    domain::set_lru_capacity(db, n);
-    group::set_lru_capacity(db, n);
-    provider::set_lru_capacity(db, n);
+    domain_query::set_lru_capacity(db, n);
+    group_query::set_lru_capacity(db, n);
+    provider_query::set_lru_capacity(db, n);
     case::set_lru_capacity(db, n);
     physical_key::set_lru_capacity(db, n);
     admitted::set_lru_capacity(db, n);
@@ -1185,8 +1340,8 @@ fn validate(i: &Inputs, l: WorkspaceLimits) -> Result<()> {
     if [
         l.entries,
         l.input_bytes,
-        l.revisions,
-        l.preparations,
+        l.retained_entries,
+        l.retained_bytes,
         l.query_values,
     ]
     .contains(&0)

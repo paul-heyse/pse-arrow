@@ -36,7 +36,7 @@ pub struct RuntimeSolveConstraintsRow {
     ///dual
     pub r#dual: Option<f64>,
     ///dual_qualification
-    pub r#dual_qualification: String,
+    pub r#dual_qualification: crate::generated::enums::DualQualification,
 }
 impl crate::SemanticEq for RuntimeSolveConstraintsRow {
     fn semantic_eq(&self, other: &Self) -> bool {

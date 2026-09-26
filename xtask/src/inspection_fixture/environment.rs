@@ -105,7 +105,7 @@ impl Environment {
             inputs: vec![],
             members: vec![],
         };
-        let prepared = plan
+        let (prepared, _ticket) = plan
             .prepare_publication(
                 PublicationTarget {
                     reference: ResolvedTableReference {

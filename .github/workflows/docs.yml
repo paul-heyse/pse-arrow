@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The book. `docs / build` is a required check; `docs / deploy` publishes it to Pages
-# from `main` only.
+# The book builds on manual dispatch. Deployment requires an explicit input on `main`.
 #
 # The book never needs the Rust extension: `docs/generated/` is committed, so a
 # documentation change can be verified without a solver, a toolchain, or a wheel. The
@@ -11,19 +10,20 @@
 name: docs
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publish the built book to Pages (main only)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  # Pages deployments must not race. Grouping by ref (not by run) with
-  # cancel-in-progress on pull requests only means a superseded PR build is dropped
-  # while a main deployment always finishes.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Pages deployments must not race; a run for this ref finishes before another starts.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -41,13 +41,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: install mdBook
+      - name: Read documentation tool pins
+        id: docs-tools
+        run: echo "tools=$(python3 -m scripts.docs tool-specs)" >> "$GITHUB_OUTPUT"
+      - name: Install documentation tools
         uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
-          tool: mdbook
+          tool: ${{ steps.docs-tools.outputs.tools }}
       - name: ADR index is current
-        # `adr.py index` regenerates docs/adr/README.md and the decisions block in
-        # docs/SUMMARY.md; --check fails instead of writing. Run `just adr-index`.
+        # `adr.py index` regenerates the source-readable ADR index. Navigation is
+        # derived during publication. --check fails instead of writing.
         run: python3 scripts/adr.py index --check
       - name: register rows are well formed
         run: python3 scripts/check_register.py --lint
@@ -71,8 +74,10 @@ jobs:
           else
             echo "::notice::rust run ${run_id} produced no rustdoc artifact; continuing"
           fi
-      - name: mdbook build
-        run: mdbook build docs
+      - name: Publisher and citation fixtures
+        run: python3 -m unittest scripts.tests.test_docs scripts.tests.docs_integration -v
+      - name: Build documentation and search
+        run: python3 -m scripts.docs build
       - name: internal links resolve
         # --offline: external links are not this gate's business (they rot for reasons
         # outside the repository). Every internal link must resolve.
@@ -90,7 +95,7 @@ jobs:
   deploy:
     name: docs / deploy
     needs: [build]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ inputs.deploy && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read

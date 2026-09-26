@@ -105,23 +105,6 @@ class BuildMeasurementTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     build_measurements.artifacts(path)
 
-    def test_invalid_manifest_refusal_precedes_snapshot_and_every_process(self) -> None:
-        with (
-            patch("sys.argv", ["build_measurements", "build/refused"]),
-            patch.object(
-                build_measurements.implementation_phase,
-                "guard",
-                side_effect=ValueError("invalid current manifest"),
-            ) as guard,
-            patch.object(build_measurements, "snapshot") as snapshot,
-            patch.object(build_measurements, "measure") as measure,
-        ):
-            with self.assertRaisesRegex(ValueError, "invalid current manifest"):
-                build_measurements.main()
-            self.assertEqual(guard.call_args.args[1], ["bench-builds"])
-            snapshot.assert_not_called()
-            measure.assert_not_called()
-
     def test_new_cache_counters_are_counted_from_zero(self) -> None:
         self.assertEqual(
             build_measurements.counter_delta({"hits": {}}, {"hits": {"Rust": 2}}),

@@ -19,10 +19,20 @@ static BOOTSTRAP: LazyLock<Result<Registry, SchemaError>> = LazyLock::new(|| {
     let mut builder = RegistryBuilder::new();
     crate::catalog::declare(&mut builder);
     let mut registry = builder.resolve_base()?;
+    builder.derive_integrity();
+    registry.invariants = super::resolve_invariants(builder.invariants, &registry)?;
+    registry
+        .invariants
+        .sort_by_key(crate::model::InvariantSpec::qualified_name);
     let fingerprints = registry
         .relations
         .iter()
-        .map(|spec| crate::fingerprint::relation(&registry, spec))
+        .map(|spec| {
+            crate::fingerprint::semantic_product(
+                &registry,
+                &std::collections::BTreeSet::from([spec.id]),
+            )
+        })
         .collect::<Result<Vec<_>, _>>()?;
     for (spec, fingerprint) in registry.relations.iter_mut().zip(fingerprints) {
         spec.fingerprint = fingerprint;

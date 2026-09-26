@@ -7,6 +7,8 @@
     clippy::panic,
     reason = "qualification workloads fail on invalid or incomplete execution"
 )]
+#[path = "native_process/extended.rs"]
+mod extended;
 #[path = "../../tests/support/plan14.rs"]
 mod fixture;
 #[path = "native_process/phases.rs"]
@@ -35,13 +37,17 @@ fn process(c: &mut Criterion) {
         .with(compiler_phases.clone())
         .init();
     let spec: serde_json::Value =
-        serde_json::from_str(&std::env::var("PSE_PLAN14_COST_SPEC").unwrap()).unwrap();
+        serde_json::from_str(&std::env::var("PSE_PROCESS_COST_SPEC").unwrap()).unwrap();
     let id = spec["id"].as_str().unwrap();
     let operation = spec["operation"].as_str().unwrap();
     let reuse = spec["reuse"].as_str().unwrap();
     let blocks = spec["blocks"].as_u64().unwrap() as usize;
     let threads = spec["threads"].as_u64().unwrap() as usize;
-    let output = PathBuf::from(std::env::var("PSE_PLAN14_COST_OUTPUT").unwrap());
+    let output = PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap());
+    if spec["extended"].as_bool() == Some(true) {
+        extended::measure(c, &spec, &output, &compiler_phases);
+        return;
+    }
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(threads)
         .enable_all()
@@ -79,6 +85,8 @@ fn process(c: &mut Criterion) {
     let mut variables = BTreeSet::new();
     let mut peak = 0;
     let mut rss = 0;
+    let mut retained_bytes = 0;
+    let mut after_teardown_bytes = 0;
     let mut iterations = 0_u64;
     let mut group = c.benchmark_group("process");
     group
@@ -170,11 +178,21 @@ fn process(c: &mut Criterion) {
                 let begin=Instant::now();
                 let directory=tempfile::tempdir().unwrap();
                 let base=url::Url::from_directory_path(directory.path()).unwrap();
-                let command=result.prepare_publication(base,case,None,&owner.cancel).unwrap();
-                let committed=executor.block_on(command.commit(&owner.cancel)).unwrap();
-                let reopened=executor.block_on(runtime(owner).open(committed.clone(),&owner.cancel)).unwrap();
-                assert_eq!(reopened.root().version,committed.version);
-                drop(reopened);
+                let mut parent = None;
+                for _ in 0..spec["publications"].as_u64().unwrap_or(1) {
+                    let command=result.prepare_publication(base.clone(),case,parent,&owner.cancel).unwrap();
+                    let ticket=command.ticket.clone();
+                    parent=Some(command.publication_id);
+                    let committed=executor.block_on(command.commit(&owner.cancel)).unwrap();
+                    let reopened=executor.block_on(runtime(owner).open(committed.clone(),&owner.cancel)).unwrap();
+                    assert_eq!(reopened.root().version,committed.version);
+                    if spec["publications"].is_number() {
+                        for _ in 0..2 {
+                            assert_eq!(executor.block_on(runtime(owner).settle_publication(&ticket,&owner.cancel)),
+                                pse_runtime::workflow::PublicationSettlement::Committed{root:committed.clone()});
+                        }
+                    }
+                }
                 drop(directory);
                 mark(&mut phases,"publication_reopen",begin);
             }
@@ -185,13 +203,20 @@ fn process(c: &mut Criterion) {
         drop(revision);
         peak=peak.max(owner.runtime.observation_peak_bytes());
         rss=rss.max(owner.runtime.report().unwrap().process_peak_rss_bytes.unwrap());
+        let pool=owner.runtime.pool();
+        retained_bytes=retained_bytes.max(pool.reserved());
         drop(local);
+        after_teardown_bytes=after_teardown_bytes.max(pool.reserved());
         mark(&mut phases,"case_teardown",begin);
         iterations+=1;
     }));
     group.finish();
+    // Warm samples deliberately retain their original revision and runtime.
+    // Observe that owner's release separately from each sample's case teardown.
+    let retained_pool = retained.as_ref().map(|(owner, _)| owner.runtime.pool());
     drop(retained);
     drop(executor);
+    let final_retained_runtime_bytes = retained_pool.map(|pool| pool.reserved());
     for value in phases.values_mut() {
         *value /= iterations as f64;
     }
@@ -200,6 +225,9 @@ fn process(c: &mut Criterion) {
     }
     std::fs::write(output.join(format!("{id}-memory.json")),serde_json::to_vec_pretty(&serde_json::json!({
         "id":id,"iterations":iterations,"pool_peak_bytes":peak,"process_peak_rss_bytes":rss,
+        "retained_runtime_bytes":retained_bytes,"after_case_teardown_bytes":after_teardown_bytes,
+        "after_retained_runtime_teardown_bytes":final_retained_runtime_bytes,
+        "effective_process_parallelism":std::thread::available_parallelism().unwrap().get(),
         "workload":spec,"variables_observed":variables,"threads":threads,"native_threads":1,
         "phase_seconds":phases,"native_seconds":native_seconds,
         "compiler_phases":compiler_phases.report(iterations),
@@ -207,7 +235,7 @@ fn process(c: &mut Criterion) {
         "unavailable_submetrics":["JIT is not enabled", "native conversion and property-state construction are included in preparation/native execution, without separate clocks"],
         "scope":"case source admission, preparation/rebuild, joined native execution, validation/results, optional publication and teardown; application compilation excluded",
         "sampling":"10 flat Criterion samples, 250 ms warmup, 1 s target measurement time (extended for slow operations)",
-        "memory_scope":"pool observation per operation; process lifetime VmHWM from the dedicated benchmark process"
+        "memory_scope":"pool observation per operation; case teardown retains the warm runtime until sampling ends; final retained-runtime teardown is null for cold cases; process lifetime VmHWM from the dedicated benchmark process"
     })).unwrap()).unwrap();
 }
 fn revision_prepare_simulation(
@@ -221,7 +249,7 @@ fn revision_prepare_simulation(
 }
 fn configuration() -> Criterion {
     Criterion::default().output_directory(
-        &PathBuf::from(std::env::var("PSE_PLAN14_COST_OUTPUT").unwrap()).join("criterion"),
+        &PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap()).join("criterion"),
     )
 }
 criterion_group! {name=benches;config=configuration();targets=process}

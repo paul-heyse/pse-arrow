@@ -65,21 +65,6 @@ fn blocking<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + Send
         }
     }
 }
-/// Actual linked adapter capability, distinct from eligibility of a selected case.
-#[pyclass(frozen, skip_from_py_object, get_all, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct SolverCapability {
-    backend: String,
-    classes: Vec<String>,
-    derivatives: String,
-    warm: String,
-    reuse: String,
-    cancellation: String,
-    diagnostics: String,
-    general_bounds: bool,
-    sign_bounds: bool,
-    parallel: bool,
-}
 /// Borrow the same budget, services and executor as exact publication inspection.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -158,23 +143,30 @@ impl NativeRuntime {
         )?;
         Ok(NativePhysicalContext { inner })
     }
-    fn capabilities(&self) -> Vec<SolverCapability> {
-        self.inner
-            .capabilities()
-            .into_iter()
-            .map(|(b, c)| SolverCapability {
-                backend: b.as_str().into(),
-                classes: c.classes.iter().map(|v| v.as_str().into()).collect(),
-                derivatives: c.derivatives.as_str().into(),
-                warm: c.warm.as_str().into(),
-                reuse: c.reuse.into(),
-                cancellation: c.cancellation.into(),
-                diagnostics: c.diagnostics.into(),
-                general_bounds: c.general_bounds,
-                sign_bounds: c.sign_bounds,
-                parallel: c.parallel,
-            })
-            .collect()
+    fn capabilities(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        serde_json::to_vec(&self.inner.capabilities()).map_err(|e| invalid(py, e.to_string()))
+    }
+    fn clear_program_cache(&self) {
+        self.inner.clear_program_cache();
+    }
+    fn settle_publication(&self, py: Python<'_>, ticket: &[u8]) -> PyResult<Vec<u8>> {
+        if ticket.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
+            return Err(invalid(py, "publication ticket exceeds input allowance"));
+        }
+        let ticket: native::PublicationTicket =
+            serde_json::from_slice(ticket).map_err(|e| invalid(py, e.to_string()))?;
+        let cancel = pse_columnar::CancellationToken::new();
+        let result = blocking(
+            py,
+            &self.owner,
+            async {
+                Ok::<_, native::WorkflowError>(
+                    self.inner.settle_publication(&ticket, &cancel).await,
+                )
+            },
+            || cancel.cancel(),
+        )?;
+        serde_json::to_vec(&result).map_err(|e| invalid(py, e.to_string()))
     }
     fn model(
         &self,
@@ -409,7 +401,7 @@ impl NativeModelRevision {
         )?;
         Ok(NativePreparedOperation {
             owner: self.owner.clone(),
-            inner: PreparedOperation::Simulation(inner),
+            inner: PreparedOperation::Simulation(Box::new(inner)),
         })
     }
     #[pyo3(signature=(fit_id, settings, simulations, *, rank_tolerance=1e-8, max_cells=1000000))]
@@ -677,26 +669,21 @@ impl NativeRunResult {
     fn run_id(&self) -> String {
         self.inner.run_id.to_hex()
     }
+    fn completion(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        let completed = self
+            .inner
+            .completion()
+            .map_err(|e| errors::diagnostic(py, e))?;
+        serde_json::to_vec(completed).map_err(|e| invalid(py, e.to_string()))
+    }
     fn diagnostics(&self) -> Vec<inspection::DiagnosticReport> {
-        match self.inner.report() {
-            Err(e) => vec![inspection::DiagnosticReport::observe(e)],
-            Ok(native::RunReport::Fit(_)) => vec![],
-            Ok(native::RunReport::Simulation(report)) => report
-                .error
-                .as_ref()
-                .map(|e| inspection::DiagnosticReport::observe(e))
-                .into_iter()
-                .collect(),
-            Ok(native::RunReport::Solves(report)) => report
-                .outcomes
+        match self.inner.completion() {
+            Ok(completed) => completed
+                .diagnostics
                 .iter()
-                .filter_map(|outcome| match outcome {
-                    pse_runtime::math::solves::Outcome::Rejected(e) => {
-                        Some(inspection::DiagnosticReport::observe(e.as_ref()))
-                    }
-                    _ => None,
-                })
+                .map(|d| inspection::DiagnosticReport::observe(d))
                 .collect(),
+            Err(e) => vec![inspection::DiagnosticReport::observe(e)],
         }
     }
     fn tables(&self, py: Python<'_>) -> PyResult<Vec<String>> {
@@ -720,31 +707,46 @@ impl NativeRunResult {
             .map(inspection::TableStream::from_batch)
             .map_err(|e| errors::diagnostic(py, e.as_ref()))
     }
-    #[pyo3(signature=(base, workspace_id, *, parent=None))]
+    #[pyo3(signature=(base, workspace_id, *, parent=None, publication_id=None, attempt_id=None))]
     fn prepare_publication(
         &self,
         py: Python<'_>,
         base: &str,
         workspace_id: &str,
         parent: Option<&str>,
+        publication_id: Option<&str>,
+        attempt_id: Option<&str>,
     ) -> PyResult<NativePublicationAttempt> {
         let base = url::Url::parse(base).map_err(|e| invalid(py, e.to_string()))?;
-        let workspace = id(py, workspace_id)?;
+        let workspace_id = id(py, workspace_id)?;
         let parent = parent.map(|p| id(py, p)).transpose()?;
+        let request = match (publication_id, attempt_id) {
+            (None, None) => native::PublicationRequest::new(base, workspace_id, parent),
+            (Some(publication), Some(attempt)) => native::PublicationRequest {
+                base,
+                workspace_id,
+                parent,
+                publication_id: id(py, publication)?,
+                attempt_id: id(py, attempt)?,
+            },
+            _ => {
+                return Err(invalid(
+                    py,
+                    "publication_id and attempt_id must be supplied together",
+                ));
+            }
+        };
         let attempt = py
             .detach(|| {
-                self.inner.prepare_publication(
-                    base,
-                    workspace,
-                    parent,
-                    &pse_columnar::CancellationToken::new(),
-                )
+                self.inner
+                    .prepare_publication_request(request, &pse_columnar::CancellationToken::new())
             })
             .map_err(|e| errors::diagnostic(py, &e))?;
         Ok(NativePublicationAttempt {
             owner: self.owner.clone(),
             attempt_id: attempt.attempt_id.to_hex(),
             publication_id: attempt.publication_id.to_hex(),
+            ticket: serde_json::to_vec(&attempt.ticket).map_err(|e| invalid(py, e.to_string()))?,
             inner: Mutex::new(Some(attempt)),
         })
     }
@@ -759,9 +761,13 @@ pub(crate) struct NativePublicationAttempt {
     attempt_id: String,
     #[pyo3(get)]
     publication_id: String,
+    ticket: Vec<u8>,
 }
 #[pymethods]
 impl NativePublicationAttempt {
+    fn ticket(&self) -> Vec<u8> {
+        self.ticket.clone()
+    }
     fn commit(&self, py: Python<'_>) -> PyResult<(String, i64)> {
         let attempt = self
             .inner
@@ -914,7 +920,7 @@ impl SimulationSettings {
 }
 #[derive(Clone, Debug)]
 enum PreparedOperation {
-    Simulation(native::PreparedSimulation),
+    Simulation(Box<native::PreparedSimulation>),
     Fit(native::PreparedFit),
 }
 /// Immutable simulation/fitting view of the same owned job and Arrow result lifecycle.

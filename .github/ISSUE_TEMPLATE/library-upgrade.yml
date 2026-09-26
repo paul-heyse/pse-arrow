@@ -124,7 +124,7 @@ body:
     attributes:
       label: How the move will be verified
       description: >-
-        Beyond a green `just ci-pr`: the specific things that would catch a bad move —
+        If you choose to run `just ci-pr`, also consider the specific things that would catch a bad move —
         a parity run, a benchmark comparison with conditions, a fresh-store round trip,
         a feature-powerset run. Label with the §D evidence vocabulary.
     validations:

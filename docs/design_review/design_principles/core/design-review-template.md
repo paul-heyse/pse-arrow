@@ -1,228 +1,234 @@
 # Design review template
 
-**Version 2.0 · 2026-09-24** · Core layer: repository- and domain-agnostic.
-Standard: [design principles](design-principles.md) (`DP-nn`, gates `G1`–`G8`). Domain
-profiles add content to the numbered slots below; the repository binding says where reviews
-live and which profiles apply.
+**Version 3.0 · 2026-09-25** · Core layer: repository- and domain-agnostic.
+The [principles](design-principles.md) define foundations AP-01–AP-06, refinements DP-nn
+and gates G1–G9. Profile additions follow this template's versioned slots.
 
 ## Part 1 — The review contract
 
-### Tier
+### Tier and purpose
 
-| Tier | Use for | Slots |
-|---|---|---|
-| **Change review** | A bounded change, packet or PR within an accepted design | 1, 6, 7, 8, 12 (others only where a finding needs them) |
-| **Design review** | Architecture decisions, new mechanisms or boundary contracts, plan-level or target designs | 1–12, each scoped to the subject |
+| Choice | Meaning |
+|---|---|
+| Change tier | A bounded change within an accepted design. Compress to slots 1, 4, 6, 7, 12; other slots only where material. |
+| Design tier | A system/subsystem design, boundary change or new mechanism. Use the slots below with detail proportional to uncertainty. |
+| Conformance purpose | Assess against current authorities; identify conflicts without silently overriding them. |
+| Target purpose | Assess the best design for the functional target; route obstructing authority changes through slot 11. |
 
-Drop an irrelevant slot with a one-line reason tied to scope rather than inventing
-requirements. Slots 6, 7 and 12 carry the review's weight and stay tabular in both tiers.
+State the system/subsystem/change boundary separately from tier and purpose. Include the
+suppliers and consumers needed to understand that boundary. A narrow code sample cannot
+establish whole-system architecture. Drop irrelevant detail with a scope reason. A change
+review does not require a whole-system census; it does address the affected change scenario.
 
-### Purpose
+### Evidence and acceptance
 
-| Purpose | Judged against | Where a repository authority blocks a better design |
-|---|---|---|
-| **Conformance** | The current principles and the repository's current authorities | Follow the authority; note the conflict and whether it affects the decision |
-| **Target** | The best available design for the functional target (principles §1) | The blocking text is itself a finding: state the target, the text to change and its route in slot 11 |
+A document review establishes a proposed architecture and its reasoning, not runtime behavior.
+An inspected interface is Interface-checked. Code demonstrates the path that exists; only
+named executed tests/measurements support Tested/Measured claims. State current implementation
+separately from the proposed correction, and record which guarantees were not examined.
 
-State the purpose in slot 1. The binding may set a default.
+Specifications express intended contracts; implementations realize them. Disagreement is a
+finding or a stated pending change. Their coexistence is not itself duplicated authority.
+Historical reviews retain their standard version, scope and observations.
 
-### What a claim can rest on
-
-- **Document subject:** you have claims, not behaviour. You can establish whether the design is
-  specifiable (two competent implementers would build the same semantics) and decidable (each
-  invariant names where it is enforced and what is observable when violated). Evidence labels top
-  out at *Proposed*, or *Interface-checked* where you inspected the named interface. A
-  performance claim is a hypothesis unless it cites a measurement with conditions.
-- **Code subject:** the executing path is the evidence; names, comments and documents are claims
-  about it. Cite `file:line` and the expression. *Tested* and *Measured* name the test or
-  benchmark and its conditions.
-- **Both:** also report where document and code diverge, and which is authoritative. A design
-  document maintained independently of its code is itself a second authority (DP-01).
-- Anything a helper or subagent reports is a lead until you have read it yourself.
-
-### Principle verdicts
-
-For each applicable principle: **Satisfied** (the mechanism is identified, with where it is
-enforced and what it rejects), **Violated** (a concrete situation loses, contests or fails to
-enforce the required meaning), or **Unresolved** (the design neither establishes nor precludes
-it). Unresolved is not a pass.
+Each applicable foundation has a verdict: **satisfied**, **violated** or **unresolved**.
+Identify the scenario and mechanism, the concrete consequence, or the settling uncertainty.
+Use **not applicable** only with a scope reason. Applicable DP/profile requirements may be
+grouped by the argument they support; listing every rule is not evidence.
 
 ### Finding standard
 
-Each finding is one row with these fields; the middle three make it a finding rather than a
-preference. Reason from the evidence you have; do not demand probes or tests as proof of
-diligence where the reasoning is sound.
-
-| Field | Adequate when |
+| Field | Requirement |
 |---|---|
-| ID | `F01`, `F02`, … stable within the review, so plans and follow-ups can cite `review#F03` |
-| Finding | One defect, stated as a claim that could turn out wrong |
-| Principles · gate | Only IDs the argument uses |
-| Evidence or gap | Code: `file:line` and the expression. Document: section, quoted claim, and what is absent there |
-| Consequence | Inputs or state → wrong, ambiguous or unrecoverable outcome. If this cannot be written, there is no finding |
-| Correction | A direction with a rough surface area — not a patch |
-| Verification | Optional: how one would tell the correction landed, where that is not obvious |
+| ID | Stable within the review; give the finding a linkable anchor, such as `f01`. |
+| Finding | One falsifiable structural cause, grouping its concrete instances. |
+| Principles / gates / scenario | Only identifiers that support the argument. |
+| Evidence or gap | Read source/interface expression or document section; identify uncertainty honestly. |
+| Consequence | A trigger leads to incorrect behavior, amplified change, leaked knowledge, repeated policy, unnecessary coordination or inability to test/reason locally. |
+| Correction | A direction, expected responsibility boundary and approximate affected surface. |
+| Verification | How to distinguish a landed correction from renamed or relocated complexity; reasoning may suffice. |
 
-Group instances by structural cause: one cause with several instances is one finding.
+An architectural finding can be material while all current functional tests pass. Conversely,
+a large module or many changed files alone is not a finding. Show the responsibility crossed
+and why that crossing is unnecessary for the scenario. Evidence labels apply to the actual
+claim; an extension traced in source has not been executed merely because it is plausible.
 
-### Severity order
-
-1. **Correctness and authority** — failed gates, MUST gaps on in-scope behaviour.
-2. **Library leverage and extension locality** — bespoke generic code, duplicated meaning (G8, §E).
-3. **Measured cost.**
-
-A finding that moves none of these is an observation; label it as one or cut it.
-Over-construction is a finding too: bespoke machinery without a current requirement (DP-16).
-A library capability is never over-construction merely for lacking a consumer.
+Priority follows consequences: correctness/authority violations first; then architectural
+change cost, testability and library ownership; then measured cost. Do not discard a coupling
+finding because it has no known wrong numerical output. Compare the least complex viable
+alternative and assess over-construction from any integration, including library adoption.
 
 ### Decision rules
 
-| Situation | Decision |
+Settle **behavioral/semantic adequacy** (G1–G8 and applicable domain gates) and
+**architectural fitness** (G9, supported by the six foundation verdicts) separately.
+Neither substitutes for the other. G8 retains its established library-use meaning.
+
+| Situation in the declared scope | Decision |
 |---|---|
-| No MUST gap and no failed or unresolved gate on in-scope behaviour | Accept |
-| Only SHOULD deviations, each with an exception record | Accept scoped, with documented deviations |
-| MUST gap or failed gate on behaviour the design claims | Revise — or Accept with that behaviour removed from the supported scope |
-| Unresolved gate on in-scope behaviour | Not Accept; name the decision the author must make |
-| G8 is the only failed gate | Revise |
-| Competing authority, silent semantic loss, or an unbacked capability claim at the core | Reject or Revise, whatever else is strong |
+| No MUST gap; all applicable gates pass; all applicable foundations satisfied | Accept at the stated document/implementation evidence level |
+| Only SHOULD deviations with concrete exception records | Accept scoped, identifying deviations |
+| Failed gate or violated MUST, including G9 | Revise; a materially different supported scope may be assessed explicitly |
+| Material unresolved gate or foundation | Not Accept; name the missing decision or evidence |
+| Competing authority, silent semantic loss or unbacked core capability | Revise or Reject according to the consequence |
 
-Low code volume, elegance and performance never offset lost meaning, competing authority,
-hidden effects, invalid reuse or unsupported behaviour.
+Scope cannot be narrowed only in the verdict while the same broad capability remains claimed.
+A legitimate new core concept may require coordinated edits; judge the declared variation
+axis and architectural necessity. Tradeoffs do not waive a MUST. Acceptance of a target design
+never closes its implementation work or certifies the whole product.
 
-### Profile additions
+## Part 2 — Review slots
 
-A profile adds rows, columns, journeys, gates or subsections **within** the slots below, each
-marked with the profile's prefix. It never adds or removes a slot, so every review keeps the same
-shape regardless of profile.
+### 1. Scope, drivers and coverage
 
-## Part 2 — The template
-
-Replace bracketed prompts with evidence.
-
-### 1. Scope, purpose and coverage
-
-| | |
+| Field | Content |
 |---|---|
-| Subject | [Document path, code scope, or both] |
-| Standard | [Core version; profiles; binding] |
-| Tier · purpose | [Change / design] · [conformance / target] |
-| Reviewer · date | [Accountable person or agent] · [date] |
-| Decision | [From slot 12] |
+| Subject and boundary | Documents/code; system, subsystem or change; relevant neighbors |
+| Standard | Core/profile versions and binding |
+| Tier / purpose | Change or design; conformance or target |
+| Reviewer / date | Accountable reviewer; distinguish author review from independent review |
+| Decisions | Behavioral adequacy; architectural fitness; overall decision, from slot 12 |
+| Disposition owner | Plan/packet or other binding-designated owner of follow-up status |
 
-**Outcome sought:** [What becomes possible, safer, simpler or measurably better.]
-**Baseline:** [The existing design and its relevant limits.]
-**Supported scope and non-goals:** [Capabilities and guarantees actually claimed.]
-**Method and coverage:** [What was examined, what was not, what could not be verified and why —
-so silence cannot be mistaken for assurance.]
+State the functional target, qualities driving this change, baseline, supported scope and
+non-goals. Explain what was inspected, asserted, not examined or unavailable. Identify likely
+variation axes and constraints before naming implementation mechanisms.
 
-### 2. Authority and identity map
+### 2. Decomposition, ownership and dependencies
 
-| Fact or concept | Semantic type and identity | Authority / owner | Revision boundary | Update path | Derived representations |
+| Component / responsibility | Decision or invariant hidden | Contract consumed / exposed | Dependency direction and reason | State/effect owner | Local test setup |
 |---|---|---|---|---|---|
-| [Definition / binding / policy / observation / execution state / result] | | | | | |
 
-**Opaque behaviour:** [What sits outside the declarative model, and which contract governs it.]
-**Identity behaviour:** [Rename, reorder, reserialize, regenerate, split or merge, as applicable.]
+Show the consequential dependencies, with a small diagram if helpful. Explain the composition
+root and which decisions may vary independently. Distinguish an intentional shared semantic
+contract from an incidental backend type. Name the context needed for a safe local change;
+module/file count is not a proxy. Derive observed dependencies from source/manifests rather
+than creating a competing hand-maintained dependency graph.
 
-### 3. Contracts and invariants
+### 3. Contracts, authority and constraints
 
-| Invariant or contract | Enforcement point | Failure behaviour | Evidence |
+| Meaning / contract | Authoritative owner and update path | Consumer obligations / invariant | Enforcement and failure | Derived representations / evolution |
+|---|---|---|---|---|
+
+Include identities, absence/outcome states and equivalence only where interpretation depends
+on them. Explain substitution for the capabilities actually consumed, including unsupported
+work and effects. Identify intended specification versus observed implementation explicitly.
+
+### 4. Change scenarios and composition
+
+Give scenarios stable local IDs (`S01`, `S02`, …) so findings and work can cite them. Reference
+an existing scenario definition instead of re-authoring it when its meaning is unchanged.
+
+| Scenario / stimulus and conditions | Expected response and change boundary | Edit/composition path | Observed or predicted impact | Acceptance and evidence |
+|---|---|---|---|---|
+
+Choose the small set that distinguishes the design alternatives. Useful scenarios include an
+ordinary extension, implementation/library replacement, new workflow, representation change,
+independent test and meaningful contract evolution. For each, identify genuinely new meaning,
+reused primitives, repeated decisions, affected owners and needed context. Add failure/recovery
+journeys when lifecycle is material. No mandatory number of scenarios or numeric change quota.
+
+### 5. Mechanisms and execution, where material
+
+Deepen only the mechanisms needed to settle the architecture or its correctness obligations.
+
+| Stage / owner | Contract and mechanism | Inputs / dependencies | Effects and lifecycle | Reuse / equivalence / limits | Evidence or uncertainty |
+|---|---|---|---|---|---|
+
+For computations, include structural/value inputs, termination, precision and determinism
+where relevant. For boundaries, include ownership, representation, batching and loss. A
+noncomputational subsystem need not invent cache, graph or publication requirements.
+
+### 6. Architectural assessment and gates
+
+| Foundation | Scenario and evidence / scope reason | Verdict | Required action |
 |---|---|---|---|
+| AP-01 Separation of concerns | | | |
+| AP-02 Stable contracts | | | |
+| AP-03 Composition | | | |
+| AP-04 Authoritative meaning | | | |
+| AP-05 Explicit structure | | | |
+| AP-06 Local reasoning/testability | | | |
 
-**Absence and outcome states:** [Which of not supplied / not applicable / not computed / unknown /
-invalid / partial / failed are distinguished, and where.]
-**Equivalence promised:** [Byte / structural / semantic / approximate, with tolerances.]
-
-### 4. Derivation and execution
-
-One row per nontrivial stage. Every cell you had to invent is a decision the design has not made.
-
-| Stage | Semantic output and equality | Mechanism (library / routine / own code) | Inputs and observed dependencies (incl. membership, absence) | Structural vs value inputs | Reuse boundary | Termination / exactness / determinism | Effects, ownership, publication | Expected size and cost |
-|---|---|---|---|---|---|---|---|---|
-
-**Relationship structures:** [Which graphs or projections exist, and what their edges mean.]
-**Boundaries:** [Schema, identity, ownership, batching and loss at each language, process or
-storage boundary.]
-
-### 5. Journeys
-
-Trace the journeys relevant to the scope; skip the rest with a reason.
-
-- **Ordinary extension:** a new entity, rule, provider or model. Count new semantic decisions,
-  genuinely new code, and places meaning is re-expressed (§E).
-- **Meaningful change:** a changed definition, policy or assumption. Identity, invalidation,
-  retained artifacts, and what the change looks like at the level of meaning.
-- **Boundary round trip:** meaning through serialization, a language bridge or another backend.
-- **Interruption or failure:** cancellation, crash, retry, unsupported capability, invalid input.
-  Observable state, valid partial outputs, effects already performed, recovery.
-
-### 6. Gates
-
-| Gate | Verdict (pass / fail / unresolved / n.a.) | Evidence or scope reason | Required action |
+| Gate | Pass / fail / unresolved / not applicable | Evidence or scope reason | Required action |
 |---|---|---|---|
 | G1 Authority | | | |
 | G2 Semantic fidelity | | | |
 | G3 Validity | | | |
-| G4 Hidden behaviour | | | |
+| G4 Hidden behavior | | | |
 | G5 Consistency and recovery | | | |
 | G6 Transformation and reuse | | | |
 | G7 Truthful capability claims | | | |
 | G8 Library leverage | | | |
-| [Profile gates] | | | |
+| G9 Architectural fitness | | | |
+| Applicable profile gates | | | |
+
+G9 follows the individual foundation verdicts, without averaging. For a change review, omit
+unaffected foundation rows with a scope explanation. Gate judgments must identify evidence;
+passing code tests do not establish unexamined architecture.
 
 ### 7. Findings
 
-| ID | Finding | Principles · gate | Evidence or gap | Consequence | Correction | Verification |
+| ID | Finding | Principles / gate / scenario | Evidence or gap | Consequence | Correction | Verification |
 |---|---|---|---|---|---|---|
+| <a id="f01"></a>F01 | | | | | | |
 
-**Applicability:** [Which pillars and profile principles bore on this scope and which did not,
-with the reason.]
-**Strengths that carry weight:** [What would break without them — not praise.]
+Record applicable refinements and strengths that affect the argument. Separate current defects
+from proposed improvements with no demonstrated defect. Status belongs to the disposition
+owner in slot 11, not to a second independently edited copy in this review.
 
-### 8. Library-leverage ledger
+### 8. Library fit and ownership cost
 
-Generic capabilities in scope that are, or would be, bespoke where a library plausibly applies
-(DP-13, §F). Use judgment about which matter; this is not an exhaustive inventory.
-
-| Capability | Bespoke code (location) | Candidate libraries or built-ins | Fit and gaps | Recommendation |
+| Capability / contract | Integration owner / exposed types | Candidate or current mechanism | Fit and limits | Coupling, lifecycle, test, upgrade/replacement cost | Bespoke code removed / recommendation |
 |---|---|---|---|---|---|
 
-### 9. Alternatives
+Apply principles §F to material choices. Full library eligibility remains. A prospective
+capability may be explored before a consumer exists; assess any integration machinery and
+its architectural role. Do not force a wrapper, feature restriction or dependency upgrade.
 
-| Alternative | Meaning duplicated / extension locality | Bespoke code carried | Correctness and operational risk | Cost / performance evidence | Selected or rejected, and why |
+### 9. Alternatives and tradeoffs
+
+| Alternative | Scenarios served / change locality | Contracts, composition and test isolation | Meaning or machinery carried | Correctness / operational cost | Selection and revisit condition |
 |---|---|---|---|---|---|
 | Current baseline | | | | | |
 | Proposed design | | | | | |
 | Library-owned alternative | | | | | |
 | Simplest viable alternative | | | | | |
 
-The library-owned and simplest rows may coincide; say so. When a simpler alternative wins, it is
-usually the headline.
+Rows may coincide; say so. Explain why a seam is justified by a credible variation axis and
+why another abstraction would not help. Report performance claims at their evidence strength.
 
-### 10. Verification plan
+### 10. Verification
 
-| Claim or risk | Evidence label | Test / analysis / benchmark | Conditions and expected result | Current result or gap |
+| Claim / scenario / risk | Evidence label | Reasoning, test or measurement | Conditions and expected result | Result or gap |
 |---|---|---|---|---|
 
-Include negative, round-trip, incremental-versus-clean, differential and interruption checks as
-the scope requires.
+Use the cheapest reliable evidence. Distinguish source tracing, proposed changes and executed
+experiments. Preserve independent oracles. Dependency checks and contract tests support named
+properties; they never synthesize architectural acceptance. Follow the repository's rhythm for
+implementation checks and final qualification.
 
-### 11. Authority changes and exceptions
+### 11. Authority changes, exceptions and disposition
 
-**Required authority changes** (target reviews): [Blocking text · target · route.]
-**Exception records** (SHOULD deviations, principles §H): [IDs · scope · reason · alternatives ·
-consequence · compensating controls · evidence · owner · revisit trigger.]
+Link blocking authority text, the required change and its route. SHOULD deviations use
+principles §H; MUST gaps remain explicit.
+
+Each actionable finding links to one disposition owner selected by the binding. Record there:
+`finding reference | scenario reference | disposition | decision/work owner | evidence or
+revisit trigger`. Suggested dispositions are open, scheduled, resolved, deferred, superseded
+and disproved. Resolved requires evidence of the correction; disproved requires the evidence
+that defeats the finding; deferred requires an accountable owner and observable trigger.
+Scheduling or accepting an ADR does not establish implementation. A supersession names its
+successor. Keep historical observations intact and link current status instead of copying it.
 
 ### 12. Decision
 
-**Decision:** [Accept / Accept scoped / Revise / Reject] — **Reason:** [the strongest evidence
-and remaining limits.]
+State behavioral/semantic adequacy, architectural fitness, then the overall decision under
+Part 1. Name the strongest evidence, current uncertainty and the exact scope accepted.
 
-| Priority | Change | Findings | Acceptance evidence |
-|---|---|---|---|
-| Correctness first | | | |
-| Library leverage and locality next | | | |
-| Measured cost where justified | | | |
+| Priority | Change | Findings / scenarios | Acceptance evidence | Disposition owner |
+|---|---|---|---|---|
 
-**Final check:** claims match evidence; supported scope matches implemented guarantees; the next
-ordinary extension has a clear path.
+A successful review makes the next representative change understandable and identifies what
+would falsify the design's claims. It need not add a framework, artifact or test where none
+improves the decision.

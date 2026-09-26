@@ -120,7 +120,7 @@ pub(super) struct SnapshotCache {
     misses: AtomicUsize,
     bypasses: AtomicUsize,
     hits: AtomicUsize,
-    epoch: AtomicUsize,
+    retention: pse_columnar::retention::RetentionFence,
     admission: Mutex<()>,
 }
 impl std::fmt::Debug for SnapshotCache {
@@ -148,7 +148,7 @@ impl SnapshotCache {
             misses: AtomicUsize::new(0),
             bypasses: AtomicUsize::new(0),
             hits: AtomicUsize::new(0),
-            epoch: AtomicUsize::new(0),
+            retention: Default::default(),
             admission: Mutex::new(()),
         }
     }
@@ -203,15 +203,19 @@ impl SnapshotCache {
     }
     pub(super) fn invalidate(&self) {
         let _guard = self.admission.lock();
-        self.epoch.fetch_add(1, Ordering::AcqRel);
-        self.entries.clear();
+        self.retention.clear(|| self.entries.clear());
     }
-    fn admit(&self, key: &Key, value: Entry, epoch: usize) {
+    fn admit(&self, key: &Key, value: Entry, epoch: u64) {
         if let Ok(_guard) = self.admission.lock()
-            && self.epoch.load(Ordering::Acquire) == epoch
             && key.size().saturating_add(value.size()) <= self.entries.cache_limit()
         {
-            self.entries.put(key, value);
+            if self
+                .retention
+                .admit(epoch, || self.entries.put(key, value))
+                .is_none()
+            {
+                self.bypasses.fetch_add(1, Ordering::Relaxed);
+            }
         } else {
             self.bypasses.fetch_add(1, Ordering::Relaxed);
         }
@@ -278,7 +282,7 @@ impl DeltaCacheService {
         }
         self.snapshots.misses.fetch_add(1, Ordering::Relaxed);
         let service = Arc::clone(self);
-        let epoch = self.snapshots.epoch.load(Ordering::Acquire);
+        let epoch = self.snapshots.retention.generation();
         let population_key = key.clone();
         self.snapshots
             .flights
@@ -327,7 +331,7 @@ impl DeltaCacheService {
         let Some(version) = table.version() else {
             return Ok(());
         };
-        let epoch = self.snapshots.epoch.load(Ordering::Acquire);
+        let epoch = self.snapshots.retention.generation();
         let Some(maintenance) = crate::delta::lease::generation(&location)? else {
             return Ok(());
         };
@@ -427,7 +431,7 @@ mod tests {
                 .with_runtime_env(runtime)
                 .build(),
         );
-        let lease = crate::delta::lease::read(&root, &pse_columnar::CancellationToken::new())
+        let lease = crate::delta::lease::write(&root, &pse_columnar::CancellationToken::new())
             .await
             .unwrap()
             .unwrap();

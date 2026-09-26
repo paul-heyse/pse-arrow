@@ -59,6 +59,6 @@ raises a `UsageError` at collection listing every offender. `just py-test` runs 
 Tools come from `.venv/bin`, declared with floors in `pyproject.toml`
 `[dependency-groups]` and resolved by `uv.lock`, never from `$PATH` and never via
 `pip install`. `just quality`
-runs ruff, pyrefly, import-linter and the repository linters together — at plan close,
-not per change (AGENTS.md *Execution rhythm*). While implementing, run the targeted
+runs ruff, pyrefly, import-linter and the repository linters together when manually
+requested (AGENTS.md *Execution rhythm*). While implementing, run the targeted
 `just py-test` units for what you changed; the post-edit hook formats edited files.

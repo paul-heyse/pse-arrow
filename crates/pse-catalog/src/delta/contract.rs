@@ -18,6 +18,8 @@ use deltalake::{
     },
 };
 use pse_schema::Registry;
+use pse_schema::compatibility::{self, CompatibilityError};
+use pse_schema::fingerprint::SemanticContract;
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
@@ -31,6 +33,8 @@ pub struct DeclaredCheck {
     layout: DurableLayout,
     properties: Arc<BTreeMap<String, String>>,
     adapters: Arc<[super::field_check::FieldCheck]>,
+    semantic: Arc<SemanticContract>,
+    encoding: pse_ids::ContentHash,
 }
 #[derive(Default)]
 struct Contracts(Mutex<BTreeMap<pse_ids::SemanticId, DeclaredCheck>>);
@@ -72,6 +76,20 @@ impl DeclaredCheck {
             .collect();
         let mut adapters = vec![];
         let mut checks = vec![];
+        let semantic =
+            Arc::new(SemanticContract::new(registry, &[relation_id].into()).map_err(external)?);
+        let encoding =
+            pse_schema::fingerprint::encoding_relation(registry, spec).map_err(external)?;
+        properties.insert(
+            compatibility::KEY_FORMAT.into(),
+            compatibility::FORMAT.into(),
+        );
+        properties.insert(
+            compatibility::KEY_CONTRACT.into(),
+            pse_columnar::native_field::canonical_json(semantic.as_ref())
+                .map_err(|e| DataFusionError::External(Box::new(e)))?,
+        );
+        properties.insert(compatibility::KEY_ENCODING.into(), encoding.to_string());
         for (index, field) in schema.fields().iter().enumerate() {
             let column = Expr::Column(datafusion::common::Column::from_name(field.name()));
             let predicate = pse_relations::validate::predicates::field_value(
@@ -115,6 +133,8 @@ impl DeclaredCheck {
             layout,
             properties: Arc::new(properties),
             adapters: adapters.into(),
+            semantic,
+            encoding,
         })
     }
     /// Reconstruct the recorded fields and native predicates without a registry.
@@ -124,13 +144,18 @@ impl DeclaredCheck {
     /// Missing descriptors/properties, unknown expression codec or invalid predicates.
     pub fn open(table: &DeltaTable, state: &SessionState) -> Result<Self> {
         let snapshot = table.snapshot().map_err(external)?;
+        let semantic = recorded_contract(snapshot.metadata().configuration())?;
         let stored: datafusion::arrow::datatypes::Schema = snapshot
             .schema()
             .as_ref()
             .try_into_arrow()
             .map_err(external)?;
-        let execution = pse_schema::delta::execution_schema(&stored).map_err(external)?;
-        let layout = DurableLayout::new(Arc::new(execution))?;
+        let execution = pse_schema::delta::execution_schema(&stored).map_err(|error| {
+            external(CompatibilityError::UnsupportedEncoding(error.to_string()))
+        })?;
+        let layout = DurableLayout::new(Arc::new(execution)).map_err(|error| {
+            external(CompatibilityError::UnsupportedEncoding(error.to_string()))
+        })?;
         let configuration = snapshot.metadata().configuration();
         let get = |key: &str| {
             configuration
@@ -148,6 +173,14 @@ impl DeclaredCheck {
             .get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT)
             .ok_or_else(|| invalid("missing durable contract fingerprint"))?
             .clone();
+        for key in [
+            compatibility::KEY_FORMAT,
+            compatibility::KEY_CONTRACT,
+            compatibility::KEY_ENCODING,
+        ] {
+            properties.insert(key.into(), get(key)?);
+        }
+        let encoding = verify_recorded_fields(&semantic, layout.execution_schema(), configuration)?;
         let mut adapters = vec![];
         for (index, field) in layout.execution_schema().fields().iter().enumerate() {
             if !needs_adapter(field, layout.storage_schema().field(index)) {
@@ -155,7 +188,7 @@ impl DeclaredCheck {
             }
             let encoding = get("pse.check.field.encoding")?;
             if encoding != EXPRESSION_ENCODING {
-                return Err(invalid("unknown field CHECK encoding"));
+                return Err(external(CompatibilityError::UnsupportedEncoding(encoding)));
             }
             properties.insert("pse.check.field.encoding".into(), encoding);
             let key = expression_property(field.name());
@@ -186,6 +219,8 @@ impl DeclaredCheck {
             layout,
             properties: Arc::new(properties),
             adapters: adapters.into(),
+            semantic: Arc::new(semantic),
+            encoding,
         };
         contract.verify(table)?;
         // Fail at open if this caller cannot execute the recorded native contract.
@@ -281,9 +316,14 @@ impl DeclaredCheck {
             .as_ref()
             .try_into_arrow()
             .map_err(external)?;
-        pse_schema::field_contract::delta_scan_schema(&stored, self.layout.storage_schema())
-            .map_err(external)?;
         let configuration = snapshot.metadata().configuration();
+        let actual = recorded_contract(configuration)?;
+        let execution = pse_schema::delta::execution_schema(&stored).map_err(|error| {
+            external(CompatibilityError::UnsupportedEncoding(error.to_string()))
+        })?;
+        let encoding = verify_recorded_fields(&actual, &execution, configuration)?;
+        compatibility::require(&actual, &self.semantic, encoding, self.encoding)
+            .map_err(external)?;
         if configuration
             .get(pse_schema::arrow::KEY_CONTRACT_ID)
             .is_some_and(|id| {
@@ -303,7 +343,19 @@ impl DeclaredCheck {
             )));
         }
         for (key, value) in self.properties.iter() {
-            if configuration.get(key) != Some(value) {
+            let same = if key.starts_with("delta.constraints.") {
+                configuration
+                    .get(key)
+                    .map(|sql| pse_schema::fingerprint::canonical_sql(sql, true))
+                    .transpose()
+                    .map_err(external)?
+                    == Some(pse_schema::fingerprint::canonical_sql(value, true).map_err(external)?)
+            } else if key == pse_schema::arrow::KEY_CHECKS {
+                true // The recorded witness and native CHECK expressions own the canonical meaning.
+            } else {
+                configuration.get(key) == Some(value)
+            };
+            if !same {
                 return Err(invalid(&format!(
                     "Delta table property {key} differs from the declared contract"
                 )));
@@ -312,6 +364,97 @@ impl DeclaredCheck {
         Ok(())
     }
 }
+fn recorded_contract(
+    properties: &std::collections::HashMap<String, String>,
+) -> Result<SemanticContract> {
+    if properties
+        .get(compatibility::KEY_FORMAT)
+        .map(String::as_str)
+        != Some(compatibility::FORMAT)
+    {
+        return Err(external(CompatibilityError::MigrationRequired(
+            "unrecognized durable semantic contract".into(),
+        )));
+    }
+    let text = properties
+        .get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT)
+        .ok_or_else(|| {
+            external(CompatibilityError::Malformed(
+                "missing semantic digest".into(),
+            ))
+        })?;
+    let hash = pse_ids::ContentHash::parse_hex(text)
+        .map_err(|e| external(CompatibilityError::Malformed(e.to_string())))?;
+    compatibility::decode(
+        properties
+            .get(compatibility::KEY_FORMAT)
+            .map(String::as_str),
+        properties
+            .get(compatibility::KEY_CONTRACT)
+            .map(String::as_str),
+        hash,
+    )
+    .map_err(external)
+}
+fn verify_recorded_fields(
+    semantic: &SemanticContract,
+    schema: &datafusion::arrow::datatypes::Schema,
+    properties: &std::collections::HashMap<String, String>,
+) -> Result<pse_ids::ContentHash> {
+    let malformed = |reason: &str| external(CompatibilityError::Malformed(reason.into()));
+    let id = pse_ids::SemanticId::parse_hex(
+        properties
+            .get(pse_schema::arrow::KEY_CONTRACT_ID)
+            .ok_or_else(|| malformed("missing relation identity"))?,
+    )
+    .map_err(|_| malformed("invalid relation identity"))?;
+    if semantic.roots != [id].into() {
+        return Err(malformed("relation witness has different roots"));
+    }
+    let description = semantic
+        .relations
+        .get(&id)
+        .ok_or_else(|| malformed("missing root declaration"))?;
+    let fields = schema
+        .fields()
+        .iter()
+        .map(|f| pse_schema::fingerprint::semantic_field(f).map_err(external))
+        .collect::<Result<Vec<_>>>()?;
+    let fields =
+        serde_json::to_value(fields).map_err(|e| DataFusionError::External(Box::new(e)))?;
+    if description.get("fields") != Some(&fields) {
+        return Err(malformed(
+            "recorded execution fields contradict semantic declaration",
+        ));
+    }
+    let checks = pse_schema::arrow::native_checks(schema)
+        .map_err(external)?
+        .into_iter()
+        .map(|(name, sql)| {
+            Ok((
+                name,
+                pse_schema::fingerprint::canonical_sql(&sql, true).map_err(external)?,
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>>>()?;
+    if description.get("checks")
+        != Some(&serde_json::to_value(checks).map_err(|e| DataFusionError::External(Box::new(e)))?)
+    {
+        return Err(malformed(
+            "recorded native CHECK expressions contradict semantic declaration",
+        ));
+    }
+    let actual =
+        pse_schema::fingerprint::encoding_fields(schema.fields().iter().map(AsRef::as_ref))
+            .map_err(external)?;
+    if properties.get(compatibility::KEY_ENCODING) != Some(&actual.to_string()) {
+        return Err(malformed(
+            "recorded execution encoding contradicts actual fields",
+        ));
+    }
+    Ok(actual)
+}
+
 fn needs_adapter(
     field: &datafusion::arrow::datatypes::Field,
     storage: &datafusion::arrow::datatypes::Field,

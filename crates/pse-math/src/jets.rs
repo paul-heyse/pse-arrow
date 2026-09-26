@@ -202,6 +202,20 @@ impl ProviderLift {
             .and_then(|k| k.checked_add(arity.checked_mul(arity)?))
             .ok_or(MathError::Limit("provider composition width"))?;
         limits.allocation(estimate)?;
+        // Second-order chain rule has <=arity²+arity terms per coefficient,
+        // with at most three scalar operations per term and one factorial scale.
+        // Admit the symbolic tree before differentiating the abstract composition.
+        let symbolic_work = arity
+            .checked_mul(arity)
+            .and_then(|v| v.checked_add(arity))
+            .and_then(|v| v.checked_mul(3))
+            .and_then(|v| v.checked_add(1))
+            .and_then(|v| v.checked_mul(layout.width()))
+            .ok_or(MathError::Limit("provider composition operations"))?;
+        if symbolic_work > limits.operations {
+            return Err(MathError::Limit("provider composition operations"));
+        }
+        limits.allocation(symbolic_work)?;
         let variables = (0..n).map(library::formal).collect::<Result<Vec<_>, _>>()?;
         let local = (n..n + arity)
             .map(library::formal)

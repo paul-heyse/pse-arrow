@@ -6,11 +6,20 @@ use crate::EngineError;
 use datafusion::logical_expr::LogicalPlan;
 
 use pse_columnar::{AllocationLease, MemoryPool};
-use std::{fmt::Write, sync::Arc};
+use std::{
+    fmt::Write,
+    sync::{Arc, OnceLock},
+};
 
 mod graph;
 
 const MAX_RULES: usize = u16::MAX as usize;
+// Optional capture has its own bounded pool so it cannot consume execution admission.
+pub(super) fn diagnostic_pool() -> Arc<dyn MemoryPool> {
+    static POOL: std::sync::LazyLock<Arc<dyn MemoryPool>> =
+        std::sync::LazyLock::new(|| Arc::new(pse_columnar::GreedyMemoryPool::new(16 << 20)));
+    POOL.clone()
+}
 /// Retained diagnostic evidence; never a semantic validation or reuse certificate.
 #[derive(Clone, Debug)]
 pub struct PlanObservation {
@@ -22,14 +31,117 @@ struct ObservedPlan {
     captured: bool,
     explain: String,
     rules: Vec<String>,
+    diagnostic: Option<String>,
     _lease: Arc<AllocationLease>,
 }
 #[derive(Debug)]
 struct ObservedPhysical {
     explain: String,
+    execution: u64,
+    completion: OnceLock<ExecutionSnapshot>,
+    diagnostic: Option<String>,
     _lease: Arc<AllocationLease>,
 }
+/// Native metric units remain explicit; an absent value is never fabricated as zero.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MetricUnit {
+    /// Rows.
+    Rows,
+    /// Batches.
+    Batches,
+    /// Bytes.
+    Bytes,
+    /// Native elapsed time, in nanoseconds.
+    Nanoseconds,
+    /// Dimensionless counter or gauge.
+    Count,
+    /// Library-defined diagnostic representation.
+    Native,
+}
+/// One metric from one node and partition of the executed graph.
+#[derive(Clone, Debug)]
+pub struct ObservedMetric {
+    /// Stable node ordinal within this execution snapshot.
+    pub node: usize,
+    /// Native operator name.
+    pub operator: String,
+    /// Native metric name.
+    pub name: String,
+    /// Native partition, absent for a global metric.
+    pub partition: Option<usize>,
+    /// Native labels, retaining metric scope.
+    pub labels: Vec<(String, String)>,
+    /// Explicit units for the captured value.
+    pub unit: MetricUnit,
+    /// Exact native numeric counter, absent for compound/custom/timestamp values.
+    pub value: Option<usize>,
+}
+/// Bounded terminal evidence, with no retained execution plan or stream.
+#[derive(Debug)]
+pub struct ExecutionSnapshot {
+    /// Unique invocation identity, independent of mathematical reuse.
+    pub execution: u64,
+    /// Whether the invocation exhausted, failed, cancelled or was dropped.
+    pub status: super::assurance::TerminalStatus,
+    /// Unique native graph nodes and partition metrics.
+    pub metrics: Vec<ObservedMetric>,
+    /// Capture was curtailed by a diagnostic limit or allocation refusal.
+    pub truncated: bool,
+    _lease: Arc<AllocationLease>,
+}
+/// Stream-local ownership makes partial and abandoned executions observable too.
+pub(super) struct CompletionGuard {
+    plan: Option<Arc<dyn datafusion::physical_plan::ExecutionPlan>>,
+    observation: PlanObservation,
+    pool: Arc<dyn MemoryPool>,
+}
+impl CompletionGuard {
+    pub(super) fn new(
+        plan: &Arc<dyn datafusion::physical_plan::ExecutionPlan>,
+        observation: &PlanObservation,
+        pool: &Arc<dyn MemoryPool>,
+    ) -> Self {
+        Self {
+            plan: observation.is_captured().then(|| plan.clone()),
+            observation: observation.clone(),
+            pool: pool.clone(),
+        }
+    }
+    pub(super) fn finish(&mut self, status: super::assurance::TerminalStatus) {
+        if let Some(plan) = self.plan.take() {
+            self.observation.complete(plan.as_ref(), status, &self.pool);
+        }
+    }
+}
+impl Drop for CompletionGuard {
+    fn drop(&mut self) {
+        self.finish(super::assurance::TerminalStatus::Abandoned);
+    }
+}
 impl PlanObservation {
+    /// Bounded terminal metrics from the actual execution, when capture was requested.
+    pub fn execution(&self) -> Option<&ExecutionSnapshot> {
+        self.physical.as_ref()?.completion.get()
+    }
+    /// Optional capture failure. It never changes the execution's result.
+    pub fn diagnostic(&self) -> Option<&str> {
+        self.physical
+            .as_ref()
+            .and_then(|p| p.diagnostic.as_deref())
+            .or(self.logical.diagnostic.as_deref())
+    }
+    pub(super) fn complete(
+        &self,
+        plan: &dyn datafusion::physical_plan::ExecutionPlan,
+        status: super::assurance::TerminalStatus,
+        pool: &Arc<dyn MemoryPool>,
+    ) {
+        if let Some(physical) = &self.physical {
+            physical
+                .completion
+                .get_or_init(|| snapshot(plan, physical.execution, status, pool));
+        }
+    }
     /// Whether diagnostic capture was explicitly requested.
     pub fn is_captured(&self) -> bool {
         self.logical.captured
@@ -58,6 +170,9 @@ impl PlanObservation {
         if !self.is_captured() {
             return Ok(self.clone());
         }
+        let _ = pool;
+        let capture_pool = diagnostic_pool();
+        let pool = &capture_pool;
         let mut reservation =
             pse_columnar::MemoryConsumer::new("session:physical-plan-observation").register(pool);
         let mut writer = BoundedText {
@@ -66,18 +181,129 @@ impl PlanObservation {
             error: None,
         };
         let rendered = render_physical(plan, &mut writer, pool);
-        if let Some(error) = writer.error {
-            return Err(error);
-        }
-        rendered?;
-        let explain = writer.value;
+        let diagnostic = writer
+            .error
+            .or_else(|| rendered.err())
+            .map(|e| e.to_string());
+        let explain = if diagnostic.is_some() {
+            String::new()
+        } else {
+            writer.value
+        };
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         Ok(Self {
             logical: Arc::clone(&self.logical),
             physical: Some(Arc::new(ObservedPhysical {
                 explain,
+                execution: NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+                completion: OnceLock::new(),
+                diagnostic,
                 _lease: AllocationLease::new(reservation),
             })),
         })
+    }
+}
+
+fn snapshot(
+    root: &dyn datafusion::physical_plan::ExecutionPlan,
+    execution: u64,
+    status: super::assurance::TerminalStatus,
+    pool: &Arc<dyn MemoryPool>,
+) -> ExecutionSnapshot {
+    use datafusion::physical_plan::metrics::MetricValue as V;
+    let _ = pool;
+    let capture_pool = diagnostic_pool();
+    let pool = &capture_pool;
+    let reservation = pse_columnar::MemoryConsumer::new("session:completed-metrics").register(pool);
+    let mut metrics = Vec::new();
+    let mut visited = std::collections::HashSet::new();
+    let mut pending = vec![root];
+    let mut truncated = false;
+    'nodes: while let Some(plan) = pending.pop() {
+        let identity = std::ptr::from_ref(plan).cast::<()>() as usize;
+        if visited.contains(&identity) {
+            continue;
+        }
+        if visited.len() >= 4096 || reservation.try_grow(128).is_err() {
+            truncated = true;
+            break;
+        }
+        let node = visited.len();
+        visited.insert(identity);
+        if let Some(native) = plan.metrics() {
+            for metric in native.iter() {
+                let value = metric.value();
+                let text_size = plan
+                    .name()
+                    .len()
+                    .saturating_add(value.name().len())
+                    .saturating_add(
+                        metric
+                            .labels()
+                            .iter()
+                            .map(|l| {
+                                l.name()
+                                    .len()
+                                    .saturating_add(l.value().len())
+                                    .saturating_add(2 * size_of::<String>())
+                            })
+                            .sum::<usize>(),
+                    );
+                if metrics.len() >= 4096
+                    || text_size > 4096
+                    || reservation
+                        .try_grow(text_size.saturating_add(2 * size_of::<ObservedMetric>()))
+                        .is_err()
+                {
+                    truncated = true;
+                    break 'nodes;
+                }
+                let (unit, numeric) = match value {
+                    V::OutputRows(_) | V::SpilledRows(_) => (MetricUnit::Rows, true),
+                    V::OutputBatches(_) => (MetricUnit::Batches, true),
+                    V::SpilledBytes(_)
+                    | V::OutputBytes(_)
+                    | V::CurrentMemoryUsage(_)
+                    | V::PeakMemoryUsage { .. } => (MetricUnit::Bytes, true),
+                    V::ElapsedCompute(_) | V::Time { .. } => (MetricUnit::Nanoseconds, true),
+                    V::SpillCount(_) | V::Count { .. } | V::Gauge { .. } => {
+                        (MetricUnit::Count, true)
+                    }
+                    _ => (MetricUnit::Native, false),
+                };
+                metrics.push(ObservedMetric {
+                    node,
+                    operator: plan.name().into(),
+                    name: value.name().into(),
+                    partition: metric.partition(),
+                    labels: metric
+                        .labels()
+                        .iter()
+                        .map(|l| (l.name().into(), l.value().into()))
+                        .collect(),
+                    unit,
+                    value: numeric.then(|| value.as_usize()),
+                });
+            }
+        }
+        let children = super::cache::reset_dependency(plan)
+            .map_or_else(|| plan.children(), |input| vec![input]);
+        if pending.len().saturating_add(children.len()) > 4096
+            || reservation
+                .try_grow(children.len().saturating_mul(size_of::<usize>() * 2))
+                .is_err()
+        {
+            truncated = true;
+            break;
+        }
+        pending.extend(children.into_iter().rev().map(AsRef::as_ref));
+    }
+    ExecutionSnapshot {
+        execution,
+        status,
+        metrics,
+        truncated,
+        _lease: AllocationLease::new(reservation),
     }
 }
 
@@ -129,13 +355,13 @@ pub(super) struct Recorder {
 }
 impl Recorder {
     pub(super) fn new(
-        pool: &Arc<dyn MemoryPool>,
+        _pool: &Arc<dyn MemoryPool>,
         policy: super::assurance::ObservationPolicy,
     ) -> Self {
         Self {
             enabled: policy == crate::session::assurance::ObservationPolicy::Diagnostic,
             reservation: pse_columnar::MemoryConsumer::new("session:plan-observation")
-                .register(pool),
+                .register(&diagnostic_pool()),
             rules: Vec::new(),
             error: None,
         }
@@ -161,9 +387,7 @@ impl Recorder {
         plan: &LogicalPlan,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<PlanObservation, EngineError> {
-        if let Some(error) = self.error {
-            return Err(error);
-        }
+        let prior_error = self.error.take();
         let mut writer = BoundedText {
             value: String::new(),
             reservation: &mut self.reservation,
@@ -174,16 +398,21 @@ impl Recorder {
         } else {
             Ok(())
         };
-        if let Some(error) = writer.error {
-            return Err(error);
-        }
-        rendered?;
-        let explain = writer.value;
+        let diagnostic = prior_error
+            .or(writer.error)
+            .or_else(|| rendered.err())
+            .map(|e| e.to_string());
+        let explain = if diagnostic.is_some() {
+            String::new()
+        } else {
+            writer.value
+        };
         Ok(PlanObservation {
             logical: Arc::new(ObservedPlan {
                 captured: self.enabled,
                 explain,
                 rules: self.rules,
+                diagnostic,
                 _lease: AllocationLease::new(self.reservation),
             }),
             physical: None,
@@ -251,6 +480,98 @@ fn invalid(reason: &str) -> EngineError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn completed_metrics_observe_actual_execution_and_release_plan() {
+        use datafusion::arrow::{
+            array::{Int64Array, RecordBatch},
+            datatypes::{DataType, Field, Schema},
+        };
+        use datafusion::physical_plan::{ExecutionPlan, projection::ProjectionExec};
+        let schema = Arc::new(Schema::new(vec![Field::new("n", DataType::Int64, false)]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int64Array::from(vec![1, 2, 3]))],
+        )
+        .unwrap();
+        let source = datafusion::datasource::memory::MemorySourceConfig::try_new_exec(
+            &[vec![batch]],
+            schema,
+            None,
+        )
+        .unwrap();
+        let expression: Arc<dyn datafusion::physical_expr::PhysicalExpr> =
+            Arc::new(datafusion::physical_expr::expressions::Column::new("n", 0));
+        let plan: Arc<dyn ExecutionPlan> =
+            Arc::new(ProjectionExec::try_new(vec![(expression, "n".to_owned())], source).unwrap());
+        let weak = Arc::downgrade(&plan);
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(0));
+        let logical = datafusion::logical_expr::LogicalPlanBuilder::empty(false)
+            .build()
+            .unwrap();
+        let observation = Recorder::new(
+            &pool,
+            super::super::assurance::ObservationPolicy::Diagnostic,
+        )
+        .finish(&logical, &pse_columnar::CancellationToken::new())
+        .unwrap()
+        .with_physical(plan.as_ref(), &pool)
+        .unwrap();
+        let mut guard = CompletionGuard::new(&plan, &observation, &pool);
+        assert!(observation.execution().is_none());
+        let context = datafusion::prelude::SessionContext::new();
+        let batches = datafusion::physical_plan::collect(plan.clone(), context.task_ctx())
+            .await
+            .unwrap();
+        assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 3);
+        guard.finish(super::super::assurance::TerminalStatus::Completed);
+        drop(plan);
+        assert!(
+            weak.upgrade().is_none(),
+            "snapshot retains no native operator"
+        );
+        let completed = observation.execution().unwrap();
+        assert!(
+            completed.metrics.iter().any(|m| m.name == "output_rows"
+                && m.value == Some(3)
+                && m.unit == MetricUnit::Rows)
+        );
+        assert_eq!(
+            pool.reserved(),
+            0,
+            "optional evidence cannot consume functional admission"
+        );
+    }
+
+    #[test]
+    fn abandoned_capture_is_terminal_and_idempotent() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(0));
+        let logical = datafusion::logical_expr::LogicalPlanBuilder::empty(false)
+            .build()
+            .unwrap();
+        let plan: Arc<dyn datafusion::physical_plan::ExecutionPlan> =
+            Arc::new(datafusion::physical_plan::empty::EmptyExec::new(Arc::new(
+                datafusion::arrow::datatypes::Schema::empty(),
+            )));
+        let observation = Recorder::new(
+            &pool,
+            super::super::assurance::ObservationPolicy::Diagnostic,
+        )
+        .finish(&logical, &pse_columnar::CancellationToken::new())
+        .unwrap()
+        .with_physical(plan.as_ref(), &pool)
+        .unwrap();
+        drop(CompletionGuard::new(&plan, &observation, &pool));
+        observation.complete(
+            plan.as_ref(),
+            super::super::assurance::TerminalStatus::Completed,
+            &pool,
+        );
+        assert_eq!(
+            observation.execution().unwrap().status,
+            super::super::assurance::TerminalStatus::Abandoned
+        );
+    }
 
     #[test]
     fn native_json_reports_each_extension_once_without_recursive_debug_payloads() {
@@ -427,24 +748,24 @@ mod tests {
         drop(observation);
         assert_eq!(budget.reserved(), 0);
         cancel.cancel();
-        assert!(
-            Recorder::new(
-                &budget,
-                crate::session::assurance::ObservationPolicy::Diagnostic
-            )
-            .finish(&plan, &cancel)
-            .is_err()
-        );
+        let cancelled = Recorder::new(
+            &budget,
+            crate::session::assurance::ObservationPolicy::Diagnostic,
+        )
+        .finish(&plan, &cancel)
+        .unwrap();
+        assert!(cancelled.diagnostic().is_some());
+        assert!(cancelled.explain_pgjson().is_empty());
         assert_eq!(budget.reserved(), 0);
-        let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(100));
-        assert!(
-            Recorder::new(
-                &tiny,
-                crate::session::assurance::ObservationPolicy::Diagnostic
-            )
-            .finish(&plan, &pse_columnar::CancellationToken::new())
-            .is_err()
-        );
+        let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(0));
+        let captured = Recorder::new(
+            &tiny,
+            crate::session::assurance::ObservationPolicy::Diagnostic,
+        )
+        .finish(&plan, &pse_columnar::CancellationToken::new())
+        .unwrap();
+        assert!(captured.diagnostic().is_none());
+        assert!(!captured.explain_pgjson().is_empty());
         assert_eq!(tiny.reserved(), 0);
     }
 

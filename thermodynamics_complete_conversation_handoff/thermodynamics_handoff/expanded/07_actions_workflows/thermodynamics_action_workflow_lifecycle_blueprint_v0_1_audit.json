@@ -1,0 +1,204 @@
+{
+  "document": "THERMO-ACTIONS-007",
+  "audit_kind": "catalog_and_artifact_integrity_not_runtime_conformance",
+  "passed": true,
+  "counts": {
+    "actions": 56,
+    "action_witnesses": 112,
+    "requirements": 94,
+    "concepts": 72,
+    "scenarios": 34,
+    "workflows": 18,
+    "lifecycle_views": 8,
+    "lifecycle_transitions": 67,
+    "handoff_facts": 18,
+    "action_rules": 18,
+    "operation_variants": 12,
+    "structural_checks": 35,
+    "local_links_checked": 2822,
+    "reference_model_tests": 26
+  },
+  "checks": [
+    {
+      "check": "56 unique action IDs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "action contracts populated",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "valid action owners",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "94 requirements assigned exactly once",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "primary ownership unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "supporting requirement references valid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "input and output concept references valid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "all 72 concepts have a producer or proposal",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "all 72 concepts have consumers",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "18 information products unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "108 relationship contracts unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "original witness IDs preserved",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "H C R3 class allocation unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "112 action witness descriptions",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "no claimed action witness execution",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "34 scenario profiles unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "18 workflows uniquely identified",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "every scenario has a real workflow route",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "workflow actions valid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "all actions used in workflows",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "Step 5 walkthroughs mapped",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "lifecycle endpoints actions and owners valid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "all lifecycle states reachable in declared table",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "handoff facts references valid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "action rule references valid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "all semantic rules linked",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "operation variants references valid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "open item ownership unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "integrated journeys and synthetic fixtures unchanged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "predecessor files and hashes match",
+      "status": "PASS",
+      "detail": "[]"
+    },
+    {
+      "check": "no provider or inherited acceptance execution claimed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "26 selected reference checks executed successfully",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "reference results in register agree",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "unique explicit document anchors",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "local blueprint links and exact anchors resolve",
+      "status": "PASS",
+      "detail": "[]"
+    }
+  ],
+  "limitations": [
+    "No numeric thermodynamic provider run",
+    "No concurrent implementation tested",
+    "No independent scenario R/E/V pass",
+    "Reference tests cover selected sequential guards and authored arithmetic only"
+  ]
+}

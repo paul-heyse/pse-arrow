@@ -6,6 +6,7 @@ use datafusion::{
     arrow::array::{Array, Int64Array},
     common::ResolvedTableReference,
 };
+pub use pse_catalog::delta::ticket::{PublicationSettlement, PublicationTicket};
 use pse_catalog::{
     artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
     delta::publication::PublicationRoot,
@@ -17,10 +18,39 @@ use pse_relations::generated::{
     runtime::{artifact_descriptors as descriptor, publications},
 };
 use std::{collections::BTreeMap, sync::Arc};
+/// Explicit immutable destination and identities for a single publication request.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PublicationRequest {
+    /// Directory holding control and immutable attempt members.
+    pub base: url::Url,
+    /// Workspace control identity.
+    pub workspace_id: SemanticId,
+    /// Exact expected parent; never rebased.
+    pub parent: Option<SemanticId>,
+    /// Caller-stable publication identity.
+    pub publication_id: SemanticId,
+    /// Caller-stable attempt identity.
+    pub attempt_id: SemanticId,
+}
+impl PublicationRequest {
+    /// Mint fresh identities before preparation; retain this value with the ticket.
+    pub fn new(base: url::Url, workspace_id: SemanticId, parent: Option<SemanticId>) -> Self {
+        Self {
+            base,
+            workspace_id,
+            parent,
+            publication_id: pse_authoring::ids::uuid_v7(),
+            attempt_id: pse_authoring::ids::uuid_v7(),
+        }
+    }
+}
 /// A fully prepared single-consumption command. No solve callback is retained.
 #[derive(Debug)]
 pub struct PublicationAttempt {
     command: pse_engine::session::PreparedComputation,
+    /// Recoverable before commit consumes this command.
+    pub ticket: PublicationTicket,
     root: url::Url,
     /// Stable attempt identity for native effect inspection after unresolved errors.
     pub attempt_id: SemanticId,
@@ -68,6 +98,26 @@ impl RunResult {
         parent: Option<SemanticId>,
         cancel: &CancellationToken,
     ) -> Result<PublicationAttempt, WorkflowError> {
+        self.prepare_publication_request(
+            PublicationRequest::new(base, workspace_id, parent),
+            cancel,
+        )
+    }
+    /// Prepare the explicit request and recovery ticket without writes or rerunning science.
+    /// # Errors
+    /// Invalid declarations, destinations or product obligations.
+    pub fn prepare_publication_request(
+        &self,
+        request: PublicationRequest,
+        cancel: &CancellationToken,
+    ) -> Result<PublicationAttempt, WorkflowError> {
+        let PublicationRequest {
+            base,
+            workspace_id,
+            parent,
+            publication_id,
+            attempt_id,
+        } = request;
         if base.cannot_be_a_base() || !base.path().ends_with('/') {
             return Err(contract(
                 "publication base must be an absolute directory URL ending in /",
@@ -141,9 +191,14 @@ impl RunResult {
         let semantic_identity = source.finish_hash();
         let descriptor = pse_model::artifact::ArtifactDescriptor::create(descriptor::Row {
             artifact_id: ContentHash::from_bytes([0; 32]),
-            descriptor_version: 1,
+            descriptor_version: 2,
             profile: PublicationKind::Run,
-            profile_contract: self.runtime.registry.fingerprint(),
+            profile_contract: pse_schema::fingerprint::semantic_profile(
+                &self.runtime.registry,
+                "run",
+                &tables.keys().copied().collect(),
+            )
+            .map_err(|e| contract(e.to_string()))?,
             requested_relations: tables.keys().copied().collect(),
             release_id: semantic_identity,
             release_members: vec![],
@@ -166,21 +221,22 @@ impl RunResult {
         .map_err(|e| contract(e.to_string()))?;
         let artifact = ArtifactPlan::new(session, outputs, cancel)?
             .with_product(descriptor.clone(), cancel)?;
-        let publication_id = pse_authoring::ids::uuid_v7();
-        let attempt_id = pse_authoring::ids::uuid_v7();
         let destinations = artifact
             .outputs()
             .keys()
             .map(|name| {
                 Ok((
                     name.clone(),
-                    base.join(&format!("members/{}/{}/", name.schema, name.table))
-                        .map_err(|e| contract(e.to_string()))?,
+                    base.join(&format!(
+                        "members/{publication_id}/{attempt_id}/{}/{}/",
+                        name.schema, name.table
+                    ))
+                    .map_err(|e| contract(e.to_string()))?,
                 ))
             })
             .collect::<Result<BTreeMap<_, _>, WorkflowError>>()?;
         let root = base.join("control/").map_err(|e| contract(e.to_string()))?;
-        let command = artifact.prepare_publication(
+        let (command, ticket) = artifact.prepare_publication(
             PublicationTarget {
                 reference: ResolvedTableReference {
                     catalog: "artifact".into(),
@@ -204,6 +260,7 @@ impl RunResult {
         )?;
         Ok(PublicationAttempt {
             command,
+            ticket,
             root,
             publication_id,
             attempt_id,
@@ -212,6 +269,21 @@ impl RunResult {
     }
 }
 impl super::Runtime {
+    /// Read-only recovery from a saved ticket; no preparation or materialization is retried.
+    pub async fn settle_publication(
+        &self,
+        ticket: &PublicationTicket,
+        cancel: &CancellationToken,
+    ) -> PublicationSettlement {
+        ticket
+            .settle(
+                self.registry.clone(),
+                Arc::new(self.sessions.native_state().clone()),
+                cancel,
+            )
+            .await
+    }
+
     /// Reopen an exact control version; no latest lookup or solver replay.
     pub async fn open(
         &self,

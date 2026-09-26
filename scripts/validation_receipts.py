@@ -19,15 +19,6 @@ def changed(before: dict, after: dict) -> list[str]:
     )
 
 
-def documentation_only(names: list[str]) -> bool:
-    """The sole source-change exception for retained executable measurements."""
-    return all(
-        name in {"README.md", "AGENTS.md", "CLAUDE.md"}
-        or (name.startswith("docs/") and name.endswith(".md"))
-        for name in names
-    )
-
-
 def qualified(check: dict) -> bool:
     """A nonblocking finding differs from a failed invocation or missing evidence."""
     return (
@@ -39,7 +30,7 @@ def qualified(check: dict) -> bool:
 
 def verify_native(native: dict) -> None:
     """Revalidate the actual binary and linked library bytes, including retained evidence."""
-    if native.get("schema") != "plan14-native-profile-v1" or not native.get("files"):
+    if native.get("schema") != "native-profile-v1" or not native.get("files"):
         raise ValueError("missing native identity")
     for name, expected in native["files"].items():
         with Path(name).open("rb") as stream:
@@ -62,83 +53,17 @@ def classify(check: dict, output: Path) -> None:
     ):
         check["status"] = "unsupported"
         check["authority"] = "R-20"
-    if check["gate"] in {"plan14-native", "plan14-python"}:
+    if check["gate"] in {"native-test", "native-python"}:
         path = output / f"{check['gate']}-native.json"
         try:
-            from scripts import (  # noqa: PLC0415 -- avoids validation runner cycle
-                implementation_phase,
-            )
-
-            profile = next(
-                p
-                for p in implementation_phase.manifest(
-                    Path(__file__).resolve().parents[1]
-                )["profiles"]
-                if p["id"] == check["profile"]
-            )
             native = json.loads(path.read_text())
-            if (
-                native["schema"] != "plan14-native-profile-v1"
-                or native["profile"] != profile
-                or native["captured"] < check["started"]
-                or not native["files"]
-            ):
-                raise ValueError("wrong or stale linked native profile")  # noqa: TRY301 -- converted to a failed evidence record
+            verify_native_capture(native, check)
             verify_native(native)
             check["native"] = native
             check["artifacts"][path.name] = digest(path)
-        except (OSError, ValueError, KeyError, TypeError, StopIteration) as error:
+        except (OSError, ValueError, KeyError, TypeError) as error:
             check["status"] = "failed"
             check["report_errors"].append(str(error))
-    if check["gate"] in {"plan14-measure", "plan14-reviews"}:
-        from scripts import (  # noqa: PLC0415 -- avoids validation runner cycle
-            implementation_phase,
-            validation_cases,
-        )
-        from scripts.plan14_measure import (  # noqa: PLC0415 -- avoids validation runner cycle
-            source_digest,
-        )
-
-        root = Path(__file__).resolve().parents[1]
-        path = output / f"{check['gate']}.json"
-        try:
-            report = json.loads(path.read_text())
-            case = next(
-                c
-                for c in implementation_phase.manifest(root)["cases"]
-                if c.get("gate") == check["gate"]
-            )
-            validation_cases.validate_artifact(report, case)
-            if report["started"] < check["started"] or report[
-                "source_digest"
-            ] != source_digest(root):
-                raise ValueError("stale measurement or review artifact")  # noqa: TRY301 -- converted to a failed evidence record
-            if check["gate"] == "plan14-measure":
-                native = report["native"]
-                profile = next(
-                    p
-                    for p in implementation_phase.manifest(root)["profiles"]
-                    if p["id"] == case["profile"]
-                )
-                if (
-                    native["profile"] != profile
-                    or native["captured"] < check["started"]
-                ):
-                    raise ValueError("wrong or stale measurement native profile")  # noqa: TRY301 -- converted to a failed evidence record
-                verify_native(native)
-            for row in report["cases"]:
-                for name, expected in row.get("artifacts", {}).items():
-                    artifact = (output / name).resolve()
-                    artifact.relative_to(output.resolve())
-                    if digest(artifact) != expected:
-                        raise ValueError("changed measurement artifact")  # noqa: TRY301 -- converted to a failed evidence record
-                    check["artifacts"][name] = expected
-            check["measurement"] = report
-            check["artifacts"][path.name] = digest(path)
-        except (OSError, ValueError, KeyError, TypeError, StopIteration) as error:
-            check["status"] = "failed"
-            check["report_errors"].append(str(error))
-        return
     tool = output / f"{check['gate']}-tool.json"
     if check.get("role") == "advisory" or check["gate"] == "unsafe-surface":
         if not tool.is_file():
@@ -154,6 +79,11 @@ def classify(check: dict, output: Path) -> None:
         except (OSError, ValueError, KeyError) as error:
             check["status"] = "failed"
             check["report_errors"].append(str(error))
+
+
+def verify_native_capture(native: dict, check: dict) -> None:
+    if native["captured"] < check["started"]:
+        raise ValueError("stale native identity")
 
 
 def validate_tool(record: dict, check: dict) -> None:
@@ -173,111 +103,69 @@ def validate_tool(record: dict, check: dict) -> None:
         raise ValueError("tool report does not override collection failures")
 
 
-def continuation(
+def reuse_checks(
     parent: Path,
     snapshot: dict,
-    rerun: set[str],
+    environment: dict,
+    scope: list[dict],
+    reuse: set[str],
+    transfer: set[str],
     reason: str | None,
-    *,
-    plan: int,
-    mode: str | None = None,
-    environment: dict | None = None,
-    scope: list[dict] | None = None,
-) -> tuple[dict, list[dict]]:
-    """Validate a parent and carry authenticated successful observations only."""
-    receipt_path = parent / "checks.json"
-    chain = set()
-    current = parent
-    while True:
-        current = current.resolve()
-        if current in chain:
-            raise ValueError("cyclic continuation chain")
-        chain.add(current)
-        ancestor = json.loads((current / "checks.json").read_text())
-        if ancestor.get("version") != 3 or ancestor.get("plan") != plan:
-            raise ValueError("continuation ancestor belongs to another plan or format")
-        if mode is not None and ancestor.get("mode") != mode:
-            raise ValueError("continuation ancestor belongs to another phase")
-        link = ancestor.get("parent")
-        if not link:
-            break
-        current = Path(link["path"])
-        if digest(current / "checks.json") != link["digest"]:
-            raise ValueError("changed continuation ancestor")
-    prior = json.loads(receipt_path.read_text())
-    if prior.get("version") != 3 or prior.get("plan") != plan:
-        raise ValueError("continuation requires the selected plan's version 3 receipt")
-    if mode is not None and prior.get("mode") != mode:
-        raise ValueError("continuation phase differs from its parent")
-    if environment is not None and prior.get("environment") != environment:
-        raise ValueError("execution environment differs; start a fresh assessment")
-    prior_scope = {gate["name"]: gate for gate in prior.get("scope", [])}
-    if scope is not None:
-        mismatched = {
-            gate["name"]
-            for gate in scope
-            if gate["name"] in prior_scope
-            and prior_scope[gate["name"]] != json.loads(json.dumps(gate))
-        }
-        if not mismatched <= rerun:
-            raise ValueError(
-                "changed gate declarations require explicit --rerun selections"
-            )
-    changes = changed(prior["source_files"], snapshot)
-    observed_changes = any(
-        check.get("changed_source") and not check.get("retained")
-        for check in prior["checks"]
-    )
-    if (changes or observed_changes) and (not reason or not rerun):
-        raise ValueError(
-            "changed source requires --change-reason and affected --rerun gates"
-        )
+) -> list[dict]:
+    """Carry only explicitly selected observations, keeping their original origin.
+
+    File identity is an input to the decision, never an inferred impact analysis.
+    A reviewed transfer records a rationale; it is never reported as a new test.
+    """
+    if reuse & transfer:
+        raise ValueError("a gate cannot be both reused and transferred")
+    if transfer and not (reason and reason.strip()):
+        raise ValueError("reviewed transfer requires a rationale")
+    prior = json.loads((parent / "checks.json").read_text())
+    if prior.get("version") != 4:
+        raise ValueError("reuse requires an ordinary version 4 report")
+    declarations = {g["name"]: g for g in json.loads(json.dumps(scope))}
+    previous = {g["name"]: g for g in prior["scope"]}
+    observations = {c["gate"]: c for c in prior["checks"]}
     retained = []
-    for check in prior["checks"]:
-        if (
-            check["gate"] in rerun
-            or not qualified(check)
-            or (
-                check.get("changed_source")
-                and check["gate"] in {"plan14-measure", "plan14-reviews"}
-            )
-        ):
-            continue
+    for name in sorted(reuse | transfer):
+        if name not in declarations or previous.get(name) != declarations[name]:
+            raise ValueError("reused command scope differs")
+        check = observations[name]
+        if not qualified(check):
+            raise ValueError("only successful observations can be retained")
         origin = Path(check.get("origin", str(parent)))
-        if origin.resolve() not in chain:
-            raise ValueError("check origin is outside authenticated continuation chain")
-        origin_sources = json.loads((origin / "checks.json").read_text())[
-            "source_files"
-        ]
-        origin_changes = changed(origin_sources, snapshot)
-        if check["gate"] == "plan14-measure" and not documentation_only(origin_changes):
-            raise ValueError(
-                "executable inputs changed; rerun plan14-measure after functional qualification"
-            )
-        if check["gate"] == "plan14-reviews" and origin_changes:
-            raise ValueError("changed source requires fresh independent plan14-reviews")
-        artifacts = check.get("artifacts", {})
-        if not artifacts:
-            raise ValueError(f"missing authenticated artifacts: {check['gate']}")
-        for name, expected in artifacts.items():
-            path = origin / name
-            if (
-                Path(name).is_absolute()
-                or ".." in Path(name).parts
-                or digest(path) != expected
-            ):
-                raise ValueError(f"changed parent artifact: {name}")
-        if check.get("native"):
-            verify_native(check["native"])
-        if check.get("measurement", {}).get("native"):
-            verify_native(check["measurement"]["native"])
-        retained.append({**check, "origin": str(origin), "retained": True})
-    return {
-        "path": str(parent),
-        "digest": digest(receipt_path),
-        "changed_source": changes,
-        "change_reason": reason,
-    }, retained
+        origin_report = origin / "checks.json"
+        origin_digest = check.get("origin_digest", digest(origin_report))
+        if digest(origin_report) != origin_digest:
+            raise ValueError("changed original report")
+        original = json.loads(origin_report.read_text())
+        changes = changed(original["source_files"], snapshot)
+        for artifact, expected in check.get("artifacts", {}).items():
+            path = (origin / artifact).resolve()
+            path.relative_to(origin.resolve())
+            if digest(path) != expected:
+                raise ValueError("changed retained artifact")
+        if name in reuse:
+            if changes or original["environment"] != environment:
+                raise ValueError(
+                    "unchanged-input reuse requires identical inputs and environment"
+                )
+            if check.get("native"):
+                verify_native(check["native"])
+        retained.append(
+            {
+                **check,
+                "origin": str(origin),
+                "origin_digest": origin_digest,
+                "evidence_kind": "unchanged-input-reuse"
+                if name in reuse
+                else "reviewed-transfer",
+                "changed_inputs": changes,
+                "transfer_reason": reason if name in transfer else None,
+            }
+        )
+    return retained
 
 
 def native_selection(log: str) -> list[dict]:

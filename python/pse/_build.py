@@ -38,6 +38,7 @@ DiagnosticCause = _native.DiagnosticCause
 DiagnosticContext = _native.DiagnosticContext
 DiagnosticAnnotation = _native.DiagnosticAnnotation
 DiagnosticSpan = _native.DiagnosticSpan
+DiagnosticSourceLocation = _native.DiagnosticSourceLocation
 DiagnosticNote = _native.DiagnosticNote
 DiagnosticObservation = _native.DiagnosticObservation
 _NativePublication = _native.Publication
@@ -58,7 +59,6 @@ _NativeRunResult = _native.NativeRunResult
 _NativePublicationAttempt = _native.NativePublicationAttempt
 SolveSettings = _native.SolveSettings
 ProgressEvent = _native.ProgressEvent
-SolverCapability = _native.SolverCapability
 
 
 def _open_publication(

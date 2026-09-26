@@ -35,7 +35,14 @@ impl ArtifactPlan {
                 "observed or effectful products cannot claim pure reconstruction",
             ));
         }
-        if row.profile_contract != self.session.registry().fingerprint() {
+        if row.profile_contract
+            != pse_schema::fingerprint::semantic_profile(
+                self.session.registry(),
+                row.profile.as_str(),
+                &row.requested_relations.iter().copied().collect(),
+            )
+            .map_err(pse_relations::RelationError::from)?
+        {
             return Err(invalid("product descriptor registry differs"));
         }
         let required = self
@@ -250,7 +257,14 @@ impl crate::delta::publication::Publication {
             return Err(invalid("artifact descriptor profile differs from control"));
         }
         let row = actual.row();
-        if row.profile_contract != self.session().registry().fingerprint() {
+        if row.profile_contract
+            != pse_schema::fingerprint::semantic_profile(
+                self.session().registry(),
+                row.profile.as_str(),
+                &row.requested_relations.iter().copied().collect(),
+            )
+            .map_err(pse_relations::RelationError::from)?
+        {
             return Err(invalid("artifact registry contract is incompatible"));
         }
         let mut roots: BTreeSet<_> = row.requested_relations.iter().copied().collect();

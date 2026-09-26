@@ -1,0 +1,9 @@
+{
+  "all_local_links_resolve": true,
+  "checked_links": 1419,
+  "concept_anchors": 72,
+  "markdown_tables_have_consistent_columns": true,
+  "checked_tables": 82,
+  "json_parse": true,
+  "limitation": "Artifact syntax and reference integrity only; not semantic or numerical conformance."
+}

@@ -16,7 +16,6 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_authored_phase_species(builder);
     declare_authored_henry_declarations(builder);
     declare_authored_material_systems(builder);
-    declare_inferred_phase_species(builder);
     declare_authored_reactions(builder);
     declare_authored_stoichiometry(builder);
     declare_authored_reaction_methods(builder);
@@ -158,29 +157,6 @@ fn declare_authored_material_systems(builder: &mut RegistryBuilder) {
             column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.4 material: material_systems.",
-    );
-}
-
-fn declare_inferred_phase_species(builder: &mut RegistryBuilder) {
-    relation_version(
-        builder,
-        N::Inferred,
-        "phase_species",
-        2,
-        S::Derived,
-        &["material_system_id", "phase_id", "species_id"],
-        vec![
-            column("material_system_id", T::id()),
-            column("phase_id", T::id()),
-            column("species_id", T::id()),
-            column("henry", T::native(arrow_schema::DataType::Boolean)),
-            crate::model::FieldContract::provenance(
-                "derivation_id",
-                T::id(),
-                "Exact source derivation",
-            ),
-        ],
-        "blueprint §6.4 material: phase_species.",
     );
 }
 

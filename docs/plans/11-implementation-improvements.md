@@ -99,8 +99,8 @@ metadata. Duplicate paths and the existing degradation states remain observable.
 
 ## Pinned library evidence
 
-Interface-checked: the [DataFusion skill](../../.codex/skills/datafusion/SKILL.md)
-and [Delta skill](../../.codex/skills/deltalake/SKILL.md), their exact-release contracts,
+Interface-checked: the [DataFusion skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/SKILL.md)
+and [Delta skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/SKILL.md), their exact-release contracts,
 and the locally resolved upstream source informed these changes. The profile is
 DataFusion 55.1.0, Arrow/Parquet 59.3.0, object_store 0.13.2 and delta-rs commit
 `58f07cd62bfbce3649a7e1c87c696288068ae184`. Native `RowConverter`/`Rows`, logical

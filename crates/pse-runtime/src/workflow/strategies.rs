@@ -174,7 +174,21 @@ impl Runtime {
                     &source.gram_weights,
                     allowance / 16,
                 )?;
-                Ok((Arc::new(problem), Arc::new(proof)))
+                let sparse = [&problem.quadratic, &problem.constraints]
+                    .iter()
+                    .map(|a| {
+                        (a.colptr.capacity() + a.rowval.capacity()) * size_of::<usize>()
+                            + a.nzval.capacity() * size_of::<f64>()
+                    })
+                    .sum::<usize>();
+                // Keep known conic buffers and a distinct opaque certificate allowance.
+                let retained = sparse
+                    .checked_add(
+                        (problem.objective.capacity() + problem.rhs.capacity()) * size_of::<f64>(),
+                    )
+                    .and_then(|n| n.checked_add(4 << 20))
+                    .ok_or(MathRuntimeError::Limit("conic retained extent"))?;
+                Ok(((Arc::new(problem), Arc::new(proof)), retained))
             })?
             .finish()
             .await?;

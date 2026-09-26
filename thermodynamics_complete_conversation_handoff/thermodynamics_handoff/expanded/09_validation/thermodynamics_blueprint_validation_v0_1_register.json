@@ -1,0 +1,5017 @@
+{
+  "document": "THERMO-VALIDATION-009",
+  "version": "0.1",
+  "date": "2026-09-25",
+  "status": "conditional_design_review_with_bounded_extracted_source_and_authored_execution; native_gates_open",
+  "scope_statement": "Step 9 validation before Rust translation; not production backend selection, complete simulator implementation, or broad process certification.",
+  "source_baselines": [
+    {
+      "filename": "THERMO_ACTIONS_007_README.md",
+      "bytes": 2905,
+      "sha256": "a98b95b4c6eee74fbb86d228dfb5ccdbc26537e4af9065ea2c3ea5294f685d52"
+    },
+    {
+      "filename": "THERMO_INTEGRATION_008_README.md",
+      "bytes": 2466,
+      "sha256": "2938fcbb812caf852e26defae3eea87b238b2915d00375805401a593f82a8cb6"
+    },
+    {
+      "filename": "artifact_manifest.json",
+      "bytes": 3131,
+      "sha256": "2a80b17885cb528f7a95ceaa453b01308c9753585f08ded3aad9361a1a8994fa"
+    },
+    {
+      "filename": "dwsim_workflow_reverse_engineering_v0_1.md",
+      "bytes": 87494,
+      "sha256": "55e77b6fddab4547280e4e40ca5c742fac3fd322e45534767ddae7f5f6ba94ab"
+    },
+    {
+      "filename": "integration_artifact_manifest.json",
+      "bytes": 5730,
+      "sha256": "823a7898147b39d8fbe3f153bfb08bcab775e02c78c34a16e3a447d7f18004e8"
+    },
+    {
+      "filename": "reference_action_tests.py",
+      "bytes": 13323,
+      "sha256": "13b9b4dc525a20dfbac3bd5d8fb11a6859cfa96827055c3835312e6bc483351b"
+    },
+    {
+      "filename": "reference_integration_tests.py",
+      "bytes": 9332,
+      "sha256": "8d769d4d79b10aea89f99cb5e50b7939ee1048fc89f156fde727101e4c08bc64"
+    },
+    {
+      "filename": "thermodynamic_package_comparative_research_v0_1.md",
+      "bytes": 105848,
+      "sha256": "c0f9216c450405360b8532771e6c4beca6536154345ea5adf00130a9c4e73875"
+    },
+    {
+      "filename": "thermodynamics_action_workflow_lifecycle_blueprint_v0_1.md",
+      "bytes": 336345,
+      "sha256": "d7624eb730cf3ccc6d65ec2bf21658319ad0d44e0366a4182cecdc29f0448121"
+    },
+    {
+      "filename": "thermodynamics_action_workflow_lifecycle_blueprint_v0_1_audit.json",
+      "bytes": 4602,
+      "sha256": "4b407a314b728d24a145b8898f2759cba8efeee3d942483816ea961d53bbb050"
+    },
+    {
+      "filename": "thermodynamics_action_workflow_lifecycle_blueprint_v0_1_reference_checks.json",
+      "bytes": 4726,
+      "sha256": "8e1a121b04ab11be1a356f5ece4717c277ef543ba26b47904d963a28e38b6037"
+    },
+    {
+      "filename": "thermodynamics_action_workflow_lifecycle_blueprint_v0_1_register.json",
+      "bytes": 690912,
+      "sha256": "ddcd4239f165ee7425d8c668aa2b5b824ffee12edfaf73ded0f2748df74627f6"
+    },
+    {
+      "filename": "thermodynamics_conceptual_packaging_v0_1.md",
+      "bytes": 132988,
+      "sha256": "85602e0a750add6a1168cb4f4294998feb5e90e35b37cef5f0b4e63c5f1076f1"
+    },
+    {
+      "filename": "thermodynamics_conceptual_packaging_v0_1_register.json",
+      "bytes": 205998,
+      "sha256": "d46ce687dee20cb7e677082039f349a38d8fd71101a659079d47bb8d57d80612"
+    },
+    {
+      "filename": "thermodynamics_cross_library_solver_integration_v0_1.md",
+      "bytes": 235677,
+      "sha256": "3ba074822d4d0d6c5ed18a5a0bdf19445f5e7a08d699681dbfb869b5f14e1252"
+    },
+    {
+      "filename": "thermodynamics_cross_library_solver_integration_v0_1_audit.json",
+      "bytes": 9364,
+      "sha256": "0686ae710f8a1ec7ae0785a162beeeab10cb8064a9c56e5df883e25647ca59a3"
+    },
+    {
+      "filename": "thermodynamics_cross_library_solver_integration_v0_1_reference_checks.json",
+      "bytes": 11580,
+      "sha256": "832d3fe0eca9937687d1a9bd99d5c8d158ef35c42439cf16ff23ca4ea414b829"
+    },
+    {
+      "filename": "thermodynamics_cross_library_solver_integration_v0_1_register.json",
+      "bytes": 497253,
+      "sha256": "a47c6576debe602a946e5db610dd01d6c350b45e0e83e1a1ba29e8c6879c8f5c"
+    },
+    {
+      "filename": "thermodynamics_functional_requirements_v0_1.md",
+      "bytes": 260840,
+      "sha256": "7b9c3c4e2110531cb5767fb00f9ba11dec160294b8cafd909c5b04984a87b5c2"
+    },
+    {
+      "filename": "thermodynamics_functional_requirements_v0_1_register.json",
+      "bytes": 363946,
+      "sha256": "1777f2c60962526252aa863dc2cb673f218b4ed58fe9c108f9721264f9fde825"
+    },
+    {
+      "filename": "thermodynamics_semantic_information_dictionary_v0_1.md",
+      "bytes": 330481,
+      "sha256": "58c33ae37009c2c07485a46ae95fdd51f0475504aaa75cb85ef7a23a8484dee9"
+    },
+    {
+      "filename": "thermodynamics_semantic_information_dictionary_v0_1_register.json",
+      "bytes": 553056,
+      "sha256": "ab459185e0536ce5ef721c572010ed8d1279f89f8d6ad632b32f927b03f21f8d"
+    },
+    {
+      "filename": "thermodynamics_simulation_behavior_scope_v0_1.md",
+      "bytes": 84604,
+      "sha256": "1d12284bbca6569f198caaae86327788bac8fbaf3946625d99d971ef3602d028"
+    },
+    {
+      "filename": "validate_action_blueprint.py",
+      "bytes": 9265,
+      "sha256": "83695a8e73fc7257878e3030a918078fcb7c75b5c653aaaf67686a53d29c183f"
+    },
+    {
+      "filename": "validate_integration_blueprint.py",
+      "bytes": 11863,
+      "sha256": "fa6c76c563f09aa70d85c78de70991e57f38cb15c1edc8e5ea2c1918a0d1627d"
+    }
+  ],
+  "source_extracts_manifest": "source_manifest.json",
+  "fixture_manifest": "fixtures.json",
+  "verdicts": {
+    "semantic_architecture": "proceed_to_implementation_design_with_recorded_acceptance_refinements",
+    "production_backend_selection": "not_approved_by_this_evidence",
+    "full_native_fixture_execution": "blocked_in_this_environment",
+    "independent_physical_validation": "not_performed",
+    "R_review": "authored_review_completed; no independent blanket R promotion",
+    "E_full_scenarios": "not_established",
+    "V_full_scenarios": "not_established"
+  },
+  "evidence_classes": [
+    {
+      "id": "EC-01",
+      "name": "artifact/trace integrity",
+      "description": "Hashes, unique IDs, owner alignment, and references only."
+    },
+    {
+      "id": "EC-02",
+      "name": "authored adversarial walkthrough",
+      "description": "Scenario meaning/action/path review; not independent person or full formal proof."
+    },
+    {
+      "id": "EC-03",
+      "name": "extracted upstream numerical body",
+      "description": "Pinned source body in isolated import context; not the complete package or its distributed build."
+    },
+    {
+      "id": "EC-04",
+      "name": "authored numerical process/formulation scaffold",
+      "description": "Synthetic materials and host solver; can demonstrate contract algebra, not actual backend breadth or real-fluid accuracy."
+    },
+    {
+      "id": "EC-05",
+      "name": "bounded sequential behavioral model",
+      "description": "Finite traces and negative controls; not production concurrency or native resource proof."
+    },
+    {
+      "id": "EC-06",
+      "name": "complete installed provider/adapter",
+      "description": "Exact distribution and actual adapter surface, not achieved here."
+    },
+    {
+      "id": "EC-07",
+      "name": "independent physical-reference validation",
+      "description": "Independent measured evidence with uncertainty and frozen tolerances, not achieved here."
+    }
+  ],
+  "requirements_review": [
+    {
+      "id": "FR-GOV-01",
+      "obligation": "H",
+      "primary_owner": "P09",
+      "primary_action": "AC-38",
+      "primary_information_concept": "IC-61",
+      "inherited_acceptance_tests": [
+        "AT-GOV-01-P",
+        "AT-GOV-01-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-GOV-02",
+      "obligation": "H",
+      "primary_owner": "P08",
+      "primary_action": "AC-27",
+      "primary_information_concept": "IC-53",
+      "inherited_acceptance_tests": [
+        "AT-GOV-02-P",
+        "AT-GOV-02-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-GOV-03",
+      "obligation": "H",
+      "primary_owner": "P08",
+      "primary_action": "AC-27",
+      "primary_information_concept": "IC-53",
+      "inherited_acceptance_tests": [
+        "AT-GOV-03-P",
+        "AT-GOV-03-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-GOV-04",
+      "obligation": "H",
+      "primary_owner": "P03",
+      "primary_action": "AC-07",
+      "primary_information_concept": "IC-20",
+      "inherited_acceptance_tests": [
+        "AT-GOV-04-P",
+        "AT-GOV-04-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-GOV-05",
+      "obligation": "H",
+      "primary_owner": "P09",
+      "primary_action": "AC-38",
+      "primary_information_concept": "IC-61",
+      "inherited_acceptance_tests": [
+        "AT-GOV-05-P",
+        "AT-GOV-05-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-MAT-01",
+      "obligation": "H",
+      "primary_owner": "P01",
+      "primary_action": "AC-01",
+      "primary_information_concept": "IC-01",
+      "inherited_acceptance_tests": [
+        "AT-MAT-01-P",
+        "AT-MAT-01-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-21",
+        "IR-23"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-MAT-02",
+      "obligation": "H",
+      "primary_owner": "P01",
+      "primary_action": "AC-02",
+      "primary_information_concept": "IC-03",
+      "inherited_acceptance_tests": [
+        "AT-MAT-02-P",
+        "AT-MAT-02-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-21",
+        "IR-23"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-MAT-03",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-13",
+      "primary_information_concept": "IC-25",
+      "inherited_acceptance_tests": [
+        "AT-MAT-03-P",
+        "AT-MAT-03-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-21",
+        "IR-23"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-MAT-04",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-13",
+      "primary_information_concept": "IC-25",
+      "inherited_acceptance_tests": [
+        "AT-MAT-04-P",
+        "AT-MAT-04-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-21",
+        "IR-23"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-MAT-05",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-14",
+      "primary_information_concept": "IC-27",
+      "inherited_acceptance_tests": [
+        "AT-MAT-05-P",
+        "AT-MAT-05-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-21",
+        "IR-23"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-MAT-06",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-15",
+      "primary_information_concept": "IC-27",
+      "inherited_acceptance_tests": [
+        "AT-MAT-06-P",
+        "AT-MAT-06-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-21",
+        "IR-23"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-MAT-07",
+      "obligation": "H",
+      "primary_owner": "P01",
+      "primary_action": "AC-02",
+      "primary_information_concept": "IC-04",
+      "inherited_acceptance_tests": [
+        "AT-MAT-07-P",
+        "AT-MAT-07-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-21",
+        "IR-23"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-MAT-08",
+      "obligation": "H",
+      "primary_owner": "P01",
+      "primary_action": "AC-02",
+      "primary_information_concept": "IC-05",
+      "inherited_acceptance_tests": [
+        "AT-MAT-08-P",
+        "AT-MAT-08-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-21",
+        "IR-23"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-DAT-01",
+      "obligation": "H",
+      "primary_owner": "P02",
+      "primary_action": "AC-04",
+      "primary_information_concept": "IC-13",
+      "inherited_acceptance_tests": [
+        "AT-DAT-01-P",
+        "AT-DAT-01-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-05",
+        "IR-06",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-DAT-02",
+      "obligation": "H",
+      "primary_owner": "P02",
+      "primary_action": "AC-04",
+      "primary_information_concept": "IC-12",
+      "inherited_acceptance_tests": [
+        "AT-DAT-02-P",
+        "AT-DAT-02-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-05",
+        "IR-06",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-DAT-03",
+      "obligation": "H",
+      "primary_owner": "P02",
+      "primary_action": "AC-05",
+      "primary_information_concept": "IC-13",
+      "inherited_acceptance_tests": [
+        "AT-DAT-03-P",
+        "AT-DAT-03-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-05",
+        "IR-06",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-DAT-04",
+      "obligation": "C",
+      "primary_owner": "P02",
+      "primary_action": "AC-06",
+      "primary_information_concept": "IC-17",
+      "inherited_acceptance_tests": [
+        "AT-DAT-04-P",
+        "AT-DAT-04-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-05",
+        "IR-06",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-DAT-05",
+      "obligation": "C",
+      "primary_owner": "P02",
+      "primary_action": "AC-06",
+      "primary_information_concept": "IC-16",
+      "inherited_acceptance_tests": [
+        "AT-DAT-05-P",
+        "AT-DAT-05-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-05",
+        "IR-06",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-DAT-06",
+      "obligation": "H",
+      "primary_owner": "P02",
+      "primary_action": "AC-06",
+      "primary_information_concept": "IC-14",
+      "inherited_acceptance_tests": [
+        "AT-DAT-06-P",
+        "AT-DAT-06-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-05",
+        "IR-06",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-DAT-07",
+      "obligation": "H",
+      "primary_owner": "P02",
+      "primary_action": "AC-04",
+      "primary_information_concept": "IC-15",
+      "inherited_acceptance_tests": [
+        "AT-DAT-07-P",
+        "AT-DAT-07-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-05",
+        "IR-06",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CFG-01",
+      "obligation": "H",
+      "primary_owner": "P03",
+      "primary_action": "AC-07",
+      "primary_information_concept": "IC-20",
+      "inherited_acceptance_tests": [
+        "AT-CFG-01-P",
+        "AT-CFG-01-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-02",
+        "IR-05",
+        "IR-06",
+        "IR-09",
+        "IR-14",
+        "IR-17"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CFG-02",
+      "obligation": "H",
+      "primary_owner": "P03",
+      "primary_action": "AC-08",
+      "primary_information_concept": "IC-23",
+      "inherited_acceptance_tests": [
+        "AT-CFG-02-P",
+        "AT-CFG-02-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-02",
+        "IR-05",
+        "IR-06",
+        "IR-09",
+        "IR-14",
+        "IR-17"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CFG-03",
+      "obligation": "H",
+      "primary_owner": "P03",
+      "primary_action": "AC-09",
+      "primary_information_concept": "IC-24",
+      "inherited_acceptance_tests": [
+        "AT-CFG-03-P",
+        "AT-CFG-03-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-02",
+        "IR-05",
+        "IR-06",
+        "IR-09",
+        "IR-14",
+        "IR-17"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CFG-04",
+      "obligation": "H",
+      "primary_owner": "P03",
+      "primary_action": "AC-08",
+      "primary_information_concept": "IC-21",
+      "inherited_acceptance_tests": [
+        "AT-CFG-04-P",
+        "AT-CFG-04-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-02",
+        "IR-05",
+        "IR-06",
+        "IR-09",
+        "IR-14",
+        "IR-17"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CFG-05",
+      "obligation": "H",
+      "primary_owner": "P03",
+      "primary_action": "AC-07",
+      "primary_information_concept": "IC-22",
+      "inherited_acceptance_tests": [
+        "AT-CFG-05-P",
+        "AT-CFG-05-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-02",
+        "IR-05",
+        "IR-06",
+        "IR-09",
+        "IR-14",
+        "IR-17"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CFG-06",
+      "obligation": "H",
+      "primary_owner": "P07",
+      "primary_action": "AC-19",
+      "primary_information_concept": "IC-49",
+      "inherited_acceptance_tests": [
+        "AT-CFG-06-P",
+        "AT-CFG-06-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-02",
+        "IR-05",
+        "IR-06",
+        "IR-09",
+        "IR-14",
+        "IR-17"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CFG-07",
+      "obligation": "H",
+      "primary_owner": "P03",
+      "primary_action": "AC-07",
+      "primary_information_concept": "IC-22",
+      "inherited_acceptance_tests": [
+        "AT-CFG-07-P",
+        "AT-CFG-07-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-02",
+        "IR-05",
+        "IR-06",
+        "IR-09",
+        "IR-14",
+        "IR-17"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-STA-01",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-13",
+      "primary_information_concept": "IC-28",
+      "inherited_acceptance_tests": [
+        "AT-STA-01-P",
+        "AT-STA-01-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-16",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-STA-02",
+      "obligation": "H",
+      "primary_owner": "P05",
+      "primary_action": "AC-21",
+      "primary_information_concept": "IC-36",
+      "inherited_acceptance_tests": [
+        "AT-STA-02-P",
+        "AT-STA-02-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-16",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-STA-03",
+      "obligation": "H",
+      "primary_owner": "P05",
+      "primary_action": "AC-21",
+      "primary_information_concept": "IC-37",
+      "inherited_acceptance_tests": [
+        "AT-STA-03-P",
+        "AT-STA-03-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-16",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-STA-04",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-13",
+      "primary_information_concept": "IC-26",
+      "inherited_acceptance_tests": [
+        "AT-STA-04-P",
+        "AT-STA-04-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-16",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-STA-05",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-16",
+      "primary_information_concept": "IC-29",
+      "inherited_acceptance_tests": [
+        "AT-STA-05-P",
+        "AT-STA-05-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-16",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-STA-06",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-16",
+      "primary_information_concept": "IC-29",
+      "inherited_acceptance_tests": [
+        "AT-STA-06-P",
+        "AT-STA-06-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-16",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-STA-07",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-15",
+      "primary_information_concept": "IC-71",
+      "inherited_acceptance_tests": [
+        "AT-STA-07-P",
+        "AT-STA-07-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-16",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-STA-08",
+      "obligation": "H",
+      "primary_owner": "P04",
+      "primary_action": "AC-17",
+      "primary_information_concept": "IC-31",
+      "inherited_acceptance_tests": [
+        "AT-STA-08-P",
+        "AT-STA-08-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-16",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EQL-01",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-23",
+      "primary_information_concept": "IC-35",
+      "inherited_acceptance_tests": [
+        "AT-EQL-01-P",
+        "AT-EQL-01-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-05",
+        "IR-08",
+        "IR-12",
+        "IR-14",
+        "IR-15",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EQL-02",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-23",
+      "primary_information_concept": "IC-35",
+      "inherited_acceptance_tests": [
+        "AT-EQL-02-P",
+        "AT-EQL-02-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-05",
+        "IR-08",
+        "IR-12",
+        "IR-14",
+        "IR-15",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EQL-03",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-23",
+      "primary_information_concept": "IC-35",
+      "inherited_acceptance_tests": [
+        "AT-EQL-03-P",
+        "AT-EQL-03-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-05",
+        "IR-08",
+        "IR-12",
+        "IR-14",
+        "IR-15",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EQL-04",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-23",
+      "primary_information_concept": "IC-36",
+      "inherited_acceptance_tests": [
+        "AT-EQL-04-P",
+        "AT-EQL-04-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-05",
+        "IR-08",
+        "IR-12",
+        "IR-14",
+        "IR-15",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EQL-05",
+      "obligation": "H",
+      "primary_owner": "P05",
+      "primary_action": "AC-22",
+      "primary_information_concept": "IC-34",
+      "inherited_acceptance_tests": [
+        "AT-EQL-05-P",
+        "AT-EQL-05-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-05",
+        "IR-08",
+        "IR-12",
+        "IR-14",
+        "IR-15",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EQL-06",
+      "obligation": "H",
+      "primary_owner": "P05",
+      "primary_action": "AC-23",
+      "primary_information_concept": "IC-42",
+      "inherited_acceptance_tests": [
+        "AT-EQL-06-P",
+        "AT-EQL-06-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-05",
+        "IR-08",
+        "IR-12",
+        "IR-14",
+        "IR-15",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EQL-07",
+      "obligation": "H",
+      "primary_owner": "P05",
+      "primary_action": "AC-23",
+      "primary_information_concept": "IC-42",
+      "inherited_acceptance_tests": [
+        "AT-EQL-07-P",
+        "AT-EQL-07-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-05",
+        "IR-08",
+        "IR-12",
+        "IR-14",
+        "IR-15",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EQL-08",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-23",
+      "primary_information_concept": "IC-34",
+      "inherited_acceptance_tests": [
+        "AT-EQL-08-P",
+        "AT-EQL-08-N"
+      ],
+      "integration_rules": [
+        "IR-01",
+        "IR-05",
+        "IR-08",
+        "IR-12",
+        "IR-14",
+        "IR-15",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-PRP-01",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-22",
+      "primary_information_concept": "IC-34",
+      "inherited_acceptance_tests": [
+        "AT-PRP-01-P",
+        "AT-PRP-01-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-11",
+        "IR-12",
+        "IR-13",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-PRP-02",
+      "obligation": "H",
+      "primary_owner": "P05",
+      "primary_action": "AC-22",
+      "primary_information_concept": "IC-34",
+      "inherited_acceptance_tests": [
+        "AT-PRP-02-P",
+        "AT-PRP-02-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-11",
+        "IR-12",
+        "IR-13",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-PRP-03",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-22",
+      "primary_information_concept": "IC-38",
+      "inherited_acceptance_tests": [
+        "AT-PRP-03-P",
+        "AT-PRP-03-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-11",
+        "IR-12",
+        "IR-13",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-PRP-04",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-22",
+      "primary_information_concept": "IC-38",
+      "inherited_acceptance_tests": [
+        "AT-PRP-04-P",
+        "AT-PRP-04-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-11",
+        "IR-12",
+        "IR-13",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-PRP-05",
+      "obligation": "H",
+      "primary_owner": "P05",
+      "primary_action": "AC-25",
+      "primary_information_concept": "IC-39",
+      "inherited_acceptance_tests": [
+        "AT-PRP-05-P",
+        "AT-PRP-05-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-11",
+        "IR-12",
+        "IR-13",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-PRP-06",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-25",
+      "primary_information_concept": "IC-39",
+      "inherited_acceptance_tests": [
+        "AT-PRP-06-P",
+        "AT-PRP-06-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-11",
+        "IR-12",
+        "IR-13",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-PRP-07",
+      "obligation": "H",
+      "primary_owner": "P03",
+      "primary_action": "AC-08",
+      "primary_information_concept": "IC-21",
+      "inherited_acceptance_tests": [
+        "AT-PRP-07-P",
+        "AT-PRP-07-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-11",
+        "IR-12",
+        "IR-13",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CHM-01",
+      "obligation": "C",
+      "primary_owner": "P06",
+      "primary_action": "AC-10",
+      "primary_information_concept": "IC-43",
+      "inherited_acceptance_tests": [
+        "AT-CHM-01-P",
+        "AT-CHM-01-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-08",
+        "IR-09",
+        "IR-16",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CHM-02",
+      "obligation": "C",
+      "primary_owner": "P06",
+      "primary_action": "AC-11",
+      "primary_information_concept": "IC-43",
+      "inherited_acceptance_tests": [
+        "AT-CHM-02-P",
+        "AT-CHM-02-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-08",
+        "IR-09",
+        "IR-16",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CHM-03",
+      "obligation": "C",
+      "primary_owner": "P05",
+      "primary_action": "AC-24",
+      "primary_information_concept": "IC-35",
+      "inherited_acceptance_tests": [
+        "AT-CHM-03-P",
+        "AT-CHM-03-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-08",
+        "IR-09",
+        "IR-16",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CHM-04",
+      "obligation": "C",
+      "primary_owner": "P06",
+      "primary_action": "AC-10",
+      "primary_information_concept": "IC-45",
+      "inherited_acceptance_tests": [
+        "AT-CHM-04-P",
+        "AT-CHM-04-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-08",
+        "IR-09",
+        "IR-16",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CHM-05",
+      "obligation": "H",
+      "primary_owner": "P03",
+      "primary_action": "AC-08",
+      "primary_information_concept": "IC-21",
+      "inherited_acceptance_tests": [
+        "AT-CHM-05-P",
+        "AT-CHM-05-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-08",
+        "IR-09",
+        "IR-16",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CHM-06",
+      "obligation": "C",
+      "primary_owner": "P06",
+      "primary_action": "AC-12",
+      "primary_information_concept": "IC-47",
+      "inherited_acceptance_tests": [
+        "AT-CHM-06-P",
+        "AT-CHM-06-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-08",
+        "IR-09",
+        "IR-16",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CHM-07",
+      "obligation": "C",
+      "primary_owner": "P06",
+      "primary_action": "AC-10",
+      "primary_information_concept": "IC-46",
+      "inherited_acceptance_tests": [
+        "AT-CHM-07-P",
+        "AT-CHM-07-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-08",
+        "IR-09",
+        "IR-16",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-CHM-08",
+      "obligation": "C",
+      "primary_owner": "P09",
+      "primary_action": "AC-37",
+      "primary_information_concept": "IC-60",
+      "inherited_acceptance_tests": [
+        "AT-CHM-08-P",
+        "AT-CHM-08-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-08",
+        "IR-09",
+        "IR-16",
+        "IR-20"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-FLW-01",
+      "obligation": "H",
+      "primary_owner": "P07",
+      "primary_action": "AC-20",
+      "primary_information_concept": "IC-50",
+      "inherited_acceptance_tests": [
+        "AT-FLW-01-P",
+        "AT-FLW-01-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-10",
+        "IR-12",
+        "IR-13",
+        "IR-16",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-FLW-02",
+      "obligation": "C",
+      "primary_owner": "P07",
+      "primary_action": "AC-39",
+      "primary_information_concept": "IC-50",
+      "inherited_acceptance_tests": [
+        "AT-FLW-02-P",
+        "AT-FLW-02-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-10",
+        "IR-12",
+        "IR-13",
+        "IR-16",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-FLW-03",
+      "obligation": "C",
+      "primary_owner": "P07",
+      "primary_action": "AC-40",
+      "primary_information_concept": "IC-50",
+      "inherited_acceptance_tests": [
+        "AT-FLW-03-P",
+        "AT-FLW-03-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-10",
+        "IR-12",
+        "IR-13",
+        "IR-16",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-FLW-04",
+      "obligation": "C",
+      "primary_owner": "P07",
+      "primary_action": "AC-41",
+      "primary_information_concept": "IC-50",
+      "inherited_acceptance_tests": [
+        "AT-FLW-04-P",
+        "AT-FLW-04-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-10",
+        "IR-12",
+        "IR-13",
+        "IR-16",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-FLW-05",
+      "obligation": "C",
+      "primary_owner": "P07",
+      "primary_action": "AC-42",
+      "primary_information_concept": "IC-51",
+      "inherited_acceptance_tests": [
+        "AT-FLW-05-P",
+        "AT-FLW-05-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-10",
+        "IR-12",
+        "IR-13",
+        "IR-16",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-FLW-06",
+      "obligation": "C",
+      "primary_owner": "P07",
+      "primary_action": "AC-42",
+      "primary_information_concept": "IC-51",
+      "inherited_acceptance_tests": [
+        "AT-FLW-06-P",
+        "AT-FLW-06-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-10",
+        "IR-12",
+        "IR-13",
+        "IR-16",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-FLW-07",
+      "obligation": "C",
+      "primary_owner": "P07",
+      "primary_action": "AC-43",
+      "primary_information_concept": "IC-50",
+      "inherited_acceptance_tests": [
+        "AT-FLW-07-P",
+        "AT-FLW-07-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-10",
+        "IR-12",
+        "IR-13",
+        "IR-16",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-FLW-08",
+      "obligation": "C",
+      "primary_owner": "P07",
+      "primary_action": "AC-43",
+      "primary_information_concept": "IC-50",
+      "inherited_acceptance_tests": [
+        "AT-FLW-08-P",
+        "AT-FLW-08-N"
+      ],
+      "integration_rules": [
+        "IR-07",
+        "IR-10",
+        "IR-12",
+        "IR-13",
+        "IR-16",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RUN-01",
+      "obligation": "H",
+      "primary_owner": "P08",
+      "primary_action": "AC-31",
+      "primary_information_concept": "IC-57",
+      "inherited_acceptance_tests": [
+        "AT-RUN-01-P",
+        "AT-RUN-01-N"
+      ],
+      "integration_rules": [
+        "IR-12",
+        "IR-15",
+        "IR-17",
+        "IR-18",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RUN-02",
+      "obligation": "H",
+      "primary_owner": "P08",
+      "primary_action": "AC-31",
+      "primary_information_concept": "IC-57",
+      "inherited_acceptance_tests": [
+        "AT-RUN-02-P",
+        "AT-RUN-02-N"
+      ],
+      "integration_rules": [
+        "IR-12",
+        "IR-15",
+        "IR-17",
+        "IR-18",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RUN-03",
+      "obligation": "H",
+      "primary_owner": "P08",
+      "primary_action": "AC-30",
+      "primary_information_concept": "IC-55",
+      "inherited_acceptance_tests": [
+        "AT-RUN-03-P",
+        "AT-RUN-03-N"
+      ],
+      "integration_rules": [
+        "IR-12",
+        "IR-15",
+        "IR-17",
+        "IR-18",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RUN-04",
+      "obligation": "H",
+      "primary_owner": "P08",
+      "primary_action": "AC-30",
+      "primary_information_concept": "IC-55",
+      "inherited_acceptance_tests": [
+        "AT-RUN-04-P",
+        "AT-RUN-04-N"
+      ],
+      "integration_rules": [
+        "IR-12",
+        "IR-15",
+        "IR-17",
+        "IR-18",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RUN-05",
+      "obligation": "H",
+      "primary_owner": "P08",
+      "primary_action": "AC-34",
+      "primary_information_concept": "IC-54",
+      "inherited_acceptance_tests": [
+        "AT-RUN-05-P",
+        "AT-RUN-05-N"
+      ],
+      "integration_rules": [
+        "IR-12",
+        "IR-15",
+        "IR-17",
+        "IR-18",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RUN-06",
+      "obligation": "H",
+      "primary_owner": "P08",
+      "primary_action": "AC-35",
+      "primary_information_concept": "IC-54",
+      "inherited_acceptance_tests": [
+        "AT-RUN-06-P",
+        "AT-RUN-06-N"
+      ],
+      "integration_rules": [
+        "IR-12",
+        "IR-15",
+        "IR-17",
+        "IR-18",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RUN-07",
+      "obligation": "H",
+      "primary_owner": "P08",
+      "primary_action": "AC-35",
+      "primary_information_concept": "IC-55",
+      "inherited_acceptance_tests": [
+        "AT-RUN-07-P",
+        "AT-RUN-07-N"
+      ],
+      "integration_rules": [
+        "IR-12",
+        "IR-15",
+        "IR-17",
+        "IR-18",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RUN-08",
+      "obligation": "H",
+      "primary_owner": "P07",
+      "primary_action": "AC-44",
+      "primary_information_concept": "IC-52",
+      "inherited_acceptance_tests": [
+        "AT-RUN-08-P",
+        "AT-RUN-08-N"
+      ],
+      "integration_rules": [
+        "IR-12",
+        "IR-15",
+        "IR-17",
+        "IR-18",
+        "IR-19",
+        "IR-21"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RES-01",
+      "obligation": "H",
+      "primary_owner": "P09",
+      "primary_action": "AC-37",
+      "primary_information_concept": "IC-63",
+      "inherited_acceptance_tests": [
+        "AT-RES-01-P",
+        "AT-RES-01-N"
+      ],
+      "integration_rules": [
+        "IR-20",
+        "IR-21",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RES-02",
+      "obligation": "H",
+      "primary_owner": "P09",
+      "primary_action": "AC-36",
+      "primary_information_concept": "IC-59",
+      "inherited_acceptance_tests": [
+        "AT-RES-02-P",
+        "AT-RES-02-N"
+      ],
+      "integration_rules": [
+        "IR-20",
+        "IR-21",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RES-03",
+      "obligation": "H",
+      "primary_owner": "P09",
+      "primary_action": "AC-36",
+      "primary_information_concept": "IC-59",
+      "inherited_acceptance_tests": [
+        "AT-RES-03-P",
+        "AT-RES-03-N"
+      ],
+      "integration_rules": [
+        "IR-20",
+        "IR-21",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RES-04",
+      "obligation": "H",
+      "primary_owner": "P09",
+      "primary_action": "AC-37",
+      "primary_information_concept": "IC-60",
+      "inherited_acceptance_tests": [
+        "AT-RES-04-P",
+        "AT-RES-04-N"
+      ],
+      "integration_rules": [
+        "IR-20",
+        "IR-21",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RES-05",
+      "obligation": "H",
+      "primary_owner": "P10",
+      "primary_action": "AC-49",
+      "primary_information_concept": "IC-66",
+      "inherited_acceptance_tests": [
+        "AT-RES-05-P",
+        "AT-RES-05-N"
+      ],
+      "integration_rules": [
+        "IR-20",
+        "IR-21",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RES-06",
+      "obligation": "H",
+      "primary_owner": "P09",
+      "primary_action": "AC-56",
+      "primary_information_concept": "IC-60",
+      "inherited_acceptance_tests": [
+        "AT-RES-06-P",
+        "AT-RES-06-N"
+      ],
+      "integration_rules": [
+        "IR-20",
+        "IR-21",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RES-07",
+      "obligation": "H",
+      "primary_owner": "P09",
+      "primary_action": "AC-37",
+      "primary_information_concept": "IC-62",
+      "inherited_acceptance_tests": [
+        "AT-RES-07-P",
+        "AT-RES-07-N"
+      ],
+      "integration_rules": [
+        "IR-20",
+        "IR-21",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-RES-08",
+      "obligation": "H",
+      "primary_owner": "P09",
+      "primary_action": "AC-38",
+      "primary_information_concept": "IC-61",
+      "inherited_acceptance_tests": [
+        "AT-RES-08-P",
+        "AT-RES-08-N"
+      ],
+      "integration_rules": [
+        "IR-20",
+        "IR-21",
+        "IR-22",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-LIF-01",
+      "obligation": "H",
+      "primary_owner": "P10",
+      "primary_action": "AC-48",
+      "primary_information_concept": "IC-64",
+      "inherited_acceptance_tests": [
+        "AT-LIF-01-P",
+        "AT-LIF-01-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-17",
+        "IR-21",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-LIF-02",
+      "obligation": "H",
+      "primary_owner": "P10",
+      "primary_action": "AC-47",
+      "primary_information_concept": "IC-65",
+      "inherited_acceptance_tests": [
+        "AT-LIF-02-P",
+        "AT-LIF-02-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-17",
+        "IR-21",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-LIF-03",
+      "obligation": "H",
+      "primary_owner": "P10",
+      "primary_action": "AC-47",
+      "primary_information_concept": "IC-65",
+      "inherited_acceptance_tests": [
+        "AT-LIF-03-P",
+        "AT-LIF-03-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-17",
+        "IR-21",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-LIF-04",
+      "obligation": "H",
+      "primary_owner": "P10",
+      "primary_action": "AC-50",
+      "primary_information_concept": "IC-68",
+      "inherited_acceptance_tests": [
+        "AT-LIF-04-P",
+        "AT-LIF-04-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-17",
+        "IR-21",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-LIF-05",
+      "obligation": "H",
+      "primary_owner": "P10",
+      "primary_action": "AC-51",
+      "primary_information_concept": "IC-69",
+      "inherited_acceptance_tests": [
+        "AT-LIF-05-P",
+        "AT-LIF-05-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-17",
+        "IR-21",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-LIF-06",
+      "obligation": "H",
+      "primary_owner": "P10",
+      "primary_action": "AC-52",
+      "primary_information_concept": "IC-69",
+      "inherited_acceptance_tests": [
+        "AT-LIF-06-P",
+        "AT-LIF-06-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-17",
+        "IR-21",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-LIF-07",
+      "obligation": "H",
+      "primary_owner": "P10",
+      "primary_action": "AC-53",
+      "primary_information_concept": "IC-69",
+      "inherited_acceptance_tests": [
+        "AT-LIF-07-P",
+        "AT-LIF-07-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-17",
+        "IR-21",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-LIF-08",
+      "obligation": "H",
+      "primary_owner": "P10",
+      "primary_action": "AC-48",
+      "primary_information_concept": "IC-65",
+      "inherited_acceptance_tests": [
+        "AT-LIF-08-P",
+        "AT-LIF-08-N"
+      ],
+      "integration_rules": [
+        "IR-03",
+        "IR-17",
+        "IR-21",
+        "IR-22"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EXT-01",
+      "obligation": "R3",
+      "primary_owner": "P01",
+      "primary_action": "AC-03",
+      "primary_information_concept": "IC-09",
+      "inherited_acceptance_tests": [
+        "AT-EXT-01-P",
+        "AT-EXT-01-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-23",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EXT-02",
+      "obligation": "R3",
+      "primary_owner": "P01",
+      "primary_action": "AC-03",
+      "primary_information_concept": "IC-08",
+      "inherited_acceptance_tests": [
+        "AT-EXT-02-P",
+        "AT-EXT-02-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-23",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EXT-03",
+      "obligation": "R3",
+      "primary_owner": "P04",
+      "primary_action": "AC-13",
+      "primary_information_concept": "IC-25",
+      "inherited_acceptance_tests": [
+        "AT-EXT-03-P",
+        "AT-EXT-03-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-23",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    },
+    {
+      "id": "FR-EXT-04",
+      "obligation": "R3",
+      "primary_owner": "P05",
+      "primary_action": "AC-23",
+      "primary_information_concept": "IC-42",
+      "inherited_acceptance_tests": [
+        "AT-EXT-04-P",
+        "AT-EXT-04-N"
+      ],
+      "integration_rules": [
+        "IR-04",
+        "IR-14",
+        "IR-23",
+        "IR-24"
+      ],
+      "review_status": "trace_and_action_information_allocation_retained",
+      "implementation_conformance": "not_established",
+      "independent_validation": "not_established"
+    }
+  ],
+  "scenario_walkthroughs": [
+    {
+      "id": "VR-01",
+      "scenario": "SC-01",
+      "title": "Blending and splitting without reaction",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Two compatible feeds with declared component flows and a chosen pressure/heat rule; a separate composition-preserving splitter.",
+      "semantic_and_action_route": "Capture each account; perform material and enthalpy-flow aggregation; resolve the mixed state; route a coherent product set.",
+      "adversarial_condition": "An arithmetic temperature average or a partial component edit masquerading as complete replacement changes input intent.",
+      "required_actions": [
+        "AC-02",
+        "AC-14",
+        "AC-15",
+        "AC-36",
+        "AC-39"
+      ],
+      "information_concepts": [
+        "IC-05",
+        "IC-07",
+        "IC-21",
+        "IC-25",
+        "IC-26",
+        "IC-27",
+        "IC-43",
+        "IC-50",
+        "IC-59",
+        "IC-65",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-MAT-05",
+        "FR-MAT-06",
+        "FR-MAT-08",
+        "FR-FLW-02",
+        "FR-RES-03"
+      ],
+      "candidate_profiles": [
+        "IP-01"
+      ],
+      "executed_contributing_probes": [
+        "NP-29",
+        "NP-30"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Actual material data, full reference simulator integration, and all GUI/API edit paths remain untested.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-02",
+      "scenario": "SC-02",
+      "title": "Sensible heating and heat exchange",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "A duty heater and a separately identified rating mode; complete calorics versus optional transport.",
+      "semantic_and_action_route": "Freeze the actual enthalpy function before PH resolution; attach only the properties required by the selected unit mode.",
+      "adversarial_condition": "Adding a missing caloric term after a partial PH solve gives the wrong target; missing rating viscosity cannot be hidden.",
+      "required_actions": [
+        "AC-08",
+        "AC-20",
+        "AC-22",
+        "AC-23",
+        "AC-41"
+      ],
+      "information_concepts": [
+        "IC-14",
+        "IC-20",
+        "IC-21",
+        "IC-24",
+        "IC-29",
+        "IC-34",
+        "IC-35",
+        "IC-36",
+        "IC-38",
+        "IC-41",
+        "IC-48",
+        "IC-50",
+        "IC-56",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-CFG-04",
+        "FR-EQL-02",
+        "FR-PRP-02",
+        "FR-PRP-03",
+        "FR-FLW-01",
+        "FR-FLW-04"
+      ],
+      "candidate_profiles": [
+        "IP-01",
+        "IP-04",
+        "IP-09"
+      ],
+      "executed_contributing_probes": [
+        "NP-15",
+        "NP-22",
+        "NP-25"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No real-fluid heat duty or geometry/rating model validated.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-03",
+      "scenario": "SC-03",
+      "title": "Liquid pumping and pressure-loss calculations",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "A liquid account with pressure specification and a unit-owned pump or pipe relationship; density and viscosity demands explicit.",
+      "semantic_and_action_route": "Bind a liquid-capable package; evaluate the supplied phase; let equipment supply pressure/work/hydraulic constraints.",
+      "adversarial_condition": "Our zero-liquid-volume synthetic VLE fixture cannot be promoted to a physical pumping or pressure-loss model.",
+      "required_actions": [
+        "AC-09",
+        "AC-20",
+        "AC-22",
+        "AC-23"
+      ],
+      "information_concepts": [
+        "IC-24",
+        "IC-28",
+        "IC-29",
+        "IC-34",
+        "IC-37",
+        "IC-38",
+        "IC-41",
+        "IC-42",
+        "IC-48",
+        "IC-50",
+        "IC-53",
+        "IC-56",
+        "IC-57"
+      ],
+      "requirements": [
+        "FR-PRP-01",
+        "FR-PRP-03",
+        "FR-CFG-03",
+        "FR-FLW-01",
+        "FR-EQL-06"
+      ],
+      "candidate_profiles": [
+        "IP-01",
+        "IP-04"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "A real density/viscosity package and pump/pipe law are mandatory outstanding fixtures.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-04",
+      "scenario": "SC-04",
+      "title": "Gas compression, expansion and intercooling",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Gas inlet, outlet pressure, efficiency law, PS reference and distinct actual PH outlet.",
+      "semantic_and_action_route": "Compute the isentropic reference; apply the unit efficiency; resolve actual outlet energy; qualify both local and unit balances.",
+      "adversarial_condition": "Publishing the ideal reference as the actual machine outlet or differentiating a frozen inner phase misses the intended problem.",
+      "required_actions": [
+        "AC-08",
+        "AC-13",
+        "AC-20",
+        "AC-23",
+        "AC-25"
+      ],
+      "information_concepts": [
+        "IC-04",
+        "IC-14",
+        "IC-20",
+        "IC-21",
+        "IC-24",
+        "IC-26",
+        "IC-28",
+        "IC-34",
+        "IC-35",
+        "IC-36",
+        "IC-38",
+        "IC-39",
+        "IC-41",
+        "IC-48",
+        "IC-50",
+        "IC-57"
+      ],
+      "requirements": [
+        "FR-EQL-03",
+        "FR-EQL-02",
+        "FR-CFG-04",
+        "FR-STA-04",
+        "FR-PRP-05",
+        "FR-FLW-01"
+      ],
+      "candidate_profiles": [
+        "IP-01"
+      ],
+      "executed_contributing_probes": [
+        "NP-16",
+        "NP-19"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Synthetic ideal material only; real compressor envelope, phase policy and provider behavior remain open.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-05",
+      "scenario": "SC-05",
+      "title": "Cooling and vapor\u2013liquid separation",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "A cooled feed with a shared permitted vapor/liquid allocation and explicit product quantities.",
+      "semantic_and_action_route": "Resolve one material equilibrium; check component/energy totals; then apply product routing.",
+      "adversarial_condition": "A numerical phase entry or report aggregate cannot create a product, and a converged local allocation cannot claim global stability.",
+      "required_actions": [
+        "AC-16",
+        "AC-23",
+        "AC-36",
+        "AC-40"
+      ],
+      "information_concepts": [
+        "IC-05",
+        "IC-21",
+        "IC-29",
+        "IC-30",
+        "IC-31",
+        "IC-34",
+        "IC-35",
+        "IC-36",
+        "IC-37",
+        "IC-41",
+        "IC-42",
+        "IC-50",
+        "IC-56",
+        "IC-59",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-EQL-01",
+        "FR-EQL-06",
+        "FR-STA-05",
+        "FR-STA-06",
+        "FR-FLW-03",
+        "FR-RES-03"
+      ],
+      "candidate_profiles": [
+        "IP-01"
+      ],
+      "executed_contributing_probes": [
+        "NP-03",
+        "NP-11",
+        "NP-20"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No actual-library flash dispatcher or real-mixture stability validation.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-06",
+      "scenario": "SC-06",
+      "title": "Pressure reduction with flashing",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Isenthalpic pressure-reducing unit with fixed original H, pressure, amount and nonreacting composition.",
+      "semantic_and_action_route": "Capture original target; initialize and solve complete PH; recheck target; publish only the declared outlet completion kind.",
+      "adversarial_condition": "A root finder reporting success on a jump, a target rewritten to its returned value, or obsolete completion must be rejected.",
+      "required_actions": [
+        "AC-21",
+        "AC-23",
+        "AC-31",
+        "AC-36",
+        "AC-37",
+        "AC-49"
+      ],
+      "information_concepts": [
+        "IC-21",
+        "IC-24",
+        "IC-35",
+        "IC-36",
+        "IC-37",
+        "IC-41",
+        "IC-52",
+        "IC-53",
+        "IC-57",
+        "IC-59",
+        "IC-60",
+        "IC-64",
+        "IC-66",
+        "IC-67",
+        "IC-70"
+      ],
+      "requirements": [
+        "FR-EQL-02",
+        "FR-STA-03",
+        "FR-RES-02",
+        "FR-RES-04",
+        "FR-RES-05",
+        "FR-RUN-01"
+      ],
+      "candidate_profiles": [
+        "IP-01"
+      ],
+      "executed_contributing_probes": [
+        "NP-18",
+        "NP-25",
+        "NP-26"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Synthetic valve executed; production provider and downstream stream publication remain untested.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-07",
+      "scenario": "SC-07",
+      "title": "Conventional equilibrium-stage distillation",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Two or more named internal stages with shared method definitions and distinct local variables and completion scopes.",
+      "semantic_and_action_route": "Use phase-only or equation contributions; retain initialization interventions; collect final stage/interstage residuals before parent acceptance.",
+      "adversarial_condition": "A stage at an old iterate may not join a newer inlet merely because the package revision matches.",
+      "required_actions": [
+        "AC-13",
+        "AC-22",
+        "AC-31",
+        "AC-37",
+        "AC-43",
+        "AC-44"
+      ],
+      "information_concepts": [
+        "IC-25",
+        "IC-26",
+        "IC-28",
+        "IC-34",
+        "IC-36",
+        "IC-37",
+        "IC-40",
+        "IC-48",
+        "IC-50",
+        "IC-52",
+        "IC-54",
+        "IC-57",
+        "IC-60",
+        "IC-66",
+        "IC-67"
+      ],
+      "requirements": [
+        "FR-STA-01",
+        "FR-STA-04",
+        "FR-PRP-01",
+        "FR-FLW-07",
+        "FR-RUN-02",
+        "FR-RUN-08",
+        "FR-RES-04"
+      ],
+      "candidate_profiles": [
+        "IP-01",
+        "IP-13"
+      ],
+      "executed_contributing_probes": [
+        "NP-27"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No rigorous multistage column executed; stage topology and all MESH equations remain a real-fixture gate.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-08",
+      "scenario": "SC-08",
+      "title": "Nonideal-liquid separation and azeotropic behavior",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "A liquid activity model, directed temperature-dependent interactions, compatible vapor and caloric definitions.",
+      "semantic_and_action_route": "Resolve ordered parameters and their formulas; evaluate activities/caloric terms; only then qualify an assembled VLE/separation profile.",
+      "adversarial_condition": "Transposed parameters can produce plausible gamma values; a matching kernel example does not establish azeotrope or distillation behavior.",
+      "required_actions": [
+        "AC-04",
+        "AC-05",
+        "AC-08",
+        "AC-23",
+        "AC-34"
+      ],
+      "information_concepts": [
+        "IC-12",
+        "IC-13",
+        "IC-14",
+        "IC-17",
+        "IC-18",
+        "IC-20",
+        "IC-21",
+        "IC-23",
+        "IC-24",
+        "IC-30",
+        "IC-35",
+        "IC-42",
+        "IC-54",
+        "IC-57",
+        "IC-65",
+        "IC-72"
+      ],
+      "requirements": [
+        "FR-DAT-02",
+        "FR-DAT-03",
+        "FR-CFG-02",
+        "FR-CFG-04",
+        "FR-EQL-07",
+        "FR-RUN-05"
+      ],
+      "candidate_profiles": [
+        "IP-02"
+      ],
+      "executed_contributing_probes": [
+        "NP-01",
+        "NP-04",
+        "NP-07",
+        "NP-08",
+        "NP-10"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Source numerical example reproduced; no complete ethanol-water VLE/azeotrope package or independent mixture data comparison.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-09",
+      "scenario": "SC-09",
+      "title": "Physical absorption, humidification and gas dissolution",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Gas and solvent with allowed physical partitioning, explicit dilute-solute standard, wet/dry reporting and no declared reaction.",
+      "semantic_and_action_route": "Evaluate each phase and its partition relationships; apply unit transfer/energy balances; derive reports without changing physical amounts.",
+      "adversarial_condition": "Missing Henry-law convention or gas-solvent data cannot be repaired by undeclared ideal partitioning.",
+      "required_actions": [
+        "AC-07",
+        "AC-08",
+        "AC-17",
+        "AC-20",
+        "AC-22"
+      ],
+      "information_concepts": [
+        "IC-04",
+        "IC-06",
+        "IC-18",
+        "IC-21",
+        "IC-22",
+        "IC-23",
+        "IC-26",
+        "IC-28",
+        "IC-29",
+        "IC-31",
+        "IC-34",
+        "IC-37",
+        "IC-42",
+        "IC-48",
+        "IC-50"
+      ],
+      "requirements": [
+        "FR-CFG-02",
+        "FR-CFG-07",
+        "FR-PRP-01",
+        "FR-PRP-07",
+        "FR-STA-08",
+        "FR-FLW-01"
+      ],
+      "candidate_profiles": [
+        "IP-02",
+        "IP-13"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Actual Henry/saturation/concentration conventions and process fixture still required.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-10",
+      "scenario": "SC-10",
+      "title": "Liquid\u2013liquid extraction and decanting",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Two liquid instances with component amounts and a named correspondence/routing policy.",
+      "semantic_and_action_route": "Solve a shared two-liquid problem; retain physical versus numerical entries; reconcile amounts and both activity conditions; route afterward.",
+      "adversarial_condition": "Array reversal cannot swap physical meaning; symmetry and equal density do not supply unique continuous phase correspondence.",
+      "required_actions": [
+        "AC-16",
+        "AC-22",
+        "AC-23",
+        "AC-40"
+      ],
+      "information_concepts": [
+        "IC-22",
+        "IC-29",
+        "IC-30",
+        "IC-31",
+        "IC-34",
+        "IC-35",
+        "IC-38",
+        "IC-50",
+        "IC-53",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-EQL-08",
+        "FR-STA-05",
+        "FR-STA-06",
+        "FR-PRP-03",
+        "FR-FLW-03"
+      ],
+      "candidate_profiles": [
+        "IP-03"
+      ],
+      "executed_contributing_probes": [
+        "NP-21",
+        "NP-04"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Artificial NRTL mixture; sampled common-tangent evidence is not a general global or empirical validation.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-11",
+      "scenario": "SC-11",
+      "title": "Vapor\u2013liquid\u2013liquid separation",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "One vapor and two candidate liquids in a single equilibrium description.",
+      "semantic_and_action_route": "Declare all permitted domains, require compatible shared allocation and energy, and admit an actual three-phase numerical surface.",
+      "adversarial_condition": "Two independent binary flashes or a two-phase-only adapter cannot satisfy simultaneous VLL by omission.",
+      "required_actions": [
+        "AC-07",
+        "AC-23",
+        "AC-36"
+      ],
+      "information_concepts": [
+        "IC-05",
+        "IC-06",
+        "IC-21",
+        "IC-22",
+        "IC-29",
+        "IC-34",
+        "IC-35",
+        "IC-36",
+        "IC-37",
+        "IC-41",
+        "IC-42",
+        "IC-53",
+        "IC-56",
+        "IC-59",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-CFG-07",
+        "FR-EQL-01",
+        "FR-EQL-08",
+        "FR-EQL-06",
+        "FR-RES-03"
+      ],
+      "candidate_profiles": [
+        "IP-03"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No three-phase native or authored thermodynamic calculation executed; P2 delivery remains open.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-12",
+      "scenario": "SC-12",
+      "title": "Water and steam through saturation",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Pure water with subcooled, saturated and superheated requests, plus explicit phase-fraction basis.",
+      "semantic_and_action_route": "Distinguish endpoint property query, dependent saturated TP inputs and fully specified allocation using another valid constraint.",
+      "adversarial_condition": "RR degeneracy alone must not condemn a PH problem whose energy equation determines quality; naive scalar TP bracketing can fail.",
+      "required_actions": [
+        "AC-17",
+        "AC-21",
+        "AC-23"
+      ],
+      "information_concepts": [
+        "IC-04",
+        "IC-21",
+        "IC-26",
+        "IC-29",
+        "IC-31",
+        "IC-35",
+        "IC-36",
+        "IC-38",
+        "IC-41",
+        "IC-50"
+      ],
+      "requirements": [
+        "FR-EQL-04",
+        "FR-EQL-02",
+        "FR-EQL-03",
+        "FR-STA-02",
+        "FR-STA-08"
+      ],
+      "candidate_profiles": [
+        "IP-04"
+      ],
+      "executed_contributing_probes": [
+        "NP-12",
+        "NP-26"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No water backend imported; full-package water and quality workers blocked.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-13",
+      "scenario": "SC-13",
+      "title": "Pure-fluid refrigeration loop",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Closed pure-fluid refrigeration loop, with PS reference, actual compression energy, condenser, throttle and evaporator.",
+      "semantic_and_action_route": "Reuse one coherent fluid convention through all unit states; verify cycle heat/work and loop completion separately.",
+      "adversarial_condition": "One successful compressor or PH call is not an executed refrigeration loop.",
+      "required_actions": [
+        "AC-01",
+        "AC-23",
+        "AC-44",
+        "AC-53"
+      ],
+      "information_concepts": [
+        "IC-01",
+        "IC-02",
+        "IC-21",
+        "IC-29",
+        "IC-35",
+        "IC-36",
+        "IC-38",
+        "IC-41",
+        "IC-50",
+        "IC-52",
+        "IC-54",
+        "IC-60",
+        "IC-61",
+        "IC-68",
+        "IC-69"
+      ],
+      "requirements": [
+        "FR-MAT-01",
+        "FR-EQL-04",
+        "FR-EQL-02",
+        "FR-EQL-03",
+        "FR-RUN-08",
+        "FR-LIF-07"
+      ],
+      "candidate_profiles": [
+        "IP-05"
+      ],
+      "executed_contributing_probes": [
+        "NP-19",
+        "NP-30"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No actual refrigerant cycle executed; component probes are only contributing evidence.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-14",
+      "scenario": "SC-14",
+      "title": "Mixed-refrigerant phase change",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "A true refrigerant mixture, or explicitly distinct pseudo-pure approximation, with fraction and endpoint conventions.",
+      "semantic_and_action_route": "Keep vapor/liquid compositions distinct; qualify mixture inverse routes and temperature-glide reference evidence.",
+      "adversarial_condition": "Pure-fluid Q semantics or a pseudo-pure surrogate cannot silently replace a specified mixture.",
+      "required_actions": [
+        "AC-02",
+        "AC-08",
+        "AC-17",
+        "AC-23"
+      ],
+      "information_concepts": [
+        "IC-03",
+        "IC-04",
+        "IC-06",
+        "IC-18",
+        "IC-21",
+        "IC-23",
+        "IC-25",
+        "IC-26",
+        "IC-29",
+        "IC-31",
+        "IC-35",
+        "IC-36",
+        "IC-38",
+        "IC-41"
+      ],
+      "requirements": [
+        "FR-MAT-02",
+        "FR-STA-08",
+        "FR-EQL-04",
+        "FR-EQL-02",
+        "FR-CFG-02"
+      ],
+      "candidate_profiles": [
+        "IP-06"
+      ],
+      "executed_contributing_probes": [
+        "NP-15"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Synthetic binary only; actual blend data, glide and full cycle remain untested.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-15",
+      "scenario": "SC-15",
+      "title": "Assay-derived petroleum pseudocomponents",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "A retained source assay, explicit cuts, generated constituent identities, selected correlations and a data/package revision proposal.",
+      "semantic_and_action_route": "Characterize in a provisional context; validate identities and full calorics; commit a consistent revision; save raw and derived evidence.",
+      "adversarial_condition": "PVT-only pseudocomponents cannot qualify heating; generated cuts alone are insufficient archive reconstruction.",
+      "required_actions": [
+        "AC-01",
+        "AC-04",
+        "AC-06",
+        "AC-08",
+        "AC-50",
+        "AC-53"
+      ],
+      "information_concepts": [
+        "IC-01",
+        "IC-02",
+        "IC-03",
+        "IC-10",
+        "IC-11",
+        "IC-13",
+        "IC-14",
+        "IC-16",
+        "IC-17",
+        "IC-20",
+        "IC-21",
+        "IC-24",
+        "IC-61",
+        "IC-62",
+        "IC-68",
+        "IC-69"
+      ],
+      "requirements": [
+        "FR-DAT-05",
+        "FR-DAT-01",
+        "FR-CFG-04",
+        "FR-MAT-01",
+        "FR-LIF-04",
+        "FR-LIF-07"
+      ],
+      "candidate_profiles": [
+        "IP-07"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No accessible real assay characterized; native DWSIM path and alternative custom-data paths remain blocked/uninstantiated.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-16",
+      "scenario": "SC-16",
+      "title": "Black-oil or other reduced petroleum representation",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "A reduced oil/gas/water description with empirical standard conditions, supported correlations and declared absent molecular detail.",
+      "semantic_and_action_route": "Preserve bulk representation meaning; use only available empirical state operations; translate across a separate boundary when justified.",
+      "adversarial_condition": "Inventing a unique detailed composition to call a molecular flash violates material meaning.",
+      "required_actions": [
+        "AC-02",
+        "AC-04",
+        "AC-09",
+        "AC-17",
+        "AC-42"
+      ],
+      "information_concepts": [
+        "IC-03",
+        "IC-04",
+        "IC-06",
+        "IC-07",
+        "IC-11",
+        "IC-13",
+        "IC-15",
+        "IC-24",
+        "IC-25",
+        "IC-26",
+        "IC-31",
+        "IC-34",
+        "IC-47",
+        "IC-51",
+        "IC-53",
+        "IC-57"
+      ],
+      "requirements": [
+        "FR-MAT-02",
+        "FR-STA-08",
+        "FR-CFG-03",
+        "FR-DAT-07",
+        "FR-FLW-06"
+      ],
+      "candidate_profiles": [
+        "IP-08"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No black-oil runtime or reference case executed.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-17",
+      "scenario": "SC-17",
+      "title": "Specified-conversion reaction",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Balanced synthetic A to B with strict imposed extent and an explicit caloric reference treatment.",
+      "semantic_and_action_route": "Check availability before transformation; retain reaction normalization; reconcile reaction/formation energy exactly once.",
+      "adversarial_condition": "Clipping extent 1.2 to 1.0 with one mole A available answers a different problem.",
+      "required_actions": [
+        "AC-02",
+        "AC-08",
+        "AC-10",
+        "AC-11",
+        "AC-23",
+        "AC-36"
+      ],
+      "information_concepts": [
+        "IC-05",
+        "IC-07",
+        "IC-21",
+        "IC-35",
+        "IC-36",
+        "IC-41",
+        "IC-43",
+        "IC-44",
+        "IC-59",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-CHM-01",
+        "FR-CHM-02",
+        "FR-CHM-05",
+        "FR-MAT-08",
+        "FR-EQL-02",
+        "FR-RES-03"
+      ],
+      "candidate_profiles": [
+        "IP-10"
+      ],
+      "executed_contributing_probes": [
+        "NP-24",
+        "NP-23"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Strict synthetic amount contract exercised; an actual reaction parameter set and unit package remain outstanding.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-18",
+      "scenario": "SC-18",
+      "title": "Chemical-equilibrium reaction",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "A coherent chemical system with conserved quantities, species participation and thermal constraints.",
+      "semantic_and_action_route": "Use one combined problem; solve species/thermal unknowns through a condensed or exposed formulation; check final residuals together.",
+      "adversarial_condition": "Fixed-species phase equilibrium is not chemical equilibrium; small inner errors or a later reflash cannot be ignored.",
+      "required_actions": [
+        "AC-02",
+        "AC-07",
+        "AC-08",
+        "AC-10",
+        "AC-24"
+      ],
+      "information_concepts": [
+        "IC-05",
+        "IC-06",
+        "IC-07",
+        "IC-21",
+        "IC-22",
+        "IC-29",
+        "IC-35",
+        "IC-42",
+        "IC-43",
+        "IC-44",
+        "IC-45",
+        "IC-46",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-CHM-03",
+        "FR-CHM-05",
+        "FR-CHM-07",
+        "FR-MAT-08",
+        "FR-CFG-07"
+      ],
+      "candidate_profiles": [
+        "IP-11",
+        "IP-12"
+      ],
+      "executed_contributing_probes": [
+        "NP-23"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Authored ideal two-species reaction only; no Reaktoro/IDAES chemistry runtime or real database validation.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-19",
+      "scenario": "SC-19",
+      "title": "Kinetically controlled reaction",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "A finite-rate law with explicit volume/catalyst/site basis, frozen/equilibrated subsets and unit-owned residence-time context.",
+      "semantic_and_action_route": "Provide local activities/concentrations and calorics without forcing forbidden equilibrium; distinguish rate from integrated extent.",
+      "adversarial_condition": "Changing rate basis or replacing kinetics with equilibrium changes the declared physical model.",
+      "required_actions": [
+        "AC-10",
+        "AC-13",
+        "AC-22",
+        "AC-25"
+      ],
+      "information_concepts": [
+        "IC-04",
+        "IC-25",
+        "IC-28",
+        "IC-34",
+        "IC-37",
+        "IC-38",
+        "IC-39",
+        "IC-43",
+        "IC-44",
+        "IC-45",
+        "IC-48"
+      ],
+      "requirements": [
+        "FR-CHM-01",
+        "FR-CHM-04",
+        "FR-PRP-01",
+        "FR-PRP-05",
+        "FR-STA-01"
+      ],
+      "candidate_profiles": [
+        "IP-10"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No kinetic reactor integration or native kinetic/equilibrium coupling executed.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-20",
+      "scenario": "SC-20",
+      "title": "Reactive separation",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Reactive multistage or interphase separation with simultaneous chemistry, phase and thermal requirements.",
+      "semantic_and_action_route": "Assemble one final coupled acceptance problem, including any declared sequential approximation and its reconciliation.",
+      "adversarial_condition": "Adding isolated successes from an LLE test and a chemical-equilibrium test cannot certify a reactive separation.",
+      "required_actions": [
+        "AC-08",
+        "AC-23",
+        "AC-37",
+        "AC-43",
+        "AC-44"
+      ],
+      "information_concepts": [
+        "IC-21",
+        "IC-22",
+        "IC-29",
+        "IC-34",
+        "IC-35",
+        "IC-36",
+        "IC-40",
+        "IC-41",
+        "IC-43",
+        "IC-44",
+        "IC-45",
+        "IC-50",
+        "IC-52",
+        "IC-53",
+        "IC-54",
+        "IC-59",
+        "IC-60",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-CHM-08",
+        "FR-CHM-05",
+        "FR-EQL-08",
+        "FR-FLW-07",
+        "FR-RUN-08"
+      ],
+      "candidate_profiles": [
+        "IP-02",
+        "IP-03",
+        "IP-12",
+        "IP-13"
+      ],
+      "executed_contributing_probes": [
+        "NP-21",
+        "NP-23"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Only separate contributing primitives exercised; complete coupled reactive separation remains open.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-21",
+      "scenario": "SC-21",
+      "title": "Electrolyte mixing and neutralization",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "One aqueous material account with apparent inputs, true ionic species, charge convention and reporting map.",
+      "semantic_and_action_route": "Map conserved quantities without duplicate inventory; solve allowed chemistry; retain pH/activity and energy conventions.",
+      "adversarial_condition": "An apparent salt and its corresponding ions cannot both be summed as additional physical mass.",
+      "required_actions": [
+        "AC-02",
+        "AC-08",
+        "AC-12",
+        "AC-24",
+        "AC-42"
+      ],
+      "information_concepts": [
+        "IC-05",
+        "IC-07",
+        "IC-21",
+        "IC-25",
+        "IC-35",
+        "IC-43",
+        "IC-44",
+        "IC-45",
+        "IC-46",
+        "IC-47",
+        "IC-51",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-CHM-06",
+        "FR-CHM-03",
+        "FR-CHM-05",
+        "FR-MAT-08",
+        "FR-FLW-06"
+      ],
+      "candidate_profiles": [
+        "IP-11",
+        "IP-12"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Inherited synthetic bookkeeping only; no real ionic system or neutralization energy evaluated.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-22",
+      "scenario": "SC-22",
+      "title": "Reactive gas absorption into aqueous liquid",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Gas/aqueous contacting with reaction, phase transfer, required calorics and any explicitly authorized reservoir.",
+      "semantic_and_action_route": "Record every signed material/energy exchange once; combine chemistry and contactor constraints; distinguish equilibrium versus rate-based mode.",
+      "adversarial_condition": "A pH/fugacity constraint cannot silently add titrant/gas; a speciation-only answer is not an energy-balanced absorber.",
+      "required_actions": [
+        "AC-08",
+        "AC-10",
+        "AC-37",
+        "AC-43"
+      ],
+      "information_concepts": [
+        "IC-14",
+        "IC-20",
+        "IC-21",
+        "IC-24",
+        "IC-28",
+        "IC-29",
+        "IC-35",
+        "IC-37",
+        "IC-41",
+        "IC-43",
+        "IC-44",
+        "IC-45",
+        "IC-46",
+        "IC-48",
+        "IC-50",
+        "IC-59",
+        "IC-60",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-CHM-07",
+        "FR-CHM-08",
+        "FR-CHM-05",
+        "FR-CFG-04",
+        "FR-FLW-08"
+      ],
+      "candidate_profiles": [
+        "IP-11",
+        "IP-12",
+        "IP-13"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Actual chemistry/transport/caloric compatibility and full absorber fixture absent.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-23",
+      "scenario": "SC-23",
+      "title": "Inert solids carried with fluid",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Disjoint fluid and inert-solid portions, with carried quantities, thermal data and explicit carryover rules.",
+      "semantic_and_action_route": "Keep equilibrium-inactive solids in material balances; use their supported mass calorics; route mechanically at the unit boundary.",
+      "adversarial_condition": "A carried inert solid must not disappear during flash; an effective viscosity requires its own closure.",
+      "required_actions": [
+        "AC-02",
+        "AC-07",
+        "AC-22",
+        "AC-40"
+      ],
+      "information_concepts": [
+        "IC-03",
+        "IC-05",
+        "IC-06",
+        "IC-07",
+        "IC-18",
+        "IC-22",
+        "IC-25",
+        "IC-29",
+        "IC-30",
+        "IC-31",
+        "IC-38",
+        "IC-42",
+        "IC-43",
+        "IC-50",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-MAT-02",
+        "FR-MAT-08",
+        "FR-CFG-07",
+        "FR-PRP-04",
+        "FR-FLW-03"
+      ],
+      "candidate_profiles": [
+        "IP-09"
+      ],
+      "executed_contributing_probes": [
+        "NP-22"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Mass-only thermal contribution exercised; a real slurry package and solids-routing fixture remain untested.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-24",
+      "scenario": "SC-24",
+      "title": "Crystallization and precipitation",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Solution with explicit permissible crystal/mineral identities and thermal conditions.",
+      "semantic_and_action_route": "Qualify common solution/solid data and phase-onset meaning; check final conservation, chemical/phase conditions and declared stability scope.",
+      "adversarial_condition": "A saturation index alone is not crystal yield or size; zero-amount candidates do not become products.",
+      "required_actions": [
+        "AC-08",
+        "AC-16",
+        "AC-23",
+        "AC-37"
+      ],
+      "information_concepts": [
+        "IC-21",
+        "IC-22",
+        "IC-29",
+        "IC-30",
+        "IC-34",
+        "IC-35",
+        "IC-41",
+        "IC-42",
+        "IC-43",
+        "IC-44",
+        "IC-45",
+        "IC-53",
+        "IC-56",
+        "IC-59",
+        "IC-60",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-EQL-08",
+        "FR-EQL-06",
+        "FR-CHM-08",
+        "FR-CHM-05",
+        "FR-STA-06"
+      ],
+      "candidate_profiles": [
+        "IP-11",
+        "IP-12"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "No crystallization/precipitation engine or kinetic/size model exercised.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-25",
+      "scenario": "SC-25",
+      "title": "Gas\u2013solid chemical transformation",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Gas plus reactive solid and product forms with coherent thermochemistry and selected reaction/transport assumptions.",
+      "semantic_and_action_route": "Keep solid identities and participation explicit; solve the selected equilibrium or rate problem and a complete energy account.",
+      "adversarial_condition": "A gas-phase isomerization fixture cannot validate heterogeneous solid behavior.",
+      "required_actions": [
+        "AC-07",
+        "AC-08",
+        "AC-10",
+        "AC-37"
+      ],
+      "information_concepts": [
+        "IC-06",
+        "IC-21",
+        "IC-22",
+        "IC-29",
+        "IC-37",
+        "IC-41",
+        "IC-42",
+        "IC-43",
+        "IC-44",
+        "IC-45",
+        "IC-59",
+        "IC-60",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-CHM-01",
+        "FR-CHM-04",
+        "FR-CHM-08",
+        "FR-CHM-05",
+        "FR-CFG-07"
+      ],
+      "candidate_profiles": [
+        "IP-10",
+        "IP-11",
+        "IP-12"
+      ],
+      "executed_contributing_probes": [
+        "NP-23"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Only abstract coupled energy reasoning; actual gas-solid database, phases and unit closure remain open.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-26",
+      "scenario": "SC-26",
+      "title": "Rate-based nonequilibrium contacting",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Distinct bulk-phase and interface states, allowed temperature differences, flux conventions and mandatory transport properties.",
+      "semantic_and_action_route": "Evaluate supplied phases without bulk re-equilibration; let the contactor own area/transfer relations; check coupled flux balances.",
+      "adversarial_condition": "An efficiency-corrected equilibrium-stage result cannot substitute for the full bulk/interface formulation.",
+      "required_actions": [
+        "AC-21",
+        "AC-22",
+        "AC-43",
+        "AC-44"
+      ],
+      "information_concepts": [
+        "IC-28",
+        "IC-29",
+        "IC-34",
+        "IC-35",
+        "IC-37",
+        "IC-38",
+        "IC-48",
+        "IC-50",
+        "IC-52",
+        "IC-54",
+        "IC-60"
+      ],
+      "requirements": [
+        "FR-FLW-08",
+        "FR-STA-03",
+        "FR-PRP-01",
+        "FR-PRP-03",
+        "FR-RUN-08"
+      ],
+      "candidate_profiles": [
+        "IP-13"
+      ],
+      "executed_contributing_probes": [
+        "NP-27"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Property-authority scaffold exercised; no full transfer or multi-component diffusion formulation executed.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-27",
+      "scenario": "SC-27",
+      "title": "Adsorption and membrane state extensions",
+      "profile": "P3",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Separate bulk and site/surface accounts or membrane sides, loading denominator and explicitly supplied transfer.",
+      "semantic_and_action_route": "Convert loading under its stated basis, form paired amount changes, preserve distinct account identity and limited numerical capability.",
+      "adversarial_condition": "An excess-loading convention cannot be silently treated as total stored amount; a surface is not an ordinary liquid.",
+      "required_actions": [
+        "AC-02",
+        "AC-03",
+        "AC-08",
+        "AC-13",
+        "AC-21"
+      ],
+      "information_concepts": [
+        "IC-05",
+        "IC-06",
+        "IC-07",
+        "IC-09",
+        "IC-18",
+        "IC-21",
+        "IC-25",
+        "IC-26",
+        "IC-28",
+        "IC-33",
+        "IC-35",
+        "IC-37",
+        "IC-43",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-EXT-01",
+        "FR-MAT-03",
+        "FR-MAT-08",
+        "FR-STA-03",
+        "FR-PRP-07"
+      ],
+      "candidate_profiles": [
+        "IP-14"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Conceptual action route and inherited arithmetic reviewed; independent R review and numerical extension deferred.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-28",
+      "scenario": "SC-28",
+      "title": "Heat exchange between different property packages",
+      "profile": "P1",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Two material regions with separate package conventions and no cross-wall material transfer.",
+      "semantic_and_action_route": "Evaluate side energies, reconcile common heat duty, qualify and publish both sides as one intended group.",
+      "adversarial_condition": "Independent absolute energy zeroes are allowed; mismatched group members or hidden component conversion are not.",
+      "required_actions": [
+        "AC-08",
+        "AC-19",
+        "AC-22",
+        "AC-36",
+        "AC-41"
+      ],
+      "information_concepts": [
+        "IC-05",
+        "IC-18",
+        "IC-21",
+        "IC-34",
+        "IC-38",
+        "IC-41",
+        "IC-48",
+        "IC-49",
+        "IC-50",
+        "IC-56",
+        "IC-59",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-FLW-04",
+        "FR-CFG-06",
+        "FR-PRP-02",
+        "FR-PRP-07",
+        "FR-RES-03"
+      ],
+      "candidate_profiles": [
+        "IP-01",
+        "IP-04",
+        "IP-05"
+      ],
+      "executed_contributing_probes": [
+        "NP-22"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Synthetic heat-coupling numerical fixture only; real independent packages and integrated lifecycle still untested.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-29",
+      "scenario": "SC-29",
+      "title": "Material transfer across a property-package boundary",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Source and target package bindings, identity map, known reference transform and chosen preserved quantities.",
+      "semantic_and_action_route": "Apply mapping/reference conversion, resolve target under admissible constraints, report residual model disagreement separately from actual heat.",
+      "adversarial_condition": "Holding incompatible corrected H and T simultaneously by hidden duty must fail.",
+      "required_actions": [
+        "AC-08",
+        "AC-21",
+        "AC-37",
+        "AC-42"
+      ],
+      "information_concepts": [
+        "IC-10",
+        "IC-14",
+        "IC-18",
+        "IC-21",
+        "IC-35",
+        "IC-37",
+        "IC-49",
+        "IC-51",
+        "IC-54",
+        "IC-62"
+      ],
+      "requirements": [
+        "FR-FLW-05",
+        "FR-PRP-07",
+        "FR-STA-03",
+        "FR-RES-07"
+      ],
+      "candidate_profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-04",
+        "IP-07",
+        "IP-08",
+        "IP-11"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Inherited reference algebra rerun; no cross-native-package material boundary executed.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-30",
+      "scenario": "SC-30",
+      "title": "Translation between material representations",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Explicit directed representation map with preserved quantities, loss and any additional inverse assumptions.",
+      "semantic_and_action_route": "Map one account into a non-additive view or target boundary; record what is lost; reject unsupported unique reconstruction.",
+      "adversarial_condition": "A lump or apparent view does not contain sufficient information for an automatic unique reverse map.",
+      "required_actions": [
+        "AC-02",
+        "AC-12",
+        "AC-42",
+        "AC-52"
+      ],
+      "information_concepts": [
+        "IC-04",
+        "IC-05",
+        "IC-07",
+        "IC-25",
+        "IC-43",
+        "IC-47",
+        "IC-51",
+        "IC-58",
+        "IC-64",
+        "IC-65",
+        "IC-69"
+      ],
+      "requirements": [
+        "FR-FLW-06",
+        "FR-MAT-07",
+        "FR-MAT-08",
+        "FR-CHM-06",
+        "FR-LIF-06"
+      ],
+      "candidate_profiles": [
+        "IP-07",
+        "IP-08",
+        "IP-11"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Directed semantic walkthrough and inherited algebra only; profile-specific chemical/assay mappings not exercised.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-31",
+      "scenario": "SC-31",
+      "title": "Mass-based empirical and nonconventional materials",
+      "profile": "P2",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Mass-based empirical constituent with actual mass flow, a complete stated h(T) and no molecular-weight assertion.",
+      "semantic_and_action_route": "Run the supported mass-energy operation; reject molecular operations needing unavailable data without discarding thermal usefulness.",
+      "adversarial_condition": "No invented molecular weight or fake critical point is admitted to satisfy a fluid API.",
+      "required_actions": [
+        "AC-02",
+        "AC-09",
+        "AC-13",
+        "AC-22"
+      ],
+      "information_concepts": [
+        "IC-03",
+        "IC-06",
+        "IC-18",
+        "IC-24",
+        "IC-25",
+        "IC-26",
+        "IC-28",
+        "IC-31",
+        "IC-34",
+        "IC-38",
+        "IC-41",
+        "IC-53",
+        "IC-56",
+        "IC-57",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-MAT-02",
+        "FR-MAT-03",
+        "FR-CFG-03",
+        "FR-PRP-02",
+        "FR-PRP-04"
+      ],
+      "candidate_profiles": [
+        "IP-09"
+      ],
+      "executed_contributing_probes": [
+        "NP-22"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Thermal synthetic fixture executed; no field material correlation or empirical transport validation.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-32",
+      "scenario": "SC-32",
+      "title": "Polymer distributions and material attributes",
+      "profile": "P3",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Distribution support, mass/number weighting, retained attributes and explicit reduction lineage.",
+      "semantic_and_action_route": "Associate distribution with material quantity; combine compatible weighted distributions; record losses when reducing moments.",
+      "adversarial_condition": "One mean is not a lossless full distribution and cannot generate a unique detailed inverse.",
+      "required_actions": [
+        "AC-02",
+        "AC-03",
+        "AC-13",
+        "AC-42",
+        "AC-50"
+      ],
+      "information_concepts": [
+        "IC-03",
+        "IC-06",
+        "IC-07",
+        "IC-08",
+        "IC-16",
+        "IC-20",
+        "IC-25",
+        "IC-26",
+        "IC-28",
+        "IC-32",
+        "IC-47",
+        "IC-51",
+        "IC-62",
+        "IC-68",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-EXT-02",
+        "FR-MAT-02",
+        "FR-MAT-03",
+        "FR-FLW-06",
+        "FR-LIF-04"
+      ],
+      "candidate_profiles": [
+        "IP-14"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Conceptual route and inherited weighted arithmetic; P3 numerical thermodynamics remains deferred.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-33",
+      "scenario": "SC-33",
+      "title": "Inventory-based state and dynamic compatibility",
+      "profile": "P3",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Actual inventory composition/amounts and total U,V with location/time meaning, including a separately empty case.",
+      "semantic_and_action_route": "Capture unresolved T,P as outputs without dummy flow; distinguish inventory from a numerical reference amount.",
+      "adversarial_condition": "Total U,V without justified material amount does not uniquely specify a fluid state.",
+      "required_actions": [
+        "AC-13",
+        "AC-15"
+      ],
+      "information_concepts": [
+        "IC-25",
+        "IC-26",
+        "IC-27",
+        "IC-28",
+        "IC-35",
+        "IC-48",
+        "IC-71"
+      ],
+      "requirements": [
+        "FR-EXT-03",
+        "FR-MAT-03",
+        "FR-MAT-04",
+        "FR-STA-01",
+        "FR-STA-07"
+      ],
+      "candidate_profiles": [
+        "IP-14"
+      ],
+      "executed_contributing_probes": [],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Representability walkthrough only; no native inventory solve or time integration claimed.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    },
+    {
+      "id": "VR-34",
+      "scenario": "SC-34",
+      "title": "Restricted-equilibrium and metastable-state requests",
+      "profile": "P3",
+      "review_kind": "authored_adversarial_information_and_action_walkthrough_not_independent_certification",
+      "specified_input_case": "Declared excluded phases/reactions or requested metastable branch, rationale, candidate scope and reference to original unrestricted question.",
+      "semantic_and_action_route": "Create a distinct restricted problem; qualify the limited claim; lifting restrictions invalidates applicability to the new problem.",
+      "adversarial_condition": "A branch seed is not a physical restriction, and constrained success is not unrestricted stable equilibrium.",
+      "required_actions": [
+        "AC-07",
+        "AC-23",
+        "AC-34"
+      ],
+      "information_concepts": [
+        "IC-22",
+        "IC-29",
+        "IC-30",
+        "IC-35",
+        "IC-41",
+        "IC-42",
+        "IC-54",
+        "IC-56",
+        "IC-57",
+        "IC-72"
+      ],
+      "requirements": [
+        "FR-EXT-04",
+        "FR-CFG-05",
+        "FR-EQL-06",
+        "FR-EQL-07",
+        "FR-RUN-05"
+      ],
+      "candidate_profiles": [
+        "IP-14"
+      ],
+      "executed_contributing_probes": [
+        "NP-12",
+        "NP-13"
+      ],
+      "coverage_judgment": "allocated_semantics_reviewed_no_blocking_ownership_contradiction_identified_in_this_case",
+      "remaining_gate": "Degeneracy controls only; metastable/phase-restricted native operations remain deferred.",
+      "R_evidence": "authored_walkthrough_completed_independent_acceptance_pending",
+      "E_full_scenario": "not_established",
+      "V_independent_physical": "not_established"
+    }
+  ],
+  "integration_experiment_disposition": [
+    {
+      "id": "IE-01",
+      "name": "Freeze data and reconstruct a package",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-04",
+        "IP-05",
+        "IP-07",
+        "IP-11",
+        "IP-12"
+      ],
+      "inherited_probes": [
+        "B2:P01",
+        "B2:P02",
+        "B2:P11",
+        "B3:PV-01",
+        "B3:PV-02",
+        "B3:PV-16",
+        "B2:P16"
+      ],
+      "executed_contributing_probes": [
+        "NP-04"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Matched definitions and tolerance-qualified outputs with no hidden estimation; actual artifacts recorded.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-02",
+      "name": "Caloric completion and inverse consistency",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-06",
+        "IP-07",
+        "IP-09"
+      ],
+      "inherited_probes": [
+        "B3:PV-07",
+        "B3:PV-08",
+        "B3:PV-11"
+      ],
+      "executed_contributing_probes": [
+        "NP-08",
+        "NP-15",
+        "NP-25"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Original complete target residuals pass; partial route explicitly rejected or labeled limited.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-03",
+      "name": "One-liquid and multiple-liquid authority",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-03"
+      ],
+      "inherited_probes": [
+        "B2:P05",
+        "B2:P07",
+        "B3:PV-03",
+        "B3:PV-04",
+        "B3:PV-10"
+      ],
+      "executed_contributing_probes": [
+        "NP-03",
+        "NP-05",
+        "NP-11",
+        "NP-14",
+        "NP-20",
+        "NP-21"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Account reconstruction, explicit stability scope and correct product matching or ambiguity.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-04",
+      "name": "Inverse initializer and saturation eligibility",
+      "profiles": [
+        "IP-01",
+        "IP-03",
+        "IP-04",
+        "IP-05",
+        "IP-06"
+      ],
+      "inherited_probes": [
+        "B3:PV-05",
+        "B3:PV-06",
+        "B3:PV-11",
+        "B3:PV-13",
+        "B2:P16",
+        "B3:PV-10"
+      ],
+      "executed_contributing_probes": [
+        "NP-12",
+        "NP-13",
+        "NP-15",
+        "NP-26"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Initializable/unsupported/underdetermined outcomes differentiated and final physical targets checked.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-05",
+      "name": "Phase-property callback preservation",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-03",
+        "IP-11",
+        "IP-13"
+      ],
+      "inherited_probes": [
+        "B2:P05",
+        "B3:PV-17",
+        "B3:PV-20"
+      ],
+      "executed_contributing_probes": [
+        "NP-27"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Required phase/chemical authority invariants hold; permitted density/root choices recorded.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-06",
+      "name": "Total reduced response versus local derivative",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-03",
+        "IP-11",
+        "IP-13"
+      ],
+      "inherited_probes": [
+        "B3:PV-14",
+        "B3:PV-17"
+      ],
+      "executed_contributing_probes": [
+        "NP-16",
+        "NP-17",
+        "NP-23"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Coordinate-matched derivative agreement within declared inner/outer error budgets, plus conditioning evidence.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-07",
+      "name": "Inner-error and finite-difference budget",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-03",
+        "IP-11",
+        "IP-13"
+      ],
+      "inherited_probes": [
+        "B3:PV-14"
+      ],
+      "executed_contributing_probes": [
+        "NP-13",
+        "NP-16"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "A bounded policy with sensitivity and noise evidence; ill-conditioned cases are restricted or escalated.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-08",
+      "name": "Hessian, chart and sparse-structure contract",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-12",
+        "IP-13"
+      ],
+      "inherited_probes": [
+        "B3:PV-14",
+        "B3:PV-15"
+      ],
+      "executed_contributing_probes": [],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "walkthrough_or_reference_model_only",
+      "acceptance_evidence_required": "No missing chain-rule terms or changing callback dimensions; mode-specific derivative obligations explicit.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-09",
+      "name": "Phase-transition and branch strategy",
+      "profiles": [
+        "IP-03",
+        "IP-04",
+        "IP-05",
+        "IP-06",
+        "IP-12",
+        "IP-13"
+      ],
+      "inherited_probes": [
+        "B2:P07",
+        "B3:PV-03",
+        "B3:PV-06"
+      ],
+      "executed_contributing_probes": [
+        "NP-11",
+        "NP-12",
+        "NP-15",
+        "NP-26"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Explicit branch event and layout handling; smoothing/regularization limitations retained.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-10",
+      "name": "Coupled chemistry, reaction heat and open exchange",
+      "profiles": [
+        "IP-10",
+        "IP-11",
+        "IP-12",
+        "IP-13"
+      ],
+      "inherited_probes": [
+        "B2:P15",
+        "B3:PV-17",
+        "B3:PV-18"
+      ],
+      "executed_contributing_probes": [
+        "NP-23",
+        "NP-24"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "All original balances and chemical/phase/thermal criteria pass and exchange amounts appear once.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-11",
+      "name": "Supplemental transport and effective properties",
+      "profiles": [
+        "IP-02",
+        "IP-09",
+        "IP-11",
+        "IP-13"
+      ],
+      "inherited_probes": [
+        "B2:P17",
+        "B3:PV-20"
+      ],
+      "executed_contributing_probes": [
+        "NP-27"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "No phase/species mutation; correct subject/units; state derivatives qualified for coupled modes.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-12",
+      "name": "Heat-only and directed material translation",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-04",
+        "IP-07",
+        "IP-08",
+        "IP-11"
+      ],
+      "inherited_probes": [
+        "B3:PV-19"
+      ],
+      "executed_contributing_probes": [
+        "NP-22"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Heat balance independent of arbitrary consistent side offsets; transformations and model discrepancies separately visible.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-13",
+      "name": "Sessions, interleaving and native failure",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-03",
+        "IP-04",
+        "IP-05",
+        "IP-06",
+        "IP-11"
+      ],
+      "inherited_probes": [
+        "B2:P03",
+        "B2:P13",
+        "B3:PV-09",
+        "B3:PV-12",
+        "B3:PV-20"
+      ],
+      "executed_contributing_probes": [],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "walkthrough_or_reference_model_only",
+      "acceptance_evidence_required": "No configuration/buffer contamination; running contexts not reused; recovery/reconstruction evidence build-specific.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment.",
+      "behavioral_evidence": "Bounded publication model and/or inherited reference tests; no native/session/production storage qualification."
+    },
+    {
+      "id": "IE-14",
+      "name": "Original inputs, alternative recovery and optional failure",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-03",
+        "IP-11"
+      ],
+      "inherited_probes": [
+        "B2:P04",
+        "B2:P17",
+        "B3:PV-20"
+      ],
+      "executed_contributing_probes": [],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "walkthrough_or_reference_model_only",
+      "acceptance_evidence_required": "Same-problem retries retain targets; alternatives need authorization and new physical context; optional work does not falsify primary success.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment.",
+      "behavioral_evidence": "Bounded publication model and/or inherited reference tests; no native/session/production storage qualification."
+    },
+    {
+      "id": "IE-15",
+      "name": "Process integration, iteration lineage and publication",
+      "profiles": [
+        "IP-01",
+        "IP-04",
+        "IP-05",
+        "IP-10",
+        "IP-13"
+      ],
+      "inherited_probes": [
+        "B2:P06",
+        "B2:P14",
+        "B2:P10",
+        "B3:PV-20",
+        "B2:P08"
+      ],
+      "executed_contributing_probes": [
+        "NP-30"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Required process residuals and coherent candidate sets; no late/group-partial/replayed overwrite.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment.",
+      "behavioral_evidence": "Bounded publication model and/or inherited reference tests; no native/session/production storage qualification."
+    },
+    {
+      "id": "IE-16",
+      "name": "Petroleum, reduced and empirical scope",
+      "profiles": [
+        "IP-07",
+        "IP-08",
+        "IP-09"
+      ],
+      "inherited_probes": [
+        "B2:P11",
+        "B3:PV-08"
+      ],
+      "executed_contributing_probes": [
+        "NP-22"
+      ],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "limited_source_or_authored_contribution",
+      "acceptance_evidence_required": "Justified quantity/energy operations work without fabricated molecular data; all remaining P2 gaps explicit.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment."
+    },
+    {
+      "id": "IE-17",
+      "name": "Exact restoration and upgrade comparison",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-04",
+        "IP-07",
+        "IP-11",
+        "IP-12"
+      ],
+      "inherited_probes": [
+        "B2:P02",
+        "B2:P11",
+        "B2:P12",
+        "B2:P18",
+        "B3:PV-01",
+        "B3:PV-02",
+        "B3:PV-16",
+        "B2:P09"
+      ],
+      "executed_contributing_probes": [],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "walkthrough_or_reference_model_only",
+      "acceptance_evidence_required": "No hidden fitting, replayed transfers or resurrected run permission; manifest differences block exact reproduction claim.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment.",
+      "behavioral_evidence": "Bounded publication model and/or inherited reference tests; no native/session/production storage qualification."
+    },
+    {
+      "id": "IE-18",
+      "name": "Independent coverage review including P3",
+      "profiles": [
+        "IP-01",
+        "IP-02",
+        "IP-03",
+        "IP-04",
+        "IP-05",
+        "IP-06",
+        "IP-07",
+        "IP-08",
+        "IP-09",
+        "IP-10",
+        "IP-11",
+        "IP-12",
+        "IP-13",
+        "IP-14"
+      ],
+      "inherited_probes": [
+        "B3:PV-01",
+        "B3:PV-14"
+      ],
+      "executed_contributing_probes": [],
+      "native_experiment_status": "not_executed",
+      "new_evidence_status": "walkthrough_or_reference_model_only",
+      "acceptance_evidence_required": "Bounded separate R/E/V/conformance claims; accepted engineering approximations retain limitations; no new numerical P3 commitment.",
+      "remaining": "Run the exact exposed provider, pinned complete data, requested final unit/formulation, and original negative/positive witness. These contributing tests do not close the native experiment.",
+      "behavioral_evidence": "Bounded publication model and/or inherited reference tests; no native/session/production storage qualification."
+    }
+  ],
+  "native_profile_disposition": [
+    {
+      "id": "IP-01",
+      "name": "Conventional nonreacting hydrocarbon cubic package",
+      "scenarios": [
+        "SC-01",
+        "SC-02",
+        "SC-03",
+        "SC-04",
+        "SC-05",
+        "SC-06",
+        "SC-07"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03",
+        "SM-04"
+      ],
+      "review_routes": [
+        "VR-01",
+        "VR-02",
+        "VR-03",
+        "VR-04",
+        "VR-05",
+        "VR-06",
+        "VR-07",
+        "VR-28",
+        "VR-29"
+      ],
+      "contributing_probe_candidates": [
+        "NP-03",
+        "NP-11",
+        "NP-15",
+        "NP-16",
+        "NP-18",
+        "NP-19",
+        "NP-20",
+        "NP-22",
+        "NP-25",
+        "NP-26",
+        "NP-27",
+        "NP-29",
+        "NP-30"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-02",
+      "name": "Nonideal liquid gamma\u2013phi package",
+      "scenarios": [
+        "SC-08",
+        "SC-09",
+        "SC-20"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03",
+        "SM-04",
+        "SM-05"
+      ],
+      "review_routes": [
+        "VR-08",
+        "VR-09",
+        "VR-20",
+        "VR-29"
+      ],
+      "contributing_probe_candidates": [
+        "NP-01",
+        "NP-04",
+        "NP-07",
+        "NP-08",
+        "NP-10",
+        "NP-21",
+        "NP-23"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-03",
+      "name": "Multiple-liquid and vapor\u2013multiple-liquid package",
+      "scenarios": [
+        "SC-10",
+        "SC-11",
+        "SC-20",
+        "SC-24"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03",
+        "SM-04",
+        "SM-05"
+      ],
+      "review_routes": [
+        "VR-10",
+        "VR-11",
+        "VR-20"
+      ],
+      "contributing_probe_candidates": [
+        "NP-04",
+        "NP-21",
+        "NP-23"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-04",
+      "name": "Pure water and steam utility package",
+      "scenarios": [
+        "SC-02",
+        "SC-03",
+        "SC-12",
+        "SC-28"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03",
+        "SM-04",
+        "SM-05"
+      ],
+      "review_routes": [
+        "VR-02",
+        "VR-03",
+        "VR-12",
+        "VR-28",
+        "VR-29"
+      ],
+      "contributing_probe_candidates": [
+        "NP-12",
+        "NP-15",
+        "NP-22",
+        "NP-25",
+        "NP-26"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-05",
+      "name": "Pure-fluid refrigeration package",
+      "scenarios": [
+        "SC-13"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03"
+      ],
+      "review_routes": [
+        "VR-13",
+        "VR-28"
+      ],
+      "contributing_probe_candidates": [
+        "NP-19",
+        "NP-22",
+        "NP-30"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-06",
+      "name": "True-mixture refrigerant package",
+      "scenarios": [
+        "SC-14"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03"
+      ],
+      "review_routes": [
+        "VR-14"
+      ],
+      "contributing_probe_candidates": [
+        "NP-15"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-07",
+      "name": "Assay-characterized compositional petroleum",
+      "scenarios": [
+        "SC-15",
+        "SC-29",
+        "SC-30"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03",
+        "SM-04"
+      ],
+      "review_routes": [
+        "VR-15",
+        "VR-29",
+        "VR-30"
+      ],
+      "contributing_probe_candidates": [],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-08",
+      "name": "Reduced black-oil or bulk petroleum representation",
+      "scenarios": [
+        "SC-16",
+        "SC-29",
+        "SC-30"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03"
+      ],
+      "review_routes": [
+        "VR-16",
+        "VR-29",
+        "VR-30"
+      ],
+      "contributing_probe_candidates": [],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-09",
+      "name": "Mass-based empirical material and carried inert solids",
+      "scenarios": [
+        "SC-02",
+        "SC-23",
+        "SC-31"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-04",
+        "SM-05"
+      ],
+      "review_routes": [
+        "VR-02",
+        "VR-23",
+        "VR-31"
+      ],
+      "contributing_probe_candidates": [
+        "NP-15",
+        "NP-22",
+        "NP-25"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-10",
+      "name": "Specified conversion and finite-rate chemistry with a compatible property package",
+      "scenarios": [
+        "SC-17",
+        "SC-19",
+        "SC-25"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03",
+        "SM-04",
+        "SM-05"
+      ],
+      "review_routes": [
+        "VR-17",
+        "VR-19",
+        "VR-25"
+      ],
+      "contributing_probe_candidates": [
+        "NP-23",
+        "NP-24"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-11",
+      "name": "Coherent chemical equilibrium, aqueous speciation and mineral phases",
+      "scenarios": [
+        "SC-18",
+        "SC-21",
+        "SC-22",
+        "SC-24",
+        "SC-25",
+        "SC-30",
+        "SC-33"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03"
+      ],
+      "review_routes": [
+        "VR-18",
+        "VR-21",
+        "VR-22",
+        "VR-24",
+        "VR-25",
+        "VR-29",
+        "VR-30"
+      ],
+      "contributing_probe_candidates": [
+        "NP-23"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-12",
+      "name": "Equation-oriented electrolyte/reaction alternative",
+      "scenarios": [
+        "SC-18",
+        "SC-20",
+        "SC-21",
+        "SC-22",
+        "SC-24",
+        "SC-25"
+      ],
+      "solver_modes": [
+        "SM-04",
+        "SM-05"
+      ],
+      "review_routes": [
+        "VR-18",
+        "VR-20",
+        "VR-21",
+        "VR-22",
+        "VR-24",
+        "VR-25"
+      ],
+      "contributing_probe_candidates": [
+        "NP-21",
+        "NP-23"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-13",
+      "name": "Staged, reactive and full nonequilibrium contacting",
+      "scenarios": [
+        "SC-07",
+        "SC-09",
+        "SC-20",
+        "SC-22",
+        "SC-26"
+      ],
+      "solver_modes": [
+        "SM-02",
+        "SM-03",
+        "SM-04",
+        "SM-05"
+      ],
+      "review_routes": [
+        "VR-07",
+        "VR-09",
+        "VR-20",
+        "VR-22",
+        "VR-26"
+      ],
+      "contributing_probe_candidates": [
+        "NP-21",
+        "NP-23",
+        "NP-27"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    },
+    {
+      "id": "IP-14",
+      "name": "Deferred surface, distribution, inventory and restricted-state extensions",
+      "scenarios": [
+        "SC-27",
+        "SC-32",
+        "SC-33",
+        "SC-34"
+      ],
+      "solver_modes": [
+        "SM-01",
+        "SM-02",
+        "SM-03",
+        "SM-04",
+        "SM-05"
+      ],
+      "review_routes": [
+        "VR-27",
+        "VR-32",
+        "VR-33",
+        "VR-34"
+      ],
+      "contributing_probe_candidates": [
+        "NP-12",
+        "NP-13"
+      ],
+      "caution": "A contributing synthetic probe is not an implementation or data instantiation of this native profile.",
+      "native_configuration_instantiated": false,
+      "native_execution": "not_executed",
+      "production_admission": "not_approved",
+      "independent_physical_validation": "not_established"
+    }
+  ],
+  "findings": [
+    {
+      "id": "VF-01",
+      "type": "environment_blocker",
+      "importance": "blocks full-provider admission",
+      "title": "Complete packages were unavailable to execute here",
+      "evidence": [
+        "environment_preflight.json",
+        "native_probe_dispatch.json"
+      ],
+      "observation": "No complete candidate thermodynamics package was installed; package-index/name-resolution and direct-wheel retrieval failed. Six optional native worker invocations were blocked before execution.",
+      "decision": "Keep every native IP/QG claim open. Distinguish unavailable runtime from unsupported model. Use exact build/data manifests for the next actual execution.",
+      "owners": [
+        "P08",
+        "P03",
+        "P09"
+      ],
+      "rules": [
+        "IR-01",
+        "IR-18",
+        "IR-22",
+        "IR-24"
+      ],
+      "requirements": [
+        "FR-GOV-02",
+        "FR-GOV-03",
+        "FR-RES-08"
+      ],
+      "closure": "Open; environmental, not a library defect."
+    },
+    {
+      "id": "VF-02",
+      "type": "acceptance_test_refinement",
+      "importance": "blocks unqualified solved-allocation derivative claims",
+      "title": "Zero RR residual does not establish unique phase allocation",
+      "evidence": [
+        "NP-12",
+        "NP-13",
+        "NP-26"
+      ],
+      "observation": "With all active K values equal to one, every beta gives zero RR residual. Near this case the residual and its beta derivative are both about 1e-16 in the test.",
+      "decision": "Assess allocation degeneracy/conditioning in its full request context. Do not invent a unique TP allocation or smooth sensitivity. A separate enthalpy/quality constraint can remove the degeneracy and must be handled by a qualified formulation, not rejected blindly.",
+      "owners": [
+        "P05",
+        "P08",
+        "P09"
+      ],
+      "rules": [
+        "IR-12",
+        "IR-14",
+        "IR-15",
+        "IR-20"
+      ],
+      "requirements": [
+        "FR-STA-02",
+        "FR-EQL-04",
+        "FR-PRP-06",
+        "FR-RES-02"
+      ],
+      "closure": "Concrete witness added; provider-specific policy still requires testing."
+    },
+    {
+      "id": "VF-03",
+      "type": "confirmed_required_boundary",
+      "importance": "blocks raw-kernel-as-adapter substitution",
+      "title": "Raw numerical kernels do not enforce the whole material contract",
+      "evidence": [
+        "NP-09",
+        "NP-10"
+      ],
+      "observation": "The extracted NRTL function returns finite activity coefficients for xs=[0.6,0.6], equal to those for [0.5,0.5]; transposing directed taus also returns plausible but different values.",
+      "decision": "Validate nonnegative normalized composition and formula/subject ordering before execution. Preserve explicit input intent; the full package may add validation elsewhere, which was not inspected or exercised here.",
+      "owners": [
+        "P01",
+        "P04",
+        "P08"
+      ],
+      "rules": [
+        "IR-03",
+        "IR-04",
+        "IR-19"
+      ],
+      "requirements": [
+        "FR-MAT-07",
+        "FR-STA-02",
+        "FR-DAT-02"
+      ],
+      "closure": "Host-boundary negative controls pass in authored harness; no upstream bug allegation."
+    },
+    {
+      "id": "VF-04",
+      "type": "confirmed_required_boundary",
+      "importance": "blocks incorrect SM-03 derivatives",
+      "title": "Solved enthalpy response differs materially from frozen allocation Cp",
+      "evidence": [
+        "NP-16",
+        "NP-17",
+        "NP-23"
+      ],
+      "observation": "In the authored binary two-phase fixture, dH/dT=2659.2397368 J/mol/K versus frozen-allocation Cp=100. Full re-solves agree with the derived total response.",
+      "decision": "Demand total solved sensitivities for condensed blocks; preserve local derivatives separately. Native implementations must reproduce the declared coordinates/response and conditioning.",
+      "owners": [
+        "P05",
+        "P08",
+        "P09"
+      ],
+      "rules": [
+        "IR-11",
+        "IR-12",
+        "IR-13"
+      ],
+      "requirements": [
+        "FR-PRP-05",
+        "FR-PRP-06",
+        "FR-FLW-07"
+      ],
+      "closure": "Authored mathematical realization demonstrated; external derivative contract remains untested."
+    },
+    {
+      "id": "VF-05",
+      "type": "confirmed_required_boundary",
+      "importance": "blocks calorically incomplete inverse packages",
+      "title": "Caloric completion is part of the equation, not postprocessing",
+      "evidence": [
+        "NP-08",
+        "NP-15",
+        "NP-25"
+      ],
+      "observation": "The partial-caloric counterexample returns 325 K but the complete enthalpy is 125 against a target of 50; the complete inverse instead returns 310 K. Temperature-dependent NRTL caloric algebra reproduces the documentation example.",
+      "decision": "Use the full actual H/S function inside inverse solves and verify original targets. Preserve the documented derivative meaning of temperature-dependent parameters.",
+      "owners": [
+        "P02",
+        "P03",
+        "P05"
+      ],
+      "rules": [
+        "IR-03",
+        "IR-05",
+        "IR-06",
+        "IR-20"
+      ],
+      "requirements": [
+        "FR-CFG-04",
+        "FR-EQL-02",
+        "FR-PRP-07"
+      ],
+      "closure": "Witnesses confirmed; no real pseudocomponent package qualified."
+    },
+    {
+      "id": "VF-06",
+      "type": "confirmed_required_boundary",
+      "importance": "blocks premature process/state claims",
+      "title": "Local and constituent successes are not coupled-scenario completion",
+      "evidence": [
+        "NP-20",
+        "NP-21",
+        "NP-23",
+        "NP-27",
+        "NP-30"
+      ],
+      "observation": "Shared allocation/routing and condensed/exposed ideal chemistry can be tested separately. Neither combination proves an actual reactive column, VLL flash, solids chemistry, or full nonequilibrium contactor.",
+      "decision": "Keep final process residuals, coupled chemistry/phase checks, and parent convergence mandatory; do not combine separate primitive test passes into a broad scenario pass.",
+      "owners": [
+        "P07",
+        "P09"
+      ],
+      "rules": [
+        "IR-08",
+        "IR-16",
+        "IR-20",
+        "IR-24"
+      ],
+      "requirements": [
+        "FR-CHM-08",
+        "FR-FLW-08",
+        "FR-RUN-08",
+        "FR-RES-08"
+      ],
+      "closure": "Coverage boundary retained; full process fixtures remain open."
+    },
+    {
+      "id": "VF-07",
+      "type": "reference_model_confirmation",
+      "importance": "blocks unsafe adoption implementations",
+      "title": "Every publication guard has a concrete counterexample",
+      "evidence": [
+        "publication_model_checks.json"
+      ],
+      "observation": "The correct authored model had zero violations across 1120 legal eight-event schedules. Eight deliberately weakened guard/alias variants were detected by schedule or focused controls.",
+      "decision": "Preserve dependency, live ancestor/run permission, target generation, qualification, iterate lineage, group coherence, and duplicate-decision semantics at the real commit boundary.",
+      "owners": [
+        "P09",
+        "P10",
+        "P08"
+      ],
+      "rules": [
+        "IR-18",
+        "IR-21",
+        "IR-22"
+      ],
+      "requirements": [
+        "FR-RES-05",
+        "FR-RUN-06",
+        "FR-LIF-01",
+        "FR-LIF-08"
+      ],
+      "closure": "Bounded reference model passes; real concurrency/storage and native cleanup remain untested."
+    },
+    {
+      "id": "VF-08",
+      "type": "evidence_granularity_refinement",
+      "importance": "blocks inflated readiness or validation claims",
+      "title": "Executed source extracts are a separate evidence class",
+      "evidence": [
+        "source_manifest.json",
+        "numerical_probes.json",
+        "native_probe_dispatch.json"
+      ],
+      "observation": "A numerical body, a host Brent solver, a documented model example, a full imported package, an adapter, and a complete flowsheet are different test subjects. Only the first group was numerically available.",
+      "decision": "Record the execution subject, modifications/import context, actual input hash, solver/runtime, checks, and omitted layers. A same-model source example is regression evidence, not independent real-fluid validation.",
+      "owners": [
+        "P08",
+        "P09"
+      ],
+      "rules": [
+        "IR-01",
+        "IR-24"
+      ],
+      "requirements": [
+        "FR-GOV-01",
+        "FR-GOV-02",
+        "FR-RES-07",
+        "FR-RES-08"
+      ],
+      "closure": "Evidence record refined here; no change to predecessor normative scope."
+    }
+  ],
+  "numerical_result_file": "results/numerical_probes.json",
+  "publication_model_result_file": "results/publication_model_checks.json",
+  "native_dispatch_result_file": "results/native_probe_dispatch.json",
+  "inherited_witness_status": "All original AT/AW/P/PV status records remain unchanged. New records carry distinct IDs and narrow evidence scope.",
+  "limits": [
+    "No full installed thermodynamics library",
+    "No DWSIM flowsheet execution",
+    "No real-fluid/chemical independent measurements tested",
+    "No actual codebase architecture audit",
+    "No whole-process P1/P2 validation",
+    "No autonomous execution after this response"
+  ]
+}

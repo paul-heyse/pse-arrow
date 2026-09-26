@@ -11,12 +11,15 @@ from pathlib import Path
 from typing import cast
 
 import attrs
+import msgspec
 import pyarrow as pa
 import pytest
 
 import pse
+from pse import codec
 from pse import modeling as w
 from pse.contracts import authored as a
+from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import NativeVariableDomain
 from pse.contracts.values import ContentHash, SemanticId, SourceSpan
 
@@ -482,3 +485,113 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     assert rows[0]["objective_contribution"] == 0.0
     assert job.wait().run_id == result.run_id
     assert not result.diagnostics()
+
+
+@pytest.mark.unit
+def test_completion_projection_and_pre_effect_publication_ticket(
+    runtime: pse.Runtime, physical: pse.PhysicalContext, tmp_path: Path
+) -> None:
+    result = (
+        revision(runtime, physical)
+        .prepare(identity(101), pse.SolveSettings(intent="root"))
+        .start()
+        .wait()
+    )
+    completion = result.completion
+    assert completion == result.completion
+    converter = codec.converter()
+    solves = (
+        pa.RecordBatchReader.from_stream(result.table("runtime.solve_runs"))
+        .read_all()
+        .to_pylist()
+    )
+    assert completion.solves == tuple(
+        converter.structure(row, result_contracts.RuntimeSolveRunsRow) for row in solves
+    )
+    lineage = (
+        pa.RecordBatchReader.from_stream(result.table("runtime.run_lineage"))
+        .read_all()
+        .to_pylist()
+    )
+    assert completion.lineage == tuple(
+        converter.structure(row, result_contracts.RuntimeRunLineageRow)
+        for row in lineage
+    )
+    assert completion.computation is None
+    assert completion.solves[0].candidate_kind == "constant_evaluation"
+    assert completion.lineage[0].model_id == identity(100)
+    assert not result.diagnostics()
+    runtime.clear_program_cache()
+    assert result.completion == completion
+    request = pse.PublicationRequest(
+        tmp_path.as_uri() + "/", identity(240), identity(241), identity(242)
+    )
+    attempt = result.prepare_publication_request(request)
+    ticket = attempt.ticket
+    assert attempt.publication_id == request.publication_id
+    assert attempt.attempt_id == request.attempt_id
+    wire = msgspec.json.decode(ticket.json, type=dict[str, object])
+    candidate = cast("dict[str, object]", wire["candidate"])
+    assert candidate["attempt_id"] == request.attempt_id.to_hex()
+    assert candidate["publication_id"] == request.publication_id.to_hex()
+    assert not tuple(tmp_path.iterdir())
+    settled = runtime.settle_publication(ticket)
+    assert isinstance(settled, pse.PublicationUnresolved)
+    assert settled == runtime.settle_publication(ticket)
+    assert not tuple(tmp_path.iterdir())
+
+
+@pytest.mark.unit
+def test_compiler_failure_retains_typed_authored_source_span(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    model = revision(runtime, physical).edit()
+    model.definition(
+        w.Definition(
+            definition_id=identity(243),
+            sources=("x +",),
+            formals=(w.Formal(path="x", quantity_id=identity(30)),),
+            domains=(),
+            groups=(),
+            providers=(),
+            units=(),
+            literals=(),
+        )
+    )
+    case = model.declaration.cases[0]
+    case = attrs.evolve(
+        case,
+        instances=(
+            w.Instance(
+                instance_id=identity(244),
+                definition_id=identity(243),
+                slots=(
+                    w.Slot(
+                        source_id=identity(102),
+                        formal_quantity_id=identity(30),
+                        formal_unit_id=identity(1),
+                    ),
+                ),
+                contributions=(
+                    w.Contribution(output=0, row_id=identity(245), scale=1.0),
+                ),
+            ),
+        ),
+        rows=(
+            w.Row(
+                row_id=identity(245), quantity_id=identity(30), lower=0.0, upper=10.0
+            ),
+        ),
+    )
+    model.declaration = attrs.evolve(model.declaration, cases=(case,))
+    with pytest.raises(pse.InspectionError) as failure:
+        model.freeze().prepare(identity(101), pse.SolveSettings(intent="root"))
+    report = failure.value.report
+    assert report.boundary_class == "invalid_model"
+    assert report.source_locations
+    location = report.source_locations[0]
+    assert isinstance(location, pse.DiagnosticSourceLocation)
+    assert location.source == identity(243).to_hex()
+    assert location.start is not None
+    assert location.end is not None
+    assert 0 <= location.start <= location.end <= len("x +")

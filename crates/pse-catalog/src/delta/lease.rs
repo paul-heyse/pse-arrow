@@ -25,17 +25,8 @@ pub(crate) async fn read(
     if location.scheme() != "file" {
         return Ok(None);
     }
-    let mut file = lock_file(location)?;
+    let mut file = lock_file(location, false, false)?;
     acquire(&file, false, cancel).await?;
-    if file.metadata().map_err(external)?.len() == 0 {
-        file.unlock().map_err(external)?;
-        acquire(&file, true, cancel).await?;
-        if file.metadata().map_err(external)?.len() == 0 {
-            renew(&mut file)?;
-        }
-        file.unlock().map_err(external)?;
-        acquire(&file, false, cancel).await?;
-    }
     let generation = locked_generation(location, &mut file)?;
     Ok(Some(Arc::new(ReadLease {
         _file: file,
@@ -56,7 +47,22 @@ pub(crate) async fn write(
         .to_file_path()
         .map_err(|()| DataFusionError::Plan("invalid local Delta location".into()))?;
     std::fs::create_dir_all(path).map_err(external)?;
-    read(location, cancel).await
+    let mut file = lock_file(location, true, true)?;
+    acquire(&file, false, cancel).await?;
+    if file.metadata().map_err(external)?.len() == 0 {
+        file.unlock().map_err(external)?;
+        acquire(&file, true, cancel).await?;
+        if file.metadata().map_err(external)?.len() == 0 {
+            renew(&mut file)?;
+        }
+        file.unlock().map_err(external)?;
+        acquire(&file, false, cancel).await?;
+    }
+    let generation = locked_generation(location, &mut file)?;
+    Ok(Some(Arc::new(ReadLease {
+        _file: file,
+        generation,
+    })))
 }
 
 #[derive(Debug)]
@@ -88,7 +94,7 @@ pub(crate) fn maintenance(
     cancel: &CancellationToken,
 ) -> Result<MaintenanceLease> {
     cancel.checkpoint().map_err(external)?;
-    let mut file = lock_file(location)?;
+    let mut file = lock_file(location, true, false)?;
     file.try_lock().map_err(|error| match error {
         TryLockError::WouldBlock => DataFusionError::Execution(
             "Delta maintenance is blocked by an active reader or writer".into(),
@@ -186,7 +192,7 @@ fn renew(file: &mut File) -> Result<()> {
     file.sync_all().map_err(external)
 }
 
-fn lock_file(location: &url::Url) -> Result<File> {
+fn lock_file(location: &url::Url, writable: bool, create: bool) -> Result<File> {
     let path = location.to_file_path().map_err(|()| {
         DataFusionError::Plan(
             "destructive remote maintenance requires a qualified reader coordination provider"
@@ -197,8 +203,8 @@ fn lock_file(location: &url::Url) -> Result<File> {
     let path = path.canonicalize().map_err(external)?;
     OpenOptions::new()
         .read(true)
-        .write(true)
-        .create(true)
+        .write(writable)
+        .create(create)
         .truncate(false)
         .open(path.join(".pse-retention.lock"))
         .map_err(external)
@@ -232,15 +238,34 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn readers_never_initialize_or_repair_retention_state() {
+        let directory = tempfile::tempdir().unwrap();
+        let location = url::Url::from_directory_path(directory.path()).unwrap();
+        let cancel = CancellationToken::new();
+        let lock = directory.path().join(".pse-retention.lock");
+        assert!(read(&location, &cancel).await.is_err());
+        assert!(!lock.exists());
+        let writer = write(&location, &cancel).await.unwrap();
+        drop(writer);
+        let before = std::fs::read(&lock).unwrap();
+        let reader = read(&location, &cancel).await.unwrap().unwrap();
+        assert_eq!(std::fs::read(&lock).unwrap(), before);
+        drop(reader);
+        std::fs::write(&lock, []).unwrap();
+        assert!(read(&location, &cancel).await.is_err());
+        assert!(std::fs::read(&lock).unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn shared_owner_blocks_deletion_until_last_clone_and_cancel_is_observed() {
         let directory = tempfile::tempdir().unwrap();
         let location = url::Url::from_directory_path(directory.path()).unwrap();
         let cancel = CancellationToken::new();
-        let reader = read(&location, &cancel).await.unwrap().unwrap();
+        let reader = write(&location, &cancel).await.unwrap().unwrap();
         let retained = Arc::clone(&reader);
         assert!(maintenance(&location, &cancel).is_err());
         drop(reader);
-        let contender = lock_file(&location).unwrap();
+        let contender = lock_file(&location, true, false).unwrap();
         assert!(matches!(
             contender.try_lock(),
             Err(TryLockError::WouldBlock)
@@ -249,7 +274,7 @@ mod tests {
         cancelled.cancel();
         assert!(acquire(&contender, true, &cancelled).await.is_err());
         drop(retained);
-        let maintenance = lock_file(&location).unwrap();
+        let maintenance = lock_file(&location, true, false).unwrap();
         acquire(&maintenance, true, &cancel).await.unwrap();
         assert!(matches!(
             contender.try_lock_shared(),
@@ -268,7 +293,7 @@ mod tests {
         assert!(maintenance(&location, &cancel).is_err());
         drop(writer);
         let exclusive = maintenance(&location, &cancel).unwrap();
-        let file = lock_file(&location).unwrap();
+        let file = lock_file(&location, true, false).unwrap();
         assert!(matches!(
             file.try_lock_shared(),
             Err(TryLockError::WouldBlock)
@@ -288,7 +313,7 @@ mod integrated_performance_unit {
         std::fs::create_dir(&root).unwrap();
         let location = url::Url::from_directory_path(&root).unwrap();
         let cancel = CancellationToken::new();
-        let original = read(&location, &cancel).await.unwrap().unwrap();
+        let original = write(&location, &cancel).await.unwrap().unwrap();
         #[expect(
             clippy::used_underscore_binding,
             reason = "the test checks the held OS lock against a replaced pathname"
@@ -296,7 +321,7 @@ mod integrated_performance_unit {
         let mut held = original._file.try_clone().unwrap();
         std::fs::rename(&root, parent.path().join("old-table")).unwrap();
         std::fs::create_dir(&root).unwrap();
-        let replacement = read(&location, &cancel).await.unwrap().unwrap();
+        let replacement = write(&location, &cancel).await.unwrap().unwrap();
         assert_ne!(original.generation, replacement.generation);
         assert!(locked_generation(&location, &mut held).is_err());
     }
@@ -305,7 +330,7 @@ mod integrated_performance_unit {
         let directory = tempfile::tempdir().unwrap();
         let location = url::Url::from_directory_path(directory.path()).unwrap();
         let cancel = CancellationToken::new();
-        let first = read(&location, &cancel).await.unwrap().unwrap();
+        let first = write(&location, &cancel).await.unwrap().unwrap();
         let selected = first.generation.clone();
         let writer = write(&location, &cancel).await.unwrap().unwrap();
         assert_eq!(writer.generation, selected);

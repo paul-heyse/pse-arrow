@@ -50,11 +50,11 @@ APIs or a second production compiler. Follow the execution rhythm below; full
 qualification occurs once at M22. Correctness tests retain explicit force-validation.
 Full library eligibility remains in force.
 
-## Execution rhythm: pivot first, qualify at the end of the plan
+## Execution rhythm: pivot first, qualify when requested
 
 The work is moving the codebase onto the target design and deleting what it replaces.
-Spend attention there. A plan is qualified completely, but **once, at its end** — not
-after every change. Plans here are large; per-change polish costs more than it catches.
+Spend attention there. Comprehensive qualification is a separate, manually initiated
+activity; it is not a commit, push, merge or plan-close prerequisite.
 
 **While implementing a plan:**
 
@@ -69,12 +69,11 @@ after every change. Plans here are large; per-change polish costs more than it c
   and its fixtures in the same change. Do not port tests for a deleted mechanism, keep a
   shim, or retain a path "as evidence".
 
-**At the end of the plan, once:** integration, component, solver and Python journeys;
-performance campaigns; formatting and lint (`fmt-rust-check`, `clippy-*`, `lint-typos`,
-`lint-license`, `quality`); `governance`; `codegen-check`; `adr-lint`/`adr-index`;
-`lint-agents`; `docs`; architecture manifest; evidence-labelled
-write-ups and the plan Outcome. Fix what they find in one pass, then rerun the affected
-gates until the whole set is green against the zero baseline.
+**When the maintainer requests comprehensive qualification:** select the relevant
+integration, component, solver and Python journeys; performance campaigns; formatting,
+lint, governance, codegen, ADR and documentation checks. Report the commands, scope and
+results. This review can happen whenever the maintainer chooses; it is not scheduled by
+the development process.
 
 **Don't, mid-plan:**
 
@@ -104,25 +103,25 @@ re-learning them. If no recipe fits, say so rather than improvising a long comma
 or downloads — `just bootstrap` does that, visibly.
 
 For Python/native development, run `just py-sync` to refresh the editable extension
-using the dev profile, then targeted `just py-test`; `just quality` is an end-of-plan
-check. Use
+using the dev profile, then targeted `just py-test`; `just quality` is available on
+demand. Use
 `just parity-container` when solver-backed parity is needed. Full wheel/sdist builds
 are manual (`just wheels-check <ref>`) or part of a release; ordinary PRs do not wait
 for distribution builds. CI uses editable development builds for Python and parity.
-These local recipes are available on demand, not prerequisites for committing or
-pushing. Git hooks run static checks only: no native compilation, Python tests,
-parity or distribution builds. GitHub runs the required suites before merging.
+These local recipes are available on demand. Git hooks are not installed by bootstrap,
+and GitHub check workflows run only when manually dispatched. Commits and pushes do not
+start or require CI.
 
 ## Prime directives
 
 1. **The baseline is zero.** No quality baselines exist and none will be introduced. A
    lint finding, a failing test, a warning: the target is none, not "no worse than before".
-   Zero is the required state when a plan closes and before merge — not after every edit
-   (see *Execution rhythm*).
+   When a check is run, report its actual result against the zero target; it does not
+   become a commit, push or merge gate (see *Execution rhythm*).
 2. **Never edit a generated directory. Fix the generator, then `just codegen`.** The
    generated paths are `docs/generated/`, `crates/*/src/generated/`,
    `crates/pse-ipopt-sys/src/bindings.rs`, and `python/pse/contracts/`. `just codegen-check`
-   is what CI runs; a hand edit there is a red diff, not a fix.
+   is available to check this manually; a hand edit there is a red diff, not a fix.
 3. **One authoritative declaration per meaning.** Version pins live once in `Cargo.toml`
    (`[workspace.dependencies]`) and once in `pyproject.toml`. A schema is declared in the
    registry, never inferred. If you find yourself writing a fact down twice, one of the
@@ -142,7 +141,8 @@ parity or distribution builds. GitHub runs the required suites before merging.
    `ruff` or a nightly `cargo` silently produces a different result than CI.
 7. **Report a failure count with its baseline and the command.** Never report that tests
    pass without naming the command, the mode, and the baseline. Mid-plan, one line per
-   targeted check you ran is enough; the full accounting belongs to plan close.
+   targeted check you ran is enough; comprehensive accounting belongs to a manually
+   requested qualification report.
 
 ## Repository map
 
@@ -153,7 +153,7 @@ parity or distribution builds. GitHub runs the required suites before merging.
 | `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle`, `structural` | `tests/fixtures/` contains source inputs, not a crate |
 | `benches/` | Criterion benchmarks (`pse-benches`) | No timing gate in CI; `just bench-smoke` only runs them |
 | `python/pse/` | The Python package (import name `pse`) | `python/pse/contracts/` is GENERATED |
-| `docs/authoritative_design/` | **The blueprint.** Off-limits to edits | Read constantly, write never |
+| `docs/authoritative_design/` | **Authoritative collection:** blueprint and numbered section owners | Start at its README; edits follow the design route below |
 | `docs/adr/` | Decision records, immutable once accepted | `just adr-new`; index via `just adr-index` |
 | `docs/plans/` | Implementation plans, living until done | `just plan <slug>` |
 | `docs/capability-maps/` | Pinned third-party API maps + their evidence | `just lib-outline <file>` first; they are large |
@@ -167,8 +167,10 @@ parity or distribution builds. GitHub runs the required suites before merging.
 
 Do not restate these; cite them.
 
-- **`docs/authoritative_design/blueprint.md`** — the authoritative architecture. Section
-  numbers are stable citation targets: cite `blueprint §14.3`, never a line number.
+- **`docs/authoritative_design/README.md`** — the entry to the authoritative architecture:
+  `blueprint.md` and numbered pages under `sections/`. Section identifiers have one owner
+  and remain stable when moved: cite `blueprint §14.3`, never a line number. The blueprint
+  retains the collection revision history; old locations retain anchor links.
 - **`docs/adr/README.md`** (generated index) and the ADRs themselves — *why* a decision
   was made. The blueprint says what is true; ADRs say why; reviews are evidence, not authority.
 - **`docs/adr/register.md`** — every deferred decision with its trigger, check and next
@@ -182,7 +184,8 @@ Do not restate these; cite them.
 - **`docs/capability-maps/`** — what the pinned libraries actually expose, with evidence.
   `just lib-outline docs/capability-maps/arrow-rust.md` before reading one.
 - **`docs/design_review/design_principles/standard.toml`** — the layered design standard
-  used by design reviews: repo-agnostic core principles (`DP-nn`, gates `G1`–`G8`), the
+  used by design reviews: six architectural foundations (`AP-nn`), operational refinements
+  (`DP-nn`, gates `G1`–`G9`), the
   process-simulator profile (`PS-nn`, `PS-G1`–`PS-G3`) and the pse-arrow binding.
 - **`docs/dev/dependency-policy.md`** — what you may depend on and under what licence.
   Short answer: anything. Read it before assuming a library is off-limits.
@@ -241,27 +244,50 @@ Each of these is a real incident, not a hypothetical.
 ## Verifying work — what each command actually proves
 
 During implementation the inner loop is `just check-package`/`just check`, targeted
-`just unit-package` and `just codegen` (see *Execution rhythm*). The table is the
-end-of-plan qualification surface.
+`just unit-package` and `just codegen` (see *Execution rhythm*). The table describes
+checks available for manual qualification.
 
 | Command | Run | Proves | Does not prove |
 |---|---|---|---|
-| `just ci-fast` | plan close | the workspace formats, compiles, lints clean and its tests and doctests pass | nothing about Python, features, policy or docs |
-| `just test` | plan close | Rust tests pass with Arrow `force_validate` on | nothing about doctests, other profiles, or release-only paths |
-| `just codegen-check` | plan close | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051) | nothing about runtime behavior of the generated interfaces |
+| `just ci-fast` | on demand | the workspace formats, compiles, lints clean and its tests and doctests pass | nothing about Python, features, policy or docs |
+| `just test` | on demand | Rust tests pass with Arrow `force_validate` on | nothing about doctests, other profiles, or release-only paths |
+| `just codegen-check` | on demand | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051) | nothing about runtime behavior of the generated interfaces |
 | `just family-check` | when a pinned-family dependency moves | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
-| `just governance` | plan close | the workspace-level invariants hold (pins, crates registered, MSRV, unsafe allowlist, error taxonomy) | nothing about runtime behaviour |
-| `just quality` | plan close | Python format/lint/types/import boundaries and repo config are clean | that the code works |
+| `just governance` | on demand | the workspace-level invariants hold (pins, crates registered, MSRV, unsafe allowlist, error taxonomy) | nothing about runtime behaviour |
+| `just quality` | on demand | Python format/lint/types/import boundaries and repo config are clean | that the code works |
 | `just deps-report` | on demand | what is in the dependency graph and under what licences; **advisory, always exits 0** | nothing — it refuses nothing and blocks nothing |
 | `just policy` | on demand | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
-| `just parity` | plan close, when parity is in scope | the exercised parity checks pass against `idaes-pse==2.12.0` | nothing about cases not exercised, or other IDAES versions |
-| `just docs` | plan close | the book builds and its internal links resolve | nothing about whether the prose is true |
-| `just adr-lint` | ADR PR / plan close | ADR front matter, numbering, supersession and register rows are well-formed | nothing about whether the decisions are good |
+| `just parity` | on demand, when parity is in scope | the exercised parity checks pass against `idaes-pse==2.12.0` | nothing about cases not exercised, or other IDAES versions |
+| `just docs` | on demand | documentation HTML and scoped search build; manual CI can also check internal links | nothing about whether the prose is true |
+| `just adr-lint` | on demand | ADR front matter, numbering, supersession and register rows are well-formed | nothing about whether the decisions are good |
 
 **Never report that tests pass without naming the command, the mode, and the baseline.**
 "34 failed" is not information until the baseline is known — and here the baseline is zero.
 
+## Documentation context and publishing
+
+Start at `docs/authoritative_design/README.md` or `docs/plans/README.md`, then read the
+relevant contract and inspect the affected source. Markdown is the agent interface; the
+site is a convenience. `docs/site.toml` owns publishing collections, current-work selection
+and documentation-tool pins. `just bootstrap-docs` installs those tools independently of
+the product environment; `just docs` derives navigation and builds mdBook plus Pagefind.
+`just docs-test` checks publisher/citation behavior; `just docs-serve` serves the result.
+
+A function-body edit normally needs no architecture edit. Update the owner when an enduring
+contract, rationale or workflow changes. No documentation-specific source seal, symbol
+inventory, proof manifest or mandatory finding-to-test matrix is required. Mechanical
+publishing checks establish identity, syntax and links; architecture requires reasoned review.
+See `docs/dev/documentation.md`. Historical product evidence retains its original scope.
+
 ## Decisions and documentation
+
+Architectural reviews follow the selected standard: start with drivers, responsibilities,
+contracts and representative change scenarios; settle architectural fitness separately from
+behavioral/scientific adequacy. Library mechanisms serve those decisions. The review template
+owns the detailed method; ordinary implementation does not require an unsolicited review.
+Current finding dispositions and packet status have one owning plan/location. Indexes link
+that owner. Reviews retain their original scope/version and evidence; ADR acceptance is not
+implementation acceptance. See `.claude/rules/decisions.md` and blueprint §24.4.
 
 **When an ADR is required:**
 
@@ -279,7 +305,7 @@ record is required.
 **Doc conventions.** New files are lowercase kebab-case (exceptions: the superseded
 UPPER_SNAKE and snake_case principle files, the root governance files, and the design-review skill's
 `design_review_{slug}_{date}.md`). YAML front matter on ADRs, plans, capability maps and
-the authoritative design. Citations are `blueprint §14.3`, `ADR-0020`, `DP-09`, `PS-10`, `G4` —
+the authoritative design. Citations are `blueprint §14.3`, `ADR-0020`, `AP-06`, `DP-09`, `PS-10`, `G4` —
 never line numbers. Generated docs carry `<!-- @generated by pse-schema; do not edit -->`.
 Plans go in `docs/plans/`, never in a home directory.
 

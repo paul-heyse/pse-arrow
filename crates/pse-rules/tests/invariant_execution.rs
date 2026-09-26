@@ -280,7 +280,7 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
     let completed = report.completion().unwrap();
     assert!(completed.prepared().observation().physical_plan().is_none());
     assert!(completed.observation().physical_plan().is_some());
-    assert!(!completed.physical_plan().name().is_empty());
+    assert!(completed.observation().execution().is_some());
     let observed = completed
         .prepared()
         .optimized_plan()

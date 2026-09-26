@@ -1,21 +1,16 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The monthly register review.
+# An optional register review, started manually.
 #
-# `docs/adr/register.md` records decisions that were deliberately deferred, each with an
-# observable trigger and a check that can be run. A deferral with no scheduled review is
-# just a decision nobody wrote down, so once a month this runs the automatable checks and
-# puts what is due in front of a human as a single issue.
+# `docs/adr/register.md` records deferred decisions with observable triggers. Run this
+# workflow whenever the maintainer wants to inspect due rows and create a review issue.
 #
 # One issue per month, reused rather than duplicated: a pile of stale register issues
 # would defeat the purpose.
 name: register-review
 
 on:
-  schedule:
-    # 09:00 UTC on the first of the month.
-    - cron: "0 9 1 * *"
   workflow_dispatch:
 
 permissions:
@@ -61,7 +56,7 @@ jobs:
           # `--due` lists the rows due this month and runs the checks that can be
           # automated (a crates.io version query, a `cargo info`, a file probe). It
           # exits non-zero only when the register itself is malformed, which
-          # `governance / adr-lint` would already have caught on the pull request.
+          # The manual governance workflow can also check the register's syntax.
           if python3 scripts/check_register.py --due >> issue-body.md; then
             status="ok"
           else

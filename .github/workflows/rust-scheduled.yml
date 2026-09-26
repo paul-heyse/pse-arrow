@@ -1,13 +1,9 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The weekly sweep: the checks that are too slow, too noisy, or too rarely wrong to sit
-# on the pull-request path, but that must not be allowed to rot.
+# Optional Rust checks for a manual review.
 #
-# Every job here has an owner and a documented response in `docs/dev/ci.md`. A red
-# scheduled job is not "flaky CI" — it is a finding, and the response is either a fix,
-# an issue with a label, or a register row. Nothing here blocks a pull request, which is
-# exactly why it needs a human to read it.
+# The maintainer chooses when to run these checks and how to handle their results.
 #
 # Miri is deliberately absent: there is no `unsafe` outside the FFI crates, where Miri
 # cannot follow the calls anyway. Re-adoption has a register row whose trigger is the
@@ -15,9 +11,6 @@
 name: rust-scheduled
 
 on:
-  schedule:
-    # Monday 06:00 UTC — before the working week, after the weekend's dependency churn.
-    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -25,7 +18,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -158,7 +151,7 @@ jobs:
           save-if: "true"
       - name: install cargo-geiger
         # Not available as a prebuilt binary from taiki-e/install-action, so it is built
-        # here. Weekly, cached, and the only `cargo install` in this repository.
+        # here. Cached, and the only `cargo install` in this workflow.
         run: cargo install cargo-geiger --locked
       - name: count the unsafe surface
         run: cargo geiger --workspace --all-targets --output-format GitHubMarkdown | tee geiger.md
@@ -167,7 +160,7 @@ jobs:
         run: cat geiger.md >> "${GITHUB_STEP_SUMMARY}"
 
   # Owner: maintainer. Response: fix the prose or add an allowlist entry with a reason.
-  # The pull-request job is paths-filtered; this is the full sweep.
+  # This is the full sweep of documentation paths.
   doc-lint:
     name: doc-lint
     runs-on: ubuntu-24.04

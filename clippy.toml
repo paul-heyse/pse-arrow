@@ -42,9 +42,8 @@ doc-valid-idents = [
   "..",
 ]
 
-# Type-aware layer of the blueprint §24.1 governance bans. The regex layer is
-# tests/governance/banned_patterns.rs. Definition paths are checked against the extracted
-# API facts (docs/capability-maps/facts) by `cargo xtask doc-lint`.
+# Type-aware method/type bans have this one enforcement owner. Scoped syntax and
+# literal policies use ast-grep; no duplicate spelling-based method ban is kept.
 disallowed-methods = [
   { path = "arrow_schema::Field::extension_type", reason = "panics on a missing or invalid extension; use `try_extension_type` (blueprint §4.4)" },
   { path = "datafusion_execution::config::SessionConfig::set_str", reason = "panics on an invalid key; use typed `ConfigOptions` only (blueprint §23.2, `config.invalid`)" },
@@ -53,4 +52,5 @@ disallowed-methods = [
 ]
 disallowed-types = [
   { path = "anyhow::Error", reason = "every pse-* crate returns a concrete thiserror enum with miette::Diagnostic (blueprint §23.2); xtask opts out at crate level" },
+  { path = "miette::eyreish::Report", reason = "library errors retain concrete diagnostic types; graphical reports belong to the driver (blueprint §23.2)" },
 ]

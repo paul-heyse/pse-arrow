@@ -7,12 +7,14 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-02, AP-03, AP-04, AP-05, AP-06, DP-22, DP-23]
 blueprint: [§24.4]
+standard: Core 3.0; process-simulator 1.1
+scenarios: [docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md#s01, docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md#s03]
 review: docs/design_review/reviews/design_review_architecture-first-standard_2026-09-25.md#12-decision
-evidence: Proposed
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A representative extension or subsystem review cannot distinguish architectural change cost from behavioral correctness.
-verification: Plan 17 process pilots, just adr-lint, just lint-agents and just docs; architectural judgment remains in the cited review.
+verification: Plan 17 document consistency review, just adr-lint, just lint-agents and just docs; effectiveness pilots are maintainer-owned follow-up.
 ---
 
 # ADR-0094: Center design review on architecture and change scenarios
@@ -69,9 +71,11 @@ cost assessed independently. There is no automated architecture score or new ver
 
 ### Confirmation
 
-Plan 17 applies the revised process to a cross-cutting extension and a subsystem boundary.
-The cited review assesses the standard itself. Repository checks establish document links,
-ADR shape and synchronized roles, not architectural quality or product behavior.
+Plan 17 implements the documents and workflow and checks their consistency. The cited
+governance review assesses this specification only. At the maintainer's request, effectiveness
+pilots are separate follow-up and are not an implementation acceptance condition. Repository
+checks establish document links, ADR shape and synchronized roles, not architectural quality
+or product behavior.
 
 ## Pros and cons
 
@@ -88,4 +92,5 @@ the decision/design PR must retain that explanation and the revision row.
 
 ## Status history
 
-- 2026-09-25 — proposed before implementation; maintainer authorized the process revision.
+- 2026-09-25 — proposed before implementation; maintainer authorized the process revision
+  and then reserved pilots for separate maintainer work.

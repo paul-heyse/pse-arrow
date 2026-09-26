@@ -20,21 +20,28 @@ struct State {
     reservation: pse_columnar::MemoryReservation,
 }
 impl ExecutionTrace {
-    pub(super) fn new(pool: &std::sync::Arc<dyn MemoryPool>) -> Self {
+    pub(super) fn new(_pool: &std::sync::Arc<dyn MemoryPool>) -> Self {
         Self(Mutex::new(State {
             observations: Vec::new(),
             reservation: pse_columnar::MemoryConsumer::new("session:execution-observations")
-                .register(pool),
+                .register(&super::observation::diagnostic_pool()),
         }))
     }
     pub(super) fn record(&self, observation: PlanObservation) -> Result<(), EngineError> {
         if !observation.is_captured() {
             return Ok(());
         }
-        let mut state = self.0.lock().map_err(|_| invalid())?;
-        state
-            .reservation
-            .try_grow(2 * size_of::<PlanObservation>())?;
+        let Ok(mut state) = self.0.lock() else {
+            return Ok(());
+        };
+        if state.observations.len() >= 1024
+            || state
+                .reservation
+                .try_grow(2 * size_of::<PlanObservation>())
+                .is_err()
+        {
+            return Ok(());
+        }
         state.observations.reserve_exact(1);
         state.observations.push(observation);
         Ok(())

@@ -50,9 +50,14 @@ fn a_required_empty_member_is_selected_but_an_absent_member_refuses() {
     let hash = ContentHash::from_bytes([1; 32]);
     let descriptor = ArtifactDescriptor::create(wire::Row {
         artifact_id: hash,
-        descriptor_version: 1,
+        descriptor_version: 2,
         profile: PublicationKind::Inspection,
-        profile_contract: registry.fingerprint(),
+        profile_contract: pse_schema::fingerprint::semantic_profile(
+            &registry,
+            "inspection",
+            &[entities::RELATION_ID].into(),
+        )
+        .unwrap(),
         requested_relations: vec![entities::RELATION_ID],
         release_id: hash,
         release_members: vec![],

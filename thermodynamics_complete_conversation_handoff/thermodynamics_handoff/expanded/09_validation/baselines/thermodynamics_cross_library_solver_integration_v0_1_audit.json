@@ -1,0 +1,317 @@
+{
+  "document": "THERMO-INTEGRATION-008",
+  "count": 42,
+  "passed": 42,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "24 unique integration rules",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Rule content complete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Rule owners valid",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Rule actions and concepts valid",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Five unique reuse boundaries",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Five unique solver modes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Solver-mode contracts and experiment links complete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Eighteen unique composition assessments",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Every composition has explicit admission rejection and validation route",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Fourteen unique profile templates",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Profiles have actual-data initialization derivative and first-witness requirements",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Profile scenario mode and rule references valid",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Templates do not claim numerical or production qualification",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Ten qualification gates with valid owners",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Eighteen unexecuted qualification experiments",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Experiments link valid profiles and integration rules",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All 94 functional identifiers preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Original primary owners actions information and witness links unchanged",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Original H/C/R3 classes preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Every requirement has governing integration rules",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All 56 actions retain owner and have rule coverage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All 72 concept action mappings inherited unchanged",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Eighteen information products unchanged",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "108 semantic relationships unchanged",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "28 semantic rule routes unchanged",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "12 physical operation variants unchanged",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All 34 scenarios and profiles preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Original 14/16/4 scenario profile counts",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Every scenario has a valid provisional route and no added execution claim",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All P3 routes preserve deferred numerical scope",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Original integrated and synthetic fixture records unchanged",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All 38 prior native probes mapped without promotion",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All ten open items preserve owners",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Open items distinguish policy from remaining runtime evidence",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Decision rules reference valid integration rules",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All exact predecessor hashes match",
+      "passed": true,
+      "detail": [
+        {
+          "key": "B1",
+          "file": "thermodynamics_simulation_behavior_scope_v0_1.md",
+          "expected": "1d12284bbca6569f198caaae86327788bac8fbaf3946625d99d971ef3602d028",
+          "actual": "1d12284bbca6569f198caaae86327788bac8fbaf3946625d99d971ef3602d028",
+          "matched": true
+        },
+        {
+          "key": "B2",
+          "file": "dwsim_workflow_reverse_engineering_v0_1.md",
+          "expected": "55e77b6fddab4547280e4e40ca5c742fac3fd322e45534767ddae7f5f6ba94ab",
+          "actual": "55e77b6fddab4547280e4e40ca5c742fac3fd322e45534767ddae7f5f6ba94ab",
+          "matched": true
+        },
+        {
+          "key": "B3",
+          "file": "thermodynamic_package_comparative_research_v0_1.md",
+          "expected": "c0f9216c450405360b8532771e6c4beca6536154345ea5adf00130a9c4e73875",
+          "actual": "c0f9216c450405360b8532771e6c4beca6536154345ea5adf00130a9c4e73875",
+          "matched": true
+        },
+        {
+          "key": "B4",
+          "file": "thermodynamics_functional_requirements_v0_1.md",
+          "expected": "7b9c3c4e2110531cb5767fb00f9ba11dec160294b8cafd909c5b04984a87b5c2",
+          "actual": "7b9c3c4e2110531cb5767fb00f9ba11dec160294b8cafd909c5b04984a87b5c2",
+          "matched": true
+        },
+        {
+          "key": "B4-register",
+          "file": "thermodynamics_functional_requirements_v0_1_register.json",
+          "expected": "1777f2c60962526252aa863dc2cb673f218b4ed58fe9c108f9721264f9fde825",
+          "actual": "1777f2c60962526252aa863dc2cb673f218b4ed58fe9c108f9721264f9fde825",
+          "matched": true
+        },
+        {
+          "key": "B5",
+          "file": "thermodynamics_conceptual_packaging_v0_1.md",
+          "expected": "85602e0a750add6a1168cb4f4294998feb5e90e35b37cef5f0b4e63c5f1076f1",
+          "actual": "85602e0a750add6a1168cb4f4294998feb5e90e35b37cef5f0b4e63c5f1076f1",
+          "matched": true
+        },
+        {
+          "key": "B5-register",
+          "file": "thermodynamics_conceptual_packaging_v0_1_register.json",
+          "expected": "d46ce687dee20cb7e677082039f349a38d8fd71101a659079d47bb8d57d80612",
+          "actual": "d46ce687dee20cb7e677082039f349a38d8fd71101a659079d47bb8d57d80612",
+          "matched": true
+        },
+        {
+          "key": "B6",
+          "file": "thermodynamics_semantic_information_dictionary_v0_1.md",
+          "expected": "58c33ae37009c2c07485a46ae95fdd51f0475504aaa75cb85ef7a23a8484dee9",
+          "actual": "58c33ae37009c2c07485a46ae95fdd51f0475504aaa75cb85ef7a23a8484dee9",
+          "matched": true
+        },
+        {
+          "key": "B6-register",
+          "file": "thermodynamics_semantic_information_dictionary_v0_1_register.json",
+          "expected": "ab459185e0536ce5ef721c572010ed8d1279f89f8d6ad632b32f927b03f21f8d",
+          "actual": "ab459185e0536ce5ef721c572010ed8d1279f89f8d6ad632b32f927b03f21f8d",
+          "matched": true
+        },
+        {
+          "key": "B7",
+          "file": "thermodynamics_action_workflow_lifecycle_blueprint_v0_1.md",
+          "expected": "d7624eb730cf3ccc6d65ec2bf21658319ad0d44e0366a4182cecdc29f0448121",
+          "actual": "d7624eb730cf3ccc6d65ec2bf21658319ad0d44e0366a4182cecdc29f0448121",
+          "matched": true
+        },
+        {
+          "key": "B7-register",
+          "file": "thermodynamics_action_workflow_lifecycle_blueprint_v0_1_register.json",
+          "expected": "ddcd4239f165ee7425d8c668aa2b5b824ffee12edfaf73ded0f2748df74627f6",
+          "actual": "ddcd4239f165ee7425d8c668aa2b5b824ffee12edfaf73ded0f2748df74627f6",
+          "matched": true
+        }
+      ]
+    },
+    {
+      "name": "Source keys unique",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "14 official-documentation sources are separately tracked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Authored reference checks passed with evidence limitation",
+      "passed": true,
+      "detail": {
+        "count": 43,
+        "scope": "authored_algebra_and_sequential_reference_contract_checks"
+      }
+    },
+    {
+      "name": "No unexpanded rendering placeholders",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "No production-certification assertion in template statuses",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All generated local artifact links resolve",
+      "passed": true,
+      "detail": {
+        "links_checked": 1921,
+        "broken": []
+      }
+    }
+  ],
+  "counts": {
+    "integration_rules": 24,
+    "reuse_boundaries": 5,
+    "solver_modes": 5,
+    "composition_assessments": 18,
+    "candidate_profile_templates": 14,
+    "qualification_gates": 10,
+    "qualification_experiments": 18,
+    "requirement_integration_allocation": 94,
+    "action_integration_allocation": 56,
+    "scenario_profile_allocation": 34
+  },
+  "native_tests_executed": 0,
+  "REV_promotions": 0,
+  "evidence_limits": "Catalog/reference integrity and authored algebra only; not simulator/provider conformance, concurrency correctness, native crash containment or empirical validation."
+}

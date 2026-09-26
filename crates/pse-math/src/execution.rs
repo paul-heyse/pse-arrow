@@ -38,6 +38,12 @@ pub struct Support {
 /// Physically admitted symbolic regions without mutable evaluators or foreign workers.
 #[derive(Clone, Debug)]
 pub struct PreparedBody {
+    data: Arc<PreparedBodyData>,
+    owner: Option<Arc<dyn crate::AllocationOwner>>,
+}
+/// Shared immutable body data; construction and mutation stay inside admission.
+#[derive(Clone, Debug)]
+pub struct PreparedBodyData {
     pub(crate) inputs: usize,
     pub(crate) slots: usize,
     pub(crate) outputs: Vec<usize>,
@@ -51,7 +57,12 @@ pub struct PreparedBody {
     output_quantities: Vec<pse_quantity::QuantityTypeId>,
     expressions: Vec<Option<Atom>>,
     providers: Vec<ProviderSpec>,
-    owner: Option<Arc<dyn crate::AllocationOwner>>,
+}
+impl std::ops::Deref for PreparedBody {
+    type Target = PreparedBodyData;
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
 }
 impl PartialEq for PreparedBody {
     fn eq(&self, other: &Self) -> bool {
@@ -72,8 +83,72 @@ impl PartialEq for PreparedBody {
     }
 }
 impl PreparedBody {
+    /// Known symbolic payload and container contents. Tree/allocator overhead and
+    /// library-global interners require a separately labelled foreign allowance.
+    pub fn retained_bytes(&self) -> usize {
+        fn stages(items: &[Stage]) -> usize {
+            size_of_val(items)
+                + items
+                    .iter()
+                    .map(|s| match s {
+                        Stage::Block {
+                            expressions,
+                            outputs,
+                            ..
+                        } => {
+                            size_of_val(expressions.as_slice())
+                                + expressions
+                                    .iter()
+                                    .map(|a| a.as_view().get_byte_size())
+                                    .sum::<usize>()
+                                + size_of_val(outputs.as_slice())
+                        }
+                        Stage::Branch {
+                            then, otherwise, ..
+                        } => stages(then) + stages(otherwise),
+                        Stage::Provider {
+                            inputs,
+                            outputs,
+                            spec,
+                            ..
+                        } => {
+                            size_of_val(inputs.as_slice())
+                                + size_of_val(outputs.as_slice())
+                                + size_of_val(spec.inputs.as_slice())
+                                + size_of_val(spec.outputs.as_slice())
+                                + size_of_val(spec.components.as_slice())
+                        }
+                        Stage::Require { .. } => 0,
+                    })
+                    .sum::<usize>()
+        }
+        size_of::<PreparedBodyData>()
+            + stages(&self.stages)
+            + self.outputs.capacity() * size_of::<usize>()
+            + self.input_quantities.capacity() * size_of::<Option<pse_quantity::QuantityTypeId>>()
+            + self.output_quantities.capacity() * size_of::<pse_quantity::QuantityTypeId>()
+            + self
+                .expressions
+                .iter()
+                .flatten()
+                .chain(self.obligations.iter().filter_map(|(a, _)| a.as_ref()))
+                .map(|a| a.as_view().get_byte_size())
+                .sum::<usize>()
+            + self
+                .support
+                .first
+                .iter()
+                .map(|s| s.len() * size_of::<usize>())
+                .sum::<usize>()
+            + self
+                .support
+                .second
+                .iter()
+                .map(|s| s.len() * size_of::<(usize, usize)>())
+                .sum::<usize>()
+    }
     /// Retain accounting when a body clone outlives its runtime case plan.
-    pub(crate) fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
+    pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
         self.owner = Some(owner);
         self
     }
@@ -135,19 +210,21 @@ impl PreparedBody {
             .map(|&i| facts[i].expression.clone())
             .collect();
         Ok(Self {
-            inputs,
-            slots,
-            outputs,
-            output_effects: None,
-            stages,
-            smooth,
-            support,
-            switches,
-            obligations,
-            input_quantities: vec![None; inputs],
-            output_quantities: vec![],
-            expressions,
-            providers: providers.into_values().collect(),
+            data: Arc::new(PreparedBodyData {
+                inputs,
+                slots,
+                outputs,
+                output_effects: None,
+                stages,
+                smooth,
+                support,
+                switches,
+                obligations,
+                input_quantities: vec![None; inputs],
+                output_quantities: vec![],
+                expressions,
+                providers: providers.into_values().collect(),
+            }),
             owner: None,
         })
     }
@@ -172,15 +249,16 @@ impl PreparedBody {
         self.inputs
     }
     pub(crate) fn set_effects(&mut self, effects: Vec<BTreeSet<usize>>) {
-        self.output_effects = Some(effects);
+        Arc::make_mut(&mut self.data).output_effects = Some(effects);
     }
     pub(crate) fn set_quantities(
         &mut self,
         inputs: Vec<Option<pse_quantity::QuantityTypeId>>,
         outputs: Vec<pse_quantity::QuantityTypeId>,
     ) {
-        self.input_quantities = inputs;
-        self.output_quantities = outputs;
+        let data = Arc::make_mut(&mut self.data);
+        data.input_quantities = inputs;
+        data.output_quantities = outputs;
     }
     /// Scalar physical contracts established by the builder; unused inputs may be absent.
     pub fn input_quantities(&self) -> &[Option<pse_quantity::QuantityTypeId>] {
@@ -259,6 +337,7 @@ impl PreparedBody {
         let mut layouts = vec![];
         let mut programs = vec![];
         let mut used = 0usize;
+        let mut retained_numeric = 0usize;
         for requested in [
             DerivativeOrder::Value,
             DerivativeOrder::First,
@@ -288,6 +367,9 @@ impl PreparedBody {
                 cancelled,
                 &mut allowance,
             )?;
+            retained_numeric = retained_numeric
+                .checked_add(allowance.entries - frame)
+                .ok_or(MathError::Limit("retained numeric storage"))?;
             used = used
                 .checked_add(allowance.entries)
                 .ok_or(MathError::Limit("compiled demand scratch"))?;
@@ -320,11 +402,12 @@ impl PreparedBody {
             inputs: self.inputs,
             slots: self.slots,
             scratch_bytes: used * size_of::<f64>(),
-            outputs: selected,
-            layouts,
-            programs,
+            retained_numeric_bytes: retained_numeric * size_of::<f64>(),
+            outputs: Arc::new(selected),
+            layouts: Arc::new(layouts),
+            programs: Arc::new(programs),
             limits,
-            support: Support {
+            support: Arc::new(Support {
                 first: outputs
                     .iter()
                     .map(|&i| self.support.first[i].clone())
@@ -334,7 +417,7 @@ impl PreparedBody {
                     .map(|&i| self.support.second[i].clone())
                     .collect(),
                 controls: self.support.controls.clone(),
-            },
+            }),
         })
     }
 }
@@ -381,13 +464,14 @@ enum CompiledStage {
 pub struct CompiledBody {
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     scratch_bytes: usize,
+    retained_numeric_bytes: usize,
     inputs: usize,
     slots: usize,
-    outputs: Vec<usize>,
-    layouts: Vec<JetLayout>,
-    programs: Vec<Vec<CompiledStage>>,
+    outputs: Arc<Vec<usize>>,
+    layouts: Arc<Vec<JetLayout>>,
+    programs: Arc<Vec<Vec<CompiledStage>>>,
     limits: EvaluationLimits,
-    support: Support,
+    support: Arc<Support>,
 }
 impl std::fmt::Debug for CompiledBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -408,11 +492,17 @@ impl CompiledBody {
     pub fn scratch_bytes(&self) -> usize {
         self.scratch_bytes
     }
+    /// Numeric buffers retained in the immutable evaluator templates, excluding
+    /// attempt frames and returned derivative buffers. Foreign heaps are separate.
+    pub fn retained_numeric_bytes(&self) -> usize {
+        self.retained_numeric_bytes
+    }
     /// Independent mutable scratch; caller/attempt owns its provider worker map.
     pub fn worker(&self) -> Worker {
         let width = self.layouts.last().map_or(1, JetLayout::width);
         Worker {
             body: self.clone(),
+            programs: self.programs.as_ref().clone(),
             frame: vec![0.0; self.slots * width],
         }
     }
@@ -436,10 +526,19 @@ pub struct Evaluation {
     pub hessians: Vec<f64>,
 }
 /// Worker-local numeric frame and Symbolica scratch.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Worker {
     body: CompiledBody,
+    programs: Vec<Vec<CompiledStage>>,
     frame: Vec<f64>,
+}
+impl std::fmt::Debug for Worker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Worker")
+            .field("body", &self.body)
+            .field("frame_entries", &self.frame.len())
+            .finish_non_exhaustive()
+    }
 }
 impl Worker {
     /// Evaluate only the requested order, publishing no result on failure.
@@ -478,7 +577,7 @@ impl Worker {
             max_result_bytes: self.body.limits.scratch_bytes,
         };
         evaluate_stages(
-            &mut self.body.programs[order as usize],
+            &mut self.programs[order as usize],
             &mut self.frame,
             layout,
             providers,
@@ -555,28 +654,16 @@ fn compile_stages(
                     .iter()
                     .map(|&i| parameters[i].clone())
                     .collect::<Vec<_>>();
-                let pre = expressions
-                    .iter()
-                    .map(|e| operation_count(e.count_operations()))
-                    .sum::<usize>();
-                let estimate = pre
-                    .checked_mul(layout.width())
-                    .and_then(|x| x.checked_mul(layout.width()))
-                    .ok_or(MathError::Limit("derivative expansion"))?;
-                if estimate > allowance.operations {
-                    return Err(MathError::Limit("derivative expansion"));
-                }
-                let evaluator = if layout.width() == 1 {
-                    library::evaluator(expressions, &params, options, cancelled)?
-                } else {
-                    library::jet_evaluator(
-                        expressions,
-                        &params,
-                        layout.shape.clone(),
-                        options,
-                        cancelled,
-                    )?
-                };
+                let evaluator = library::bounded_evaluator(
+                    expressions,
+                    &params,
+                    layout,
+                    options,
+                    cancelled,
+                    limits,
+                    allowance.operations,
+                    allowance.entries,
+                )?;
                 let operations = operation_count(evaluator.count_operations());
                 allowance.operations = allowance
                     .operations
@@ -591,7 +678,7 @@ fn compile_stages(
                 }
                 allowance.entries = allowance
                     .entries
-                    .checked_add(input_len + output_len + operations)
+                    .checked_add(input_len + output_len + library::numeric_entries(&evaluator)?)
                     .ok_or(MathError::Limit("evaluator scratch"))?;
                 limits.allocation(allowance.entries)?;
                 CompiledStage::Block {
@@ -659,7 +746,10 @@ fn compile_stages(
                         inputs.len(),
                         layout,
                         options,
-                        limits,
+                        EvaluationLimits {
+                            operations: allowance.operations,
+                            ..limits
+                        },
                         cancelled,
                     )?)
                 } else {
@@ -1025,11 +1115,21 @@ fn analyze(
                         .iter()
                         .flat_map(|&i| facts[i].first.iter().copied())
                         .collect::<BTreeSet<_>>();
+                    // Flattening is only an optional support/coefficient optimization.
+                    // Bound substitution BEFORE allocating the expanded tree. Every symbol
+                    // occurrence occupies at least one source byte; the byte product is a
+                    // conservative replacement bound. Larger DAGs retain complete support.
                     let expanded = inputs.iter().try_fold(expression.clone(), |e, &i| {
-                        facts[i]
-                            .expression
-                            .as_ref()
-                            .map(|value| e.replace(parameters[i].clone()).with(value.clone()))
+                        let value = facts[i].expression.as_ref()?;
+                        let bytes = e
+                            .as_view()
+                            .get_byte_size()
+                            .checked_mul(value.as_view().get_byte_size().checked_add(1)?)?;
+                        if bytes > 1024 * 1024 {
+                            return None;
+                        }
+                        let result = e.replace(parameters[i].clone()).with(value.clone());
+                        (operation_count(result.count_operations()) <= 16384).then_some(result)
                     });
                     let mut fact = Fact {
                         expression: expanded,

@@ -194,6 +194,19 @@ pub enum InconclusiveReason {
     /// The uncertainty interval crosses the requested PSD threshold.
     Threshold,
 }
+impl InconclusiveReason {
+    /// Stable report spelling, independent of Rust debug output.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ResourceLimit => "resource_limit",
+            Self::NoExactWitness => "no_exact_witness",
+            Self::Eigensolver => "eigensolver",
+            Self::Residual => "residual",
+            Self::Threshold => "threshold",
+        }
+    }
+}
+
 /// Scientific interpretation; numerical PSD never masquerades as an exact certificate.
 #[derive(Clone, Debug)]
 pub enum ConvexityAssessment {

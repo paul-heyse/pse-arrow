@@ -48,6 +48,19 @@ P00 records this downstream contract only. P00–P04 introduce no publication pr
 
 ### Consequences
 
+P12 exposes a serializable ticket before effects begin. Each attempt owns immutable
+member destinations; the conditional control manifest is committed last under its
+explicit parent precondition. Read-only settlement uses exact manifest and
+transaction witnesses and returns committed, proved noncommit/conflict or unresolved.
+Uncertain history is never treated as permission to rematerialize an attempt.
+
+Compatibility compares the complete versioned semantic closure against independently
+compiled consumer expectations. Prose and implementation encodings are separate from
+semantic identity. Unsupported historical formats return typed migration-required
+errors; opening does not migrate or select a legacy runtime. Writers initialize
+retention coordination, readers only acquire existing shared ownership, and maintenance
+advances the generation while exclusively owning the retained closure.
+
 Existing callers and fixtures move with their replacement. No compatibility execution
 path survives merely to preserve old assumptions.
 

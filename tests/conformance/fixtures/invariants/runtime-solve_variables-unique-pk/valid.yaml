@@ -3,7 +3,7 @@
   "rows": {
     "runtime.solve_variables": [
       {
-        "dual_qualification": "[\"text\",\"value-1\"]",
+        "dual_qualification": "[\"enum\",\"evaluated_kkt_not_sensitivity_certified\"]",
         "fixed": "[\"bool\",true]",
         "lower": "[\"f64\",\"3ff0000000000000\"]",
         "lower_dual": "[\"f64\",\"3ff0000000000000\"]",

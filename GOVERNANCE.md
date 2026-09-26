@@ -3,7 +3,7 @@
 This document says who decides what in `pse-arrow`, how a decision is recorded, and how
 the things that are deliberately hard to change — the parity pin, the dependency
 families, the branch protections — actually move. It is itself governed: changing this
-file requires an ADR and a design review (see the table in §3).
+file requires an ADR and a design review (see the table in §2).
 
 ## 1. Roles
 
@@ -46,7 +46,7 @@ There is no project board and no formal committee at this size. A board is a reg
 ## 2. Decision process
 
 Decisions are recorded as **Architecture Decision Records** under `docs/adr/`, one file
-per decision, `NNNN-kebab-title.md`, following MADR 4 plus the charter §H front-matter
+per decision, `NNNN-kebab-title.md`, following MADR 4 plus the core principles §H front-matter
 fields (`id`, `title`, `status`, `date`, `deciders`, `level`, `principles`, `blueprint`,
 `review`, `evidence`, `supersedes`/`superseded-by`, `revisit`, `verification`).
 
@@ -68,9 +68,9 @@ An ADR enters the repository, or changes status, **only** in a pull request that
 
 - is **labeled `adr`**, and
 - is **titled `adr: ADR-NNNN <title>`**, and
-- amends `docs/authoritative_design/blueprint.md` in the same PR — or in a named
-  follow-up PR titled `design: …` — with a revision row and an inline
-  `> Decision: ADR-NNNN` note at the governed section, and
+- amends the authoritative collection in the same PR — or in a named
+  follow-up PR titled `design: …` — with a revision row in `docs/authoritative_design/blueprint.md` and an inline
+  `> Decision: ADR-NNNN` note at the governed section's owner in the collection, and
 - is merged by the maintainer. **The maintainer's merge is the approval**; there is no
   separate sign-off step.
 
@@ -95,6 +95,22 @@ Anyone may propose a decision by opening a `design-decision` issue. The maintain
 it `needs-adr` when it clears that bar; the `needs-adr` label on an open issue or PR is
 checked by `governance / adr-lint`.
 
+### Architecture review and implementation tracking
+
+The [standard declaration](docs/design_review/design_principles/standard.toml) selects the
+current core, profile and binding. The six architectural foundations organize the review;
+operational and scientific requirements apply where relevant. The
+[review template](docs/design_review/design_principles/core/design-review-template.md) owns
+the method, including independent architectural-fitness and behavioral-adequacy decisions.
+See blueprint §24.4 and ADR-0094 for this governance amendment.
+
+A review records evidence against a specific scope and standard version. The owning plan
+holds current adopted-finding dispositions and links scenarios, decisions, packets and their
+evidence. Indexes link live status instead of copying it. Accepting a decision and scheduling
+work do not certify implementation. Accepted ADR evidence describes support at decision time;
+historical review verdicts are not retroactively updated. Optional `standard` and `scenarios`
+ADR fields record the reviewed versions and links without changing old records.
+
 ### The register
 
 Deliberately deferred decisions are rows in `docs/adr/register.md`:
@@ -106,8 +122,9 @@ its trigger called for — not deleting the row.
 
 ## 3. Authority, and what overrules what
 
-1. `docs/authoritative_design/blueprint.md` — **authoritative**. One file, revised in
-   git; section numbers are stable citation targets.
+1. `docs/authoritative_design/README.md` — entry to the **authoritative collection**:
+   the blueprint and numbered pages under `sections/`. Each section has one owner;
+   identifiers survive moves, and collection revision history remains in the blueprint.
 2. `docs/adr/` — **why**. ADRs explain and amend; an amendment is only real once the
    blueprint carries the revision row.
 3. `docs/design_review/reviews/` — **evidence**, never authority.
@@ -118,32 +135,28 @@ its trigger called for — not deleting the row.
 
 ## 4. Branch protection, and bypassing it
 
-`main` is protected by a repository ruleset (declared in
-`.github/setup/ruleset-main.json`, applied by `just gh-setup`): no deletion, no
-non-fast-forward, linear history required, signed commits required, pull request
-required (0 approvals while there is one maintainer; stale reviews dismissed; threads
-must be resolved; squash merge only), and the required status checks listed in
-`docs/dev/ci.md`. Tags matching `v*` are protected by a second ruleset: creation, update
-and deletion restricted, signatures required.
+`main` retains a repository ruleset (declared in
+`.github/setup/ruleset-main-full.json`, applied by `just gh-setup`): no deletion,
+no non-fast-forward updates, linear history and signed commits. Direct commits and
+pushes are allowed. CI has no required status checks and pull requests are optional.
+Check workflows run only when manually dispatched; see `docs/dev/ci.md`. Tags matching
+`v*` retain their separate release ruleset.
 
 **Bypass policy.** The maintainer's admin role is on the ruleset bypass list with mode
-`always`, because a sole maintainer must be able to recover the repository — for example
-to repair a broken `main` or to land a required-check definition that does not yet
-report. Bypass is a break-glass action, not a shortcut:
+`always`, for recovery from a broken `main`. Bypass is a break-glass action:
 
 - Every bypass push **must** be followed by an issue labeled `governance` stating what
   was pushed, why the normal path could not be used, and what prevents a recurrence.
-- A bypass is never used to skip a failing check on ordinary work. A check that is wrong
-  gets fixed or removed by a PR; a check that is right gets obeyed.
+- A manually run failing check is reviewed when the maintainer chooses; it is not a
+  ruleset gate.
 - Bypass pushes must be **signed** — the ruleset requires signatures and does not exempt
   bypass actors. Squash merges are signed by GitHub; a direct push needs local SSH or
   GPG signing configured.
 - The bypass list is part of the declared configuration. Changing it is a governance
   change and needs an ADR (§2 table).
 
-Required checks are staged deliberately: a check that never reports blocks every pull
-request, so `python / *` joins the required list only after the Python package first
-reports. `.github/setup/ruleset-main-full.json` holds the full list for that re-run.
+The `main` ruleset has no required status checks or required pull request. A future
+change to that policy is a separate maintainer decision.
 
 ## 5. How the pins move
 
@@ -153,8 +166,8 @@ version, what changed in the numerical behaviour under test, which parity tests 
 why, and whether any preserved enumeration changed. The PR must update the pin in
 `[dependency-groups] parity`, the tag in `scripts/fetch-external.sh` (the two are
 compared by `governance / adr-lint`), `docs/relationship-to-idaes.md`, and any tolerance
-that had to change — each tolerance change called out individually in the PR body. A
-parity run must be green on the pinned interpreters before merge. The pin is never moved
+that had to change — each tolerance change called out individually in the PR body.
+A parity run can be requested to review the pinned interpreters. The pin is never moved
 in the same PR as a behavioural change on our side.
 
 **Adding a dependency.** Nothing. No library is refused and no licence is grounds to
@@ -190,8 +203,9 @@ group is closed, not merged. Python pins move with `uv lock --upgrade-package <n
 `[workspace.package] rust-version` are kept equal by a governance test. They move
 together, in their own PR, with an ADR when the MSRV rises (ADR-0018).
 
-**The solver image.** `docker/solvers/` is content-addressed: pushing a new image updates
-`SOLVER_IMAGE` in the workflows through an automatically opened PR. Changing the recipe
+**The solver image.** `docker/solvers/` is content-addressed: manually dispatching
+`solvers-image.yml` with `publish=true` publishes an image and prepares a pin update PR.
+Changing the recipe
 (Ipopt, MUMPS, or ASL version, or a build flag that can move iteration counts) needs an
 ADR, because parity trajectories depend on it.
 

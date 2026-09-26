@@ -428,7 +428,7 @@ fn derivative(a: &Atom, f: &Atom) -> Result<Atom, MathError> {
     )
 }
 fn number(a: &Atom, c: &Arc<AtomicBool>) -> Result<f64, MathError> {
-    crate::coefficients::number(a, library::Optimization::default(), c)
+    crate::coefficients::number(a, c)
 }
 fn affine(
     a: &Atom,

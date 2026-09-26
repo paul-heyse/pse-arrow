@@ -133,7 +133,10 @@ impl<'a> ObligationTemplates<'a> {
                 .and_then(|spec| inputs.get(&spec.id));
             checks.extend(source_spans::plans(input, documents)?);
             checks.extend(quantities::plans(input, inputs, self.registry)?);
-            let keys = spec
+            let keys = self
+                .registry
+                .obligations(spec.key)
+                .map_err(pse_columnar::external)?
                 .primary_key
                 .iter()
                 .map(|name| column(name))

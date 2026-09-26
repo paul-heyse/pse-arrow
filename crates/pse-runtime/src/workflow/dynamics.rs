@@ -35,7 +35,7 @@ pub struct PreparedSimulation {
     pub(crate) profile: SimulationProfile,
     pub(crate) numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
     pub(crate) contract: native::Contract,
-    pub(crate) programs: Vec<FunctionProgram>,
+    pub(crate) programs: Arc<[FunctionProgram]>,
     pub(crate) values: CaseValues,
     pub(crate) conversions: Vec<UnitConvertSpec>,
     pub(crate) time_scale: f64,
@@ -48,6 +48,43 @@ pub struct PreparedSimulation {
     pub(crate) bytes: usize,
 }
 impl PreparedSimulation {
+    /// Rebind authored parameter values and a horizon through the same checked compiler.
+    /// Unaffected bodies and executable artifacts remain shared by semantic identity.
+    pub async fn rebind(
+        &self,
+        parameters: &BTreeMap<SemanticId, f64>,
+        profile: SimulationProfile,
+        compiler: pse_compiler::workspace::Profile,
+        cancel: &crate::CancelSource,
+    ) -> Result<Self, WorkflowError> {
+        if parameters
+            .iter()
+            .any(|(id, value)| !self.declaration.parameters.contains(id) || !value.is_finite())
+        {
+            return Err(contract(
+                "dynamic rebind requires finite declared parameter values",
+            ));
+        }
+        let mut draft = self.revision.edit();
+        let case = draft
+            .declaration_mut()
+            .cases
+            .iter_mut()
+            .find(|c| c.case_id == self.declaration.case_id)
+            .ok_or_else(|| contract("dynamic rebind case is absent"))?;
+        for (id, value) in parameters {
+            let bound = case
+                .values
+                .iter_mut()
+                .find(|v| v.symbol_id == *id)
+                .ok_or_else(|| contract("dynamic rebind parameter has no authored value"))?;
+            bound.value = *value;
+        }
+        draft
+            .freeze()?
+            .prepare_simulation(self.declaration.dynamic_id, profile, compiler, cancel)
+            .await
+    }
     /// Complete prepared execution identity, including exact data and effective controls.
     pub fn identity(&self) -> ContentHash {
         self.key
@@ -61,8 +98,22 @@ impl PreparedSimulation {
         &self.declaration
     }
     pub(crate) fn worker(&self, cancel: Arc<AtomicBool>) -> Result<DynamicWorker, ProblemError> {
-        let mut functions = Vec::new();
-        for program in &self.programs {
+        let chain = self
+            .declaration
+            .states
+            .iter()
+            .enumerate()
+            .map(|(i, s)| s.scale / self.conversions[i].scale)
+            .chain(
+                self.declaration
+                    .parameters
+                    .iter()
+                    .enumerate()
+                    .map(|(i, _)| 1.0 / self.conversions[self.declaration.states.len() + i].scale),
+            )
+            .collect::<Vec<_>>();
+        let mut functions = BTreeMap::new();
+        for program in self.programs.iter() {
             let providers = self
                 .revision
                 .0
@@ -75,15 +126,44 @@ impl PreparedSimulation {
                         .map_err(|e| ProblemError::Contract(e.to_string()))
                 })
                 .collect::<Result<_, _>>()?;
-            functions.push((
-                program.clone(),
-                program.case.assembly.worker(providers, cancel.clone()),
-            ));
+            let source = program.case.assembly.jacobian_pattern();
+            let mut pairs = Vec::new();
+            let mut refill = Vec::new();
+            for (c, scale) in chain.iter().enumerate() {
+                for k in source.col_range(c) {
+                    for (row, &original) in program.rows.iter().enumerate() {
+                        if source.row_idx()[k] == original {
+                            refill.push((k, pairs.len(), program.scales[row] * scale));
+                            pairs.push((row, c));
+                        }
+                    }
+                }
+            }
+            let jacobian = pse_math::sparse::AssemblyMatrix::new(
+                program.rows.len(),
+                chain.len(),
+                &pairs,
+                self.profile.max_cells,
+            )?;
+            functions.insert(
+                (program.mode, program.function),
+                FunctionWorker {
+                    program: program.clone(),
+                    worker: program.case.assembly.worker(providers, cancel.clone()),
+                    jacobian,
+                    refill,
+                    pairs,
+                    cache: None,
+                    #[cfg(test)]
+                    evaluations: 0,
+                },
+            );
         }
         Ok(DynamicWorker {
             prepared: self.clone(),
             functions,
             values: self.values.clone(),
+            cancel,
         })
     }
 }
@@ -654,7 +734,7 @@ impl ModelRevision {
             profile,
             numerics,
             contract: c,
-            programs,
+            programs: programs.into(),
             values: CaseValues {
                 scalars: inputs.values.clone(),
             },
@@ -671,35 +751,33 @@ impl ModelRevision {
     }
 }
 #[derive(Debug)]
+struct FunctionWorker {
+    program: FunctionProgram,
+    worker: CaseWorker,
+    jacobian: pse_math::sparse::AssemblyMatrix,
+    refill: Vec<(usize, usize, f64)>,
+    pairs: Vec<(usize, usize)>,
+    // Mode/function and provider/build identity are fixed by this worker. Every
+    // varying time/state/parameter bit participates, including signed zero.
+    cache: Option<(Vec<u64>, native::Evaluation)>,
+    #[cfg(test)]
+    evaluations: usize,
+}
+#[derive(Debug)]
 pub(crate) struct DynamicWorker {
     prepared: PreparedSimulation,
-    functions: Vec<(FunctionProgram, CaseWorker)>,
+    functions: BTreeMap<(usize, Function), FunctionWorker>,
     values: CaseValues,
+    cancel: Arc<AtomicBool>,
 }
 impl Oracle for DynamicWorker {
     fn contract(&self) -> &native::Contract {
         &self.prepared.contract
     }
     fn support(&self, mode: usize, function: Function) -> Vec<(usize, usize)> {
-        let Some((p, _)) = self
-            .functions
-            .iter()
-            .find(|(p, _)| p.mode == mode && p.function == function)
-        else {
-            return vec![];
-        };
-        let pattern = p.case.assembly.jacobian_pattern();
-        let mut out = Vec::new();
-        for c in 0..pattern.ncols() {
-            for &r in &pattern.row_idx()[pattern.col_range(c)] {
-                for (target, &source) in p.rows.iter().enumerate() {
-                    if r == source {
-                        out.push((target, c));
-                    }
-                }
-            }
-        }
-        out
+        self.functions
+            .get(&(mode, function))
+            .map_or_else(Vec::new, |w| w.pairs.clone())
     }
     fn evaluate(
         &mut self,
@@ -710,37 +788,22 @@ impl Oracle for DynamicWorker {
         parameters: &[f64],
         derivatives: bool,
     ) -> Result<native::Evaluation, ProblemError> {
+        if self.cancel.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(pse_math::MathError::Cancelled.into());
+        }
         let d = &self.prepared.declaration;
         let n = d.states.len();
-        if state.len() != n || parameters.len() != d.parameters.len() {
-            return Err(ProblemError::Contract("dynamic binding dimensions".into()));
+        if state.len() != n
+            || parameters.len() != d.parameters.len()
+            || !time.is_finite()
+            || state.iter().chain(parameters).any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "dynamic binding dimensions or values".into(),
+            ));
         }
-        self.values.scalars.insert(
-            d.time_id,
-            (time - d.time_origin.unwrap_or(0.0)) / self.prepared.time_scale,
-        );
-        let mut chain = Vec::with_capacity(n + parameters.len());
-        for (i, s) in d.states.iter().enumerate() {
-            let c = &self.prepared.conversions[i];
-            self.values.scalars.insert(
-                s.symbol_id,
-                (state[i] * s.scale + s.offset - c.offset) / c.scale,
-            );
-            chain.push(s.scale / c.scale);
-        }
-        for (i, id) in d.parameters.iter().enumerate() {
-            let c = &self.prepared.conversions[n + i];
-            self.values
-                .scalars
-                .insert(*id, (parameters[i] - c.offset) / c.scale);
-            chain.push(1.0 / c.scale);
-        }
-        let Some((p, worker)) = self
-            .functions
-            .iter_mut()
-            .find(|(p, _)| p.mode == mode && p.function == function)
-        else {
-            if function == Function::Roots {
+        let Some(function) = self.functions.get_mut(&(mode, function)) else {
+            if function == Function::Roots && mode < d.modes.len() {
                 return Ok(native::Evaluation {
                     values: vec![],
                     jacobian: None,
@@ -750,44 +813,69 @@ impl Oracle for DynamicWorker {
                 "missing compiled dynamic function".into(),
             ));
         };
-        let rows = worker.constraints(&self.values)?;
+        let bits = std::iter::once(time)
+            .chain(state.iter().copied())
+            .chain(parameters.iter().copied())
+            .map(f64::to_bits);
+        if let Some((key, evaluation)) = &function.cache
+            && (!derivatives || evaluation.jacobian.is_some())
+            && key.iter().copied().eq(bits.clone())
+        {
+            let mut result = evaluation.clone();
+            if !derivatives {
+                result.jacobian = None;
+            }
+            return Ok(result);
+        }
+        function.cache = None;
+        #[cfg(test)]
+        {
+            function.evaluations += 1;
+        }
+        self.values.scalars.insert(
+            d.time_id,
+            (time - d.time_origin.unwrap_or(0.0)) / self.prepared.time_scale,
+        );
+        for (i, s) in d.states.iter().enumerate() {
+            let c = &self.prepared.conversions[i];
+            self.values.scalars.insert(
+                s.symbol_id,
+                (state[i] * s.scale + s.offset - c.offset) / c.scale,
+            );
+        }
+        for (i, id) in d.parameters.iter().enumerate() {
+            let c = &self.prepared.conversions[n + i];
+            self.values
+                .scalars
+                .insert(*id, (parameters[i] - c.offset) / c.scale);
+        }
+        let p = &function.program;
+        let rows = function.worker.constraints(&self.values)?;
         let values = p
             .rows
             .iter()
             .enumerate()
             .map(|(i, &r)| rows[r] * p.scales[i] + p.offsets[i])
-            .collect();
+            .collect::<Vec<_>>();
         let jacobian = if derivatives {
-            let source = worker.jacobian(&self.values)?;
-            let mut triplets = Vec::new();
-            for (c, chain) in chain.iter().enumerate().take(source.ncols()) {
-                for k in source.col_range(c) {
-                    let r = source.row_idx()[k];
-                    for (i, &row) in p.rows.iter().enumerate() {
-                        if row == r {
-                            triplets.push(faer::sparse::Triplet::new(
-                                i,
-                                c,
-                                source.val()[k] * p.scales[i] * chain,
-                            ));
-                        }
-                    }
-                }
+            let source = function.worker.jacobian(&self.values)?;
+            function.jacobian.clear();
+            for &(local, target, scale) in &function.refill {
+                function.jacobian.add(target, source.val()[local] * scale)?;
             }
-            Some(
-                faer::sparse::SparseColMat::try_new_from_triplets(
-                    p.rows.len(),
-                    chain.len(),
-                    &triplets,
-                )
-                .map_err(|e| ProblemError::Contract(e.to_string()))?,
-            )
+            Some(function.jacobian.matrix().clone())
         } else {
             None
         };
-        Ok(native::Evaluation { values, jacobian })
+        if values.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::Contract("nonfinite dynamic values".into()));
+        }
+        let result = native::Evaluation { values, jacobian };
+        function.cache = Some((bits.collect(), result.clone()));
+        Ok(result)
     }
 }
+
 fn positive(v: f64) -> bool {
     v.is_finite() && v > 0.0
 }

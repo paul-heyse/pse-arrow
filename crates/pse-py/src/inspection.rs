@@ -18,7 +18,8 @@ mod tuple;
 pub(crate) use cache_settings::CacheSettings;
 pub(crate) use errors::{
     DiagnosticAnnotation, DiagnosticCause, DiagnosticContext, DiagnosticNote,
-    DiagnosticObservation, DiagnosticReport, DiagnosticSpan, InspectionError,
+    DiagnosticObservation, DiagnosticReport, DiagnosticSourceLocation, DiagnosticSpan,
+    InspectionError,
 };
 pub(crate) use handles::{Publication, open_publication};
 pub(crate) use settings::EngineSettings;

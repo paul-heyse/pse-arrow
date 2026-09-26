@@ -8,7 +8,7 @@ level: decision
 principles: [DP-16, DP-22, DP-23]
 blueprint: [§24.1, §24.3]
 review: docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
-evidence: Proposed
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A new execution or storage path cannot preserve these distinctions.
@@ -26,7 +26,7 @@ amends the active blueprint scope without rewriting accepted historical ADR bodi
 ## Scope
 
 The contract below and its existing owners; implementation sequencing is in
-[the execution packet](../plans/16-p00-p04-execution.md). Acceptance through the
+[the execution packet](../plans/16-p14-p18-execution.md). Acceptance through the
 repository decision PR route remains pending; implementation is user-authorized.
 
 ## Drivers
@@ -42,7 +42,9 @@ Extend existing typed owners and derive consumer projections: selected.
 
 ## Outcome
 
-P17 will retain ordinary tests, benchmarks and factual execution records while removing compulsory digest-bound design verdicts and plan-specific phase ceremony. A source digest identifies inputs; it does not establish applicability, equivalence or review quality. Records distinguish executed, unchanged-input reuse, reviewed transfer and not-run evidence.
+P17 retains ordinary tests, benchmarks and factual execution records while removing compulsory digest-bound design verdicts and plan-specific phase ceremony. A source digest identifies inputs; it does not establish applicability, equivalence or review quality. Records distinguish executed, unchanged-input reuse, reviewed transfer and not-run evidence.
+
+Cargo manifests own Rust pins; family checks validate resolved families against those declarations. Blueprint tables describe architectural policy, without a second exact-pin parser or tooling exemption inventory. Type-aware method/type bans belong to Clippy; scoped syntax/literal bans belong to ast-grep. Product behaviors replace source-spelling architecture witnesses.
 
 P00–P04 use targeted compilation and functional tests. Integrated testing and nonfunctional checks are deferred until the requested functional scope is complete; Plan 16 whole-system qualification remains P18. Regeneration is part of implementation whenever registry declarations change. Existing Plan 14 M22 and ADR-0087 observations remain historical and their exclusions are not inherited.
 

@@ -8,13 +8,9 @@ authority disagree, the cited authority wins and this page is corrected.
 
 ## Standard applied
 
-| Layer | Document | Version |
-|---|---|---|
-| Core | [design principles](../core/design-principles.md), [review template](../core/design-review-template.md) | 2.0 |
-| Profile | [process-simulator principles](../profiles/process-simulator/principles.md), [review additions](../profiles/process-simulator/review.md) | 1.0 |
-| Binding | this page | — |
-
-The same declaration is in [`standard.toml`](../standard.toml) for agents and skills.
+[`standard.toml`](../standard.toml) owns the selected versions and paths. Read the core
+principles/template and applicable profile from that declaration; this binding does not copy
+the version values. The core's version-transition table preserves historical DP/G references.
 
 ## Reviews in this repository
 
@@ -23,17 +19,52 @@ The same declaration is in [`standard.toml`](../standard.toml) for agents and sk
 - **Skills:** `design-review` (core method) with `design-review-process-simulator` (profile
   lenses). The `design-reviewer` agent applies both with this binding; the
   `library-leverage-reviewer` agent can assist with slot 8.
-- **Default purpose:** design reviews default to **target** purpose (template, *Purpose*): the
+- **Default purpose:** design reviews default to **target** purpose (template, *Tier and purpose*): the
   aim is the best-in-class simulator design, and blueprint, ADR, plan or policy text that blocks
   it is recorded in slot 11 as a required change with its route. Change reviews within an
   approved plan default to **conformance**.
 - **Reviews are evidence, not authority.** Their findings take effect through a plan, an ADR or
   a `design:` PR.
 
+## Architecture scenarios
+
+These are reusable scenario seeds, not new product requirements or a demand to implement every
+analysis mode. Select and refine those that distinguish alternatives in the requested scope.
+A review may link a row and record only its case-specific conditions and acceptance.
+
+| ID | Stimulus and conditions | Expected response / architectural observation |
+|---|---|---|
+| <a id="pse-s01"></a>PSE-S01 | Add a unit/property model using existing physical concepts | Declarations and specialized behavior extend existing owners; admission, diagnostics and workflow policy are not re-authored |
+| <a id="pse-s02"></a>PSE-S02 | Replace/add an implementation of an existing consumed solver/provider capability | Integration and explicit selection absorb the change; semantic consumers retain their contract; differences in capability remain visible |
+| <a id="pse-s03"></a>PSE-S03 | Compose a new study or analysis workflow | Reuse model preparation and execution primitives; identify genuinely new policy and avoid copied end-to-end flows |
+| <a id="pse-s04"></a>PSE-S04 | Change a result storage/transport representation without changing scientific meaning | Persistence/conversion owners absorb the change; physical meaning and computation remain under their existing owners |
+| <a id="pse-s05"></a>PSE-S05 | Exercise admission or execution policy independently | Tests supply the actual semantic inputs/dependencies without starting unrelated solvers, stores or workflows |
+| <a id="pse-s06"></a>PSE-S06 | Upgrade an integration library within the intended capability contract | Identify integration owners absorbing API/lifecycle changes and any justified consumer contract migration |
+
+Inspect dependency edges from manifests and executing paths. Existing dependency/import checks
+can support named boundary claims; an acceptance manifest is not an architectural dependency
+map. No count of crates, traits, schemas or library features establishes quality.
+
+## Follow-up ownership
+
+The review records its version, inspected scope, findings and evidence strength. After a
+finding is adopted for work, the owning plan's coverage/disposition table holds its current
+state and links its scenario, decision where needed, packet and evidence. Until then the
+review names a proposed work owner without claiming that work is scheduled. Use the template's
+slot 11 fields; avoid an additional independently edited backlog.
+
+The chain is foundation → scenario → finding → decision where required → packet → evidence.
+Plan indexes link to the status owner rather than copying packet completion. A packet's
+execution record owns its observations; a plan disposition links them. Accepted ADR evidence
+records support at decision time, not live implementation qualification. Deferred architectural
+decisions still use the existing ADR register and observable triggers. Workflow bookkeeping
+and semantic judgments remain separate; there is no generated approval or architecture score.
+
 ## Where profile roles are decided
 
 | Role (principle) | Authority in this repository |
 |---|---|
+| Architecture review and tracking (AP-01–AP-06, G9) | blueprint §24.4; ADR-0094; the current core and template |
 | Model authority and identity (DP-01, DP-04, DP-05) | blueprint §2 (D1–D14) and §5, as amended by Plan 14 |
 | Ownership of math, derivatives, sparse algebra, properties, structure and solvers (DP-13, DP-17, PS-07, PS-09) | [Plan 14](../../../plans/14-library-owned-process-simulator.md) D02 (crate ownership) and D03 (library and execution decisions); blueprint §1.3 and §3.3 |
 | Supported math, provider and solver scope (DP-15, PS-02, PS-10) | [Plan 14 foundation contract](../../../plans/14-math-foundation-contract.md) and ADR-0082–0084 |
@@ -54,7 +85,7 @@ Each is stated once in its authority; this list only points to it.
 | One resolved version per pinned dependency family | DP-15 | AGENTS.md *Invariants*; `just family-check` |
 | `force_validate` in every test run; `panic = "unwind"`; never `target-cpu=native` | DP-03, DP-19, DP-11 | AGENTS.md *Invariants* |
 | Delete replaced code, callers, tests and fixtures in the same change; no shims | DP-16 | AGENTS.md *Execution rhythm* |
-| No library capability is withheld for lack of a consumer | DP-13, DP-16 | blueprint §3.3.1; ADR-0065 |
+| No library capability is withheld for lack of a consumer; integration cost remains assessable under the core | DP-13, DP-16 | blueprint §3.3.1; ADR-0065 |
 | Design alignment is established by agent judgment and review; probes, tests and written records are used where uncertainty warrants, not as proof of diligence, and there is no dedicated alignment tooling | DP-23 | this binding (maintainer decision, 2026-09-24) |
 
 ## Commands for evidence
@@ -83,7 +114,7 @@ Each is stated once in its authority; this list only points to it.
 |---|---|---|---|
 | K1 | Library-first math, derivatives, properties and solvers (DP-13, PS-07, PS-09) | Blueprint D6, D9, D10–D12, D14 and §7 predate Plan 14 (custom math IR, Pyomo backend, relational math transport) | Follow Plan 14 D02–D04 and ADR-0082–0084; the amendments are listed in Plan 14 D04 |
 | K2 | Prefer runtime and library mechanisms over generated projections (DP-16) | Blueprint §4.2 and D9 prescribe schema-registry generation of adapters | Existing surviving generated contracts stand (Plan 14 D02). A new generator states why no runtime mechanism serves |
-| K3 | Principle IDs `DP-nn`, `PS-nn`; evidence vocabulary in principles §D; exceptions in §H | Accepted ADRs and earlier reviews cite `DM-nn`, "charter §D" and "charter §H" | Read through principles §I and the RCA lineage below; accepted records are not edited |
+| K3 | Foundation IDs `AP-nn`, refinement IDs `DP-nn`, profile IDs `PS-nn`; evidence vocabulary in principles §D; exceptions in §H | Accepted ADRs and earlier reviews cite `DM-nn`, "charter §D" and "charter §H" | Read through principles §I/§J and the RCA lineage below; accepted records are not edited |
 
 ## Where defect shapes tend to land in this stack
 
@@ -92,6 +123,9 @@ Their absence proves nothing.
 
 | Pattern | Shape | Principles |
 |---|---|---|
+| An ordinary workflow extension edits unrelated policy, provider and presentation owners | Change amplification; trace the responsibility crossings | AP-01, AP-03 |
+| Policy tests construct a full runtime that initializes native/storage state | Unnecessary test dependencies, if the policy needs only explicit inputs | AP-02, AP-06 |
+| Consumer branching on incidental backend objects | Leaked implementation knowledge | AP-02 |
 | `Schema` / `Field` built in more than one module for the same logical table | Second authority | DP-01 |
 | `DataType` matched exhaustively in several places, each with its own coercions | Second authority, silent degradation | DP-01, DP-15 |
 | Sentinel floats (`NaN`, `-1`, `f64::MAX`) where a typed status or null is the meaning | Silent degradation | DP-02 |
@@ -126,4 +160,4 @@ material belongs to the library skills.
 | §6 Recursion | DP-12 |
 | §7 Compilation, execution and publication | DP-19, DP-09, DP-18 |
 | §8 Persistence, memory and invalidation scope | DP-19, DP-20 |
-| §9 Implementation acceptance contract | Template slot 4 (with the profile's numerical columns) |
+| §9 Implementation acceptance contract | Core 2.0 slot 4; Core 3.0 slot 5 with the profile's numerical columns |

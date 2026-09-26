@@ -104,6 +104,7 @@ pub struct Registry {
     fingerprint: ContentHash,
     /// Sorted by `(namespace spelling, name, version)`.
     relations: Vec<RelationSpec>,
+    obligations: BTreeMap<RelationKey, std::sync::Arc<crate::obligations::RelationObligations>>,
     /// Qualified name to the index of its highest declared version.
     relation_index: BTreeMap<String, usize>,
     /// Relation identity to index.
@@ -131,6 +132,18 @@ pub struct Registry {
 }
 
 impl Registry {
+    /// Retained declaration interpretation for publication and invariant consumers.
+    /// # Errors
+    /// The requested relation is absent from this owner.
+    pub fn obligations(
+        &self,
+        key: RelationKey,
+    ) -> Result<&crate::obligations::RelationObligations, SchemaError> {
+        self.obligations
+            .get(&key)
+            .map(AsRef::as_ref)
+            .ok_or_else(|| crate::checks::invalid("obligations", "unknown relation"))
+    }
     pub(crate) fn contracts_ready(&self) -> bool {
         self.contracts.is_some()
     }
@@ -226,15 +239,6 @@ impl Registry {
         let local = self.contract_arena()?.handle(foreign.relation_id())?;
         local.require_equivalent(foreign)?;
         Ok(local)
-    }
-
-    /// Complete resolved declarations for pure code generation.
-    /// # Errors
-    /// Registry assembly has not completed.
-    pub fn generated_contracts(
-        &self,
-    ) -> Result<&crate::resolved_contract::GeneratedContracts, SchemaError> {
-        Ok(&self.contract_arena()?.graph)
     }
 
     pub(crate) fn contract_arena(
@@ -372,6 +376,10 @@ impl Registry {
 pub struct RegistryBuilder {
     /// Relations, in declaration order.
     relations: Vec<RelationDecl>,
+    obligations: BTreeMap<
+        RelationKey,
+        Result<std::sync::Arc<crate::obligations::RelationObligations>, SchemaError>,
+    >,
     /// Enumerations, in declaration order.
     enums: Vec<EnumDecl>,
     /// Invariants, in declaration order.
@@ -421,6 +429,10 @@ impl RegistryBuilder {
 
     /// Declares a relation.
     pub fn declare_relation(&mut self, decl: RelationDecl) -> &mut Self {
+        self.obligations.insert(
+            decl.key,
+            crate::obligations::RelationObligations::compile(&decl).map(std::sync::Arc::new),
+        );
         self.relations.push(decl);
         self
     }
@@ -507,7 +519,7 @@ impl RegistryBuilder {
         let fingerprints: Vec<ContentHash> = registry
             .relations
             .iter()
-            .map(|spec| crate::fingerprint::relation(&registry, spec))
+            .map(|spec| crate::fingerprint::semantic_product(&registry, &BTreeSet::from([spec.id])))
             .collect::<Result<_, _>>()?;
         for (spec, fingerprint) in registry.relations.iter_mut().zip(fingerprints) {
             spec.fingerprint = fingerprint;
@@ -535,6 +547,11 @@ impl RegistryBuilder {
             package_id: *REGISTRY_PACKAGE_ID,
             fingerprint: ContentHash::NIL,
             relations,
+            obligations: self
+                .obligations
+                .iter()
+                .map(|(key, value)| Ok((*key, value.clone()?)))
+                .collect::<Result<_, SchemaError>>()?,
             relation_index,
             relation_by_id,
             enums,

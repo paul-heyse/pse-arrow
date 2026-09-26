@@ -1,0 +1,323 @@
+{
+  "cargo_profile": "dev",
+  "workloads": [
+    {
+      "id": "cold-small-1",
+      "operation": "heater",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        3
+      ]
+    },
+    {
+      "id": "cold-medium-1",
+      "operation": "heater",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 1,
+      "variables": [
+        24
+      ]
+    },
+    {
+      "id": "cold-large-1",
+      "operation": "heater",
+      "reuse": "cold",
+      "blocks": 32,
+      "threads": 1,
+      "variables": [
+        96
+      ]
+    },
+    {
+      "id": "warm-small-1",
+      "operation": "heater",
+      "reuse": "warm",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        3
+      ]
+    },
+    {
+      "id": "warm-medium-1",
+      "operation": "heater",
+      "reuse": "warm",
+      "blocks": 8,
+      "threads": 1,
+      "variables": [
+        24
+      ]
+    },
+    {
+      "id": "warm-large-1",
+      "operation": "heater",
+      "reuse": "warm",
+      "blocks": 32,
+      "threads": 1,
+      "variables": [
+        96
+      ]
+    },
+    {
+      "id": "structure-medium-1",
+      "operation": "heater",
+      "reuse": "structure",
+      "blocks": 8,
+      "threads": 1,
+      "variables": [
+        24,
+        27
+      ]
+    },
+    {
+      "id": "specialization-medium-1",
+      "operation": "heater",
+      "reuse": "specialization",
+      "blocks": 8,
+      "threads": 1,
+      "variables": [
+        24
+      ]
+    },
+    {
+      "id": "cold-small-4",
+      "operation": "heater",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 4,
+      "variables": [
+        3
+      ]
+    },
+    {
+      "id": "cold-medium-4",
+      "operation": "heater",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 4,
+      "variables": [
+        24
+      ]
+    },
+    {
+      "id": "cold-large-4",
+      "operation": "heater",
+      "reuse": "cold",
+      "blocks": 32,
+      "threads": 4,
+      "variables": [
+        96
+      ]
+    },
+    {
+      "id": "warm-small-4",
+      "operation": "heater",
+      "reuse": "warm",
+      "blocks": 1,
+      "threads": 4,
+      "variables": [
+        3
+      ]
+    },
+    {
+      "id": "warm-medium-4",
+      "operation": "heater",
+      "reuse": "warm",
+      "blocks": 8,
+      "threads": 4,
+      "variables": [
+        24
+      ]
+    },
+    {
+      "id": "warm-large-4",
+      "operation": "heater",
+      "reuse": "warm",
+      "blocks": 32,
+      "threads": 4,
+      "variables": [
+        96
+      ]
+    },
+    {
+      "id": "structure-medium-4",
+      "operation": "heater",
+      "reuse": "structure",
+      "blocks": 8,
+      "threads": 4,
+      "variables": [
+        24,
+        27
+      ]
+    },
+    {
+      "id": "specialization-medium-4",
+      "operation": "heater",
+      "reuse": "specialization",
+      "blocks": 8,
+      "threads": 4,
+      "variables": [
+        24
+      ]
+    },
+    {
+      "id": "flash-cold-1",
+      "operation": "flash",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        7
+      ],
+      "difficult": false
+    },
+    {
+      "id": "flash-warm-1",
+      "operation": "flash",
+      "reuse": "warm",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        7
+      ],
+      "difficult": false
+    },
+    {
+      "id": "flash-difficult-1",
+      "operation": "flash",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        7
+      ],
+      "difficult": true
+    },
+    {
+      "id": "vessel-cold-1",
+      "operation": "vessel",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        5
+      ]
+    },
+    {
+      "id": "fit-cold-1",
+      "operation": "fit",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        1
+      ]
+    },
+    {
+      "id": "publication-cold-1",
+      "operation": "publication",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        3
+      ]
+    },
+    {
+      "id": "cancellation-cold-1",
+      "operation": "cancellation",
+      "reuse": "cold",
+      "blocks": 32,
+      "threads": 1,
+      "variables": [
+        96
+      ]
+    },
+    {
+      "id": "recycle-1-1",
+      "operation": "recycle",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true
+    },
+    {
+      "id": "mixed-scale-1-1",
+      "operation": "mixed-scale",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true
+    },
+    {
+      "id": "qp-1-1",
+      "operation": "qp",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true
+    },
+    {
+      "id": "conic-1-1",
+      "operation": "conic",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true
+    },
+    {
+      "id": "value-sweep-1000-1",
+      "operation": "value-sweep",
+      "reuse": "within-sweep",
+      "blocks": 1000,
+      "threads": 1,
+      "extended": true
+    },
+    {
+      "id": "dynamic-rebind-4-1",
+      "operation": "dynamic-rebind",
+      "reuse": "within-sweep",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true
+    },
+    {
+      "id": "evented-fit-1-1",
+      "operation": "evented-fit",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true
+    },
+    {
+      "id": "sparse-fit-32-1",
+      "operation": "sparse-fit",
+      "reuse": "cold",
+      "blocks": 32,
+      "threads": 1,
+      "extended": true
+    },
+    {
+      "id": "sparse-fit-1000-1",
+      "operation": "sparse-fit",
+      "reuse": "cold",
+      "blocks": 1000,
+      "threads": 1,
+      "extended": true
+    },
+    {
+      "id": "publication-chain-1",
+      "operation": "publication",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        3
+      ],
+      "publications": 3
+    }
+  ]
+}

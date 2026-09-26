@@ -8,12 +8,10 @@ use crate::physical::PhysicalError;
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
 use pse_quantity::{
-    Basis, BasisId, BasisKind, BasisRule, CompositionBasis, ConversionId, ConversionKind,
-    ConversionRule, DimensionVector, DomainKind, InputConversion, InvariantId, Opcode, OperationId,
-    QuantityAdditionKind, QuantityKind, QuantityKindId, QuantityOperation, QuantityRegistry,
-    QuantityRegistryBuilder, QuantityScaleRule, QuantityShapeRule, QuantityType, QuantityTypeId,
-    QuantityTypeKey, RateBasis, Ratio, ReferenceRule, ReferenceState, ReferenceStateId,
-    ReferenceStateKind, ScaleKind, SubjectKind, SubjectRule, Unit, UnitId, UnitSet, UnitSetId,
+    Basis, BasisId, ConversionId, ConversionRule, DimensionVector, InputConversion, InvariantId,
+    OperationId, QuantityKind, QuantityKindId, QuantityOperation, QuantityRegistry,
+    QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey, Ratio, ReferenceState,
+    ReferenceStateId, Unit, UnitId, UnitSet, UnitSetId,
 };
 use pse_relations::{
     columnar::FieldCheckedBatch,
@@ -77,7 +75,7 @@ pub(super) fn inventory(
     rows!(reference_states, row, {
         builder.reference_state(ReferenceState {
             id: ReferenceStateId::from_id(row.reference_state_id),
-            kind: enumeration(row.kind.as_str(), ReferenceStateKind::parse)?,
+            kind: row.kind,
             temperature: row.temperature,
             pressure: row.pressure,
             include_enthalpy_of_formation: row.include_enthalpy_of_formation,
@@ -89,21 +87,15 @@ pub(super) fn inventory(
             id: QuantityKindId::from_id(row.quantity_kind_id),
             dimension: dimension(row.dimension)?,
             extensive: row.extensive,
-            addition_kind: enumeration(row.addition_kind.as_str(), QuantityAdditionKind::parse)?,
+            addition_kind: row.addition_kind,
         });
     });
     rows!(bases, row, {
         builder.basis(Basis {
             id: BasisId::from_id(row.basis_id),
-            kind: enumeration(row.kind.as_str(), BasisKind::parse)?,
-            composition_basis: row
-                .composition_basis
-                .map(|x| enumeration(x.as_str(), CompositionBasis::parse))
-                .transpose()?,
-            rate_basis: row
-                .rate_basis
-                .map(|x| enumeration(x.as_str(), RateBasis::parse))
-                .transpose()?,
+            kind: row.kind,
+            composition_basis: row.composition_basis,
+            rate_basis: row.rate_basis,
             reference_conditions: row.reference_conditions_id.map(ReferenceStateId::from_id),
         });
     });
@@ -114,16 +106,9 @@ pub(super) fn inventory(
                 kind: QuantityKindId::from_id(row.quantity_kind_id),
                 basis: row.basis_id.map(BasisId::from_id),
                 reference_state: row.reference_state_id.map(ReferenceStateId::from_id),
-                scale_kind: enumeration(row.scale_kind.as_str(), ScaleKind::parse)?,
-                shape: row
-                    .shape
-                    .into_iter()
-                    .map(|x| enumeration(x.as_str(), DomainKind::parse))
-                    .collect::<Result<_, _>>()?,
-                subject_kind: row
-                    .subject_kind
-                    .map(|x| enumeration(x.as_str(), SubjectKind::parse))
-                    .transpose()?,
+                scale_kind: row.scale_kind,
+                shape: row.shape,
+                subject_kind: row.subject_kind,
             },
             canonical_unit: UnitId::from_id(row.canonical_unit_id),
             nominal_magnitude: row.nominal_magnitude,
@@ -134,7 +119,7 @@ pub(super) fn inventory(
             id: ConversionId::from_id(row.conversion_id),
             from: QuantityTypeId::from_id(row.from_quantity_type_id),
             to: QuantityTypeId::from_id(row.to_quantity_type_id),
-            kind: enumeration(row.kind.as_str(), ConversionKind::parse)?,
+            kind: row.kind,
             kernel: row.kernel_id,
             required_parameters: row.required_parameters,
             scale: row.scale,
@@ -144,17 +129,17 @@ pub(super) fn inventory(
     rows!(quantity_operations, row, {
         builder.operation(QuantityOperation {
             id: OperationId::from_id(row.operation_id),
-            opcode: enumeration(row.opcode.as_str(), Opcode::parse)?,
+            opcode: row.opcode,
             input_kinds: row
                 .input_kind_ids
                 .into_iter()
                 .map(QuantityKindId::from_id)
                 .collect(),
             result_kind: QuantityKindId::from_id(row.result_kind_id),
-            basis_rule: enumeration(row.basis_rule.as_str(), BasisRule::parse)?,
-            reference_rule: enumeration(row.reference_rule.as_str(), ReferenceRule::parse)?,
-            scale_rule: enumeration(row.scale_rule.as_str(), QuantityScaleRule::parse)?,
-            shape_rule: enumeration(row.shape_rule.as_str(), QuantityShapeRule::parse)?,
+            basis_rule: row.basis_rule,
+            reference_rule: row.reference_rule,
+            scale_rule: row.scale_rule,
+            shape_rule: row.shape_rule,
             basis_source: row
                 .basis_source
                 .map(u16::try_from)
@@ -175,16 +160,13 @@ pub(super) fn inventory(
                 .map(u16::try_from)
                 .transpose()
                 .map_err(|_| invalid("quantity operand ordinal exceeds declared width"))?,
-            subject_rule: enumeration(row.subject_rule.as_str(), SubjectRule::parse)?,
+            subject_rule: row.subject_rule,
             subject_source: row
                 .subject_source
                 .map(u16::try_from)
                 .transpose()
                 .map_err(|_| invalid("quantity operand ordinal exceeds declared width"))?,
-            result_subject_kind: row
-                .result_subject_kind
-                .map(|x| enumeration(x.as_str(), SubjectKind::parse))
-                .transpose()?,
+            result_subject_kind: row.result_subject_kind,
             result_basis: row.result_basis_id.map(BasisId::from_id),
             result_reference_state: row.result_reference_state_id.map(ReferenceStateId::from_id),
             input_conversions: row
@@ -206,10 +188,7 @@ pub(super) fn inventory(
         });
     });
     rows!(quantity_operation_reductions, row, {
-        builder.reduction_domain(
-            OperationId::from_id(row.operation_id),
-            enumeration(row.domain_kind.as_str(), DomainKind::parse)?,
-        );
+        builder.reduction_domain(OperationId::from_id(row.operation_id), row.domain_kind);
     });
     let boolean = if let Some((neutral, boolean)) = context {
         builder.neutral_dimensionless(QuantityTypeId::from_id(neutral));
@@ -222,10 +201,6 @@ pub(super) fn inventory(
         quantities.kind(boolean)?;
     }
     Ok((quantities, boolean))
-}
-
-fn enumeration<T>(name: &str, parse: fn(&str) -> Option<T>) -> Result<T, PhysicalError> {
-    parse(name).ok_or_else(|| invalid(format!("physical algorithm has no declared {name} member")))
 }
 
 fn dimension(value: extension_values::DimensionVector) -> Result<DimensionVector, PhysicalError> {

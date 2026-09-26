@@ -210,6 +210,13 @@ class CompressorType(StrEnum):
     SCREW = "Screw"
 
 
+class ComputationKind(StrEnum):
+    """The declared ComputationKind enumeration."""
+
+    SIMULATION = "simulation"
+    FIT = "fit"
+
+
 class ConcentrationForm(StrEnum):
     """The declared ConcentrationForm enumeration."""
 
@@ -333,13 +340,6 @@ class DefaultScalingRecommendation(StrEnum):
     USERINPUTRECOMMENDED = "userInputRecommended"
     USERINPUTREQUIRED = "userInputRequired"
     USERSETMANUALLY = "userSetManually"
-
-
-class DemandSource(StrEnum):
-    """The declared DemandSource enumeration."""
-
-    EXPRESSION = "expression"
-    OPAQUE_OPERATION = "opaque_operation"
 
 
 class DerivationGranularity(StrEnum):
@@ -492,6 +492,15 @@ class DomainKind(StrEnum):
     FACE = "face"
     NODE = "node"
     CUSTOM = "custom"
+
+
+class DualQualification(StrEnum):
+    """The declared DualQualification enumeration."""
+
+    EVALUATED_KKT_NOT_SENSITIVITY_CERTIFIED = "evaluated_kkt_not_sensitivity_certified"
+    UNAVAILABLE_OR_INVALID = "unavailable_or_invalid"
+    UNAVAILABLE = "unavailable"
+    NOT_APPLICABLE_PARAMETER = "not_applicable_parameter"
 
 
 class ElementProjectionFormula(StrEnum):
@@ -809,15 +818,6 @@ class InvariantKind(StrEnum):
     DOMAIN = "domain"
     CLOSURE = "closure"
     ACYCLIC = "acyclic"
-
-
-class KernelOutcome(StrEnum):
-    """The declared KernelOutcome enumeration."""
-
-    SUCCESS = "success"
-    MISSING_INPUT = "missing_input"
-    DOMAIN_FAILURE = "domain_failure"
-    IMPLEMENTATION_FAILURE = "implementation_failure"
 
 
 class LawExpansion(StrEnum):
@@ -1495,14 +1495,6 @@ class RequirementSource(StrEnum):
     REQUIREMENT = "requirement"
 
 
-class ResolutionStatus(StrEnum):
-    """The declared ResolutionStatus enumeration."""
-
-    RESOLVED = "resolved"
-    UNRESOLVED = "unresolved"
-    AMBIGUOUS = "ambiguous"
-
-
 class RetentionReason(StrEnum):
     """The declared RetentionReason enumeration."""
 
@@ -1694,21 +1686,6 @@ class TemplateKind(StrEnum):
     HELPER = "helper"
 
 
-class TerminationStatus(StrEnum):
-    """The declared TerminationStatus enumeration."""
-
-    OPTIMAL = "optimal"
-    LOCALLY_INFEASIBLE = "locally_infeasible"
-    INFEASIBLE = "infeasible"
-    UNBOUNDED = "unbounded"
-    MAX_ITERATIONS = "max_iterations"
-    MAX_TIME = "max_time"
-    RESTORATION_FAILED = "restoration_failed"
-    SOLVER_ERROR = "solver_error"
-    CANCELLED = "cancelled"
-    USER_INTERRUPT = "user_interrupt"
-
-
 class ThermodynamicAssumption(StrEnum):
     """The declared ThermodynamicAssumption enumeration."""
 
@@ -1730,6 +1707,19 @@ class TimeCoordinateKind(StrEnum):
 
     ABSOLUTE_ORIGIN = "absolute_origin"
     ELAPSED_DURATION = "elapsed_duration"
+
+
+class TrajectoryTermination(StrEnum):
+    """The declared TrajectoryTermination enumeration."""
+
+    COMPLETED = "completed"
+    EVENT = "event"
+    CANCELLED = "cancelled"
+    TIME_LIMIT = "time_limit"
+    STEP_LIMIT = "step_limit"
+    EVENT_LIMIT = "event_limit"
+    FAILED = "failed"
+    PANIC = "panic"
 
 
 class TrayMaterial(StrEnum):

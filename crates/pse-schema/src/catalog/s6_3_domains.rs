@@ -3,7 +3,7 @@
 
 //! §6.3 domain.
 
-use super::declarations::{column, relation, relation_version};
+use super::declarations::{column, relation};
 use crate::builder::RegistryBuilder;
 use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
@@ -12,8 +12,6 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_authored_domains(builder);
     declare_authored_domain_members(builder);
     declare_authored_continuous_domains(builder);
-    declare_normalized_domain_products(builder);
-    declare_inferred_valid_index_tuples(builder);
 }
 
 fn declare_authored_domains(builder: &mut RegistryBuilder) {
@@ -80,41 +78,5 @@ fn declare_authored_continuous_domains(builder: &mut RegistryBuilder) {
             column("discretization_policy_id", T::id()).optional(),
         ],
         "blueprint §6.3 domain: continuous_domains.",
-    );
-}
-
-fn declare_normalized_domain_products(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Normalized,
-        "domain_products",
-        S::Derived,
-        &["product_id"],
-        vec![
-            column("product_id", T::id()),
-            column("domain_ids", T::list(T::id())),
-        ],
-        "blueprint §6.3 domain: domain_products.",
-    );
-}
-
-fn declare_inferred_valid_index_tuples(builder: &mut RegistryBuilder) {
-    relation_version(
-        builder,
-        N::Inferred,
-        "valid_index_tuples",
-        2,
-        S::Derived,
-        &["product_id", "tuple"],
-        vec![
-            column("product_id", T::id()).with_fk("normalized.domain_products", "product_id"),
-            column("tuple", T::extended(crate::model::ExtensionUse::IndexTuple)),
-            crate::model::FieldContract::provenance(
-                "derivation_id",
-                T::id(),
-                "Exact source derivation.",
-            ),
-        ],
-        "blueprint §6.3 domain: valid_index_tuples.",
     );
 }

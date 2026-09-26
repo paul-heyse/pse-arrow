@@ -1,6 +1,6 @@
 ---
 name: design-review
-description: Review a proposed design document or an existing code scope against a layered design standard — core design principles (DP-01–DP-24, gates G1–G8, covering authority, typing, transformations, reuse, library-first and bespoke-code economy, effects, publication and evidence) plus any domain profiles and repository binding the repository declares in a standard.toml — and produce one evidence-grounded review document. Use for design reviews, architecture or code-quality audits against the principles, library-leverage assessments, and "does this design hold up" questions.
+description: Review system architecture, a proposed design or an existing code scope for change locality, contracts, composition, authoritative meaning, explicit constraints and local reasoning. Apply the repository's layered standard, including scientific profiles where relevant. Use for architecture/design reviews, modularity or testability assessments, and library-integration tradeoffs; ordinary implementation does not itself request a review.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent
 user-invocable: true
 model-baseline: claude-5 (2026-08)
@@ -8,117 +8,89 @@ model-baseline: claude-5 (2026-08)
 
 # Design review
 
-Review a **proposed design** (document), an **existing implementation** (code), or both, and
-produce one review document.
-
-**How you conduct the analysis is yours to decide** — where you start, what you read, whether
-you delegate breadth. What this skill fixes is the other end: what the review must establish,
-what a claim must rest on, and how the result is organized. [REFERENCE.md](REFERENCE.md)
-offers lenses and calibration examples that have proven useful; none is a required step.
+Assess the architecture's ability to support expected changes and its behavioral contracts.
+Use the form requested by the user; a formal review produces one artifact in the binding's
+review location. Advice about the process does not itself request a product audit or edits.
+[REFERENCE.md](REFERENCE.md) supplies optional lenses and calibrated examples.
 
 ## Find the standard
 
-The standard is layered (core → domain profiles → repository binding). Locate the repository's
-`standard.toml` — the repository's agent instructions name it; otherwise search for it. It
-declares:
+Locate the repository's `standard.toml` through its agent instructions. Read the selected
+core principles and template, the binding, and each applicable profile and companion skill.
+If no declaration exists, apply the available core and say so. If the core is missing, report
+that limitation. Profiles refine or tighten the core; they never waive a MUST. Follow the
+binding's conflict route and state any effect on the verdict.
 
-| Entry | Role |
-|---|---|
-| `[core]` | The design principles (`DP-nn`, gates `G1`–`G8`, evidence vocabulary §D, placement §C, library consideration §F, false positives §G, exceptions §H) and the review template: tiers, purposes, finding standard, decision rules, slots 1–12 |
-| `[[profiles]]` | Domain principles and gates with their own prefix, the review additions they make to template slots, and a companion skill to load alongside this one |
-| `[binding]` | Where reviews live, which authorities decide which roles, local policies, commands for evidence, routes for required changes, and known conflicts |
+The core defines six architectural foundations, operational refinements, independent gates,
+evidence levels and the review contract. Its selected version is authoritative; do not infer
+current requirements from an older review or duplicate the standard in this skill.
 
-Read the core principles and template in full; read each declared profile and load its skill;
-read the binding. If no `standard.toml` exists, apply the core alone and say so. If the core is
-missing, stop and report it — there is nothing to review against.
+## Reading context
 
-**Layering.** Profiles and bindings add or tighten; they never relax a core principle
-(principles §B). A MUST in any layer cannot be waived by an exception record. A binding's
-*known conflicts* table says which authority to follow until a conflict is resolved; state in
-the review which you followed and whether it affected the decision.
+Start with the repository's architecture and current-work entrypoints, then the affected
+contract and source owners. Use Markdown directly. Module/entrypoint pointers bound reading;
+a source-proof manifest or exhaustive symbol inventory is not a prerequisite. Mechanical
+document checks cannot establish architectural conformance. Ordinary implementation edits
+need documentation updates only when an enduring contract, explanation or workflow changes.
 
-## Arguments
+## Scope the assessment
 
-- **target** (required): a document path, a code scope, or both.
-- **tier** (optional): `change` or `design` (template, *Tier*). Infer from scope if omitted.
-- **purpose** (optional): `conformance` or `target` (template, *Purpose*). Default from the binding.
-- **focus** (optional): pillars, principle IDs or gates to emphasize. Focus shifts depth; it
-  never suppresses a MUST-level defect found elsewhere.
-- **slug** (optional): file descriptor; infer it if omitted.
+Infer `tier` (change/design), `purpose` (conformance/target), system/subsystem/change boundary
+and optional focus from the request and binding. Clarify only material ambiguity. Include the
+suppliers and consumers needed to reason about the boundary; state exclusions. Focus changes
+depth, not the obligation to report a material defect found outside the focus.
+
+For design tier, start with the target, architectural drivers and credible variation axes.
+Establish responsibility boundaries, hidden decisions, dependency direction and consumed
+contracts. Trace representative changes and test setup before investigating detailed mechanisms.
+A change review can compress that reasoning to its affected scenario and foundations.
+
+## What to establish
+
+- **Architecture:** verdicts for the applicable foundations, grounded in responsibilities,
+  contracts, composition and change scenarios. Name the context and dependencies needed to
+  modify or test a component. G9 follows these verdicts without averaging.
+- **Behavior:** settle each applicable core/profile gate on its own evidence. Preserve physical
+  and numerical requirements when the subject touches them. A missing mechanism is unresolved,
+  not a pass. Successful tests do not establish unexamined architectural qualities.
+- **Findings:** concrete causes and consequences under the template's finding standard.
+  Change amplification, policy duplication, leaked implementation knowledge and unnecessary
+  test dependencies are material even if current outputs are correct.
+- **Alternatives:** compare the proposed design with the simplest viable and library-owned
+  alternatives. Justify seams by their variation axis, including roadmap or exploration needs.
+- **Library fit:** assess semantic fit, integration owner, exposed types, lifecycle, testing,
+  upgrade/replacement cost and bespoke machinery removed. Full capability eligibility remains;
+  integration cost is assessed independently of whether a consumer already exists.
+- **Decision and follow-up:** distinguish architectural fitness from behavioral adequacy, apply
+  the template's decision rules, and link findings to one disposition owner. Do not implement
+  recommendations merely because a review identified them.
+
+## Calibrate judgment
+
+Reason from the source, contracts and designs actually inspected. Use a probe only where
+material doubt remains. Label proposed benefits and source-traced paths honestly; Tested and
+Measured name executed checks and their conditions. Secondhand evidence is a lead until read.
+
+Attack the relevant guarantee: an ordinary extension propagating into unrelated owners; an
+implementation detail leaking into consumers; a pure responsibility requiring unrelated
+infrastructure to test; two authorities diverging; a rewrite, cache or retry changing meaning.
+The reference and domain skills give conditional mechanisms to investigate. Do not force every
+review into a cache, graph, registry or publication analysis.
+
+Distinguish a new core concept from an ordinary extension. Multiple files or a substantial
+module do not establish entanglement. A specification and its implementation serve different
+roles; reconcile disagreement instead of treating their coexistence as duplication. Independent
+oracles may deliberately use a different representation.
+
+In target purpose, assess workloads required by the stated target even when the current plan
+excludes them; record obstructing authority changes through the binding. Do not silently expand
+a bounded requested scope into whole-system qualification.
 
 ## Output
 
-Write one review where the binding says reviews live, following the template's slots and the
-profile additions for each slot. Close by telling the user: scope and coverage, gate verdicts,
-the top findings in severity order, the decision, and the file path.
-
-## What the review has to establish
-
-1. **Every gate settled on its own evidence** — core G1–G8 and each profile's gates. Pass, fail,
-   unresolved or not applicable with a scope reason. Never averaged, never softened by strengths
-   elsewhere; unresolved is not a pass.
-2. **A verdict per applicable principle** — satisfied, violated or unresolved (template,
-   *Principle verdicts*). Resist upgrading an unresolved requirement because the surrounding
-   design is good, or downgrading it to a violation for emphasis.
-3. **Findings that meet the template's finding standard**, grouped by cause.
-4. **Library leverage** (slot 8) for the bespoke generic capabilities that matter in scope,
-   at the depth your judgment says they deserve. Delegating breadth to a library-leverage
-   reviewer is optional.
-5. **A decision that follows the template's decision rules.**
-6. **Claims labelled at the strength the evidence supports** (principles §D; template, *What a
-   claim can rest on*).
-
-## Judgment calibration
-
-- **Meaning and authority, not vocabulary.** Principles §G lists the hidden defect behind each
-  attractive claim; rating a design highly for fluent use of the standard's own words is the
-  most common way a review goes wrong.
-- **Evidence in proportion to doubt.** Establish facts by the most efficient reliable means —
-  reading documentation, source and types, and reasoning from experience. Run a probe or test
-  only where material uncertainty remains, and never demand probes, tests or written records
-  from the author as proof of diligence when the reasoning is sound.
-- **Library first cuts one way for bespoke code and the other for libraries.** Bespoke generic
-  machinery where a library clearly fits, with no stated reason, is a finding (DP-13, DP-16). Adopting a library capability
-  is never over-construction merely because no consumer exists yet. A specialized domain
-  algorithm behind a complete contract is aligned (principles §C).
-- **Attack guarantees; don't just summarize them.** Try to break each claimed guarantee: two
-  authorities disagreeing; an invalid value reaching an operation that assumes validity; a retry
-  double-applying an effect; a partial output indistinguishable from a committed one; a cache
-  hit or rewrite changing the answer; an addition, removal or failed lookup leaving a stale
-  reused result; an output filter used as an input filter; a limit truncating silently. Record
-  guarantees you did not attack as asserted, in the coverage note.
-- **Construct the alternatives.** Slot 9's library-owned and simplest rows need real work. When
-  one wins, it is usually the headline.
-- **Target purpose widens the analysis, not the evidence labels.** In a target review, include
-  the workloads the functional target needs even when current plans exclude them, and record
-  blocking policy as a required change; keep evidence labels honest.
-
-## Before writing the file
-
-- Every finding has a concrete consequence; otherwise it is a preference.
-- Every citation does work in its argument and was read at the grain it is cited at.
-- Gate verdicts rest on their own evidence, not on the overall impression.
-- No evidence label outruns what was inspected; *Tested* and *Measured* name the test or benchmark.
-- The alternatives were constructed, and over-construction was examined as well as
-  under-specification.
-- The coverage note separates "examined and clean" from "not examined".
-
-## Failure modes
-
-A review with any of these is worse than none: principles enumerated regardless of scope;
-alignment asserted from vocabulary; findings with no consequence; bespoke machinery recommended
-where a library provides the capability; a library or mechanism recommended because a catalog
-lists it rather than because an operation in scope needs it; unverified secondhand evidence;
-file or line counts offered as evidence of duplicated meaning.
-
-## Edge cases
-
-| Situation | Handling |
-|---|---|
-| Target ambiguous (document or code) | Ask; what the review can establish depends on it |
-| Scope larger than the tier supports | Narrow to the semantically load-bearing part; state the rule and what was excluded |
-| Document describes code that does not exist yet | Document-stage claims only |
-| Document and code disagree | A finding against the pair; name which is authoritative |
-| A claim cannot be verified with what is available | Record it as asserted, name the settling check in slot 10 |
-| Nothing wrong found | Say so, with the coverage statement; do not manufacture findings |
-| Mechanical refactor or pure performance change | Say which burdens of proof apply and compress the semantic slots |
+Follow the selected template and relevant profile additions, with proportional detail.
+Keep finding IDs linkable and record standard version, inspected scope and disposition owner.
+State architectural fitness, behavioral adequacy, overall decision and evidence limits. A target
+accepted as a design remains unqualified implementation until supported by execution evidence.
+Close with the decision, material findings, coverage and artifact path. If nothing is wrong,
+say so with the coverage limits; do not manufacture findings or pilot results.

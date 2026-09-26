@@ -1,8 +1,8 @@
 # Contributing to pse-arrow
 
-Thank you for considering a contribution. This project is in **phase 0 — foundations**;
-the architecture is settled in the blueprint, the toolchain is pinned, and the bar for a
-change is that it is *justified, verified, and reproducible*. This document tells you how
+This project is in early design and implementation. Architecture evolves through the
+blueprint and decision process; current implementation scope lives in the active plans.
+Changes should be justified, verified and reproducible. This document tells you how
 to set up, what workflow a change follows, and what each command actually proves.
 
 By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md). Governance
@@ -20,7 +20,7 @@ toolchain comes from `rust-toolchain.toml` — never `rustup default`.
 git clone https://github.com/paul-heyse/pse-arrow
 cd pse-arrow
 just doctor        # says what is missing; no network, no writes
-just bootstrap     # pinned toolchain, cargo tools, .venv, pre-commit hooks
+just bootstrap     # pinned toolchain, cargo tools, .venv
 just doctor        # should now be clean
 just --list        # the command surface
 ```
@@ -43,43 +43,40 @@ Notes that save time:
 See the layout table in [README.md](README.md#layout). The three directories that behave
 differently from the rest:
 
-- `docs/authoritative_design/blueprint.md` — the architecture. One file, revised in git;
-  section numbers are stable citation targets. Edits need an ADR and a revision row.
+- `docs/authoritative_design/README.md` — architecture entrypoint. The blueprint and
+  focused numbered sections share stable citation identities. Design amendments need an
+  ADR and a blueprint revision row; moved sections retain old anchor links.
 - `docs/generated/`, `crates/*/src/generated/`, `python/pse/contracts/` — **generated**.
   Never edit by hand; fix the generator and run `just codegen`.
 - `external/`, `target/`, `build/` — not yours to edit; regenerable or fetched.
 
 ## 3. The change workflow
 
-1. **Open an issue** using the right form (bug, design decision, parity gap, library
-   upgrade). For anything touching architecture, start with `design-decision`.
-2. **Branch** as `<kind>/<kebab-summary>` (e.g. `fix/relation-nullability`,
-   `adr/0042-spill-policy`). Naming is documented, not enforced.
+1. **State the change and its driver.** An issue can organize discussion (bug, design
+   decision, parity gap, library upgrade). For architecture, identify representative changes
+   and the responsibility boundaries they should affect.
+2. **Use the checkout workflow in [AGENTS.md](AGENTS.md#personal-project-checkout-workflow).**
+   Ordinary maintainer development uses the existing checkout; preserve concurrent work.
 3. **Decide whether an ADR is required** — the table in §4. If one is, the ADR lands in
    its own PR labeled `adr`, titled `adr: ADR-NNNN <title>`, before or with the code.
-4. **Work small.** Run focused checks when useful. `just ci-fast`, `just ci-pr` and
-   `just parity-container` are optional local checks, not prerequisites for committing
-   or pushing. Git hooks run static checks only; GitHub runs compilation and test
-   suites and requires passing checks before merge. Full wheels/sdists are manual
+4. **Work small.** Run focused checks when useful. CI is entirely manual and does not
+   run or gate commits, pushes, pull requests, merges or plan closure. Use `just ci-fast`,
+   `just ci-pr`, `just parity-container` or the GitHub Actions **Run workflow** button
+   whenever you choose to review the project. Full wheels/sdists remain manual
    (`just wheels-check <ref>`) or release-time checks.
-5. **Commit** with Conventional Commit subjects. The *squash title* is what ships to the
-   changelog and is checked by `governance / pr-title`. Types:
+5. **Commit** with Conventional Commit subjects so the changelog remains readable. Types:
    `feat fix perf refactor docs test build ci chore deps adr design`. Scopes are the
    crate or area short names and are free-form.
-6. **Open the PR** and fill the template completely: what it implements, the evidence
-   with a §D label naming the test or benchmark, the checklist, and the clean-room
-   attestation. "No ADR needed because …" is an acceptable answer; a blank box is not.
-7. **Review and merge.** The maintainer's merge is the approval. Merges are
-   **squash-only** onto a linear, signed `main`; the branch is deleted on merge.
+6. **Use a PR when it helps review.** Fill its template with the evidence actually
+   gathered and the clean-room attestation. Direct signed commits to `main` are also
+   allowed. CI is never a PR or merge prerequisite.
 
 ### Evidence vocabulary (§D)
 
-Every claim in a PR, ADR, plan, or register row carries one of these labels, and
-`Tested`/`Measured` must name the test or benchmark and the conditions:
-
-`Proposed` (design intent only) · `Interface-checked` (the API exists and type-checks) ·
-`Tested` (a named test asserts it) · `Measured` (a named benchmark, with conditions) ·
-`Observed` (seen in a real run, e.g. a CI log, with a link).
+Use the [core evidence vocabulary](docs/design_review/design_principles/core/design-principles.md#d-evidence-vocabulary)
+for PR descriptions, ADR evidence, register rows and plan Verification/Outcome at closure.
+Tested and Measured name the executed check and its conditions. Interim checkpoints describe
+state and next steps. Document acceptance, implementation and product qualification are distinct.
 
 ## 4. When an ADR or a design review is required
 
@@ -94,6 +91,16 @@ Every claim in a PR, ADR, plan, or register row carries one of these labels, and
 accepted ADR is immutable except for its status fields — change it by superseding
 (`just adr-supersede`). Deferred items live as rows in `docs/adr/register.md` with an
 observable trigger and a check; `just register-check` reports which are due.
+
+Architectural reviews use the versions in
+[`standard.toml`](docs/design_review/design_principles/standard.toml). The
+[review template](docs/design_review/design_principles/core/design-review-template.md) starts
+with responsibilities and change scenarios and assesses architectural fitness separately from
+behavioral/scientific adequacy. Library fit includes integration ownership and cost.
+
+Link adopted findings to their plan-owned disposition, scenarios, decisions and packet evidence.
+Keep current status in one place; indexes link it. An accepted ADR or scheduled packet does not
+establish implementation. Historical reviews keep their original version, scope and evidence.
 
 ## 5. What each command proves — and does not prove
 
@@ -113,9 +120,9 @@ observable trigger and a check; `just register-check` reports which are due.
 | `just quality` | ruff, pyrefly, import-linter, REUSE, lockfile freshness | that the Python surface matches the native extension |
 | `just parity` | agreement with `idaes-pse==2.12.0` on the trajectories under test, on Linux with Ipopt 3.14.x | agreement anywhere else, or that IDAES is right where we differ |
 | `just doc-lint` | every backticked `a::b::c` in `docs/**` resolves in the pinned API surface | that the prose describes what the API does |
-| `just ci-pr` | the local composite Rust, Python, quality and documentation checks pass | GitHub's interpreter matrix, container parity, or scheduled jobs |
+| `just ci-pr` | the local composite Rust, Python, quality and documentation checks pass | GitHub's interpreter matrix, container parity, or deeper manual jobs |
 
-GitHub's required checks gate merging; running `just ci-pr` locally is optional.
+GitHub checks and `just ci-pr` are optional and run only when requested.
 Say what you verified using the §D vocabulary, and say what you did not.
 
 ## 6. Generated code, pins, and lockfiles
@@ -144,7 +151,7 @@ Say what you verified using the §D vocabulary, and say what you did not.
 - New files are lowercase kebab-case. Exceptions: the three UPPER_SNAKE design-principle
   files, the root governance files, and the design-review skill's output names.
 - YAML front matter is required on ADRs, plans, and capability maps.
-- Cite as `blueprint §14.3`, `ADR-0020`, `DP-09`, `PS-10`, `G4`. Section numbers are stable: insert
+- Cite as `blueprint §14.3`, `ADR-0020`, `AP-06`, `DP-09`, `PS-10`, `G4`. Section numbers are stable: insert
   `§14.3.1`, never renumber.
 - Generated documents carry `<!-- @generated by pse-schema; do not edit -->`.
 - Internal links must resolve — `docs / build` runs `lychee --offline` over the book.
@@ -159,8 +166,8 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 Copyright (c) 2026 Paul Heyse
 ```
 
-`REUSE.toml` covers file types that cannot carry a header; `reuse lint` runs in
-pre-commit and as `governance / reuse`.
+`REUSE.toml` covers file types that cannot carry a header. Run `just lint-license`
+locally or dispatch `governance.yml` when you want to check it.
 
 **Clean room.** You may read `external/idaes-pse` (and any other reference
 implementation) to understand *behaviour*. You may not copy code, comments, or docstrings
@@ -174,4 +181,11 @@ Releases are cut by the maintainer: `just release <version>` bumps the single wo
 version, regenerates `CHANGELOG.md` with `git-cliff`, and tags `v<version>` on `main`.
 Pushing the tag runs `release.yml` (version gate → wheels → attestations → TestPyPI →
 smoke test → PyPI → GitHub Release). Contributors do not tag. See
-[GOVERNANCE.md](GOVERNANCE.md#releases) for who may, and `CHANGELOG.md` for what shipped.
+[GOVERNANCE.md](GOVERNANCE.md#6-releases) for who may, and `CHANGELOG.md` for what shipped.
+
+## Documentation development
+
+Follow [publishing documentation](docs/dev/documentation.md) for collection discovery,
+scoped search and independent docs tooling. Add pages inside a declared collection without
+editing a second navigation list. Update enduring explanations/contracts when they change;
+ordinary implementation edits need no proof manifest or duplicated symbol inventory.

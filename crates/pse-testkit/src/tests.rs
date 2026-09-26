@@ -122,22 +122,8 @@ async fn native_unit_execution_capture_has_terminal_and_negative_controls() {
         let prepared = plan;
         assert!(!prepared.observation().is_captured());
         let completed = prepared.execute(&cancel).await.unwrap();
-        // Native plan metrics remain accessible independently of the trace exporter.
-        let mut operators = 0;
-        let mut reported_output = false;
-        introspection::visit_physical(completed.physical_plan().as_ref(), 256, |node| {
-            operators += 1;
-            reported_output |= node
-                .metrics()
-                .is_some_and(|metrics| metrics.output_rows().is_some());
-            Ok(())
-        })
-        .unwrap();
-        assert!(operators > 0 && reported_output);
-        assert!(
-            introspection::visit_physical(completed.physical_plan().as_ref(), 0, |_| Ok(()))
-                .is_err()
-        );
+        // Contract-only capture retains no live physical plan or metric snapshot.
+        assert!(completed.observation().execution().is_none());
         drop(completed);
     }
     .with_subscriber(capture.dispatch())

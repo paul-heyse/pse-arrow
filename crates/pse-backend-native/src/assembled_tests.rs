@@ -118,12 +118,7 @@ fn integrality_is_explicit_and_continuous_oracles_reject_it() {
     pse_math::initialize().unwrap();
     let (a, v) = fixture(VariableDomain::Integer);
     let c = a
-        .coefficients(
-            &v,
-            Optimization::default(),
-            100,
-            &Arc::new(AtomicBool::new(false)),
-        )
+        .coefficients(&v, 100, &Arc::new(AtomicBool::new(false)))
         .unwrap();
     let p = CoefficientProblem::from_plan(&a, c).unwrap();
     assert_eq!(p.domains, vec![VariableDomain::Integer]);

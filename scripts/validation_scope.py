@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Declared local validation scope; commands remain owned by the justfile."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True)
@@ -28,8 +28,7 @@ PERFORMANCE_GATES = frozenset(
         "bench-consolidation",
         "bench-consolidation-native",
         "bench-recovery",
-        "plan14-measure",
-        "plan14-reviews",
+        "case-measure",
     }
 )
 
@@ -114,40 +113,27 @@ def expand(names: tuple[str, ...]) -> list[Gate]:
     """Expand independent recipe groups, running each leaf once per invocation."""
     output: dict[str, Gate] = {}
     for name in names:
-        for gate in expand(GROUPS[name]) if name in GROUPS else [declared(name)]:
-            output.setdefault(gate.name, gate)
+        for declared_gate in (
+            expand(GROUPS[name]) if name in GROUPS else [declared(name)]
+        ):
+            gate = declared_gate
+            if name == "policy":
+                gate = replace(gate, role="required")
+            existing = output.get(gate.name)
+            if existing is None or gate.role == "required":
+                output[gate.name] = gate
     return list(output.values())
 
 
-def comprehensive(phase: str = "functional") -> list[Gate]:
-    """Current local design-stage closure; target witnesses are owned by Plan 14."""
-    if phase == "performance":
-        return [
-            Gate(
-                "plan14-measure",
-                ("{output}",),
-                phase="performance",
-                mode="native-force-validate",
-                profile="performance-native",
-            ),
-            Gate(
-                "plan14-reviews",
-                ("{output}",),
-                phase="performance",
-                mode="native-force-validate",
-                profile="performance-native",
-            ),
-        ]
-    if phase != "functional":
-        raise ValueError("unknown qualification phase")
+def comprehensive() -> list[Gate]:
+    """Local qualification: default Rust, linked native Rust, and Python once."""
     static = expand(
         (
             "fmt-check",
+            "clippy",
             "quality",
-            "family-check",
-            "codegen-check",
+            "governance",
             "adr-lint",
-            "register-check",
             "check",
             "docs-rust",
             "docs",
@@ -155,10 +141,10 @@ def comprehensive(phase: str = "functional") -> list[Gate]:
         )
     )
     static = [
-        Gate(
-            "setup-test",
-            ("{output}",),
-            "{output}/setup-test.xml",
+        replace(
+            gate,
+            args=("{output}",),
+            report="{output}/setup-test.xml",
             recipe="setup-test-report",
             mode="python-setup-unit",
         )
@@ -166,122 +152,44 @@ def comprehensive(phase: str = "functional") -> list[Gate]:
         else gate
         for gate in static
     ]
-    gates = [
+    return [
         Gate("py-sync-native"),
         *static,
         Gate("python-stubs", ("--check",), dependencies=("py-sync-native",)),
-    ]
-    gates.extend(
         Gate(
-            name,
-            ("--profile", "ci", "--success-output", "final"),
+            "test",
+            ("--profile", "ci"),
             "{target}/nextest/ci/junit.xml",
             enumerate_native=True,
-            mode="pse-relations/force-validate",
-            profile="rust-boundary",
-        )
-        for name in ("test",)
-    )
-    gates.extend(
-        (
-            Gate("doctest"),
-            Gate(
-                "inspection-fixture",
-                ("{output}/inspection",),
-                dependencies=("py-sync-native",),
-            ),
-        )
-    )
-    gates.extend(
+            mode="force-validate",
+            profile="ci",
+        ),
+        Gate("doctest"),
         Gate(
-            "assessment-python-" + kind,
-            ("{output}",),
-            "{output}/python-" + kind + ".xml",
-            ("py-sync-native",)
-            if kind == "unit"
-            else ("py-sync-native", "inspection-fixture"),
-            mode="python-" + kind,
-            profile="python-" + kind,
-        )
-        for kind in ("unit", "component", "integration")
-    )
-    gates.append(
-        Gate(
-            "plan14-tools",
-            ("{output}",),
-            "{output}/plan14-tools.xml",
-            mode="python-tools",
-            profile="python-tools",
-        )
-    )
-    gates.append(
-        Gate(
-            "plan14-native",
-            ("--profile", "ci", "--success-output", "final"),
+            "native-test",
+            ("--profile", "ci"),
             "{target}/nextest/ci/junit.xml",
             enumerate_native=True,
             mode="native-force-validate",
-            profile="rust-native",
-        )
-    )
-    gates.append(
+            profile="ci",
+        ),
+        Gate("inspection-fixture", ("{output}/inspection",)),
         Gate(
-            "plan14-python",
+            "native-python",
             ("{output}",),
-            "{output}/plan14-python.xml",
-            dependencies=("py-sync-native",),
+            "{output}/native-python.xml",
+            dependencies=("py-sync-native", "inspection-fixture"),
             mode="python-native",
-            profile="python-native",
-        )
-    )
-    return gates
+        ),
+    ]
 
 
 EXCLUSIONS = {
-    "release-profile tests and doctests / coverage / feature powerset": "Maintainer-scoped Plan 14 design-stage closure uses default and selected native profiles; release, instrumentation and exhaustive feature campaigns remain separately available.",
-    "deps-report / unsafe-surface": "Dependency advisories and inventory reports are separate from functional design-stage acceptance; the known upstream proc-macro-error2 warning is explicitly accepted by the maintainer.",
-    "parity / parity-container": "Requires another Python environment and IDAES; excluded from current-environment assessment.",
-    "solver-rebuild-check": "Qualifies a rebuilt container environment; solver execution routes are assigned to Plan 14 M11-M17/M20.",
-    "udeps / MSRV / floors-latest": "Alternate toolchains and hypothetical dependency updates are outside current pinned-environment execution.",
-    "gh-setup-check": "Remote CI/repository configuration is outside current-environment execution.",
-    "wheels-check": "Dispatches the remote multi-platform release qualification workflow; not a local check.",
-    "mutants-file": "Needs an explicit mutation target and campaign budget; no finite repository-wide target is declared by this recipe.",
-    "platform matrix": "This campaign executes this host and its pinned Linux solver container; Windows/macOS and other Python versions require their own hosts.",
-    "parameterized unit/check recipes": "Their complete test/compile scopes run through workspace gates; arbitrary filters are not separate test obligations.",
-    "mutating and serving recipes": "Release, publish, repair, regeneration, upgrades and long-running servers are not validation checks.",
-    "historical capability probes": "Evidence regeneration changes generated artifacts and external captures; current family/source checks are included.",
+    "other platforms and distribution": "This command qualifies the local pinned environment; remote CI, wheels and other hosts have separate commands.",
+    "release, coverage, feature powerset, alternate toolchains": "Available separately; not part of the default and native local profiles.",
+    "parity": "Run parity-container separately when IDAES parity is in scope.",
+    "performance": "Run case-measure after functional qualification, with an explicit functional report.",
+    "reviews": "Architecture and scientific review are judgments recorded in the owning plan, not command-exit evidence.",
+    "scheduled register checks": "register-check is time-dependent; deterministic adr-lint uses register-lint.",
+    "dependency inventory": "deps-report is advisory; policy is separately available and strict.",
 }
-
-
-def development() -> list[Gate]:
-    """Unit-only selections retain the same profiles and existing report collectors."""
-    return [
-        Gate(
-            "plan14-native",
-            ("rust-native", "{output}", "--profile", "ci", "--success-output", "final"),
-            "{target}/nextest/ci/junit.xml",
-            enumerate_native=True,
-            recipe="plan14-development-run",
-            phase="development",
-            mode="native-force-validate",
-            profile="rust-native",
-        ),
-        Gate(
-            "plan14-python",
-            ("python-native", "{output}", "--junitxml={output}/plan14-python.xml"),
-            "{output}/plan14-python.xml",
-            recipe="plan14-development-run",
-            phase="development",
-            mode="python-native",
-            profile="python-native",
-        ),
-        Gate(
-            "plan14-tools",
-            ("python-tools", "{output}"),
-            "{output}/plan14-tools.xml",
-            recipe="plan14-development-run",
-            phase="development",
-            mode="python-tools",
-            profile="python-tools",
-        ),
-    ]

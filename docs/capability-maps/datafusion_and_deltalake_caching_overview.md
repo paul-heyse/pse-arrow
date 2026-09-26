@@ -17,12 +17,12 @@ DataFusion 55.1.0, Arrow/Parquet 59.3.0 and object_store 0.13.2 resolve in the r
 Cargo lockfile. Delta upstream is `58f07cd62bfbce3649a7e1c87c696288068ae184`, with
 kernel `8ba063f8f84fec222000f66d40d70911d7c79675`. The selected Delta core/derive
 source is a reproducible repository override, not an unmodified upstream release.
-[The patch manifest](../../tooling/delta-native-seams.md) describes the additions;
+[The patch manifest](https://github.com/paul-heyse/pse-arrow/blob/main/tooling/delta-native-seams.md) describes the additions;
 `vendor/delta-rs/PROVENANCE.json` supplies per-file and patch hashes. Run
 `just delta-source <immutable-upstream-checkout>` to reproduce and verify it.
 
-The local [DataFusion skill](../../.codex/skills/datafusion/SKILL.md) indexes the
-upstream API. The [Delta skill overlay](../../.codex/skills/deltalake/content/overlays/pse-native-cache-seams.md)
+The local [DataFusion skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/SKILL.md) indexes the
+upstream API. The [Delta skill overlay](https://github.com/paul-heyse/pse-arrow/blob/a46f358bdfc2ca27f9f240ab6c045b63141c3ee9/.codex/skills/deltalake/content/overlays/pse-native-cache-seams.md)
 distinguishes selected-source additions from upstream symbols.
 
 ## Capability and production routing

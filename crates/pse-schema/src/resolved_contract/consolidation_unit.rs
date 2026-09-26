@@ -152,17 +152,25 @@ fn documentation_is_projected_but_unknown_metadata_is_semantic() {
     assert!(reg.contract(&prose).is_err());
 }
 
+fn compiled(registry: &Registry) -> &'static [super::ExpectedContract] {
+    Box::leak(
+        registry
+            .relations()
+            .iter()
+            .map(|spec| super::ExpectedContract::capture(registry, spec).unwrap())
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
 #[test]
-fn generated_proof_is_cached_and_failed_comparison_publishes_nothing() {
-    let reg = fixture("first");
-    let arena = reg.contract_arena().unwrap();
-    let expected = Box::leak(Box::new(super::GeneratedContracts {
-        relations: arena.graph.relations.clone(),
-        enums: arena.graph.enums.clone(),
-        extensions: arena.graph.extensions.clone(),
-    }));
-    let handle = reg
-        .contract(reg.relation("authored.contract").unwrap())
+fn independent_compact_expectations_are_cached_and_reject_changed_closures() {
+    let generator = fixture("first");
+    let expected = compiled(&generator);
+    let runtime = fixture("first");
+    let arena = runtime.contract_arena().unwrap();
+    let handle = runtime
+        .contract(runtime.relation("authored.contract").unwrap())
         .unwrap();
     for _ in 0..100 {
         handle.require_generated(expected).unwrap();
@@ -172,77 +180,39 @@ fn generated_proof_is_cached_and_failed_comparison_publishes_nothing() {
         1
     );
     assert_eq!(arena.proofs.lock().unwrap().len(), 1);
-    assert_eq!(arena.graph.relations.len(), reg.relations().len());
-    // A self-reference terminates. Changing a resolved enum under the same ID fails.
-    let mut bad = super::GeneratedContracts {
-        relations: expected.relations.clone(),
-        enums: expected.enums.clone(),
-        extensions: expected.extensions.clone(),
-    };
-    bad.enums.values_mut().next().unwrap().members[0].name = "forged";
-    assert!(handle.require_generated(Box::leak(Box::new(bad))).is_err());
+    let changed = fixture("second");
+    assert!(handle.require_generated(compiled(&changed)).is_err());
+    for field in 0..4 {
+        let mut bad = expected.to_vec();
+        match field {
+            0 => bad[0].version += 1,
+            1 => bad[0].semantic_version += 1,
+            2 => bad[0].semantics = pse_ids::ContentHash::NIL,
+            _ => bad[0].encoding = pse_ids::ContentHash::NIL,
+        }
+        assert!(
+            handle
+                .require_generated(Box::leak(bad.into_boxed_slice()))
+                .is_err()
+        );
+    }
     assert_eq!(arena.proofs.lock().unwrap().len(), 1);
 }
 
 #[test]
-fn graph_checks_extensions_checks_policies_and_missing_edges() {
-    let reg = fixture("first");
-    let arena = reg.contract_arena().unwrap();
-    let handle = reg
-        .contract(reg.relation("authored.contract").unwrap())
-        .unwrap();
-    for mutation in 0..4 {
-        let mut expected = super::GeneratedContracts {
-            relations: arena.graph.relations.clone(),
-            enums: arena.graph.enums.clone(),
-            extensions: arena.graph.extensions.clone(),
-        };
-        match mutation {
-            0 => expected.extensions.values_mut().next().unwrap().version += 1,
-            1 => {
-                expected
-                    .relations
-                    .get_mut(&handle.id)
-                    .unwrap()
-                    .declaration
-                    .checks
-                    .insert("changed".into(), "false".into());
-            }
-            2 => {
-                expected
-                    .relations
-                    .get_mut(&handle.id)
-                    .unwrap()
-                    .declaration
-                    .delta_properties
-                    .insert("delta.appendOnly".into(), "true".into());
-            }
-            _ => {
-                expected
-                    .relations
-                    .get_mut(&handle.id)
-                    .unwrap()
-                    .references
-                    .push(SemanticId::NIL);
-            }
-        }
-        assert!(
-            handle
-                .require_generated(Box::leak(Box::new(expected)))
-                .is_err()
-        );
-    }
+fn runtime_graph_rejects_missing_edges() {
+    let registry = fixture("first");
+    let arena = registry.contract_arena().unwrap();
     let mut relations = arena.graph.relations.values().cloned().collect::<Vec<_>>();
     relations[0].references.push(SemanticId::NIL);
     assert!(
-        super::GeneratedContracts::new(
+        super::ResolvedContracts::new(
             relations,
             arena.graph.enums.values().cloned().collect(),
             arena.graph.extensions.values().cloned().collect()
         )
         .is_err()
     );
-    assert!(arena.proofs.lock().unwrap().is_empty());
 }
 
 #[test]
@@ -322,22 +292,13 @@ fn mutual_cycles_compare_transitive_targets_without_binding_unrelated_nodes() {
         .unwrap();
     assert!(equivalent.admit_contract(&handle).is_ok());
     assert!(changed.admit_contract(&handle).is_err());
-    let arena = reg.contract_arena().unwrap();
-    let expected = Box::leak(Box::new(super::GeneratedContracts {
-        relations: arena.graph.relations.clone(),
-        enums: arena.graph.enums.clone(),
-        extensions: arena.graph.extensions.clone(),
-    }));
+    let expected = compiled(&equivalent);
     handle.require_generated(expected).unwrap();
     reg.contract(reg.relation("authored.right").unwrap())
         .unwrap()
         .require_generated(expected)
         .unwrap();
-    assert_eq!(
-        arena.comparisons.load(std::sync::atomic::Ordering::Relaxed),
-        1
-    );
-    assert_eq!(arena.proofs.lock().unwrap()[0].relations.len(), 2);
+    assert!(handle.require_generated(compiled(&changed)).is_err());
 }
 
 #[test]
@@ -378,12 +339,7 @@ fn docs_only_owner_changes_bind_even_when_transport_fingerprints_change() {
         .contract(reg.relation("authored.contract").unwrap())
         .unwrap();
     assert!(changed.admit_contract(&handle).is_ok());
-    let arena = reg.contract_arena().unwrap();
-    let expected = Box::leak(Box::new(super::GeneratedContracts {
-        relations: arena.graph.relations.clone(),
-        enums: arena.graph.enums.clone(),
-        extensions: arena.graph.extensions.clone(),
-    }));
+    let expected = compiled(&reg);
     changed
         .admit_contract(&handle)
         .unwrap()

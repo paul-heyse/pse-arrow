@@ -1,0 +1,72 @@
+{
+  "kind": "optional_full_package_probe_dispatch",
+  "tests": [
+    {
+      "id": "NPkg-01",
+      "package": "thermo",
+      "probe": "nrtl",
+      "target_version": "0.6.1",
+      "status": "BLOCKED_DEPENDENCY",
+      "reason": "package not installed in current execution environment",
+      "executed": false
+    },
+    {
+      "id": "NPkg-02",
+      "package": "thermo",
+      "probe": "explicit_flash",
+      "target_version": "0.6.1",
+      "status": "BLOCKED_DEPENDENCY",
+      "reason": "package not installed in current execution environment",
+      "executed": false
+    },
+    {
+      "id": "NPkg-03",
+      "package": "CoolProp",
+      "probe": "water_inverse",
+      "target_version": "8.0.0",
+      "status": "BLOCKED_DEPENDENCY",
+      "reason": "package not installed in current execution environment",
+      "executed": false
+    },
+    {
+      "id": "NPkg-04",
+      "package": "CoolProp",
+      "probe": "saturation",
+      "target_version": "8.0.0",
+      "status": "BLOCKED_DEPENDENCY",
+      "reason": "package not installed in current execution environment",
+      "executed": false
+    },
+    {
+      "id": "NPkg-05",
+      "package": "CoolProp",
+      "probe": "mixture_inverse",
+      "target_version": "8.0.0",
+      "status": "BLOCKED_DEPENDENCY",
+      "reason": "package not installed in current execution environment",
+      "executed": false
+    },
+    {
+      "id": "NPkg-06",
+      "package": "CoolProp",
+      "probe": "single_phase_derivative",
+      "target_version": "8.0.0",
+      "status": "BLOCKED_DEPENDENCY",
+      "reason": "package not installed in current execution environment",
+      "executed": false
+    }
+  ],
+  "environment": {
+    "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.41"
+  },
+  "executed": 0,
+  "passed": 0,
+  "blocked": 6,
+  "limitations": [
+    "Worker branches not verified when dependency absent",
+    "Does not constitute all native probe coverage",
+    "No auto-installation or backend substitution",
+    "No empirical validation"
+  ]
+}

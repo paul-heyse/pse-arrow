@@ -1,0 +1,43 @@
+{
+  "kind": "sequential_authored_reference_model_checks_not_simulator_or_provider_conformance",
+  "tests_run": 26,
+  "passed": true,
+  "failures": 0,
+  "errors": 0,
+  "tests": [
+    "test_01_ph_target_not_solver_flag",
+    "test_02_optional_status_does_not_waive_primary",
+    "test_03_strict_conversion",
+    "test_04_phase_permutation_and_aggregate",
+    "test_05_reference_transform_not_model_discrepancy",
+    "test_06_empirical_mass_heating",
+    "test_07_distribution_and_surface_basis",
+    "test_08_derivative_chart",
+    "test_09_publish_success",
+    "test_10_edit_before_publish",
+    "test_11_publish_before_edit",
+    "test_12_cancel_same_revision",
+    "test_13_parent_cancel",
+    "test_14_cancel_after_committed_publish",
+    "test_15_group_failure_changes_neither_slot",
+    "test_16_same_revision_incoherent_view",
+    "test_17_local_scope_not_flowsheet",
+    "test_18_duplicate_publish_does_not_reapply_old_result",
+    "test_19_command_payload_conflict",
+    "test_20_duplicate_edit_and_stale_edit",
+    "test_21_transfer_applied_once",
+    "test_22_failed_workspace_does_not_change_snapshot",
+    "test_23_initializer_restoration_is_required",
+    "test_24_native_cancel_does_not_free_busy_session",
+    "test_25_archive_is_not_authority_or_mixed_capture",
+    "test_26_slot_generation_blocks_stale_same_run_proposal"
+  ],
+  "log": "test_01_ph_target_not_solver_flag (__main__.ActionReferenceTests.test_01_ph_target_not_solver_flag) ... ok\ntest_02_optional_status_does_not_waive_primary (__main__.ActionReferenceTests.test_02_optional_status_does_not_waive_primary) ... ok\ntest_03_strict_conversion (__main__.ActionReferenceTests.test_03_strict_conversion) ... ok\ntest_04_phase_permutation_and_aggregate (__main__.ActionReferenceTests.test_04_phase_permutation_and_aggregate) ... ok\ntest_05_reference_transform_not_model_discrepancy (__main__.ActionReferenceTests.test_05_reference_transform_not_model_discrepancy) ... ok\ntest_06_empirical_mass_heating (__main__.ActionReferenceTests.test_06_empirical_mass_heating) ... ok\ntest_07_distribution_and_surface_basis (__main__.ActionReferenceTests.test_07_distribution_and_surface_basis) ... ok\ntest_08_derivative_chart (__main__.ActionReferenceTests.test_08_derivative_chart) ... ok\ntest_09_publish_success (__main__.ActionReferenceTests.test_09_publish_success) ... ok\ntest_10_edit_before_publish (__main__.ActionReferenceTests.test_10_edit_before_publish) ... ok\ntest_11_publish_before_edit (__main__.ActionReferenceTests.test_11_publish_before_edit) ... ok\ntest_12_cancel_same_revision (__main__.ActionReferenceTests.test_12_cancel_same_revision) ... ok\ntest_13_parent_cancel (__main__.ActionReferenceTests.test_13_parent_cancel) ... ok\ntest_14_cancel_after_committed_publish (__main__.ActionReferenceTests.test_14_cancel_after_committed_publish) ... ok\ntest_15_group_failure_changes_neither_slot (__main__.ActionReferenceTests.test_15_group_failure_changes_neither_slot) ... ok\ntest_16_same_revision_incoherent_view (__main__.ActionReferenceTests.test_16_same_revision_incoherent_view) ... ok\ntest_17_local_scope_not_flowsheet (__main__.ActionReferenceTests.test_17_local_scope_not_flowsheet) ... ok\ntest_18_duplicate_publish_does_not_reapply_old_result (__main__.ActionReferenceTests.test_18_duplicate_publish_does_not_reapply_old_result) ... ok\ntest_19_command_payload_conflict (__main__.ActionReferenceTests.test_19_command_payload_conflict) ... ok\ntest_20_duplicate_edit_and_stale_edit (__main__.ActionReferenceTests.test_20_duplicate_edit_and_stale_edit) ... ok\ntest_21_transfer_applied_once (__main__.ActionReferenceTests.test_21_transfer_applied_once) ... ok\ntest_22_failed_workspace_does_not_change_snapshot (__main__.ActionReferenceTests.test_22_failed_workspace_does_not_change_snapshot) ... ok\ntest_23_initializer_restoration_is_required (__main__.ActionReferenceTests.test_23_initializer_restoration_is_required) ... ok\ntest_24_native_cancel_does_not_free_busy_session (__main__.ActionReferenceTests.test_24_native_cancel_does_not_free_busy_session) ... ok\ntest_25_archive_is_not_authority_or_mixed_capture (__main__.ActionReferenceTests.test_25_archive_is_not_authority_or_mixed_capture) ... ok\ntest_26_slot_generation_blocks_stale_same_run_proposal (__main__.ActionReferenceTests.test_26_slot_generation_blocks_stale_same_run_proposal) ... ok\n\n----------------------------------------------------------------------\nRan 26 tests in 0.001s\n\nOK\n",
+  "limitations": [
+    "No provider numerical calls",
+    "No concurrent transaction execution",
+    "No native crash/interruption experiment",
+    "No original AT/PV/P/SC evidence promotion",
+    "Only selected arithmetic and sequential guard/replay traces"
+  ]
+}

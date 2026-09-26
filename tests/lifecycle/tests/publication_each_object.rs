@@ -180,7 +180,8 @@ impl Fixture {
                 destinations,
                 vec![],
                 &cancel,
-            )?
+            )
+            .map(|(command, _ticket)| command)?
             .execute(&cancel)
             .await?;
         let version = result.batches()[0]

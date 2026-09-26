@@ -2,8 +2,8 @@
 Thanks for contributing. Fill every section — a blank box is not an answer, but
 "no ADR needed because …" and "N/A because …" are. See CONTRIBUTING.md §3.
 
-The *squash title* of this pull request becomes the changelog entry and is checked by
-`governance / pr-title`. Use a Conventional-Commit subject:
+If this pull request is squash-merged, its title becomes the changelog entry. Use a
+Conventional-Commit subject:
   <type>(<scope>): <summary>
 types: feat fix perf refactor docs test build ci chore deps adr design
 scopes are free-form (crate or area short names).
@@ -18,15 +18,25 @@ An ADR pull request is titled exactly `adr: ADR-NNNN <title>` and labeled `adr`.
 
 - **Implements:** <!-- ADR-NNNN, or "no ADR needed because …" (see CONTRIBUTING.md §4) -->
 - **Plan:** <!-- docs/plans/NN-*.md, or N/A -->
+- **Review / finding / scenario:** <!-- links for architectural changes; N/A otherwise -->
+- **Current disposition owner:** <!-- link the plan/packet; do not copy its live status -->
 - **Closes:** <!-- #123, or N/A -->
 - **Register rows touched:** <!-- R-NN, or none -->
+
+## Architecture impact
+
+<!-- For architectural changes: expected change boundary, consumed contract, composition and
+local testability; material library integration cost. Link the review for architectural and
+behavioral verdicts. A bounded change can say why this is N/A. Do not repeat the whole review. -->
 
 ## Evidence
 
 <!--
 Label every claim with the §D vocabulary and NAME the test or benchmark:
-  Proposed | Interface-checked | Tested <test name> | Measured <bench name> + conditions
-  | Observed <link to a CI run or log>
+  Proposed | Interface-checked | Implemented | Tested <test name>
+  | Measured <bench name> + conditions | Formally established <argument + assumptions>
+The canonical definitions are in the core design principles §D; a passing check does not
+certify unexamined architecture or promote a historical observation into a current result.
 "Tests pass" is not evidence. "Tested: tests/engine/spill.rs::spill_bounded_by_limit"
 is. Say what you did NOT verify too.
 -->
@@ -50,9 +60,10 @@ is. Say what you did NOT verify too.
       change is called out individually above.
 - [ ] No edits under `docs/generated/`, `crates/*/src/generated/`,
       `python/pse/contracts/`, `external/`, `build/`, or `target/`.
-- [ ] Documentation updated where behaviour changed; new files follow the naming and
+- [ ] Documentation updated where an enduring contract, explanation or workflow changed; new files follow the naming and
       citation conventions (CONTRIBUTING.md §7).
-- [ ] `just ci-pr` is green locally.
+- [ ] Any checks chosen for this review and their scope are reported above. CI is
+      optional and manually initiated; no full qualification is required for this PR.
 
 ## Legal
 

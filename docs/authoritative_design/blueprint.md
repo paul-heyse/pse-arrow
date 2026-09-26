@@ -1,15 +1,15 @@
 ---
 status: proposed
-revision: 52
+revision: 54
 date: 2026-09-25
 ---
 
 # Arrow-native IDAES core: detailed design architecture blueprint
 
-**Status:** Proposed design blueprint, revision 52 (2026-09-25); Plan 16 defines the selected foundation amendments; Plan 14 retains its historical local acceptance scope. One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
+**Status:** Proposed design blueprint, revision 54 (2026-09-25); Plan 16 defines the selected foundation amendments; Plan 14 retains its historical local acceptance scope. The blueprint and [focused sections](README.md) form one authoritative collection (ADR-0095, proposed; implementation authorized). Historical revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
 **Reviews:** revisions 1 and 2 have historical reviews under `docs/design_review/reviews/`. The [revision-4 library-contract review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md) overturned several earlier enforcement claims. Revision 5 incorporates R4-01–R4-13 and L1–L9; §26 records disposition and [plan 02](../plans/02-blueprint-revision-5-contracts.md) names the remaining implementation gates. Library characterization is evidence about the pinned libraries, not acceptance of the skeletal platform.
 **Follows:** `docs/authoritative_design/proposal.md` (the proposal this document makes concrete)
-**Governing doctrine:** `docs/design_review/design_principles/standard.toml`: core DP-01–DP-24 and G1–G8, process-simulator PS-01–PS-13 and PS-G1–PS-G3, plus the repository binding (ADR-0085). Earlier DM/P citations record historical rationale.
+**Governing doctrine:** `docs/design_review/design_principles/standard.toml` selects the architectural foundations, operational refinements, independent review gates and process-simulator profile. ADR-0085 established the layers; ADR-0094 adds architecture-first review and tracking (§24.4). Earlier DM/P and prior-version DP/G citations retain their historical context.
 **Library evidence:** the capability maps under `docs/capability-maps/`, pinned DataFusion 55.1.0 / Arrow 59.3.0 source and rustdoc, and the retained review characterization probes. Context7 is a discovery aid; pinned interfaces and reproducible behavior determine capability claims. The `external/idaes-pse` reading copy at tag 2.12.0 is for behavior only (`just fetch-external`; never copy implementation or prose).
 
 ---
@@ -117,27 +117,18 @@ date: 2026-09-25
 
 | 51 | 2026-09-24 | Reconcile library-owned math, class-specific native execution, physical provider/dynamic contracts and local design-stage qualification (ADR-0082–0087). §0.5 explicitly withdraws displaced implementation requirements while preserving historical section identifiers. | maintainer-authorized local design reconciliation; no remote qualification claim |
 | 52 | 2026-09-25 | Proposed Plan 16 foundation contracts (ADR-0088–0092): selected-model admission, physical provider binding, shared vocabulary and scoped identities. Active summary and D12 heading reconciled; no new qualification claim. | user-authorized implementation; decision PR acceptance pending |
+| 53 | 2026-09-25 | **Implemented workflow, effectiveness unpiloted:** ADR-0094 and Plan 17 center review on six architectural foundations, change scenarios, independent architectural/behavioral judgments and single-owner finding tracking (§24.4). Scientific obligations and historical verdicts remain; pilots are separate maintainer work. | — |
+
+| 54 | 2026-09-25 | ADR-0095 / Plan 18: focused authority with stable section IDs, reading/governance extraction, generated navigation and scoped static search. Product contracts unchanged. | maintainer-authorized implementation; formal decision PR pending |
+| 55 | 2026-09-25 | Make repository CI manually dispatched and remove commit, push and merge check gates (§24.1). | maintainer-authorized governance edit; ADR and design review expressly waived |
 
 ## 0. Purpose, scope, and how to read this document
 
-### 0.1 What this document is
+<a id="01-what-this-document-is"></a>
 
-> Decision: ADR-0087
-> The current contract is §0.5; displaced mechanisms below are historical context.
+### What this document is — moved
 
-The proposal established the thesis: *make mathematical and physical semantics the data model, then compile every executable representation from it.* This document is the blueprint that turns that thesis into things an implementer can build and test:
-
-1. the exact **relation families** (Arrow schemas) that constitute the authoritative model;
-2. the **mathematical IR** and its operator contracts;
-3. the **compiler passes**, each with a declared contract;
-4. the **kernel contract** for constitutive computation and how it generates DataFusion, native, and Pyomo adapters;
-5. the **backends** (native evaluation program, Ipopt FFI, NL file, generated Pyomo);
-6. the **coverage map** from every core IDAES-PSE capability to its platform realization;
-7. the **workspace layout**, dependency pins, and delivery phases with acceptance tests.
-
-It is written for engineers and programming agents who will implement the platform. Where a design decision could reasonably go two ways, the decision is stated with its rationale rather than left open.
-
-This file is the authoritative design. Decisions that changed it are recorded under `docs/adr/` (ADR-NNNN); design reviews under `docs/design_review/reviews/` are evidence, not authority. Section numbers are stable citation targets: new material is inserted as a sub-section, never by renumbering.
+[Authoritative §0.1: What this document is](sections/reading-guide.md#01-what-this-document-is).
 
 ### 0.2 What "core IDAES-PSE capabilities" means here
 
@@ -165,34 +156,17 @@ The scope is the modeling framework, not the example libraries. Concretely, the 
 
 Detailed capability-by-capability coverage appears in Appendix A.
 
-### 0.3 Reading guide
+<a id="03-reading-guide"></a>
 
-| If you need to | Read |
-|---|---|
-| Understand the non-negotiable decisions | §2 |
-| Set up the workspace and pins | §3 |
-| Declare a new relation | §4, §6 |
-| Understand identity, versions, snapshots | §5 |
-| See every authoritative relation | §6 |
-| Write or lower an equation | §7, §8 |
-| Model a material system or property package | §9 |
-| Build a balance, control volume, or unit template | §10, §11, §12 |
-| Understand time, dynamics, discretization | §13 |
-| Implement or extend a compiler pass | §14 |
-| Implement diagnostics, scaling, initialization | §15, §16, §17 |
-| Implement a backend or the Python adapter | §18, §21 |
-| Persist, hash, or reproduce anything | §20 |
-| Add a unit, property method, kernel, or costing method | §22 |
-| Plan delivery and acceptance | §24, §25 |
+### Reading guide — moved
 
-### 0.4 Conventions used in this document
+[Authoritative §0.3: Reading guide](sections/reading-guide.md#03-reading-guide).
 
-- Relation schemas are written as `namespace.relation @version` followed by columns as `name : ArrowType  [constraints]  -- meaning`. Arrow types use `arrow-schema` names. Semantic extension types are named `pse.<name>` and defined in §4.4.
-- Equations are written in plain text; `d/dt` is the time derivative, `Σ_j` is a reduction over the named domain.
-- "Authored" means written by a model author or package; "derived" means produced by a compiler pass and never authored; "reference" means shipped library data.
-- IDAES names are quoted where the platform deliberately preserves them (for example the property name `enth_mol_phase`) so that parity tests can map both ways.
+<a id="04-conventions-used-in-this-document"></a>
 
----
+### Conventions used in this document — moved
+
+[Authoritative §0.4: Conventions used in this document](sections/reading-guide.md#04-conventions-used-in-this-document).
 
 ### 0.5 Current native process-simulator contract
 
@@ -517,7 +491,7 @@ These tables are the **pin** authority: what a named crate or library must decla
 | `numpy` / `scipy` | 2.5.3 / 1.18.1 | array boundary (§21.6); test-time oracles only (§24.1) |
 | `idaes-pse` | **2.12.0** (parity environment only) | the parity reference; the vendored `idaes-pse/` tree is a reading copy on the 2.10 line (§6.14) |
 
-**Supply chain.** `cargo deny` (advisories, licences, bans, sources) runs in CI on every pull request alongside `cargo audit`, because a deprecation encoded only in semver build metadata (`serde_yaml`'s) is invisible to `cargo audit`. Through phases 0–1 it **reports and does not gate**: the job is `continue-on-error` and off the required-checks ruleset, and `deny.toml` configures a report rather than an allowlist (§3.3.2, ADR-0066). The one supply-chain invariant that remains a required check is one resolved version per family, asserted by `cargo xtask family-check`.
+**Supply chain.** `cargo deny` (advisories, licences, bans, sources) and `cargo audit` are available on demand; a deprecation encoded only in semver build metadata (`serde_yaml`'s) is invisible to `cargo audit`. Through phases 0–1 these are advisory reports rather than gates, and `deny.toml` configures a report rather than an allowlist (§3.3.2, ADR-0066). The one-type-universe invariant is checked on demand by `cargo xtask family-check`.
 
 External checkouts are reading copies only; verify their actual commits and manifest versions before use. At revision 34 the reading copies match Arrow 59.3.0 and DataFusion 55.1.0. Bind API claims to the resolved Cargo graph, versioned rustdoc and retained probe receipts; historical or absent `build/facts` extractions do not establish the current surface.
 
@@ -694,8 +668,8 @@ Admission is what relaxes. These do not:
 
 - **One type universe** (§3.1). Exactly one resolved `arrow`, `parquet`, `object_store`,
   `datafusion` and `pyo3`. Two majors make `downcast_ref` return `None` with no compile
-  error. `cargo xtask family-check` asserts it by family and remains a required check; it,
-  not a blanket duplicate-version ban, is where the invariant lives.
+  error. `cargo xtask family-check` asserts it by family when run manually; it,
+  rather than a blanket duplicate-version ban, is where the invariant lives.
 - **Pin fidelity.** A crate §3.1 names declares the version §3.1 says. `=` and `==` pins,
   committed `Cargo.lock` and `uv.lock`, and `--locked` on every gate are unchanged. A
   dependency §3.1 does not name is reported, not refused.
@@ -4483,13 +4457,13 @@ Plan 06 qualifies the provider framework and target through real source P0–P10
 
 | Layer | What it proves | Mechanism |
 |---|---|---|
-| Schema governance | every relation is registered; no hand-written struct shadows a relation; every invariant has a positive and a negative fixture; generated code is current; no `authored` or `reference` column has a foreign key into `compiled` or `runtime`; no `authored` relation stores a parsed expression graph (no compiler output port targets authored/reference relations); every crate in `Cargo.toml` that §3.1's tables name declares the version they say (a crate they do not name is reported, not refused — §3.3.2); immutable snapshot providers reject mutation, while declared private effects retain their supported native routes; governance greps ban `Field::extension_type()`, `SessionConfig::set_str`, `SchemaLike::from_type`/`from_samples`, undeclared ambient configuration reads in reproducible kernels, and `SERDE_ARROW:*` keys; the Python `Any` lint and `no_shadow_structs` cover the generated contract classes; the `schema_enums` members match IDAES 2.12.0's enum classes | `tests/governance/*`, CI diff of generated sources |
-| Structural validity | Arrow structural checks execute with `pse-relations/force-validate` explicitly enabled; semantic checks remain separate | `just test` / CI feature argument, never a profile-only claim |
+| Schema governance | every relation is registered; no hand-written struct shadows a relation; every invariant has a positive and a negative fixture; generated code is current; no `authored` or `reference` column has a foreign key into `compiled` or `runtime`; no `authored` relation stores a parsed expression graph (no compiler output port targets authored/reference relations); every crate in `Cargo.toml` that §3.1's tables name declares the version they say (a crate they do not name is reported, not refused — §3.3.2); immutable snapshot providers reject mutation, while declared private effects retain their supported native routes; governance greps ban `Field::extension_type()`, `SessionConfig::set_str`, `SchemaLike::from_type`/`from_samples`, undeclared ambient configuration reads in reproducible kernels, and `SERDE_ARROW:*` keys; the Python `Any` lint and `no_shadow_structs` cover the generated contract classes; the `schema_enums` members match IDAES 2.12.0's enum classes | `tests/governance/*`, manually run `just codegen-check` |
+| Structural validity | Arrow structural checks execute with `pse-relations/force-validate` explicitly enabled; semantic checks remain separate | `just test` / manually dispatched workflow feature argument, never a profile-only claim |
 | Engine reproducibility | Complete engine/registry inputs affect stage keys; plan bytes remain noncanonical evidence with codec round-trip/attribution checks; ordinary query/import paths reject malformed known/unknown/nested extension fields before optimization; computed quantities retain a derivation and pass loss-aware admission | `tests/engine/`; generated boundary matrix |
 | Pushdown truthfulness | Exact and Unsupported providers yield the same complete values and multiplicities, including nulls, long IN forms, projections and limits; a deliberately empty/over-pruning provider fails | `tests/engine/`, `pushdown_vs_unpruned` |
 | Python boundary | an extra key in a bundle row raises `ForbiddenExtraKeysError`; an `Any` field fails the lint; all registered extension types survive Rust → Python → Rust with registration and are reported degraded without it; a nullable column refuses `ndarray` conversion; a missing external-function library or solver raises `capability.backend` before model construction; the manifest rejects an unknown registry fingerprint | `python/pse/tests` |
 | Cross-check oracles | matching cardinality and structural rank agree with `scipy.sparse.csgraph` and `IncidenceGraphInterface`; the native minimal intractable system agrees with `pyomo.contrib.iis`; the smallest singular values agree with `scipy.sparse.linalg.svds` on the dense-tractable fixtures — invariants compared, never object identity | parity harness |
-| Supply chain | `cargo tree` shows one version per family and the committed lockfile matches the manifest — both required checks. `cargo deny` (advisories, licences, bans, sources) and `cargo audit` run on every pull request and **report without gating** through phases 0–1 (§3.3.2, ADR-0066); `just policy` is the strict opt-in audit that register row R-31 triggers | CI (`rust / family-check` required; `rust / deny` informational) |
+| Supply chain | `cargo tree` shows one version per family and the committed lockfile matches the manifest. `just family-check` verifies this on demand. `cargo deny` (advisories, licences, bans, sources) and `cargo audit` are optional advisory reports through phases 0–1 (§3.3.2, ADR-0066); `just policy` is the strict opt-in audit that register row R-31 triggers | Manually run `just family-check`, `just deps-report` or the corresponding dispatched workflow | |
 | Canonicalization | `pse.canon.v2` ignores batch/row layout and hidden null storage, preserves valid signed zero and full registered semantic metadata, distinguishes changed valid values, and survives declared encoding round trips; physical checksums can differ while logical identity agrees. Renaming keeps entity IDs but changes hashes of changed labels. Nested masks/slices/offsets/empty relations/dictionaries are covered | `tests/conformance/` metamorphic fixtures and `tests/lifecycle/` corruption cases |
 | Quantity and numerical contracts | Standard package compositions, scaled differences, reference/basis conversion and WeightedMean are typed; ordered versus opted-in preparation policies are distinguished; overflow, cancellation, signed zero, nonlinear Affine children and excluded-branch failure/derivatives are checked | `tests/conformance/`, `quantity_composition`, `numerical_policy_conformance` |
 | Rule engine | Finite normalized demand closure and typed stage-port DAG; no late demand or incomplete provisions; strata and four-valued outcomes; aggregate/unnest null, empty, order and provenance behavior matches an independent reference | golden inferred relations; demand/realization and relational-expansion fixtures |
@@ -4520,7 +4494,11 @@ Measure the same semantic workload and report cold/warm preparation separately: 
 
 Measure complete stage and semantic-query reuse under R-22/R-01 after the W18 barrier. Compare shared predicates with storage pruning, scalar UDF fast paths with materialization, and safe borrows/coalescing with required checked copies before claiming target-workload improvement. Predicate preimages require their declared exact/residual semantics before decoding savings are claimed. No timing gate or performance gain is established by the design or by the standalone characterization probes.
 
----
+<a id="244-architecture-review-and-design-change-tracking"></a>
+
+### Architecture review and design-change tracking — moved
+
+[Authoritative §24.4: Architecture review and design-change tracking](sections/design-change-workflow.md#244-architecture-review-and-design-change-tracking).
 
 ## 25. Delivery phases
 

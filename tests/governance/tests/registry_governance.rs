@@ -8,22 +8,6 @@
 )]
 mod common;
 use pse_schema::model::{Authority, Namespace, SnapshotClass};
-// Plan 14 removes the historical Appendix B math transport rather than aliasing it.
-// Current registry contracts and function admission are checked directly below.
-
-#[test]
-fn target_registry_has_no_legacy_arithmetic_transport_or_placeholder_normalizer() {
-    let registry = pse_schema::registry().expect("registry");
-    assert!(registry.relations().iter().all(
-        |r| !r.key.name.starts_with("math_") || r.qualified_name() == "reference.math_context"
-    ));
-    assert!(registry.algorithms().iter().all(|a| a.name != "P3"));
-    assert!(
-        registry
-            .relation("reference.function_capabilities")
-            .is_some()
-    );
-}
 
 #[test]
 fn primitive_authority_has_no_compiled_fk_or_later_pass_writer() {

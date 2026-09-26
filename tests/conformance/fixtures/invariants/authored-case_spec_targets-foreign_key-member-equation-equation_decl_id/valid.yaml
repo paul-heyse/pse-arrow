@@ -1,0 +1,28 @@
+{
+  "invariant": "authored.case_spec_targets:foreign_key:member.equation.equation_decl_id",
+  "rows": {
+    "authored.case_spec_targets": [
+      {
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "member": "[\"struct\",[[\"enum\",\"equation\"],[\"null\",null],[\"null\",null],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]]],[\"null\",null]]]",
+        "ordinal": "[\"i64\",1]",
+        "spec_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.template_equations": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expression": "[\"text\",\"1\"]",
+        "filter": "[\"text\",\"1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "indexed_by": "[\"list\",[]]",
+        "name": "[\"text\",\"value-1\"]",
+        "sense": "[\"enum\",\"eq\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

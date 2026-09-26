@@ -9,8 +9,32 @@ use quote::{format_ident, quote};
 use crate::Registry;
 
 pub(super) fn render(reg: &Registry) -> TokenStream {
+    let owned = pse_quantity::enums::dictionaries();
     let enums = reg.enums().iter().map(|spec| {
         let name = format_ident!("{}", super::types::pascal(spec.name));
+        if owned.iter().any(|(owner, _)| *owner == spec.name) {
+            return quote! {
+                /// Physical dictionary owned by the quantity library.
+                pub type #name = pse_quantity::#name;
+                impl crate::SemanticEq for #name { fn semantic_eq(&self, other: &Self) -> bool { self == other } }
+                impl crate::HeapUsage for #name { fn heap_bytes(&self) -> usize { 0 } }
+                impl crate::SemanticFrame for #name { fn frame(&self, hash: &mut pse_ids::FramedHasher) { hash.str(self.as_str()); } }
+                impl crate::columnar::ArrowValue for #name {
+                    fn append(&self, output: &mut dyn arrow_array::builder::ArrayBuilder) -> Result<(), crate::RelationError> {
+                        crate::columnar::append_string(output, Some(self.as_str()))
+                    }
+                    fn append_null(output: &mut dyn arrow_array::builder::ArrayBuilder) -> Result<(), crate::RelationError> {
+                        crate::columnar::append_string(output, None)
+                    }
+                    fn read(input: &dyn arrow_array::Array, index: usize) -> Result<Self, crate::RelationError> {
+                        let value = crate::columnar::read_string(input, index)?;
+                        Self::parse(value).ok_or_else(|| crate::RelationError::EnumMember {
+                            field: stringify!(#name).to_owned(), enumeration: stringify!(#name).to_owned(), value: value.to_owned(),
+                        })
+                    }
+                }
+            };
+        }
         let variants = spec.members.iter().map(|member| format_ident!("{}", super::types::pascal(member.name))).collect::<Vec<_>>();
         let members = spec.members.iter().map(|member| member.name).collect::<Vec<_>>();
         let docs = spec.members.iter().map(|member| member.doc).collect::<Vec<_>>();

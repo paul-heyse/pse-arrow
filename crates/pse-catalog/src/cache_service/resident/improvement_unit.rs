@@ -100,9 +100,14 @@ impl TableProvider for Observed {
     }
 }
 
-fn fixture() -> (tempfile::TempDir, SelectedTable, Arc<Observed>) {
+async fn fixture() -> (tempfile::TempDir, SelectedTable, Arc<Observed>) {
     let directory = tempfile::tempdir().unwrap();
     let location = url::Url::from_directory_path(directory.path()).unwrap();
+    drop(
+        crate::delta::lease::write(&location, &pse_columnar::CancellationToken::new())
+            .await
+            .unwrap(),
+    );
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64 << 20));
     let runtime = RuntimeEnvBuilder::new()
         .with_memory_pool(pool.clone())
@@ -162,7 +167,7 @@ fn fixture() -> (tempfile::TempDir, SelectedTable, Arc<Observed>) {
 
 #[tokio::test]
 async fn cold_narrow_reads_preserve_native_pruning_and_never_fill_complete_entries() {
-    let (_directory, table, inner) = fixture();
+    let (_directory, table, inner) = fixture().await;
     let table = Arc::new(table);
     let filters = vec![col("key").eq(lit(2_i64))];
     let plan = table
@@ -216,7 +221,7 @@ async fn assert_filtered_value(table: Arc<SelectedTable>) {
 
 #[tokio::test]
 async fn warm_complete_entries_project_and_limit_without_loading_partial_results() {
-    let (_directory, table, _inner) = fixture();
+    let (_directory, table, _inner) = fixture().await;
     let table = Arc::new(table);
     let plan = table
         .scan(table.state.as_ref(), None, &[], None)

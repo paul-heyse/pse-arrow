@@ -1,0 +1,32 @@
+{
+  "invariant": "authored.case_spec_targets:foreign_key:member.symbol.symbol_decl_id",
+  "rows": {
+    "authored.case_spec_targets": [
+      {
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "member": "[\"struct\",[[\"enum\",\"symbol\"],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]]],[\"null\",null],[\"null\",null],[\"null\",null]]]",
+        "ordinal": "[\"i64\",1]",
+        "spec_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.template_symbols": [
+      {
+        "default_initial": "[\"f64\",\"3ff0000000000000\"]",
+        "default_lower": "[\"struct\",[[\"enum\",\"unbounded\"],[\"null\",null]]]",
+        "default_upper": "[\"struct\",[[\"enum\",\"unbounded\"],[\"null\",null]]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "indexed_by": "[\"list\",[]]",
+        "name": "[\"text\",\"value-1\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reference_to": "[\"text\",\"1\"]",
+        "role": "[\"enum\",\"variable\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "wrt_domain": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

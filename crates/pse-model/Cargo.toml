@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+pse-quantity.workspace = true
 pse-ids.workspace = true
 pse-diagnostics.workspace = true
 serde.workspace = true

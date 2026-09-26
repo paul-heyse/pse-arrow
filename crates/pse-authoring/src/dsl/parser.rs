@@ -57,19 +57,34 @@ impl<'a> Cursor<'a> {
         }
     }
     fn error(&self, expected: &str) -> DslError {
-        syntax(
-            self.at(),
-            expected,
-            self.token().map_or("end of input", |token| token.text),
-        )
+        DslError::Syntax {
+            offset: self.at(),
+            span: self.token().map_or(
+                Span {
+                    start: self.end,
+                    end: self.end,
+                },
+                |token| token.span,
+            ),
+            expected: expected.to_owned(),
+            found: self
+                .token()
+                .map_or("end of input", |token| token.text)
+                .to_owned(),
+        }
     }
     fn ident(&mut self) -> Result<String, DslError> {
         let token = self.token().ok_or_else(|| self.error("identifier"))?;
-        if token.kind != Kind::Identifier {
+        if !matches!(token.kind, Kind::Identifier | Kind::Quoted) {
             return Err(self.error("identifier"));
         }
         self.position += 1;
-        Ok(token.text.to_owned())
+        if token.kind == Kind::Quoted {
+            crate::grammar::quoted(&mut winnow::stream::LocatingSlice::new(token.text))
+                .map_err(|_| self.error("quoted path name"))
+        } else {
+            Ok(token.text.to_owned())
+        }
     }
     fn enter(&mut self) -> Result<(), DslError> {
         self.depth += 1;
@@ -222,7 +237,11 @@ impl<'a> Cursor<'a> {
         })
     }
     fn named_primary(&mut self, start: u32) -> Result<ExprKind, DslError> {
+        let quoted = self.token().is_some_and(|token| token.kind == Kind::Quoted);
         let name = self.ident()?;
+        if quoted {
+            return Ok(ExprKind::Path(self.path_tail(name)?));
+        }
         if matches!(
             name.as_str(),
             "then" | "else" | "where" | "in" | "and" | "or" | "not" | "for"

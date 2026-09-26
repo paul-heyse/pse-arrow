@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-
 use super::{IndexSelector, TargetPath};
-use crate::{AuthoringError, SourceSpan};
+use crate::{AuthoringError, SourceSpan, grammar};
+use winnow::{
+    Parser,
+    error::ContextError,
+    stream::{LocatingSlice, Location, Stream},
+};
 
-/// Parse a qualified instance/member path and an optional final index tuple.
+/// Parse the shared path grammar with target-only wildcard and final selector syntax.
 /// # Errors
-/// Empty/malformed segments, unclosed quotes/brackets, nested tuples and excessive bytes.
+/// Malformed names, selectors, escapes, trailing input or excessive bytes.
 pub fn parse(text: &str, at: SourceSpan) -> Result<TargetPath, AuthoringError> {
     if text.len() > 65_535 {
         return Err(AuthoringError::Budget {
@@ -15,98 +19,126 @@ pub fn parse(text: &str, at: SourceSpan) -> Result<TargetPath, AuthoringError> {
             needed: u64::try_from(text.len()).unwrap_or(u64::MAX),
         });
     }
-    let trimmed = text.trim();
-    let (path, indices) = if let Some((path, tail)) = trimmed.split_once('[') {
-        let body = tail
-            .strip_suffix(']')
-            .filter(|body| !body.contains(['[', ']']))
-            .ok_or_else(|| invalid(at, text))?;
-        (path, selectors(body, at)?)
-    } else {
-        (trimmed, Vec::new())
-    };
-    let wildcard = path.ends_with(".*");
-    let path = if wildcard {
-        &path[..path.len() - 2]
-    } else {
-        path
-    };
-    if wildcard && !indices.is_empty() {
-        return Err(invalid(at, text));
-    }
-    let names = path.split('.').map(str::to_owned).collect::<Vec<_>>();
-    if names.iter().any(|name| {
-        name.is_empty()
-            || !name.chars().enumerate().all(|(index, ch)| {
-                ch == '_' || ch.is_alphabetic() || (index > 0 && ch.is_ascii_digit())
-            })
-    }) {
-        return Err(invalid(at, text));
-    }
+    let mut input = LocatingSlice::new(text);
+    let result = target(&mut input);
+    let (names, indices, instance_wildcard) = result.map_err(|_| {
+        let offset = at
+            .start
+            .saturating_add(u32::try_from(input.current_token_start()).unwrap_or(u32::MAX));
+        AuthoringError::Syntax {
+            at,
+            offset,
+            expected: "a qualified target path with a final member tuple".into(),
+            found: input.as_ref().to_string(),
+        }
+    })?;
     Ok(TargetPath {
         names,
         indices,
-        instance_wildcard: wildcard,
+        instance_wildcard,
         at,
         text: text.to_owned(),
     })
 }
-
-fn selectors(text: &str, at: SourceSpan) -> Result<Vec<IndexSelector>, AuthoringError> {
-    let mut quote = None;
-    let mut start = 0;
-    let mut values = Vec::new();
-    for (offset, ch) in text.char_indices() {
-        match (quote, ch) {
-            (Some(current), ch) if current == ch => quote = None,
-            (None, '\'' | '"') => quote = Some(ch),
-            (None, ',') => {
-                values.push(selector(&text[start..offset], at)?);
-                start = offset + 1;
+fn ws(input: &mut grammar::Input<'_>) -> Result<(), ContextError> {
+    winnow::ascii::multispace0.void().parse_next(input)
+}
+fn target(
+    input: &mut grammar::Input<'_>,
+) -> Result<(Vec<String>, Vec<IndexSelector>, bool), ContextError> {
+    ws(input)?;
+    let mut names = vec![grammar::name(input)?];
+    let mut wildcard = false;
+    loop {
+        ws(input)?;
+        if input.peek_token() != Some('.') {
+            break;
+        }
+        '.'.parse_next(input)?;
+        ws(input)?;
+        if input.peek_token() == Some('*') {
+            '*'.parse_next(input)?;
+            wildcard = true;
+            break;
+        }
+        names.push(grammar::name(input)?);
+    }
+    ws(input)?;
+    let mut indices = Vec::new();
+    if !wildcard && input.peek_token() == Some('[') {
+        '['.parse_next(input)?;
+        loop {
+            ws(input)?;
+            let selector = if input
+                .peek_token()
+                .is_some_and(|ch| matches!(ch, '\'' | '"'))
+            {
+                IndexSelector::Label(grammar::quoted(input)?)
+            } else {
+                let value: &str = winnow::token::take_while(1.., |ch: char| {
+                    !ch.is_whitespace() && !matches!(ch, ',' | '[' | ']' | '\'' | '"' | '\\')
+                })
+                .parse_next(input)?;
+                if matches!(value, "*" | ":") {
+                    IndexSelector::Wildcard
+                } else {
+                    IndexSelector::Value(value.to_owned())
+                }
+            };
+            indices.push(selector);
+            ws(input)?;
+            if input.peek_token() == Some(']') {
+                ']'.parse_next(input)?;
+                break;
             }
-            (_, '\\') => return Err(invalid(at, text)),
-            _ => {}
+            ','.parse_next(input)?;
         }
     }
-    if quote.is_some() {
-        return Err(invalid(at, text));
-    }
-    values.push(selector(&text[start..], at)?);
-    Ok(values)
+    ws(input)?;
+    winnow::combinator::eof.parse_next(input)?;
+    Ok((names, indices, wildcard))
 }
-fn selector(text: &str, at: SourceSpan) -> Result<IndexSelector, AuthoringError> {
-    let text = text.trim();
-    if matches!(text, "*" | ":") {
-        return Ok(IndexSelector::Wildcard);
-    }
-    if text.is_empty() {
-        return Err(invalid(at, text));
-    }
-    let unquoted = text
-        .strip_prefix('"')
-        .and_then(|text| text.strip_suffix('"'))
-        .or_else(|| {
-            text.strip_prefix('\'')
-                .and_then(|text| text.strip_suffix('\''))
-        })
-        .unwrap_or(text);
-    if unquoted.is_empty() || (unquoted == text && text.chars().any(char::is_whitespace)) {
-        return Err(invalid(at, text));
-    }
-    if unquoted.contains(['\u{27}', '"']) {
-        return Err(invalid(at, text));
-    }
-    Ok(if unquoted == text {
-        IndexSelector::Value(unquoted.to_owned())
-    } else {
-        IndexSelector::Label(unquoted.to_owned())
-    })
-}
-fn invalid(at: SourceSpan, found: &str) -> AuthoringError {
-    AuthoringError::Syntax {
-        at,
-        offset: at.start,
-        expected: "a qualified target path with a final member tuple".to_owned(),
-        found: found.to_owned(),
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn shared_unicode_quoted_paths_and_target_only_selectors() {
+        let at = SourceSpan::new(pse_ids::SemanticId::NIL, 10, 90);
+        let source = "α.\"val.ve\".流量";
+        let target = parse(source, at).unwrap();
+        let expression = crate::dsl::parse_expr(source).unwrap();
+        let crate::dsl::ExprKind::Path(path) = &expression.kind else {
+            panic!("path");
+        };
+        assert_eq!(
+            target.names,
+            path.segments
+                .iter()
+                .map(|s| s.name.clone())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            crate::dsl::parse_expr(&crate::dsl::render_expr(&expression))
+                .unwrap()
+                .kind,
+            expression.kind
+        );
+        let target = parse("α.flow[\"a\\\"b,[]\", '*', *]", at).unwrap();
+        assert_eq!(
+            target.indices,
+            vec![
+                IndexSelector::Label("a\"b,[]".into()),
+                IndexSelector::Label("*".into()),
+                IndexSelector::Wildcard
+            ]
+        );
+        assert!(parse("α.*[a]", at).is_err());
+        assert!(parse("α..bad", at).is_err());
+        assert!(parse("α[\"bad\\q\"]", at).is_err());
+        let AuthoringError::Syntax { offset, .. } = parse("α..bad", at).unwrap_err() else {
+            panic!("syntax");
+        };
+        assert_eq!(offset, 13);
     }
 }

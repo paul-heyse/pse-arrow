@@ -296,11 +296,19 @@ impl Lower<'_, '_> {
                 self.hash
                     .str("literal")
                     .u64(pse_ids::canonical_f64_bits(number.value));
-                let spelling = number.unit.as_deref().unwrap_or("1");
                 let unit =
-                    *self.request.units.get(spelling).ok_or_else(|| {
-                        MathError::Contract(format!("unresolved unit {spelling}"))
-                    })?;
+                    if let Some(spelling) = number.unit.as_deref() {
+                        *self.request.units.get(spelling).ok_or_else(|| {
+                            MathError::Contract(format!("unresolved unit {spelling}"))
+                        })?
+                    } else {
+                        // A bare scalar uses the physical registry's neutral unit;
+                        // its spelling need not be an authored alias named "1".
+                        let quantity = self.registry.neutral_dimensionless().ok_or_else(|| {
+                            MathError::Contract("no declared neutral literal type".into())
+                        })?;
+                        self.registry.quantity_type(quantity)?.canonical_unit
+                    };
                 self.hash.id(&unit.as_id());
                 let context = if let Some(&quantity) =
                     self.request.literals.get(&(expr.span.start, expr.span.end))
@@ -408,7 +416,7 @@ impl Lower<'_, '_> {
                     }
                     self.hash.str(name);
                     let value = self.expression(expr, builder, depth + 1)?;
-                    self.locals.insert(name.clone(), value);
+                    self.locals.insert(name.clone(), builder.bind(value)?);
                 }
                 let result = self.expression(body, builder, depth + 1);
                 self.locals = saved;
@@ -884,14 +892,8 @@ mod tests {
     ) -> Result<Body, MathError> {
         let expression = dsl::parse_expr(text).unwrap();
         let registry = standard_registry().unwrap();
-        let mut units = BTreeMap::from([(
-            "1".into(),
-            registry
-                .quantity_type(ids::quantity("neutral"))
-                .unwrap()
-                .canonical_unit,
-        )]);
-        units.insert("K".into(), ids::unit("K"));
+        // Bare literals must compile without a spelling alias for neutral units.
+        let units = BTreeMap::from([("K".into(), ids::unit("K"))]);
         let h = ContentHash::from_bytes([1; 32]);
         Request {
             definition: SemanticId::from_bytes([1; 16]),

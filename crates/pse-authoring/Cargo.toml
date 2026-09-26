@@ -17,7 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-pse-math.workspace = true
+pse-quantity.workspace = true
 pse-model.workspace = true
 pse-structural.workspace = true
 pse-diagnostics.workspace = true

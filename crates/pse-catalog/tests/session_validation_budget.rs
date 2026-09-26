@@ -258,6 +258,7 @@ fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratc
     use datafusion::arrow::array::{Array, ArrayRef, Int64Array, ListArray, StructArray};
     use pse_schema::model::ExtensionUse;
     let mut builder = RegistryBuilder::new();
+    pse_schema::catalog::declare(&mut builder);
     builder.declare_relation(
         RelationDecl::new(
             Namespace::Authored,

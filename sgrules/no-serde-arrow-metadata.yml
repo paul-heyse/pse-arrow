@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-serde-arrow-metadata
+language: Rust
+severity: error
+message: "Platform metadata is registry-owned; SERDE_ARROW keys are not part of its contract."
+files: ["crates/**/src/**/*.rs", "xtask/src/**/*.rs"]
+ignores: ["**/generated/**", "**/*tests.rs", "**/*unit.rs"]
+rule:
+  all:
+    - any:
+        - kind: string_literal
+        - kind: raw_string_literal
+    - regex: '^(r#*)?"SERDE_ARROW:'
+    - not:
+        matches: rust-test-code

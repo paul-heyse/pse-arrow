@@ -9,7 +9,7 @@
 )]
 
 //! Every `pub enum *Error` under `crates/*/src` implements Error and
-//! `miette::Diagnostic` (derive or compile-asserted typed projection), and no crate reaches for `anyhow` or `miette::Result`.
+//! `miette::Diagnostic` (derive or compile-asserted typed projection), while Clippy owns erased-error type bans.
 //!
 //! Blueprint §23.2: every `pse-*` crate returns concrete error enums carrying the §23.2
 //! class as a `#[diagnostic(code(...))]`; `miette::Result` and the graphical reporter
@@ -20,8 +20,6 @@
 //! checked, not the hundredth.
 
 mod common;
-
-use regex::Regex;
 
 fn path_is(path: &syn::Path, expected: &[&str]) -> bool {
     path.segments
@@ -126,36 +124,4 @@ fn generic_implementations_are_scoped_and_comments_are_not_implementations() {
     assert_eq!(problems.len(), 2);
     assert!(problems[0].contains("missing::GenericError"));
     assert!(problems[1].contains("NegativeError"));
-}
-
-#[test]
-fn no_anyhow_or_miette_result_in_library_crates() {
-    let patterns = [
-        (
-            Regex::new(r"\banyhow\b").expect("static regex"),
-            "anyhow erases the structure a finding is made of; return a concrete thiserror enum",
-        ),
-        (
-            Regex::new(r"miette\s*::\s*Result").expect("static regex"),
-            "miette::Result and the graphical reporter live in the driver only (blueprint §23.2)",
-        ),
-    ];
-    let mut problems: Vec<String> = Vec::new();
-
-    for path in common::crate_sources() {
-        for (number, line) in common::read(&path).lines().enumerate() {
-            let code = common::code_only(line);
-            for (re, why) in &patterns {
-                if re.is_match(&code) {
-                    problems.push(format!("{}:{}: {why}", common::rel(&path), number + 1));
-                }
-            }
-        }
-    }
-
-    assert!(
-        problems.is_empty(),
-        "error policy:\n  {}",
-        problems.join("\n  ")
-    );
 }

@@ -12,6 +12,7 @@ use super::{DslError, Span};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Kind {
     Identifier,
+    Quoted,
     Number,
     Symbol,
 }
@@ -57,12 +58,16 @@ pub(super) fn tokenize(text: &str) -> Result<Vec<Token<'_>>, DslError> {
                 return Err(DslError::NonFiniteNumber { offset: start });
             }
             (token, Kind::Number)
-        } else if first.is_alphabetic() || first == '_' || first == '°' {
-            let token = winnow::token::take_while::<_, _, ContextError>(1.., |ch: char| {
-                ch.is_alphanumeric() || ch == '_' || ch == '°'
-            })
-            .parse_next(&mut input)
-            .map_err(|_| syntax(start, "identifier", input.as_ref()))?;
+        } else if matches!(first, '\'' | '"') {
+            let token = crate::grammar::quoted
+                .take()
+                .parse_next(&mut input)
+                .map_err(|_| syntax(offset(&input), "quoted path name", input.as_ref()))?;
+            (token, Kind::Quoted)
+        } else if crate::grammar::start(first) {
+            let token = crate::grammar::identifier
+                .parse_next(&mut input)
+                .map_err(|_| syntax(start, "identifier", input.as_ref()))?;
             if matches!(token, "NaN" | "nan" | "Inf" | "inf" | "infinity") {
                 return Err(DslError::NonFiniteNumber { offset: start });
             }

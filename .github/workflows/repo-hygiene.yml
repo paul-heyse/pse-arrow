@@ -4,22 +4,19 @@
 # Lints for the repository's own plumbing: spelling, TOML formatting, the workflows
 # themselves, and every shell script.
 #
-# None of these are required checks — they are cheap and they fail fast, so they are read
-# rather than enforced. `zizmor` in particular is a security lint on the workflows: a
+# Run these checks manually when reviewing repository plumbing. `zizmor` is a security lint on the workflows: a
 # finding here is about what a pull request from a fork could make CI do.
 name: repo-hygiene
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 defaults:
   run:

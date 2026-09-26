@@ -14,7 +14,7 @@ phase: 1
 [Plan 06](06-provider-contracts-hard-pivot.md).** Its PC00–PC12 packages carry every
 unfinished HP00–HP13 outcome into the provider-contract architecture. `abandoned`
 marks this sequence, not the product scope or useful target implementation. See
-[STATUS.md](../../STATUS.md) for the latest boundary. The
+[STATUS.md](https://github.com/paul-heyse/pse-arrow/blob/main/STATUS.md) for the latest boundary. The
 [restart handoff](05-native-logical-plan-hard-pivot-restart.md) and all execution
 instructions/receipts below are historical; do not resume their earlier next steps.
 
@@ -2339,7 +2339,7 @@ zero failures, baseline 0. A scoped `.venv/bin/python` check of six edited docum
 required plan front matter, whitespace and 136 local links found zero failures.
 These checks do not establish runtime behavior.
 
-Final checkpoint receipts are also recorded in [STATUS.md](../../STATUS.md).
+Final checkpoint receipts are also recorded in [STATUS.md](https://github.com/paul-heyse/pse-arrow/blob/main/STATUS.md).
 All three implementation agents are stopped; the final process inventory contains
 no Cargo, rustc, nextest, xtask, maturin, pytest or mdBook process.
 There is no scope or approval question pending. Restart with the saved integration

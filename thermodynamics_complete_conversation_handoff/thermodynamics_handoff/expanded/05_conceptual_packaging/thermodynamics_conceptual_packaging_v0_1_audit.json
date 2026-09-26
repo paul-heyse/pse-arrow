@@ -1,0 +1,80 @@
+{
+  "document": "THERMO-PACKAGING-005-AUDIT",
+  "version": "0.1",
+  "kind": "structural_architecture_catalog_checks_only",
+  "checks": {
+    "94_requirements_preserved": true,
+    "exactly_one_primary_owner_per_requirement": true,
+    "supporting_packages_valid_and_nonduplicated": true,
+    "original_obligation_classes_preserved": true,
+    "original_accountable_roles_preserved_as_source_fields": true,
+    "34_scenarios_preserved": true,
+    "profiles_preserved": true,
+    "all_scenarios_have_walkthrough_route": true,
+    "all_94_requirements_referenced_by_package_primary_lists": true,
+    "no_empty_primary_package": true,
+    "contract_dependency_graph_acyclic": true,
+    "no_invalid_contract_dependency": true,
+    "information_product_single_semantic_owner": true,
+    "information_product_requirements_valid": true,
+    "walkthrough_owners_and_requirements_valid": true,
+    "decision_requirement_refs_valid": true,
+    "source_files_verified_present": true,
+    "prior_source_hashes_match_B4_register": true,
+    "P3_only_representability_not_numerical_claim": true,
+    "functional_test_ids_retained": true
+  },
+  "all_passed": true,
+  "counts": {
+    "packages": 10,
+    "requirements": 94,
+    "scenarios": 34,
+    "information_products": 18,
+    "decisions": 16,
+    "walkthroughs": 14,
+    "library_mapping_rows": 10,
+    "package_exemplars": 8,
+    "open_items": 10,
+    "functional_acceptance_test_links": 188
+  },
+  "primary_owner_counts": {
+    "P09": 10,
+    "P08": 9,
+    "P03": 9,
+    "P01": 6,
+    "P04": 11,
+    "P02": 7,
+    "P07": 10,
+    "P05": 18,
+    "P06": 5,
+    "P10": 9
+  },
+  "obligation_counts": {
+    "H": 65,
+    "C": 25,
+    "R3": 4
+  },
+  "profile_counts": {
+    "P1": 14,
+    "P2": 16,
+    "P3": 4
+  },
+  "topological_order": [
+    "P01",
+    "P02",
+    "P04",
+    "P06",
+    "P03",
+    "P05",
+    "P08",
+    "P09",
+    "P10",
+    "P07"
+  ],
+  "limitations": [
+    "Checks apply only to declared IDs, allocations, source hashes and the conceptual contract dependency graph.",
+    "They do not prove correct thermodynamics, runtime isolation, exhaustive architecture quality, implemented conformance or independent physical validity.",
+    "Collaboration, information-return and numerical feedback relationships are not required to be acyclic and are not misrepresented as this dependency graph.",
+    "Walkthroughs identify conceptual responsibilities; full data/action contracts and independent representability review remain later work."
+  ]
+}

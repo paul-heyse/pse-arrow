@@ -6,28 +6,36 @@ use datafusion::arrow::{
     array::{Array, ArrayRef, FixedSizeBinaryArray, ListArray},
     datatypes::Field,
 };
-use pse_ids::SemanticId;
-use pse_relations::generated::inferred::valid_index_tuples;
 
 fn values(rows: &[Vec<u8>]) -> (ArrayRef, FieldRef) {
-    let mut builder = valid_index_tuples::Builder::new().unwrap();
-    for (ordinal, row) in rows.iter().enumerate() {
-        builder
-            .push(valid_index_tuples::Row {
-                product_id: SemanticId::from_bytes([u8::try_from(ordinal).unwrap(); 16]),
-                tuple: row
-                    .iter()
-                    .map(|value| SemanticId::from_bytes([*value; 16]))
-                    .collect(),
-                derivation_id: SemanticId::NIL,
-            })
-            .unwrap();
-    }
-    let checked = builder.finish().unwrap();
-    (
-        Arc::clone(checked.batch().column(1)),
-        Arc::clone(&checked.batch().schema_ref().fields()[1]),
+    // Exercise the declared IndexTuple field directly; no model relation is needed.
+    let field = Arc::new(
+        pse_schema::arrow::field_for(
+            crate::validation::registry().unwrap(),
+            &pse_schema::model::FieldContract::payload(
+                "tuple",
+                pse_schema::model::FieldContract::extended(
+                    pse_schema::model::ExtensionUse::IndexTuple,
+                ),
+                "Ordered tuple test input",
+            ),
+        )
+        .unwrap(),
+    );
+    let DataType::List(child) = field.data_type() else {
+        panic!("list expected")
+    };
+    let mut builder = datafusion::arrow::array::ListBuilder::new(
+        datafusion::arrow::array::FixedSizeBinaryBuilder::new(16),
     )
+    .with_field(child.clone());
+    for row in rows {
+        for value in row {
+            builder.values().append_value([*value; 16]).unwrap();
+        }
+        builder.append(true);
+    }
+    (Arc::new(builder.finish()), field)
 }
 
 #[test]

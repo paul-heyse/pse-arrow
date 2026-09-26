@@ -17,6 +17,7 @@ import pse
 from pse import codec
 from pse import modeling as w
 from pse.contracts import authored
+from pse.contracts import runtime as runtime_contracts
 from pse.contracts.values import SemanticId
 
 FIXTURE = Path(__file__).resolve().parents[3] / "tests/fixtures/plan14"
@@ -205,7 +206,7 @@ def test_public_dynamic_and_transient_fit(
         .to_pylist()
     )
     assert len(run) == 1
-    assert run[0]["termination"] == "Completed"
+    assert run[0]["trajectory_termination"] == "completed"
     assert run[0]["error"] is None
     samples = (
         pa.RecordBatchReader.from_stream(simulation.table("runtime.simulation_samples"))
@@ -257,7 +258,10 @@ def test_public_dynamic_and_transient_fit(
         .to_pylist()
     )
     assert len(run) == 1
-    assert run[0]["termination"] in {"Success", "Acceptable"}
+    assert run[0]["termination"] in {"success", "acceptable"}
+    assert result.completion.computation == converter.structure(
+        run[0], runtime_contracts.RuntimeComputationRunsRow
+    )
     assert run[0]["error"] is None
 
 

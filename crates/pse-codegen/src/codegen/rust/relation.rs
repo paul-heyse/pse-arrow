@@ -165,7 +165,7 @@ fn admission(reg: &Registry, spec: &RelationSpec) -> TokenStream {
             Ok(spec)
         }
         fn check_declaration(reg: &pse_schema::Registry, spec: &pse_schema::model::RelationSpec) -> Result<(), crate::RelationError> {
-            reg.contract(spec)?.require_generated(crate::generated::contracts::expected()?)?;
+            reg.contract(spec)?.require_generated(crate::generated::contracts::expected())?;
             Ok(())
         }
         #test
@@ -250,7 +250,7 @@ fn support(
             /// # Errors
             /// A different generated declaration or an incompatible Arrow layout.
             pub fn from_checked(owner: &'a crate::columnar::FieldCheckedBatch) -> Result<Self, crate::RelationError> {
-                Self::borrow_columns(owner.for_generated(RELATION_ID, crate::generated::contracts::expected()?)?)
+                Self::borrow_columns(owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?)
             }
             fn borrow_columns(batch: &'a crate::RecordBatch) -> Result<Self, crate::RelationError> {
                 Ok(Self { batch, #(#columns: crate::columnar::array::<#array_types>(batch.column(#positions).as_ref())?,)* })

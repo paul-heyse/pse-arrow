@@ -69,11 +69,13 @@ pub fn prepare_checkpoint(
         cancel,
     )?;
     artifact.operation_id = admission;
-    artifact.prepare_publication(
-        control,
-        header,
-        BTreeMap::from([(reference, output.location)]),
-        vec![],
-        cancel,
-    )
+    artifact
+        .prepare_publication(
+            control,
+            header,
+            BTreeMap::from([(reference, output.location)]),
+            vec![],
+            cancel,
+        )
+        .map(|(command, _ticket)| command)
 }

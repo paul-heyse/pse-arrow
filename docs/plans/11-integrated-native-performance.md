@@ -116,9 +116,9 @@ these counts. The complete carry-forward matrix is in Verification below.
 
 ### Library authority and selected native mechanisms
 
-Use the local [DataFusion skill](../../.codex/skills/datafusion/SKILL.md),
-[Delta Lake skill](../../.codex/skills/deltalake/SKILL.md), and
-[tracing skill](../../.codex/skills/datafusion-tracing/SKILL.md) before probing.
+Use the local [DataFusion skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/SKILL.md),
+[Delta Lake skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/SKILL.md), and
+[tracing skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion-tracing/SKILL.md) before probing.
 Do not use Context7 for DataFusion, Arrow, Parquet, object_store, or Delta questions
 in this work. For other libraries, Context7 discovery is allowed; pin-sensitive
 claims still require the consumer's exact source, feature profile, or a bounded probe.
@@ -143,7 +143,7 @@ The skill's broader documentation profile does not establish consumer feature su
 | Delta historical provider | Skills `delta.open`, `delta.read` | Load the selected version before creating its provider. An already loaded snapshot can override a provider builder's version option. Reusing log state does not guarantee vacuumed data exists. |
 | Native write and settlement | Skills `delta.write`, `delta.commit`, `delta.replay` | Use native builders and the physical-input bridge. Success supplies committed state; an error can occur after visible commit. A transaction marker is not automatic append deduplication. |
 | CDF and retention | Skills `delta.cdf`, `delta.features`, `delta.retention` | Preserve observed interval, images, residual filtering, protocol/feature limits, and read leases. Do not checkpoint a requested end beyond the observed range. Set vacuum mode and dry-run explicitly. |
-| Repository Delta additions | [Delta native interfaces](../../tooling/delta-native-seams.md), patch and generated provenance | Cache injection, snapshot extent estimates and bounded CRC replay are local overlay interfaces, not unmodified upstream APIs. Verify against the overlay before use. |
+| Repository Delta additions | [Delta native interfaces](https://github.com/paul-heyse/pse-arrow/blob/main/tooling/delta-native-seams.md), patch and generated provenance | Cache injection, snapshot extent estimates and bounded CRC replay are local overlay interfaces, not unmodified upstream APIs. Verify against the overlay before use. |
 | Trace completion | Tracing skill `tracing.metrics` and lifecycle routes | Native metric recording follows recorder lifetime; instrument every actual producer path. Disabled, sampled, interrupted, and complete evidence remain distinguishable. |
 | Python attachment | Context7 `/pyo3/pyo3` [parallelism guidance](https://github.com/pyo3/pyo3/blob/main/guide/src/parallelism.md), checked against PyO3 0.29.2 `marker.rs` | `Python::detach` requires `Ungil` closure and result; detached work cannot use Python APIs. pyo3-arrow's C callback calls `reader.next()` from its consumer, so attachment must be qualified on the actual route. |
 
@@ -283,7 +283,7 @@ concurrent member writes nor transaction markers create atomic multi-table publi
 
 ### D07 — Policy reconciliation is implementation work
 
-Use the [ADR skill](../../.codex/skills/adr/SKILL.md) and current decision rules for
+Use the [ADR skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/adr/SKILL.md) and current decision rules for
 the formal changes. I00 allocates one focused integrated lifetime/execution decision
 with `just adr-new integrated-native-performance`; its numeric ID is allocated then,
 not predicted here. Link the integrated review, update proposed overlapping records,

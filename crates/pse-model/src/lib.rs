@@ -15,6 +15,14 @@ pub mod numerics;
 /// An invalid declared semantic enum member.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ModelError {
+    /// Historical durable values require an explicit migration, never an implicit reader.
+    #[error("artifact format {version} requires migration to version {supported}")]
+    MigrationRequired {
+        /// Recorded interpretation.
+        version: i64,
+        /// Supported interpretation.
+        supported: i64,
+    },
     /// A tagged value violates its declared alternatives.
     #[error("{0}")]
     Malformed(String),

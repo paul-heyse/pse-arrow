@@ -216,3 +216,188 @@ async fn selected_native_relations_check_keys_references_and_nested_ordinals() {
         );
     }
 }
+
+#[tokio::test]
+async fn compiled_nested_composite_references_agree_with_invariant_sql() {
+    use crate::native::arrow::{
+        array::{ArrayRef, ListArray, MapArray, StructArray},
+        buffer::OffsetBuffer,
+    };
+    use datafusion::catalog::MemorySchemaProvider;
+    for map in [false, true] {
+        let mut builder = RegistryBuilder::new();
+        let declaration = |name| {
+            RelationDecl::new(
+                Namespace::Authored,
+                name,
+                1,
+                Authority::Authored,
+                SnapshotClass::Model,
+                "composite fixture",
+            )
+        };
+        builder.declare_relation(
+            declaration("target").pk(&["tenant", "id"]).columns(
+                ["tenant", "id"]
+                    .map(|name| FieldContract::native(DataType::Int64).with_name(name))
+                    .to_vec(),
+            ),
+        );
+        let key = FieldContract::structure(
+            ["tenant", "id"]
+                .map(|name| {
+                    FieldContract::native(DataType::Int64)
+                        .with_name(name)
+                        .with_nullable(!map || name != "tenant")
+                })
+                .to_vec(),
+        )
+        .with_reference(&ReferenceContract {
+            relation: "authored.target".into(),
+            columns: ["tenant", "id"]
+                .map(|name| ReferenceColumn {
+                    source: vec![name.into()],
+                    target: name.into(),
+                })
+                .to_vec(),
+            null_policy: ReferenceNullPolicy::AllOrNone,
+        })
+        .unwrap();
+        builder.declare_relation(declaration("source").pk(&["id"]).columns(vec![
+            FieldContract::native(DataType::Int64).with_name("id"),
+            if map {
+                FieldContract::native(DataType::Map(
+                    Arc::new(key.with_name("entries").into_field()),
+                    false,
+                ))
+                .with_name("keys")
+            } else {
+                FieldContract::list(key).with_name("keys")
+            },
+        ]));
+        let registry = builder.build().unwrap();
+        let source = registry.relation("authored.source").unwrap();
+        let target = registry.relation("authored.target").unwrap();
+        let product = registry.obligations(source.key).unwrap();
+        assert_eq!(product.references.len(), 1);
+        assert_eq!(product.references[0].path, ["keys", "[]"]);
+        let invariant = registry
+            .invariants()
+            .iter()
+            .find(|i| i.relation == "authored.source" && i.kind == InvariantKind::ForeignKey)
+            .unwrap();
+        for (tenant, id, expected) in [
+            (Some(10), Some(1), 0),
+            (Some(10), Some(2), 1),
+            (None, None, 0),
+        ] {
+            if map && tenant.is_none() {
+                continue;
+            }
+            let context = SessionContext::new();
+            context
+                .catalog("datafusion")
+                .unwrap()
+                .register_schema("authored", Arc::new(MemorySchemaProvider::new()))
+                .unwrap();
+            let target_schema =
+                Arc::new(pse_schema::arrow::relation_schema(&registry, target).unwrap());
+            let target_batch = RecordBatch::try_new(
+                target_schema,
+                vec![
+                    Arc::new(Int64Array::from(vec![10, 20])),
+                    Arc::new(Int64Array::from(vec![1, 2])),
+                ],
+            )
+            .unwrap();
+            let source_schema =
+                Arc::new(pse_schema::arrow::relation_schema(&registry, source).unwrap());
+            let (DataType::List(item) | DataType::Map(item, _)) =
+                source_schema.field(1).data_type()
+            else {
+                unreachable!()
+            };
+            let DataType::Struct(fields) = item.data_type() else {
+                unreachable!()
+            };
+            let values = StructArray::new(
+                fields.clone(),
+                vec![
+                    Arc::new(Int64Array::from(if map {
+                        vec![tenant, Some(20)]
+                    } else {
+                        vec![tenant]
+                    })),
+                    Arc::new(Int64Array::from(if map {
+                        vec![id, Some(2)]
+                    } else {
+                        vec![id]
+                    })),
+                ],
+                None,
+            );
+            let keys: ArrayRef = if map {
+                Arc::new(MapArray::new(
+                    item.clone(),
+                    OffsetBuffer::new(vec![0, 2].into()),
+                    values,
+                    None,
+                    false,
+                ))
+            } else {
+                Arc::new(ListArray::new(
+                    item.clone(),
+                    OffsetBuffer::new(vec![0, 1].into()),
+                    Arc::new(values),
+                    None,
+                ))
+            };
+            let source_batch = RecordBatch::try_new(
+                source_schema.clone(),
+                vec![Arc::new(Int64Array::from(vec![7])), keys],
+            )
+            .unwrap();
+            context
+                .register_batch("authored.source", source_batch.clone())
+                .unwrap();
+            context
+                .register_batch("authored.target", target_batch.clone())
+                .unwrap();
+            let input = context
+                .read_batch(source_batch)
+                .unwrap()
+                .into_unoptimized_plan();
+            let inputs = BTreeMap::from([(
+                target.id,
+                context
+                    .read_batch(target_batch)
+                    .unwrap()
+                    .into_unoptimized_plan(),
+            )]);
+            let mut violations = 0;
+            for plan in references::plans(&input, source, &inputs, &registry).unwrap() {
+                violations += context
+                    .execute_logical_plan(plan)
+                    .await
+                    .unwrap()
+                    .collect()
+                    .await
+                    .unwrap()
+                    .iter()
+                    .map(RecordBatch::num_rows)
+                    .sum::<usize>();
+            }
+            let queried = context
+                .sql(&invariant.query)
+                .await
+                .unwrap()
+                .collect()
+                .await
+                .unwrap()
+                .iter()
+                .map(RecordBatch::num_rows)
+                .sum::<usize>();
+            assert_eq!((violations, queried), (expected, expected));
+        }
+    }
+}

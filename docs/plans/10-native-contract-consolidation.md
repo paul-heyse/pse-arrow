@@ -90,22 +90,22 @@ will be recorded by N00/N18, not relabeled onto this planning manifest.
 
 ### Library capability references
 
-Use the [DataFusion skill](../../.codex/skills/datafusion/SKILL.md) and
-[Delta Lake skill](../../.codex/skills/deltalake/SKILL.md), including its
-[source overlay](../../.codex/skills/deltalake/content/overlays/pse-native-cache-seams.md).
+Use the [DataFusion skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/SKILL.md) and
+[Delta Lake skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/SKILL.md), including its
+source overlay (`.codex/skills/deltalake/content/overlays/pse-native-cache-seams.md`, local reference).
 Do not use Context7 for Rust Arrow, DataFusion or Delta. It remains available for
 PyArrow/PyO3 and other libraries. Verify version-sensitive claims at the selected pin.
 
 | Capability | Reference / implementation constraint |
 |---|---|
-| Native local checking | `datafusion_expr::expr::Expr`, `datafusion_physical_expr_common::physical_expr::PhysicalExpr`, `SessionState::create_physical_expr`; [expressions](../../.codex/skills/datafusion/content/topics/expressions.md). Compile under the actual preparation context. |
-| Native operators | [Logical planning](../../.codex/skills/datafusion/content/topics/logical-planning.md), [ExecutionPlan](../../.codex/skills/datafusion/content/traits/ExecutionPlan.md). Audit provided methods, reconstruction, reset and child statistics. |
-| Function adapters | [ScalarUDFImpl](../../.codex/skills/datafusion/content/traits/ScalarUDFImpl.md), [AggregateUDFImpl](../../.codex/skills/datafusion/content/traits/AggregateUDFImpl.md). Preserve capabilities only where adapter preconditions hold. |
-| Sources/providers | [Custom providers](../../.codex/skills/datafusion/content/topics/custom-table-providers.md). Use native memory/source/stream adapters; private, consumptive WorkTable APIs do not implement multi-reader epochs. |
-| Resources | `datafusion_execution::memory_pool::{MemoryConsumer, MemoryReservation}`; [sessions/runtime](../../.codex/skills/datafusion/content/topics/sessions-and-runtime.md). Arrow claims and the native bridge are infallible accounting, not allocation admission. |
-| Delta operations | [Builders](../../.codex/skills/deltalake/content/catalogs/operations.md), [DataFusion integration](../../.codex/skills/deltalake/content/topics/datafusion.md). Operations are on `DeltaTable`; no `DeltaOps`. |
-| Delta validation/storage | [Constraints](../../.codex/skills/deltalake/content/topics/protocol-and-constraints.md), [schema/types](../../.codex/skills/deltalake/content/topics/schema-and-types.md). Invoke public operations, not private `validation_predicates`. |
-| Retention/transaction evidence | [Maintenance](../../.codex/skills/deltalake/content/topics/maintenance.md) and the selected-source overlay. Transaction actions are witnesses, not automatic retry deduplication. |
+| Native local checking | `datafusion_expr::expr::Expr`, `datafusion_physical_expr_common::physical_expr::PhysicalExpr`, `SessionState::create_physical_expr`; [expressions](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/topics/expressions.md). Compile under the actual preparation context. |
+| Native operators | [Logical planning](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/topics/logical-planning.md), [ExecutionPlan](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/traits/ExecutionPlan.md). Audit provided methods, reconstruction, reset and child statistics. |
+| Function adapters | [ScalarUDFImpl](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/traits/ScalarUDFImpl.md), [AggregateUDFImpl](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/traits/AggregateUDFImpl.md). Preserve capabilities only where adapter preconditions hold. |
+| Sources/providers | [Custom providers](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/topics/custom-table-providers.md). Use native memory/source/stream adapters; private, consumptive WorkTable APIs do not implement multi-reader epochs. |
+| Resources | `datafusion_execution::memory_pool::{MemoryConsumer, MemoryReservation}`; [sessions/runtime](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/content/topics/sessions-and-runtime.md). Arrow claims and the native bridge are infallible accounting, not allocation admission. |
+| Delta operations | [Builders](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/catalogs/operations.md), [DataFusion integration](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/topics/datafusion.md). Operations are on `DeltaTable`; no `DeltaOps`. |
+| Delta validation/storage | [Constraints](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/topics/protocol-and-constraints.md), [schema/types](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/topics/schema-and-types.md). Invoke public operations, not private `validation_predicates`. |
+| Retention/transaction evidence | [Maintenance](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/content/topics/maintenance.md) and the selected-source overlay. Transaction actions are witnesses, not automatic retry deduplication. |
 
 Resolved Arrow pool and DataFusion Arrow-bridge features are currently off. N13 may
 enable `arrow-array/pool` and `datafusion-execution/arrow_buffer_pool` with the ownership

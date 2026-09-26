@@ -38,20 +38,13 @@ impl RunResult {
             .map_err(|e| WorkflowError::Math(e.into()))?;
         let mut header = computation_runs::Builder::with_registry(registry, 1).map_err(relation)?;
         header
-            .push(computation_runs::Row {
-                run_id: self.run_id,
-                kind: "simulation".into(),
-                source_identity: p.revision.identity(),
-                profile_identity: p.profile_key,
-                termination: report
-                    .map_or_else(|| "rejected".into(), |r| format!("{:?}", r.termination)),
-                error: self
-                    .report
-                    .as_ref()
-                    .err()
-                    .map(ToString::to_string)
-                    .or_else(|| report.and_then(|r| r.error.as_ref().map(ToString::to_string))),
-            })
+            .push(
+                self.completion()
+                    .map_err(|e| contract(e.to_string()))?
+                    .computation
+                    .clone()
+                    .ok_or_else(|| contract("missing completed computation"))?,
+            )
             .map_err(relation)?;
         let mut samples =
             simulation_samples::Builder::with_registry(registry, 0).map_err(relation)?;
@@ -241,6 +234,18 @@ impl RunResult {
         batches: &mut BTreeMap<SemanticId, FieldCheckedBatch>,
     ) -> Result<(), WorkflowError> {
         self.numerical_tables(batches)?;
+        use pse_relations::generated::runtime::run_lineage;
+        let completion = self.completion().map_err(|e| contract(e.to_string()))?;
+        let mut lineage =
+            run_lineage::Builder::with_registry(&self.runtime.registry, completion.lineage.len())
+                .map_err(relation)?;
+        for row in &completion.lineage {
+            lineage.push(row.clone()).map_err(relation)?;
+        }
+        batches.insert(
+            run_lineage::RELATION_ID,
+            lineage.finish().map_err(relation)?,
+        );
         let mut sources = super::SourceDeclarations::default();
         for revision in self.request.revisions() {
             sources.merge(&revision.0.sources)?;

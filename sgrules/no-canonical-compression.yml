@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-canonical-compression
+language: Rust
+severity: error
+message: "Canonical identity IPC is uncompressed; transport compression is separate."
+files: ["crates/pse-columnar/src/canon/**/*.rs"]
+rule:
+  pattern: $RECEIVER.try_with_compression($$$ARGS)

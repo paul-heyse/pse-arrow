@@ -405,6 +405,7 @@ mod tests {
     #[test]
     fn shared_execution_tags_and_unavailable_evidence_roundtrip_arrow_and_json() {
         let registry = pse_schema::registry().unwrap();
+        pse_engine::validation::bind_defaults(registry).unwrap();
         let id = pse_ids::SemanticId::from_bytes([1; 16]);
         let mut expected = vec![];
         for (i, termination) in NativeTermination::ALL.into_iter().enumerate() {
@@ -420,6 +421,7 @@ mod tests {
                 state: NativeRunState::Native,
                 termination: Some(termination),
                 assurance: NativeAssurance::ALL[i % NativeAssurance::ALL.len()],
+                qualification: NativeQualification::ALL[i % NativeQualification::ALL.len()],
                 candidate_kind: Some(NativeCandidateKind::ALL[i % NativeCandidateKind::ALL.len()]),
                 feasible: None,
                 objective: None,

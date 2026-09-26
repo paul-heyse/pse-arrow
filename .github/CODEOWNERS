@@ -1,12 +1,9 @@
 # Code owners for pse-arrow.
 #
-# Sole maintainer today (GOVERNANCE.md §1): every path is reviewed by @paul-heyse, who
-# is therefore requested on every pull request. The `main` ruleset requires 0 approvals
-# because a sole maintainer cannot approve their own pull request; the CODEOWNERS entry
-# still drives review requests and, once a second maintainer exists, the ruleset moves
-# to 1 approval and this file gains per-area owners.
+# Sole maintainer today (GOVERNANCE.md §1). Pull requests are optional; this entry
+# requests the maintainer's review when one is opened.
 #
 # Adding an owner here is a governance change: it needs an ADR, an update to
-# .github/setup/ruleset-main.json, and a `just gh-setup` re-run.
+# .github/setup/ruleset-main-full.json, and a `just gh-setup` re-run.
 
 * @paul-heyse

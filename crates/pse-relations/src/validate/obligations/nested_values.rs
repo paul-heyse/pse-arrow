@@ -15,7 +15,6 @@ use crate::native::{
 use std::collections::BTreeSet;
 
 pub(super) struct Occurrence {
-    pub field: Field,
     pub path: Vec<String>,
     pub path_column: String,
     pub input: LogicalPlan,
@@ -95,7 +94,6 @@ fn descend(
         .build()?;
     if matches(field) && !matches!(field.data_type(), DataType::Dictionary(..)) {
         output.push(Occurrence {
-            field: field.clone(),
             path: path.clone(),
             path_column: path_column.clone(),
             input: input.clone(),

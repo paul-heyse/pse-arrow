@@ -66,6 +66,20 @@ pub enum Pass {
     /// Explicit safe auxiliary nonlinear reduction.
     Auxiliary,
 }
+impl Pass {
+    /// Stable report spelling, independent of Rust debug output.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::LinearBounds => "linear_bounds",
+            Self::RedundantRows => "redundant_rows",
+            Self::AffineElimination => "affine_elimination",
+            Self::Fbbt => "fbbt",
+            Self::RankDiagnostics => "rank_diagnostics",
+            Self::Auxiliary => "auxiliary",
+        }
+    }
+}
+
 /// User policy. Native options are retained in full rather than stringly reimplemented.
 #[derive(Clone, Debug, Default)]
 pub enum Policy {

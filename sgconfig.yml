@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# ast-grep is the structural layer of the blueprint §24.1 bans: the rules that a
-# regex would get wrong (a banned call inside a comment, a string, or a
-# differently-formatted call site). The regex layer lives in
-# tests/governance/banned_patterns.rs and the type-aware layer in clippy.toml's
-# disallowed-methods; each rule belongs to exactly one of the three.
+# ast-grep owns scoped syntax/literal bans; clippy.toml owns type-aware bans.
 #
 # Run: `ast-grep scan --config sgconfig.yml` (also `just lint-repo`, pre-commit).
 
 ruleDirs:
   - sgrules
+utilDirs:
+  - sgutils
+testConfigs:
+  - testDir: sgtests

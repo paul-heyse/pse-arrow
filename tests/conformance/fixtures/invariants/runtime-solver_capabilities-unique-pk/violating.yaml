@@ -1,0 +1,36 @@
+{
+  "invariant": "runtime.solver_capabilities:unique:pk",
+  "rows": {
+    "runtime.solver_capabilities": [
+      {
+        "backend": "[\"enum\",\"ipopt\"]",
+        "cancellation": "[\"text\",\"value-1\"]",
+        "classes": "[\"list\",[]]",
+        "derivatives": "[\"enum\",\"exact_hessian_or_limited_memory\"]",
+        "diagnostics": "[\"text\",\"value-1\"]",
+        "general_bounds": "[\"bool\",true]",
+        "parallel": "[\"bool\",true]",
+        "reuse": "[\"text\",\"value-1\"]",
+        "sign_bounds": "[\"bool\",true]",
+        "warm": "[\"enum\",\"none\"]"
+      },
+      {
+        "backend": "[\"enum\",\"ipopt\"]",
+        "cancellation": "[\"text\",\"value-1\"]",
+        "classes": "[\"list\",[]]",
+        "derivatives": "[\"enum\",\"exact_hessian_or_limited_memory\"]",
+        "diagnostics": "[\"text\",\"value-1\"]",
+        "general_bounds": "[\"bool\",true]",
+        "parallel": "[\"bool\",true]",
+        "reuse": "[\"text\",\"value-1\"]",
+        "sign_bounds": "[\"bool\",true]",
+        "warm": "[\"enum\",\"none\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"enum\",\"ipopt\"]"
+    ]
+  ]
+}

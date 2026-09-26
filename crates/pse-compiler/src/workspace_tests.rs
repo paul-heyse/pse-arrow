@@ -315,19 +315,36 @@ fn fixedness_bounds_aliases_and_physical_edits_reprepare() {
     compare_clean(&mut w, &i);
 }
 #[test]
+fn repeated_same_query_retains_one_key_without_count_based_rotation() {
+    let mut w = CompilerWorkspace::new(inputs(), WorkspaceLimits::default()).unwrap();
+    let first = prepare(&mut w);
+    let retained = w.retention_usage();
+    for _ in 0..300 {
+        let next = prepare(&mut w);
+        assert!(Arc::ptr_eq(&first.plan, &next.plan));
+    }
+    assert_eq!(w.generation(), 0);
+    assert_eq!(w.retention_usage(), retained);
+}
+
+#[test]
 fn finite_generations_cancel_retry_and_invalid_batch_are_atomic() {
     let mut i = inputs();
     let mut w = CompilerWorkspace::new(
         i.clone(),
         WorkspaceLimits {
-            revisions: 1,
-            preparations: 2,
+            retained_entries: 128,
+            query_values: 2,
             ..WorkspaceLimits::default()
         },
     )
     .unwrap();
     let old = prepare(&mut w);
     for n in 0..6 {
+        // Distinct owned query keys, not request counts, exert actual retained pressure.
+        for k in 0..129 {
+            assert!(domain(&w.db, w.inventory, format!("absent-{n}-{k}")).is_none());
+        }
         i.values.insert(id(2), f64::from(n) + 1.);
         w.publish(i.clone()).unwrap();
         prepare(&mut w);

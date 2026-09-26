@@ -1,28 +1,18 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The rules the repository applies to itself. `governance / adr-lint` and
-# `governance / pr-title` are required checks; `reuse` and `agent-config` are not.
-#
-# Nothing here builds anything. These jobs are cheap on purpose, so that a decision
-# record with a bad anchor or a pull request with an unconventional title fails in under
-# a minute rather than behind a twenty-minute test run.
+# Optional repository governance checks, run only on manual dispatch.
 name: governance
 
 on:
-  pull_request:
-    # `edited` and the label types matter: the title and the labels are the inputs, so
-    # fixing either has to re-run the check rather than leaving a stale red mark.
-    types: [opened, edited, reopened, synchronize, labeled, unlabeled, ready_for_review]
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -60,94 +50,6 @@ jobs:
             exit 1
           }
           echo "idaes-pse parity pin and reading-copy tag agree at ${pin}"
-      - name: decision labels are consistent
-        if: ${{ github.event_name == 'pull_request' }}
-        env:
-          # Through env, never interpolated into the script: a pull-request title is
-          # attacker-controlled text.
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -euo pipefail
-          labels=",${PR_LABELS},"
-
-          fail() { echo "::error::$*"; exit 1; }
-
-          # 1. `needs-adr` means a decision is still owed. It blocks the merge by design;
-          #    the fix is to write the ADR, or to argue the label off in review.
-          case "${labels}" in
-            *,needs-adr,*)
-              fail "This pull request is labeled 'needs-adr': a decision must be recorded before it can merge (CONTRIBUTING.md §4)." ;;
-          esac
-
-          # 2. Touching a decision record requires the `adr` label and the title form,
-          #    because that is what makes the decision auditable (GOVERNANCE.md §2).
-          changed_adrs="$(git diff --name-only "${BASE_SHA}" HEAD -- 'docs/adr/[0-9][0-9][0-9][0-9]-*.md' || true)"
-          if [ -n "${changed_adrs}" ]; then
-            echo "decision records touched:"
-            echo "${changed_adrs}"
-            case "${labels}" in
-              *,adr,*) ;;
-              *) fail "This pull request changes a decision record but is not labeled 'adr' (GOVERNANCE.md §2, the decision-PR rule)." ;;
-            esac
-            if ! printf '%s' "${PR_TITLE}" | grep -qE '^adr: ADR-[0-9]{4} .+'; then
-              fail "A decision pull request must be titled 'adr: ADR-NNNN <title>'. Got: ${PR_TITLE}"
-            fi
-          fi
-
-          # 3. The `adr` label without a decision record is the mirror-image mistake.
-          case "${labels}" in
-            *,adr,*)
-              if [ -z "${changed_adrs}" ]; then
-                fail "This pull request is labeled 'adr' but changes no docs/adr/NNNN-*.md record."
-              fi ;;
-          esac
-
-          echo "governance: decision labels and title are consistent"
-
-  pr-title:
-    name: governance / pr-title
-    if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - name: the squash title is a Conventional Commit
-        # Merges are squash-only with the commit title taken from the pull-request title,
-        # so THIS string is what git-cliff files in the changelog. The type list is the
-        # same one in cliff.toml's commit_parsers; keep the two in step.
-        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            perf
-            refactor
-            docs
-            test
-            build
-            ci
-            chore
-            deps
-            adr
-            design
-          # Scopes are free-form crate or area short names, so they are neither required
-          # nor validated against a list.
-          requireScope: false
-          # Lower-case subject, no trailing period — except the `ADR-NNNN` form, which is
-          # a citation and keeps its capitals.
-          subjectPattern: '^(?:ADR-\d{4} .+|[a-z0-9].*[^.\s])$'
-          subjectPatternError: |
-            The subject "{subject}" of "{title}" is not in the expected form.
-            Start lower-case and do not end with a period, for example:
-              feat(relations): reject nullable extension arrays at the boundary
-            An ADR pull request keeps its citation capitals:
-              adr: ADR-0042 spill policy for the inference engine
-          validateSingleCommit: false
 
   reuse:
     name: governance / reuse

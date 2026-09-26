@@ -74,9 +74,14 @@ fn descriptor(registry: &Registry) -> pse_model::artifact::ArtifactDescriptor {
     let hash = ContentHash::from_bytes([1; 32]);
     ArtifactDescriptor::create(wire::Row {
         artifact_id: hash,
-        descriptor_version: 1,
+        descriptor_version: 2,
         profile: PublicationKind::Inspection,
-        profile_contract: registry.fingerprint(),
+        profile_contract: pse_schema::fingerprint::semantic_profile(
+            registry,
+            "inspection",
+            &[registry.relation("authored.values").unwrap().id].into(),
+        )
+        .unwrap(),
         requested_relations: vec![registry.relation("authored.values").unwrap().id],
         release_id: hash,
         release_members: vec![],
@@ -141,6 +146,7 @@ async fn explicit_product_reopens_after_eviction_and_refuses_another_descriptor(
             vec![],
             &cancel,
         )
+        .map(|(command, _ticket)| command)
         .unwrap();
     let result = command.execute(&cancel).await.unwrap();
     let version = result.batches()[0]
@@ -275,6 +281,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
                 vec![],
                 &cancel,
             )
+            .map(|(command, _ticket)| command)
             .unwrap()
     };
     let first = publish().execute(&cancel).await.unwrap();
@@ -549,6 +556,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
                 vec![],
                 &cancel,
             )
+            .map(|(command, _ticket)| command)
             .unwrap()
     };
     assert!(failed_publication().execute(&cancel).await.is_err());

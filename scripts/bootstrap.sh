@@ -31,7 +31,7 @@ CARGO_TOOLS=(
   "cargo-shear"   "cargo-machete" "cargo-llvm-cov"
   "cargo-insta"   "cargo-hack"   "cargo-msrv"
   "cargo-mutants" "cargo-geiger" "cargo-udeps"
-  "cargo-semver-checks" "mdbook" "git-cliff"
+  "cargo-semver-checks" "git-cliff"
 )
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -65,6 +65,7 @@ stage_rust() {
   fi
   say "Installing cargo development tools"
   cargo binstall --no-confirm "${CARGO_TOOLS[@]}"
+  (cd "$ROOT" && python3 -m scripts.docs install)
 }
 
 stage_repo_linters() {
@@ -86,13 +87,6 @@ stage_repo_linters() {
   fi
 }
 
-stage_hooks() {
-  if [[ -x "$PY" ]]; then
-    say "Installing git hooks (pre-commit and pre-push)"
-    "$PY" -m pre_commit install --install-hooks
-  fi
-}
-
 main() {
   case "${1:-all}" in
     --venv-only)    stage_venv ;;
@@ -104,7 +98,6 @@ main() {
       stage_quality
       stage_rust
       stage_repo_linters
-      stage_hooks
       ;;
     *) echo "usage: $0 [--venv-only|--quality-only|--rust-only|--linters-only]" >&2
        exit 2 ;;

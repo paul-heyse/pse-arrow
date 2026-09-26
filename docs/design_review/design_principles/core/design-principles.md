@@ -1,90 +1,171 @@
 # Design principles
 
-**Version 2.0 · 2026-09-24** · Core layer: repository- and domain-agnostic.
-Supersedes the Data Model–Based Design Charter 1.0; its IDs map to this document in §I.
+**Version 3.0 · 2026-09-25** · Core layer: repository- and domain-agnostic.
+Six architectural foundations organize the operational rules retained from Core 2.0.
+§J records the version transition; §I preserves the earlier charter lineage.
 
-> **Author meaning once, typed and explicit. Take generic mechanisms from qualified
-> libraries. Derive everything else. Back every claim with evidence.**
+> **Localize change. Encode meaning structurally. Extend through composition.**
 
 ## 0. How to use this document
 
-**Layers.** This is the core of a layered standard:
+The core defines architectural foundations `AP-01`–`AP-06`, operational refinements
+`DP-01`–`DP-24`, gates `G1`–`G9` and the review contract. Domain profiles add relevant
+correctness requirements and review lenses. A repository binding maps these to local
+authorities, commands and decision routes. The repository's `standard.toml` selects versions.
+Profiles and bindings may tighten the core; they may not waive it (§B).
 
-| Layer | Holds | May reference |
-|---|---|---|
-| Core (this document and the core review template) | General design principles `DP-nn`, gates `G1`–`G8`, evidence vocabulary, review contract | Nothing outside the core |
-| Domain profile | Principles and gates for a class of system (IDs with the profile's own prefix), plus review additions | The core |
-| Repository binding | No principles. Maps profile roles to one repository's authorities, commands, routes and local policies | Core, profiles, repository |
+**Levels.** MUST is an obligation for the supported scope. An unmet MUST narrows that
+scope or leaves the design unresolved; it cannot be excused by a SHOULD exception.
+SHOULD is a strong default with a reasoned, proportionate exception (§H) when material.
+Not applicable requires a scope reason; unimplemented does not mean irrelevant.
 
-A repository states which profiles and binding apply. §B gives the layering rules.
-
-**Levels.** **MUST** is a required contract: a design must not claim alignment while violating
-it. When a MUST cannot yet be met, narrow the supported scope or record the design as
-unresolved against it. **SHOULD** is a strong default; a deviation needs a stated reason and an
-exception record (§H) when material. A principle is *not applicable* only for a reason tied to
-scope — unimplemented is not the same as irrelevant.
-
-**How alignment is established.** Principles describe properties of a design, not procedures.
-They are applied with judgment to the scope at hand — not by enumerating every principle for
-every change, and not by a mechanical alignment checker. The engineers and agents applying them
-establish facts by whatever means is most efficient and reliable for them: reading
-documentation, source and types, reasoning from experience. Probes, tests and written records
-are tools to use where real uncertainty or risk remains, never obligations or proof of
-diligence. The audit questions ask what is true of the design, not which artifact shows it.
+**Judgment.** Review properties of the design, not compliance with a document-production
+ritual. Reading source, interfaces and designs may settle a question. Use experiments when
+material doubt remains. Tests and measurements support their named claims; they do not
+certify the architecture. No score, file-count quota or universal trait/registry pattern
+substitutes for reasoning about concrete changes.
 
 ## 1. Governing objective
 
-Design toward the best available design for the system's functional target. Local rules,
-plan scope and conventions serve that target: where one blocks a clearly better design, record
-the conflict as a required change with its route instead of treating it as a constraint.
+Organize the system so expected changes remain local, important meaning has explicit
+ownership, and new behavior composes through understandable contracts. Optimize for
+extensibility, maintainability, modularity, testability and evolvability within the system's
+correctness and required operational constraints. Domain profiles supply additional
+constraints, including scientific correctness where relevant.
 
-When qualities conflict, resolve them in this order:
+Start with the functional target and a small set of representative changes. Establish what
+must stay stable, what may vary, and which responsibilities should absorb each variation.
+Resolve tradeoffs against these scenarios: state the benefit, the cost, the affected boundary
+and the condition that would reopen the decision. Local rules serve the target; a rule that
+blocks a better design becomes a required authority change in a target-purpose review.
 
-1. **Correctness and semantic fidelity** — meaning is explicit, enforced and preserved.
-2. **Diagnosability** — failures and decisions can be explained from structured evidence.
-3. **Extensibility** — an ordinary change is local: one declaration, genuinely new code, tests.
-4. **Performance** — measured, end to end.
-5. **Implementation convenience.**
+Correctness and truthful claims remain constraints. Among conforming designs, favor localized
+change, clear ownership and bounded reasoning; consider performance against actual workloads.
+Neither a library name, declarative syntax, source-line reduction nor an abstraction count
+establishes quality. Modifiability depends on coupling, cohesion and change cost, as developed
+in the [SEI modifiability tactics](https://www.sei.cmu.edu/library/modifiability-tactics/).
 
-Minimize **independent semantic decisions** and **bespoke generic code**, not source lines.
-A specialized algorithm behind a complete contract is aligned; a declarative-looking wrapper
-around hidden rules is not.
+### Design-stage calibration
 
-Before choosing technology, answer: which meanings must survive every representation; which
-facts are authoritative, bound, observed or derived; which invariants and effects govern
-valid change; which transformations create execution forms and under what assumptions; and
-which generic capabilities an existing library already provides.
+Stable contracts have explicit meaning and deliberate evolution; they need not freeze an
+immature API. Break and migrate internal contracts when that improves the agreed target.
+An extension point needs a credible variation axis, which can come from the roadmap before a
+second implementation exists. Prefer the least machinery that accommodates that variation.
+Ordinary functions, typed values and modules can provide composition and isolation.
 
-## 2. Principle index
+Library eligibility is unrestricted by the existence of a current consumer. Evaluate the
+integration's coupling, lifecycle, configuration and maintenance costs independently (§F).
+Use types, schemas or validated construction where they help; scientific and dynamic
+constraints may require runtime checks. Preserve independent test oracles: verification of
+an authority is not a second writable production authority.
 
-| Pillar | ID | Principle | Level | Gate |
-|---|---|---|---|---|
-| A. Meaning and authority | DP-01 | One authority per fact | MUST | G1 |
-| | DP-02 | Semantic distinctions are types | MUST | G2 |
-| | DP-03 | Invariants have an enforcement point | MUST | G3 |
-| | DP-04 | Identity is semantic and layered | MUST | G1 |
-| | DP-05 | Definitions, bindings, policies, observations and results stay separate | MUST | G1, G5 |
-| | DP-06 | Author structure once | SHOULD | — |
-| | DP-07 | Relationships keep their kind, direction and multiplicity | MUST | G2, G6 |
-| B. Derivation and computation | DP-08 | Transformations carry contracts and preserve meaning | MUST | G6 |
-| | DP-09 | One reuse mechanism, keyed on complete dependencies | MUST | G6 |
-| | DP-10 | Prepare once, execute many; cross boundaries coarsely | SHOULD | — |
-| | DP-11 | Precision, approximation and determinism are contracts | MUST | G6 |
-| | DP-12 | Recursion, cycles and iteration have explicit semantics | MUST | G5, G6 |
-| C. Libraries and code economy | DP-13 | Library first | MUST | G8 |
-| | DP-14 | Built-ins and thin adapters | SHOULD | G8 |
-| | DP-15 | Qualify every library boundary | MUST | G7 |
-| | DP-16 | Minimize bespoke machinery; maximize extension locality | SHOULD | G8 |
-| | DP-17 | Module boundaries follow ownership | SHOULD | — |
-| D. Execution and failure | DP-18 | Effects are declared; pure code stays pure | MUST | G4 |
-| | DP-19 | Owned workspaces, coherent publication, explicit outcomes | MUST | G5 |
-| | DP-20 | Concurrency and resources are bounded and coordinated | MUST | G5 |
-| | DP-21 | Diagnostics, lineage and reproducibility are structured | MUST | G3, G7 |
-| E. Evidence and evolution | DP-22 | Claims are labelled and falsifiable | MUST | G7 |
-| | DP-23 | Verification matches the risk | MUST | G3, G6 |
-| | DP-24 | Contracts evolve explicitly and are discoverable | MUST | G2 |
+## 2. Architectural foundations
 
-# Principles
+All six foundations are assessed for a system/subsystem design review, with explicit scope
+reasons where one is irrelevant. A change review assesses the affected foundations. Their
+verdicts settle G9 individually; strengths are never averaged. Detailed DP rules refine these
+foundations and retain their identifiers for existing decisions and historical reviews.
+
+### AP-01 — Separation of concerns: isolate reasons for change
+
+**MUST · G9.** Components own coherent responsibilities and hide decisions that other
+components need not know. Group behavior and invariants that change together; separate
+independent reasons for change. Dependencies follow those responsibilities with an explicit
+direction. A component may be substantial behind a narrow interface; splitting files or
+crates is not itself modularity.
+
+**Assess.** For a representative policy, representation or infrastructure change, which
+owners must change and why? Does the change require knowledge of unrelated internals? Can
+an apparent module boundary be bypassed through globals or a shared service locator?
+
+**Refinements:** DP-05, DP-14, DP-17, DP-18, DP-19.
+
+### AP-02 — Stable contracts, replaceable implementations
+
+**MUST · G9.** Consumers depend on the meaning and capabilities they use, with explicit
+inputs, outputs, invariants, effects and failure semantics. Incidental backend mechanics
+remain within their integration owner. A conforming replacement preserves the consumed
+contract; differences in supported capabilities are explicit rather than forced into a
+lowest-common-denominator API. Evolution has a deliberate boundary and migration path.
+
+**Assess.** What changes when an implementation or library version changes? Can consumers
+exercise the contract without reproducing its implementation? Are dependencies wider than
+the capabilities the consumer needs? An intentionally shared library data contract is valid;
+a wrapper must earn its semantic or substitution benefit.
+
+**Refinements:** DP-08, DP-14, DP-15, DP-17, DP-24.
+
+### AP-03 — Composition over entanglement
+
+**MUST · G9.** Build workflows from independently understandable capabilities with explicit
+composition rules. An ordinary extension within the declared variation axis adds or combines
+capabilities at its extension point without adding special cases to unrelated internals.
+A new core concept may legitimately change the core contract and its consumers; distinguish
+that from repeating the same end-to-end workflow for another instance.
+
+**Assess.** Trace a new workflow or capability. Which primitives are reused? Which behavior
+is genuinely new? Is the composition root identifiable? Does adding a variant copy a workflow,
+or require coordinated switches that each reinterpret the same policy?
+
+**Refinements:** DP-06, DP-08, DP-12, DP-13, DP-16.
+
+### AP-04 — One authoritative representation of each concept
+
+**MUST · G1, G9.** Each semantic fact has one owner and update path within its scope.
+Derive repeated representations and checks where appropriate, preserving mappings and any
+loss. Authority is scoped by meaning: no universal schema, registry or storage format is
+required. Distinct responsibilities may need distinct physical representations.
+
+**Assess.** Where is a rule changed? Which other representations follow, and what prevents
+them disagreeing? A specification states intended behavior; an implementation realizes it.
+Their divergence is a defect or pending change, not proof that having both is duplication.
+
+**Refinements:** DP-01, DP-04, DP-05, DP-06, DP-09.
+
+### AP-05 — Make structure and constraints explicit
+
+**MUST · G2, G3, G9.** Decision-relevant dependencies, ownership, configuration, capabilities,
+state transitions, effects and failures are discoverable through explicit contracts.
+Important constraints have enforceable boundaries. Prefer structural enforcement where
+practical; runtime rejection remains appropriate when a type cannot express the constraint.
+Machine-readable declarations are useful when consumers inspect or derive from the meaning.
+
+**Assess.** Which conventions must a caller remember? Can construction bypass an invariant?
+Can lifecycle, dependencies and failure outcomes be inspected without reverse-engineering
+statement order? Do declarations enforce meaning or merely describe unchecked metadata?
+
+**Refinements:** DP-02, DP-03, DP-07, DP-11, DP-12, DP-15, DP-19, DP-20, DP-21.
+
+### AP-06 — Local reasoning and independent testability
+
+**MUST · G4, G9.** A component's behavior and expected changes can be understood from its
+contract, explicit inputs and a bounded set of dependencies. Own mutable state clearly;
+isolate effects and expose nondeterminism. Tests can exercise a responsibility with the
+dependencies it actually needs, without initializing unrelated workflows or infrastructure.
+Necessary integration tests remain; a mock count or a pure-function count is not the goal.
+
+**Assess.** What must a developer or agent read and instantiate to change this component
+safely? Can failure and lifecycle behavior be exercised locally? Does a constructor hide
+registration, ambient configuration, storage access or solver startup? Is execution observable
+at the level needed to explain decisions without introducing another source of policy?
+
+**Refinements:** DP-10, DP-17, DP-18, DP-19, DP-21, DP-23, DP-24.
+
+## 3. Operational refinement index
+
+These rules are conditional on the operation being reviewed. An architecture review first
+establishes responsibilities, contracts and scenarios; it does not enumerate mechanisms that
+the subject does not need. DP-22 governs evidence for every foundation and refinement.
+
+| Concern | Rules | Gates |
+|---|---|---|
+| Meaning, authority, identity and relationships | DP-01–DP-07 | G1, G2, G3, G5, G6 |
+| Transformation, reuse, preparation, determinism and iteration | DP-08–DP-12 | G5, G6 |
+| Library use, integration cost and module ownership | DP-13–DP-17 | G7, G8, G9 |
+| Effects, lifecycle, resources and diagnostics | DP-18–DP-21 | G3, G4, G5, G7 |
+| Evidence, verification and evolution | DP-22–DP-24 | G2, G3, G6, G7 |
+
+# Operational refinements
 
 ## A. Meaning and authority
 
@@ -299,24 +380,27 @@ work fail late or silently fall back? Can installing a package change a selectio
 
 **SHOULD · G8.** Judge a design by the independent semantic decisions and bespoke code it
 removes. An ordinary extension should be one authoritative declaration, any genuinely new
-implementation, and focused tests where warranted (§E). Prefer runtime and library mechanisms to generated
-static projections; generate code only where no runtime mechanism serves, and never treat
-generated output as an authority. Proportionality applies to bespoke machinery — registries,
-compilers, generators, services and frameworks we would write ourselves — not to adopting a
-library capability. Once a replacement lands and its callers have moved, delete the replaced
-code, tests and fixtures in the same change; keep no shim or parallel path "as evidence".
+implementation, and focused tests where warranted (§E). Prefer runtime and library mechanisms
+to generated static projections; generate code only where no runtime mechanism serves, and
+never treat generated output as an authority. Proportionality applies to the integration as
+well as bespoke machinery: account for coupling, initialization, configuration and upgrade
+obligations introduced by a capability. Eligibility never requires a current consumer; the
+adopted integration still needs an architectural role or a bounded exploration purpose. Once
+a replacement lands and its callers have moved, delete the replaced code, tests and fixtures
+in the same change; keep no shim or parallel path "as evidence".
 
 **Audit.** Where must a typical extension be expressed, and is any meaning re-expressed in
 several places? Does a bespoke layer lack a current requirement? Does a replaced path survive?
 
 ### DP-17 — Module boundaries follow ownership
 
-**SHOULD.** Modules and packages are deep: small, stable interfaces over substantial behaviour,
-each owning one concern, with an acyclic dependency graph. Dependencies point from mechanism to
+**SHOULD · refines AP-01, AP-02, AP-06.** Modules and packages are deep: small, stable interfaces
+over substantial behaviour, each owning one concern, with an acyclic dependency graph. Dependencies point from mechanism to
 meaning: the domain core does not depend on a particular backend, solver, store or language
 bridge; mechanisms are selected by explicit policy and lowering. Library types are used freely
-inside the module that owns the integration, but they do not define the public semantic model
-or leak into unrelated modules.
+inside their integration owner. Intentionally adopted shared data contracts may expose library
+types; incidental implementation objects must not couple unrelated consumers to internals.
+The six foundations govern the result; this rule does not require a trait or crate per concern.
 
 **Audit.** Could another conforming backend consume the same intent? Does a public model type
 mirror a library's internal objects? Must a caller know a module's internals to use it?
@@ -406,7 +490,8 @@ stages covered?
 
 ### DP-24 — Contracts evolve explicitly and are discoverable
 
-**MUST · G2.** Version structural and semantic contracts, classify compatibility, and migrate with
+**MUST · G2.** Evolve structural and semantic contracts explicitly; version durable or externally
+consumed contracts where compatibility matters, classify compatibility, and migrate with
 recorded provenance; unknown or incompatible versions are never reinterpreted under current
 defaults. Meaning-changing migrations need explicit decisions. Document the sanctioned
 extension path — declaration, binding, transformation, kernel, adapter or policy — in a compact,
@@ -435,9 +520,14 @@ or relax these.
 | G6 — Transformation and reuse | A rewrite, cache hit, projection or alternate backend changes required behaviour without a valid contract or selected approximation policy. | DP-07, DP-08, DP-09, DP-11, DP-23 |
 | G7 — Truthful capability claims | A capability is claimed without an implementation route or evidence, or unsupported work silently falls back. | DP-15, DP-21, DP-22 |
 | G8 — Library leverage | Generic capability is implemented bespoke where an adopted or established library clearly provides it, without a stated reason. | DP-13, DP-14, DP-16 |
+| G9 — Architectural fitness | A representative change violates an applicable foundation: avoidable cross-owner changes, leaked implementation knowledge, entangled composition, competing authority, implicit constraints, or inability to reason/test locally. | AP-01–AP-06 |
 
-A G8 failure calls for revision, not rejection: it is a cost and extensibility defect, not a
-correctness defect, unless the bespoke code also fails another gate.
+For G9, name the scenario, violated foundation, affected boundary and concrete consequence.
+A missing analysis of a material scenario is unresolved, not automatically a defect. A wide
+change justified by a new core concept is not a failure merely because it touches many files.
+All applicable foundations must be satisfied for G9 to pass. A proposed correction does not
+make the current architecture pass. G8 or G9 can require revision while functional outputs
+remain correct; judge design and implementation at their stated evidence strengths.
 
 ## §B Layering rules
 
@@ -464,7 +554,7 @@ correctness defect, unless the bespoke code also fails another gate.
 | Is it an optimized layout or queryable projection? | A derived artifact with explicit dependencies and identity mapping |
 | Is it an effectful action or an important execution sequence? | A typed action or workflow at an execution boundary |
 | Is it a repeated mechanical expression of an existing contract? | A runtime or library mechanism; generate code only where none serves |
-| Is it speculative bespoke flexibility with no current requirement? | Defer it. Adopting a library capability is not speculative flexibility |
+| Is it flexibility without a credible variation axis or exploration purpose? | Defer the integration machinery. Library eligibility remains unrestricted; assess adoption cost against its architectural role |
 
 ## §D Evidence vocabulary
 
@@ -488,9 +578,20 @@ Ask where a typical new entity, rule, provider, model or policy must be expresse
 > focused tests where warranted; adapters, validation, documentation and execution bindings follow
 > from existing contracts and library mechanisms.
 
-A change touching several files is not a failure. A change that re-expresses the same meaning
-independently in several places is. A genuinely new core concept may legitimately require
-versioned changes to the core and its backends.
+A change touching several files is not a failure. Re-expressing the same meaning or changing
+unrelated owners for an ordinary extension is. A genuinely new core concept may legitimately
+require changes to the core and its backends. Record the expected impact and trace the actual
+or proposed edit path; explain each crossing of a responsibility boundary.
+
+A useful scenario states the stimulus, relevant conditions, affected responsibility, desired
+response and observable acceptance. Choose a small set that distinguishes the alternatives.
+The [SEI quality-attribute scenario approach](https://sei.cmu.edu/library/quality-attribute-workshop-collection/)
+provides the underlying method; a formal workshop is not required.
+
+Assess change amplification, repeated decisions, leaked implementation knowledge, test setup
+and context needed for safe modification. Counts may help explain an observation; no universal
+file, module, dependency or time threshold defines good architecture. A predicted improvement
+is Proposed until its stated evidence supports more.
 
 ## §F Library consideration
 
@@ -502,7 +603,9 @@ a review or a code comment — helps the next reader; use whichever points are u
 |---|---|
 | Capability | What is needed, stated as behaviour and contract, not as an implementation |
 | Candidates | Libraries and built-ins that plausibly provide it |
-| Fit and gaps | What each provides and what it lacks for this contract |
+| Fit and gaps | What each provides and what it lacks for this contract, including capability differences |
+| Integration owner | Which module absorbs library details and what consumers see |
+| Ownership cost | Coupling, lifecycle, configuration, testing, upgrade and replacement costs; bespoke machinery removed |
 | Decision | Adopt, adapt, or build — and for build, the bounded scope of the bespoke code |
 | Revisit | What would reopen the decision, such as a candidate gaining the capability |
 
@@ -563,6 +666,25 @@ dimensions are retired in favour of gate verdicts and findings.
 | DM-52, DM-56, DM-57, DM-58 | DP-16 (reframed: proportionality limits bespoke machinery, not library use) |
 | DM-53, DM-54, DM-60 | DP-23 |
 | Charter §D, §E, §F, §G, §H | §D, §E, §C, §G, §H |
+
+## §J Version transition: Core 2.0 → 3.0
+
+Historical reviews retain their reviewed version and verdict. A current review never upgrades
+an earlier observation merely because a gate or principle now exists. Prior text remains in
+Git history; the original DP and PS identifiers are not renumbered.
+
+| Core 2.0 concept | Core 3.0 treatment |
+|---|---|
+| DP-17 module ownership; DP-16 locality; §E extension journey | AP-01, AP-02, AP-03 and AP-06 make architectural outcomes mandatory; DP rules remain refinements |
+| DP-01–DP-12 authority, typing and computation | AP-04/AP-05 organize them; detailed contracts remain applicable where the mechanism exists |
+| DP-13–DP-16 library-first and economy | Library eligibility retained; DP-16 and §F now assess integration costs regardless of implementation source |
+| DP-17 library types | Intentional shared library data contracts distinguished from leaked incidental implementation types |
+| DP-24 evolution | Deliberate internal changes permitted; durable/external compatibility remains explicit |
+| G1–G8 | Identifiers and independent obligations retained; G9 is new |
+| Template slots 2–5 | Decomposition, contracts/authority, change scenarios, then mechanisms; profile slot routing changes with the template version |
+| Finding consequence and verdict | Change cost, coupling and test isolation are reportable; architecture and behavior both constrain acceptance |
+| Document/code disagreement | Intended specification and observed implementation are distinct roles; reconcile divergence |
+| DM/RCA lineage | §I and the repository binding preserve historical mappings |
 
 ## Closing standard
 

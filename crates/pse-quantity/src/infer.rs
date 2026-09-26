@@ -2,8 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Complete quantity inference (blueprint §8.3).
-mod cache;
-pub use cache::InferenceCache;
 
 use crate::literal::{LiteralContext, resolve_literal};
 use crate::{

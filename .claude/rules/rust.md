@@ -78,9 +78,9 @@ for the behaviour you changed are the whole loop; both pass
 Delete a replaced mechanism with its tests as soon as the replacement's tests pass and
 its callers have moved.
 
-At plan close, qualify once: `just ci-fast` (fmt, `cargo check`, clippy `-D warnings`,
-nextest and doctests — **nextest does not run doctests**, which is why `just doctest` is
-a separate step), `just governance` (pins match the blueprint, every crate registered,
-MSRV equals the toolchain, dependency floors, unsafe allowlist, error taxonomy), then
-the plan's integration and performance gates. Do not run clippy, format checks or the
-governance aggregate per package; the post-edit hook already formats what you edit.
+When the maintainer requests comprehensive qualification, `just ci-fast` covers fmt,
+`cargo check`, clippy `-D warnings`, nextest and doctests — **nextest does not run
+doctests**, which is why `just doctest` is a separate step. `just governance` covers
+pins, crate registration, MSRV, dependency floors, unsafe allowlist and error taxonomy.
+Select integration and performance checks for the requested scope. These aggregates do
+not run automatically at plan close, commit, push or merge.

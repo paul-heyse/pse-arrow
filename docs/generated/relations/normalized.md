@@ -2,18 +2,6 @@
 
 # normalized relations
 
-## `domain_products`
-
-blueprint §6.3 domain: domain_products.
-
-Version: 1. Snapshot class: `derived`. Primary key: `product_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `product_id` | `semantic_id` | false | `key` | — | — |
-| `domain_ids` | `List` | false | `payload` | — | — |
-| `domain_ids.item` | `semantic_id` | false | `payload` | — | — |
-
 ## `instance_bindings`
 
 Complete finite prospective roots and children; guards are decided by P4.
@@ -50,26 +38,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `package_id`.
 | `dependency_package_ids` | `List` | false | `payload` | — | — |
 | `dependency_package_ids.item` | `semantic_id` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
-
-## `property_demand_seeds`
-
-Each source-bound demand retains its exact normalized read node and guard; opaque explicit demands have no read node.
-
-Version: 2. Snapshot class: `derived`. Primary key: `seed_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `seed_id` | `semantic_id` | false | `key` | — | — |
-| `source_id` | `semantic_id` | false | `payload` | — | — |
-| `source_kind` | `enum:DemandSource` | false | `payload` | — | — |
-| `scope_id` | `semantic_id` | false | `payload` | `authored.scopes.scope_id` | — |
-| `property_kind_id` | `semantic_id` | false | `payload` | — | — |
-| `index` | `index_tuple` | true | `payload` | — | — |
-| `guard_node_id` | `Int64` | true | `payload` | — | — |
-| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
-| `guard_source_id` | `semantic_id` | true | `payload` | — | — |
-| `source_symbol_decl_id` | `semantic_id` | true | `payload` | `authored.template_symbols.symbol_decl_id` | — |
-| `read_node_id` | `Int64` | true | `payload` | — | — |
 
 ## `resolved_source_occurrences`
 

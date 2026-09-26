@@ -1,6 +1,6 @@
 # Process-simulator design principles
 
-**Version 1.0 · 2026-09-24** · Domain profile for process simulation software:
+**Version 1.1 · 2026-09-25** · Domain profile for process simulation software:
 steady-state and dynamic flowsheet simulation, optimization and parameter estimation.
 Refines the [core design principles](../../core/design-principles.md) under their layering
 rules (§B). It adds and tightens; it never relaxes a core principle. It names no specific
@@ -22,6 +22,20 @@ and re-solve loops, sweeps and recycles. The workloads a design must serve:
 
 For this profile, *correctness* in principles §1 explicitly includes physical consistency and
 numerical integrity.
+
+## Architectural application
+
+Core AP-01–AP-06 apply to the organization of the simulator: separate authored physics,
+provider integration, numerical policy, workflow composition and representation concerns;
+trace the consumed contract when replacing a solver; compose studies from shared model
+operations; keep physical meaning authoritative; expose lifecycle and capabilities; and
+exercise policy and admission with their actual dependencies.
+
+A new unit using existing physics is an ordinary extension. A new physical concept can
+legitimately change the core contract. Neither case requires a universal plugin framework.
+Numerical tests are necessary for numerical claims; they do not by themselves establish
+modularity or local reasoning. This version retains PS-01–PS-13 and their gate semantics;
+its review additions are routed to Core 3.0's architecture-first slots.
 
 ## Principle index
 
@@ -213,7 +227,7 @@ physical fidelity is made, what reference supports it?
 
 ## Profile gates
 
-These add to core gates G1–G8.
+These add to the core gates; G9 independently assesses architectural fitness.
 
 | Gate | Fails when… | Principles |
 |---|---|---|

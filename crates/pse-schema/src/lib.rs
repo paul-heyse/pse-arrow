@@ -49,6 +49,7 @@ pub mod arrow;
 pub mod builder;
 pub mod catalog;
 mod checks;
+pub mod compatibility;
 /// Registry-owned selected-product support closure.
 pub mod product;
 
@@ -61,6 +62,7 @@ mod implementation_cache;
 pub mod literal;
 
 pub mod model;
+pub mod obligations;
 pub mod resolved_contract;
 pub mod validation;
 

@@ -13,6 +13,7 @@ pub mod native_field;
 pub mod native_value;
 pub mod owned_buffer;
 pub mod resource;
+pub mod retention;
 pub mod row_token;
 
 mod engine;
@@ -48,3 +49,6 @@ macro_rules! impl_native_error {
 }
 #[cfg(test)]
 mod diagnostic_unit;
+
+/// Completion-owned shared work, independent of query and mathematical execution.
+pub mod flight;

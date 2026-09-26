@@ -118,15 +118,31 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri, commit_version, 
 
 One joined native job, independent of the mathematical result representation.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
-| `kind` | `Utf8` | false | `payload` | — | — |
+| `kind` | `enum:ComputationKind` | false | `payload` | — | — |
 | `source_identity` | `content_hash` | false | `payload` | — | — |
 | `profile_identity` | `content_hash` | false | `payload` | — | — |
-| `termination` | `Utf8` | false | `payload` | — | — |
+| `state` | `enum:NativeRunState` | false | `payload` | — | — |
+| `termination` | `enum:NativeTermination` | true | `payload` | — | — |
+| `trajectory_termination` | `enum:TrajectoryTermination` | true | `payload` | — | — |
+| `backend` | `enum:NativeBackend` | true | `payload` | — | — |
+| `native_code` | `Int64` | true | `payload` | — | — |
+| `native_status` | `Utf8` | true | `payload` | — | — |
+| `qualification` | `enum:NativeQualification` | false | `payload` | — | — |
+| `candidate_kind` | `enum:NativeCandidateKind` | true | `payload` | — | — |
+| `candidate_available` | `Boolean` | false | `payload` | — | — |
+| `feasible` | `Boolean` | true | `payload` | — | — |
+| `completed_time` | `Float64` | true | `payload` | — | — |
+| `completed_samples` | `Int64` | true | `payload` | — | — |
+| `estimate_qualified` | `Boolean` | true | `payload` | — | — |
+| `response_available` | `Boolean` | true | `payload` | — | — |
+| `response_rank` | `Int64` | true | `payload` | — | — |
+| `response_condition` | `Float64` | true | `payload` | — | — |
+| `validation_error` | `Utf8` | true | `payload` | — | — |
 | `error` | `Utf8` | true | `payload` | — | — |
 
 ## `diagnostics_findings`
@@ -484,6 +500,26 @@ Native row check `ordered_range` (must be true):
 from_version <= through_version
 ```
 
+## `run_lineage`
+
+Completion-owned semantic lineage. Run identity names the attempt; it is not part of request identity. Effective settings, submitted start and native observations are retained in solve_metrics; source provider and parameter data are retained with the immutable revision.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `model_id` | `semantic_id` | false | `payload` | — | — |
+| `revision` | `content_hash` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `request_identity` | `content_hash` | false | `payload` | — | — |
+| `preparation_identity` | `content_hash` | false | `payload` | — | — |
+| `profile_identity` | `content_hash` | false | `payload` | — | — |
+| `numerical_identity` | `content_hash` | false | `payload` | — | — |
+| `physical_identity` | `content_hash` | false | `payload` | — | — |
+| `environment_identity` | `content_hash` | false | `payload` | — | — |
+
 ## `simulation_events`
 
 Physical pre/post root and scheduled-input transitions. Absent after means a terminal or failed transition.
@@ -520,7 +556,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, sample, symbol_id`.
 
 Fresh original constraint values; signed residual exists only for equality rows. Interval violations retain separate sides and physical tolerances.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, row_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, row_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -537,7 +573,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, row_id`.
 | `upper_violation` | `Float64` | true | `payload` | — | — |
 | `tolerance` | `Float64` | true | `payload` | — | — |
 | `dual` | `Float64` | true | `payload` | — | — |
-| `dual_qualification` | `Utf8` | false | `payload` | — | — |
+| `dual_qualification` | `enum:DualQualification` | false | `payload` | — | — |
 
 ## `solve_metrics`
 
@@ -558,11 +594,17 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, namespace, na
 | `text` | `Utf8` | true | `payload` | — | — |
 | `unavailable` | `enum:EvidenceUnavailableReason` | true | `payload` | — | — |
 
+Native row check `one_evidence_value` (must be true):
+
+```sql
+(kind = 'real' AND "real" IS NOT NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'integer' AND "real" IS NULL AND "integer" IS NOT NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'boolean' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NOT NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'text' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NOT NULL AND "unavailable" IS NULL) OR (kind = 'unavailable' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NOT NULL)
+```
+
 ## `solve_runs`
 
 Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution.
 
-Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 3. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -577,6 +619,7 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `state` | `enum:NativeRunState` | false | `payload` | — | — |
 | `termination` | `enum:NativeTermination` | true | `payload` | — | — |
 | `assurance` | `enum:NativeAssurance` | false | `payload` | — | — |
+| `qualification` | `enum:NativeQualification` | false | `payload` | — | — |
 | `candidate_kind` | `enum:NativeCandidateKind` | true | `payload` | — | — |
 | `feasible` | `Boolean` | true | `payload` | — | — |
 | `objective` | `Float64` | true | `payload` | — | — |
@@ -590,7 +633,7 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -611,7 +654,27 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 | `upper_dual` | `Float64` | true | `payload` | — | — |
 | `reduced_cost` | `Float64` | true | `payload` | — | — |
 | `stationarity` | `Float64` | true | `payload` | — | — |
-| `dual_qualification` | `Utf8` | false | `payload` | — | — |
+| `dual_qualification` | `enum:DualQualification` | false | `payload` | — | — |
+
+## `solver_capabilities`
+
+Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request.
+
+Version: 1. Snapshot class: `derived`. Primary key: `backend`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `backend` | `enum:NativeBackend` | false | `key` | — | — |
+| `classes` | `List` | false | `payload` | — | — |
+| `classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
+| `derivatives` | `enum:NativeDerivativeCapability` | false | `payload` | — | — |
+| `warm` | `enum:NativeWarmCapability` | false | `payload` | — | — |
+| `reuse` | `Utf8` | false | `payload` | — | — |
+| `cancellation` | `Utf8` | false | `payload` | — | — |
+| `diagnostics` | `Utf8` | false | `payload` | — | — |
+| `general_bounds` | `Boolean` | false | `payload` | — | — |
+| `sign_bounds` | `Boolean` | false | `payload` | — | — |
+| `parallel` | `Boolean` | false | `payload` | — | — |
 
 ## `validation_findings`
 

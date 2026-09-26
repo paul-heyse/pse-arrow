@@ -315,11 +315,9 @@ pub(super) fn declare_profiles(builder: &mut RegistryBuilder) {
         BTreeSet::from([
             "runtime.artifact_descriptors".to_owned(),
             "authored.computation_models".to_owned(),
-            "runtime.solve_runs".to_owned(),
+            "runtime.run_lineage".to_owned(),
+            "runtime.candidate_assessments".to_owned(),
             "runtime.physical_checks".to_owned(),
-            "runtime.solve_variables".to_owned(),
-            "runtime.solve_constraints".to_owned(),
-            "runtime.solve_metrics".to_owned(),
         ]),
     );
     let mut source = common.clone();

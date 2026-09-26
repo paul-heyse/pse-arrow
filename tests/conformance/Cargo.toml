@@ -51,6 +51,7 @@ sundials-sys = { workspace = true, optional = true }
 diffsol = { workspace = true, optional = true }
 
 [dev-dependencies]
+libtest-mimic.workspace = true
 object_store.workspace = true
 pse-runtime.workspace = true
 pse-compiler.workspace = true
@@ -76,3 +77,8 @@ tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde-saphyr.workspace = true
+
+[[test]]
+name = "invariant_fixtures"
+path = "tests/invariant_fixtures.rs"
+harness = false

@@ -1300,6 +1300,7 @@ dependencies = [
  "ciborium",
  "clap",
  "criterion-plot",
+ "csv",
  "itertools 0.13.0",
  "num-traits",
  "oorandom",
@@ -2676,6 +2677,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "escape8259"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5692dd7b5a1978a5aeb0ce83b7655c58ca8efdcb79d21036ea249da95afec2c6"
+
+[[package]]
 name = "faer"
 version = "0.24.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3988,6 +3995,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "libtest-mimic"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14e6ba06f0ade6e504aff834d7c34298e5155c6baca353cc6a4aaff2f9fd7f33"
+dependencies = [
+ "anstream 1.0.0",
+ "anstyle",
+ "clap",
+ "escape8259",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5078,8 +5097,8 @@ dependencies = [
  "proptest",
  "pse-diagnostics",
  "pse-ids",
- "pse-math",
  "pse-model",
+ "pse-quantity",
  "pse-structural",
  "semver",
  "serde",
@@ -5223,6 +5242,7 @@ dependencies = [
  "bytes",
  "datafusion-common",
  "datafusion-execution",
+ "futures-util",
  "miette",
  "proptest",
  "pse-diagnostics",
@@ -5230,6 +5250,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+ "tokio",
  "tokio-util",
 ]
 
@@ -5366,6 +5387,7 @@ dependencies = [
  "miette",
  "pse-diagnostics",
  "pse-ids",
+ "pse-quantity",
  "serde",
  "thiserror 2.0.20",
 ]
@@ -5515,6 +5537,7 @@ dependencies = [
  "pse-quantity",
  "serde",
  "serde_json",
+ "sqlparser",
  "thiserror 2.0.20",
 ]
 
@@ -5528,7 +5551,6 @@ dependencies = [
  "pse-diagnostics",
  "pse-ids",
  "pse-kernels",
- "pse-model",
  "pse-quantity",
  "rustworkx-core",
  "thiserror 2.0.20",
@@ -5564,6 +5586,7 @@ dependencies = [
  "feos-core",
  "highs",
  "highs-sys",
+ "libtest-mimic",
  "nalgebra",
  "num-dual",
  "object_store",

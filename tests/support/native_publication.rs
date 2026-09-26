@@ -102,6 +102,7 @@ pub(crate) async fn publish(
             vec![],
             &cancel,
         )
+        .map(|(command, _ticket)| command)
         .unwrap();
     let result = command.execute(&cancel).await.unwrap();
     let version = result.batches()[0]

@@ -1,0 +1,72 @@
+{
+  "document": "THERMO-INFORMATION-006",
+  "version": "0.1",
+  "files": [
+    {
+      "filename": "thermodynamics_semantic_information_dictionary_v0_1.md",
+      "sha256": "58c33ae37009c2c07485a46ae95fdd51f0475504aaa75cb85ef7a23a8484dee9",
+      "bytes": 330481
+    },
+    {
+      "filename": "thermodynamics_semantic_information_dictionary_v0_1_register.json",
+      "sha256": "ab459185e0536ce5ef721c572010ed8d1279f89f8d6ad632b32f927b03f21f8d",
+      "bytes": 553056
+    },
+    {
+      "filename": "thermodynamics_semantic_information_dictionary_v0_1_audit.json",
+      "sha256": "db226a12d1df2239d76dcc84e60c430ae34bb49a287fb34d9f4e2ebf131dd7a5",
+      "bytes": 8362
+    },
+    {
+      "filename": "thermodynamics_semantic_information_dictionary_v0_1_audit.md",
+      "sha256": "74de5283aa8fc0343696525362b853193b984e829e2f2b8d888e1335322f1d3d",
+      "bytes": 3689
+    },
+    {
+      "filename": "thermodynamics_simulation_behavior_scope_v0_1.md",
+      "sha256": "1d12284bbca6569f198caaae86327788bac8fbaf3946625d99d971ef3602d028",
+      "bytes": 84604
+    },
+    {
+      "filename": "dwsim_workflow_reverse_engineering_v0_1.md",
+      "sha256": "55e77b6fddab4547280e4e40ca5c742fac3fd322e45534767ddae7f5f6ba94ab",
+      "bytes": 87494
+    },
+    {
+      "filename": "thermodynamic_package_comparative_research_v0_1.md",
+      "sha256": "c0f9216c450405360b8532771e6c4beca6536154345ea5adf00130a9c4e73875",
+      "bytes": 105848
+    },
+    {
+      "filename": "thermodynamics_functional_requirements_v0_1.md",
+      "sha256": "7b9c3c4e2110531cb5767fb00f9ba11dec160294b8cafd909c5b04984a87b5c2",
+      "bytes": 260840
+    },
+    {
+      "filename": "thermodynamics_functional_requirements_v0_1_register.json",
+      "sha256": "1777f2c60962526252aa863dc2cb673f218b4ed58fe9c108f9721264f9fde825",
+      "bytes": 363946
+    },
+    {
+      "filename": "thermodynamics_conceptual_packaging_v0_1.md",
+      "sha256": "85602e0a750add6a1168cb4f4294998feb5e90e35b37cef5f0b4e63c5f1076f1",
+      "bytes": 132988
+    },
+    {
+      "filename": "thermodynamics_conceptual_packaging_v0_1_register.json",
+      "sha256": "d46ce687dee20cb7e677082039f349a38d8fd71101a659079d47bb8d57d80612",
+      "bytes": 205998
+    },
+    {
+      "filename": "README.md",
+      "sha256": "7343d18667fae124da0999677e28d2eb39553a2024b94492fbaf1a0c1a95c309",
+      "bytes": 1012
+    },
+    {
+      "filename": "artifact_checks.json",
+      "sha256": "e150c7a3e81a021314d6d47db6ae09e5dc87a334bd97e5082e1b4cd4bdd19b4e",
+      "bytes": 289
+    }
+  ],
+  "limitations": "Source bytes retained unchanged; checks do not constitute implementation or thermodynamic validation."
+}

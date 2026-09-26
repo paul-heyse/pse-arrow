@@ -28,8 +28,7 @@ gh auth status   # must be paul-heyse, with the `admin:org`-free but repo-admin 
 |---|---|
 | `repo.json` | `PATCH /repos/{owner}/{repo}` — merge policy, features, secret scanning |
 | `topics.json` | `PUT /repos/{owner}/{repo}/topics` |
-| `ruleset-main.json` | historical bootstrap subset; no longer applied |
-| `ruleset-main-full.json` | active `main` branch ruleset, including Python checks |
+| `ruleset-main-full.json` | active `main` branch ruleset without required CI or PR |
 | `ruleset-tags.json` | the `tags` ruleset on `refs/tags/v*` |
 | `env-test-release.json` | the `test-release` environment (TestPyPI) |
 | `env-release.json` | the `release` environment (PyPI) |
@@ -50,8 +49,8 @@ git push -u origin main
 git push origin --tags          # design-rev2, design-rev3
 ```
 
-Push **before** step 4: the `main` ruleset requires status checks that only exist once
-the workflows are on the default branch.
+The check workflows are available for manual dispatch once their files are on the
+default branch. They are not required for a push.
 
 ## 2. Repository settings and topics
 
@@ -110,11 +109,8 @@ apply_ruleset "$SETUP/ruleset-main-full.json"
 apply_ruleset "$SETUP/ruleset-tags.json"
 ```
 
-**`main`** enforces: no deletion, no non-fast-forward, linear history, signed commits,
-pull request required (0 approvals — a sole maintainer cannot approve their own PR;
-stale reviews dismissed; threads must be resolved; squash only), and the full declared required
-status checks with `strict_required_status_checks_policy` (the branch must be up to date
-with `main` before merge).
+**`main`** enforces no deletion, no non-fast-forward updates, linear history and
+signed commits. Direct pushes and optional pull requests have no CI requirement.
 
 **`tags`** restricts creation, update and deletion of `refs/tags/v*` to bypass actors and
 requires signatures, so only the maintainer can cut a release tag.
@@ -124,21 +120,15 @@ requires signatures, so only the maintainer can cut a release tag.
 Both rulesets retain the declared admin-role bypass (`RepositoryRole`, id 5,
 `always`). GitHub accepted this actor during setup qualification. Bypass is
 break-glass only: every bypass push needs the follow-up required by
-GOVERNANCE.md §4. The setup PR is merged only after its required checks pass.
+GOVERNANCE.md §4.
 An admin credential cannot demonstrate that an ordinary contributor's direct
 push would be rejected; no destructive test push is used as evidence.
 
-### Required checks
+### Manual checks
 
-The full required set is active. Its twelve exact names first reported on the
-setup PR before the ruleset was enabled. The historical `ruleset-main.json`
-subset is retained for context and is no longer applied.
-
-`ruleset-main-full.json` has the same `"name": "main"`, so this updates the existing
-ruleset rather than creating a second one. `python / test` is a single aggregating job
-that `needs` the interpreter matrix — the matrix legs report as
-`python / test (3.11)` and `python / test (3.14)`, which are *not* required contexts,
-and cannot be, because a matrix leg's check name carries its matrix values.
+`ruleset-main-full.json` has no `required_status_checks` or `pull_request` rule.
+`just gh-setup` updates the existing named ruleset. See [manual CI](../../docs/dev/ci.md)
+for the workflows available on demand.
 
 ## 5. Labels
 
@@ -242,9 +232,7 @@ gh api "repos/$OWNER/$REPO" --jq \
     delete_branch_on_merge, has_discussions, has_wiki, has_projects}'
 gh api "repos/$OWNER/$REPO/rulesets" --jq '.[] | {name, target, enforcement}'
 gh api "repos/$OWNER/$REPO/rulesets/$(gh api "repos/$OWNER/$REPO/rulesets" \
-  --jq '.[] | select(.name=="main") | .id')" \
-  --jq '.rules[] | select(.type=="required_status_checks")
-        | .parameters.required_status_checks[].context'
+  --jq '.[] | select(.name=="main") | .id')" --jq '[.rules[].type]'
 gh api "repos/$OWNER/$REPO/environments" --jq '.environments[].name'
 gh label list --repo "$OWNER/$REPO" --limit 100 | wc -l     # expect 35
 ```

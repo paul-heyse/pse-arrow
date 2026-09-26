@@ -3,7 +3,10 @@
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
 use pse_backend_native::solve::BackendCapabilities;
 mod balances;
+mod completion;
 mod composition;
+mod diagnostics;
+pub use completion::Completion;
 mod numerics;
 mod reactions;
 mod time;
@@ -43,7 +46,9 @@ use crate::{SharedRuntime, math::MathRuntimeError};
 pub use model::{CaseBuilder, ModelBuilder, ModelRevision, PhysicalContext, ProviderBinding};
 pub use model::{CaseDeclaration, DefinitionDeclaration, ModelDeclaration};
 use pse_engine::{EngineError, session::EngineFactory};
-pub use publication::PublicationAttempt;
+pub use publication::{
+    PublicationAttempt, PublicationRequest, PublicationSettlement, PublicationTicket,
+};
 pub use run::{PreparedCase, RunHandle, RunReport, RunRequest, RunResult};
 use std::sync::Arc;
 
@@ -52,7 +57,7 @@ use std::sync::Arc;
 pub enum WorkflowError {
     /// Source-attributed selected-model or execution-boundary failure.
     #[error(transparent)]
-    Boundary(#[from] pse_model::diagnostic::BoundaryDiagnostic),
+    Boundary(#[from] Box<pse_model::diagnostic::BoundaryDiagnostic>),
     /// Invalid model, preparation, runtime or solver state.
     #[error(transparent)]
     Math(#[from] MathRuntimeError),
@@ -69,10 +74,15 @@ pub enum WorkflowError {
     #[error("native workflow contract: {0}")]
     Contract(String),
 }
+impl From<pse_model::diagnostic::BoundaryDiagnostic> for WorkflowError {
+    fn from(error: pse_model::diagnostic::BoundaryDiagnostic) -> Self {
+        Self::Boundary(Box::new(error))
+    }
+}
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(this) {match this {Self::Contract(_)=>Some(pse_diagnostics::DiagnosticCode::CompileMath),_=>None}},
-    forward(this) {match this {Self::Boundary(e)=>Some(e),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None}},
+    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 fn contract(message: impl Into<String>) -> WorkflowError {
@@ -93,6 +103,10 @@ pub struct Runtime {
     pub(crate) sessions: Arc<EngineFactory>,
 }
 impl Runtime {
+    /// Clear retained executable programs. Existing workers keep their owners and remain valid.
+    pub fn clear_program_cache(&self) {
+        self.shared.math().clear_program_cache();
+    }
     /// Attach to the already configured shared deployment; creates no second executor or budget.
     pub fn from_shared(
         shared: Arc<SharedRuntime>,
@@ -119,17 +133,26 @@ impl Runtime {
         cfg!(feature = "solver-diffsol")
     }
     /// Actual linked implementations; model eligibility is separately reported by preparation.
-    pub fn capabilities(
-        &self,
-    ) -> Vec<(
-        pse_backend_native::solve::Backend,
-        pse_backend_native::solve::Capabilities,
-    )> {
+    pub fn capabilities(&self) -> Vec<pse_model::generated::runtime::solver_capabilities::Row> {
         use pse_backend_native::solve::Backend::*;
         [Ipopt, Pounce, Kinsol, Highs, Clarabel, Diffsol, Idas]
             .into_iter()
             .filter(|b| b.available())
-            .map(|b| (b, b.capabilities()))
+            .map(|backend| {
+                let c = backend.capabilities();
+                pse_model::generated::runtime::solver_capabilities::Row {
+                    backend,
+                    classes: c.classes.to_vec(),
+                    derivatives: c.derivatives,
+                    warm: c.warm,
+                    reuse: c.reuse.into(),
+                    cancellation: c.cancellation.into(),
+                    diagnostics: c.diagnostics.into(),
+                    general_bounds: c.general_bounds,
+                    sign_bounds: c.sign_bounds,
+                    parallel: c.parallel,
+                }
+            })
             .collect()
     }
     /// Existing typed native services, including cone preparation, initialization,

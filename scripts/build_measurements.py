@@ -20,7 +20,7 @@ import time
 import tomllib
 from pathlib import Path
 
-from scripts import build_environment, implementation_phase, validation
+from scripts import build_environment, validation
 
 
 def snapshot(root: Path, output: Path) -> Path:
@@ -473,7 +473,6 @@ def main() -> None:
     if args.execute and args.native:
         parser.error("use --workflow for the native unit selection")
     root = Path(__file__).resolve().parents[1]
-    implementation_phase.guard(root, ["bench-builds"])
     settings = tomllib.loads((root / ".config/build.toml").read_text())
     if shutil.disk_usage(root).free < settings["free_space_gib"] * 1024**3:
         raise ValueError(

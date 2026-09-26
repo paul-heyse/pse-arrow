@@ -1,0 +1,61 @@
+{
+  "recorded_utc": "2026-09-26T02:54:35.667831+00:00",
+  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "packages": {
+    "thermo": {
+      "import_spec_present": false
+    },
+    "chemicals": {
+      "import_spec_present": false
+    },
+    "CoolProp": {
+      "import_spec_present": false
+    },
+    "thermopack": {
+      "import_spec_present": false
+    },
+    "feos": {
+      "import_spec_present": false
+    },
+    "idaes": {
+      "import_spec_present": false
+    },
+    "pyomo": {
+      "import_spec_present": false
+    },
+    "reaktoro": {
+      "import_spec_present": false
+    },
+    "scipy": {
+      "import_spec_present": true
+    },
+    "numpy": {
+      "import_spec_present": true
+    }
+  },
+  "runtimes": {
+    "julia": null,
+    "dotnet": null,
+    "gfortran": "/usr/bin/gfortran",
+    "cargo": null,
+    "ipopt": null
+  },
+  "retrieval_attempts": [
+    {
+      "route": "configured pip index",
+      "outcome": "WARNING: The directory '/home/oai/.cache/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.\nERROR: No matching distribution found for CoolProp\n"
+    },
+    {
+      "route": "explicit public PyPI index and urllib metadata request",
+      "outcome": "WARNING: The directory '/home/oai/.cache/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.\nERROR: No matching distribution found for CoolProp\n",
+      "metadata_request_error": "URLError(gaierror(-3, 'Temporary failure in name resolution'))"
+    },
+    {
+      "route": "container.download official CoolProp wheel",
+      "outcome": "ERROR: download failed; no wheel installed"
+    }
+  ],
+  "alternative_execution_service_search": "No connected package-execution service found in directory search; no new external service used",
+  "interpretation": "Execution environment limitation. Does not prove package unavailability, installation failure in a normal environment, or lack of a thermodynamic capability."
+}

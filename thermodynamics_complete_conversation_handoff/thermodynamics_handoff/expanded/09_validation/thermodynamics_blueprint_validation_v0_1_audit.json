@@ -1,0 +1,272 @@
+{
+  "document": "THERMO-VALIDATION-009",
+  "kind": "structural_trace_and_artifact_audit_not_thermodynamic_or_simulator_conformance",
+  "checks": [
+    {
+      "name": "94 unique original requirements preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Obligation classes preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "65 H / 25 C / 4 R3 preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Primary semantic owners preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Primary actions preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Primary information concepts preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Original acceptance witness identifiers preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "No requirement conformance or scientific promotion",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Requirement rule crosslinks valid",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "34 unique scenario walkthroughs",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Scenario profiles retained",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "14 P1 / 16 P2 / 4 P3 retained",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Every scenario has a substantive review and residual gate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Scenario action / information / requirement crosslinks valid",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Scenario numerical evidence references valid",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Scenario full execution and independent validation unpromoted",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Independent representability not asserted",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "14 native profile IDs retained",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Native profile scenario and mode assignments unchanged",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Native profiles not instantiated or admitted",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Profile review and probe references valid",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "18 investigation IDs retained",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Investigation profile and inherited probe assignments retained",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All 38 inherited native probe IDs retained",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Native investigations unpromoted",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Investigation contributing probe references valid",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Eight findings have owners and evidence",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Finding requirement and integration rule references valid",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "30 new probe IDs unique and passing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Numerical count summary agrees with records",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Recorded fixture hash matches actual fixture",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Every probe states evidence kind and result",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Extracted module fingerprint matches manifest",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Two extracted upstream source pins retained",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Extracted bodies retain provenance and MIT notice",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "1,120 bounded schedules / 8,960 steps recorded",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "No correct-reference-model schedule violation",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "128 guard combinations and eight detected unsafe controls",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Native-active and quarantined cleanup cases never reusable",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Six native probes blocked, zero actual workers executed",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Environment and retrieval evidence retained",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All bundled baseline bytes match recorded manifest",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "name": "Step-8 predecessor hashes match bundled files",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "name": "Inherited structural reruns passed 35 / 42",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Inherited reference reruns passed 26 / 43",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All supplied new Python scripts parse",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "name": "No wheels / libraries / native executables included",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Artifact payload manifest entries reproduce current bytes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "All new Markdown local links and anchors resolve",
+      "passed": true,
+      "detail": {
+        "links_checked": 11,
+        "errors": []
+      }
+    }
+  ],
+  "count": 49,
+  "passed": 49,
+  "failed": 0,
+  "counts": {
+    "requirements": 94,
+    "scenarios": 34,
+    "native_profiles": 14,
+    "investigations": 18,
+    "new_numerical_probes": 30,
+    "local_links": 11,
+    "manifest_payload_files": 52
+  },
+  "limitations": [
+    "Counts and links are not proof of semantic sufficiency.",
+    "Recorded PASS belongs to its named source-extract or authored test subject.",
+    "No complete native package or production simulator executed.",
+    "Original R/E/V and AT/AW/P/PV records are not promoted by this audit."
+  ]
+}

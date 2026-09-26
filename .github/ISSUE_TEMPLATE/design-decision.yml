@@ -67,12 +67,24 @@ body:
       required: true
 
   - type: textarea
+    id: scenarios
+    attributes:
+      label: Architectural drivers and change scenarios
+      description: >-
+        Which expected changes should remain local? Link existing scenario definitions
+        where possible. Name responsibilities, consumed contracts, composition and test
+        isolation, and the observation that would show the design does not meet the goal.
+    validations:
+      required: true
+
+  - type: textarea
     id: options
     attributes:
       label: Options considered
       description: >-
-        At least two, each with its honest pros and cons — including "do nothing" where
-        that is real. An ADR with one option is a memo, not a decision.
+        Compare viable alternatives, including the current design and simplest viable or
+        library-owned approach where relevant. Include change locality, contracts, test
+        setup and integration cost. Do not invent distinct options when they coincide.
       placeholder: |
         1. … — pro: …; con: …
         2. … — pro: …; con: …
@@ -96,9 +108,9 @@ body:
     attributes:
       label: Verification
       description: >-
-        The test, lint, benchmark, or CI check that will show the decision actually
-        holds once it lands. This becomes the ADR's `verification:` field, so name
-        something concrete and runnable.
+        Name the scenario/property and the analysis, contract test or measurement that
+        would settle it. This becomes the ADR's `verification:` field. Separate
+        architectural reasoning from document checks and executed product behavior.
       placeholder: "tests/governance/src/pins_match_blueprint.rs — asserts the family pin appears exactly once"
     validations:
       required: true
@@ -120,7 +132,8 @@ body:
       label: Evidence
       description: >-
         Label each claim with the §D vocabulary: `Proposed`, `Interface-checked`,
-        `Tested <name>`, `Measured <name> + conditions`, `Observed <link>`. Most fresh
+        `Implemented`, `Tested <name>`, `Measured <name> + conditions`, or
+        `Formally established <argument and assumptions>`. Most fresh
         proposals are honestly `Proposed` or `Interface-checked` — say so.
     validations:
       required: true

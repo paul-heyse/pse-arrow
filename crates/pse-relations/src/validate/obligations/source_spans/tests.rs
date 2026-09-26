@@ -27,6 +27,7 @@ use pse_schema::{Registry, RegistryBuilder, model::*};
 
 fn registry() -> Registry {
     let mut registry = RegistryBuilder::new();
+    pse_schema::catalog::declare(&mut registry);
     registry.declare_relation(
         RelationDecl::new(
             Namespace::Authored,

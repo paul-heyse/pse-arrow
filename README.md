@@ -54,7 +54,7 @@ just --list      # the command surface — this list is the contract
 ```
 
 `just --list` is the contract: every gate a pull request must pass has a recipe, grouped
-by cost tier (`env`, `discovery`, `local`, `pr`, `scheduled`, `decisions`, `mutating`).
+by cost tier (`env`, `discovery`, `local`, `manual`, `decisions`, `mutating`).
 Mutating recipes are `[confirm]`-guarded and are never a gate dependency.
 
 ## Layout
@@ -69,7 +69,7 @@ tests/fixtures/        source packages for current native workflows
 python/pse/            the `pse` package: contracts (generated), codec, adapters, parity
 packages/reference/    shipped reference packages
 docker/solvers/        the pinned Ipopt + MUMPS + ASL container recipe
-docs/                  the mdBook source and everything authoritative (see below)
+docs/                  canonical Markdown collections, published with mdBook and Pagefind
 scripts/               stdlib helpers: doctor, bootstrap, adr, register, generated checks
 .github/               CI workflows, issue forms, and the declared repository settings
 ```
@@ -78,12 +78,12 @@ scripts/               stdlib helpers: doctor, bootstrap, adr, register, generat
 
 | Question | Authority |
 |---|---|
-| What the system is and how it is structured | `docs/authoritative_design/blueprint.md` |
+| What the system is and how it is structured | [Architecture entrypoint](docs/authoritative_design/README.md), routing to the blueprint and numbered section owners |
 | Why a decision was made | `docs/adr/` (index: `docs/adr/README.md`) |
 | What is deferred, and what re-opens it | `docs/adr/register.md` |
 | What versions are pinned | `Cargo.toml`, `Cargo.lock`, `pyproject.toml`, `uv.lock` |
 | What a library can actually do | `docs/capability-maps/` and its `evidence/` |
-| How work is sequenced | `docs/plans/` |
+| How work is sequenced | [Current work and status owners](docs/plans/README.md) |
 | How to contribute, and when an ADR is required | `CONTRIBUTING.md`, `GOVERNANCE.md` |
 
 Design reviews are evidence, not authority. When the code and a plan disagree, the code
@@ -92,6 +92,14 @@ is what runs.
 ## Documentation
 
 The book is published from `docs/` to <https://paul-heyse.github.io/pse-arrow>.
+Start with the [documentation entrypoint](docs/README.md) for task routes and search scopes.
+Agents read the same Markdown directly, following the relevant contract and source owners.
+
+The [publishing guide](docs/dev/documentation.md) explains content structure, section moves
+and the build commands. `docs/site.toml` selects collections and tool versions; navigation
+is derived rather than maintained as a second page list. `just bootstrap-docs` installs the
+documentation tools, `just docs` builds the site and scoped search, and `just docs-serve`
+previews it. These commands do not require the product Python/native environment.
 
 ## License
 

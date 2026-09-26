@@ -72,7 +72,7 @@ impl BinaryOp {
 }
 
 // The same declaration drives parsing and typed library admission.
-pub use pse_math::Function;
+pub use pse_quantity::functions::Function;
 
 /// A domain reduction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

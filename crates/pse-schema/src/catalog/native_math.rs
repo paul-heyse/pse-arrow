@@ -31,6 +31,72 @@ fn port() -> T {
     ])
 }
 pub(super) fn declare(b: &mut RegistryBuilder) {
+    relation(
+        b,
+        N::Runtime,
+        "solver_capabilities",
+        S::Derived,
+        &["backend"],
+        vec![
+            column("backend", T::enumeration("NativeBackend")),
+            column("classes", T::list(T::enumeration("NativeProblemClass"))),
+            column("derivatives", T::enumeration("NativeDerivativeCapability")),
+            column("warm", T::enumeration("NativeWarmCapability")),
+            column("reuse", text()),
+            column("cancellation", text()),
+            column("diagnostics", text()),
+            column("general_bounds", flag()),
+            column("sign_bounds", flag()),
+            column("parallel", flag()),
+        ],
+        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "run_lineage",
+        S::Derived,
+        &["run_id", "step"],
+        vec![
+            column("run_id", T::id()),
+            column("step", ordinal()),
+            column("model_id", T::id()),
+            column("revision", T::hash()),
+            column("case_id", T::id()),
+            column("request_identity", T::hash()),
+            column("preparation_identity", T::hash()),
+            column("profile_identity", T::hash()),
+            column("numerical_identity", T::hash()),
+            column("physical_identity", T::hash()),
+            column("environment_identity", T::hash()),
+        ],
+        "Completion-owned semantic lineage. Run identity names the attempt; it is not part of request identity. Effective settings, submitted start and native observations are retained in solve_metrics; source provider and parameter data are retained with the immutable revision.",
+    );
+    enumeration(b, "ComputationKind", ["simulation", "fit"]);
+    enumeration(
+        b,
+        "TrajectoryTermination",
+        [
+            "completed",
+            "event",
+            "cancelled",
+            "time_limit",
+            "step_limit",
+            "event_limit",
+            "failed",
+            "panic",
+        ],
+    );
+    enumeration(
+        b,
+        "DualQualification",
+        [
+            "evaluated_kkt_not_sensitivity_certified",
+            "unavailable_or_invalid",
+            "unavailable",
+            "not_applicable_parameter",
+        ],
+    );
     enumeration(
         b,
         "NumericalTarget",
@@ -451,7 +517,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "solve_runs",
-        2,
+        3,
         S::Derived,
         &["run_id", "step"],
         vec![
@@ -466,6 +532,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("state", T::enumeration("NativeRunState")),
             column("termination", T::enumeration("NativeTermination")).optional(),
             column("assurance", T::enumeration("NativeAssurance")),
+            column("qualification", T::enumeration("NativeQualification")),
             column("candidate_kind", T::enumeration("NativeCandidateKind")).optional(),
             column("feasible", flag()).optional(),
             column("objective", real()).optional(),
@@ -477,10 +544,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "solve_variables",
+        2,
         S::Derived,
         &["run_id", "step", "symbol_id"],
         vec![
@@ -501,14 +569,15 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("upper_dual", real()).optional(),
             column("reduced_cost", real()).optional(),
             column("stationarity", real()).optional(),
-            column("dual_qualification", text()),
+            column("dual_qualification", T::enumeration("DualQualification")),
         ],
         "Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "solve_constraints",
+        2,
         S::Derived,
         &["run_id", "step", "row_id"],
         vec![
@@ -525,7 +594,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("upper_violation", real()).optional(),
             column("tolerance", real()).optional(),
             column("dual", real()).optional(),
-            column("dual_qualification", text()),
+            column("dual_qualification", T::enumeration("DualQualification")),
         ],
         "Fresh original constraint values; signed residual exists only for equality rows. Interval violations retain separate sides and physical tolerances.",
     );
@@ -765,18 +834,39 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         ],
         "Native simultaneous fitting. Observation time defaults to elapsed seconds from the integration start; model_clock uses the declared dynamic time origin. Explicit time units must be non-affine time units. Measurement values, units and uncertainty remain authored.observations.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "computation_runs",
+        2,
         S::Derived,
         &["run_id"],
         vec![
             column("run_id", T::id()),
-            column("kind", text()),
+            column("kind", T::enumeration("ComputationKind")),
             column("source_identity", T::hash()),
             column("profile_identity", T::hash()),
-            column("termination", text()),
+            column("state", T::enumeration("NativeRunState")),
+            column("termination", T::enumeration("NativeTermination")).optional(),
+            column(
+                "trajectory_termination",
+                T::enumeration("TrajectoryTermination"),
+            )
+            .optional(),
+            column("backend", T::enumeration("NativeBackend")).optional(),
+            column("native_code", T::native(D::Int64)).optional(),
+            column("native_status", text()).optional(),
+            column("qualification", T::enumeration("NativeQualification")),
+            column("candidate_kind", T::enumeration("NativeCandidateKind")).optional(),
+            column("candidate_available", flag()),
+            column("feasible", flag()).optional(),
+            column("completed_time", real()).optional(),
+            column("completed_samples", ordinal()).optional(),
+            column("estimate_qualified", flag()).optional(),
+            column("response_available", flag()).optional(),
+            column("response_rank", ordinal()).optional(),
+            column("response_condition", real()).optional(),
+            column("validation_error", text()).optional(),
             column("error", text()).optional(),
         ],
         "One joined native job, independent of the mathematical result representation.",

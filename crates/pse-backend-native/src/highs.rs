@@ -1159,16 +1159,37 @@ pub fn termination(code: i32) -> NativeTermination {
 }
 /// Exact declared objective convention `constant + c*x + 1/2 x'Qx`.
 pub fn coefficient_objective(p: &CoefficientProblem, x: &[f64]) -> f64 {
-    let mut value =
-        p.objective_constant + p.objective.iter().zip(x).map(|(c, x)| c * x).sum::<f64>();
-    if let Some(q) = &p.hessian {
-        for c in 0..q.ncols() {
-            for (r, &v) in q.row_idx_of_col(c).zip(q.val_of_col(c)) {
-                value += 0.5 * x[r] * v * x[c];
-            }
-        }
+    let column = faer::ColRef::from_slice(x);
+    let linear = faer::ColRef::from_slice(&p.objective).transpose() * column;
+    let quadratic = p.hessian.as_ref().map_or(0.0, |q| {
+        let product = q * column;
+        0.5 * (column.transpose() * product.as_ref())
+    });
+    p.objective_constant + linear + quadratic
+}
+// Both coefficient consumers use the same library product. The runtime's final
+// original symbolic-model evaluation remains independent of solver coefficients.
+fn coefficient_activity(p: &CoefficientProblem, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
+    if x.len() != p.constraints.ncols() || x.iter().any(|v| !v.is_finite()) {
+        return Err(ProblemError::Contract(
+            "coefficient activity dimensions or values".into(),
+        ));
     }
-    value
+    let mut result = vec![0.0; p.constraints.nrows()];
+    faer::sparse::linalg::matmul::sparse_dense_matmul(
+        faer::MatMut::from_column_major_slice_mut(&mut result, p.constraints.nrows(), 1),
+        faer::Accum::Replace,
+        p.constraints.as_ref(),
+        faer::MatRef::from_column_major_slice(x, x.len(), 1),
+        1.0,
+        faer::Par::Seq,
+    );
+    if result.iter().any(|v| !v.is_finite()) {
+        return Err(ProblemError::Contract(
+            "nonfinite coefficient activity".into(),
+        ));
+    }
+    Ok(result)
 }
 /// Recompute all affine rows and disjunctive domain violations independently.
 pub fn coefficient_quality(
@@ -1182,16 +1203,7 @@ pub fn coefficient_quality(
             "invalid coefficient candidate".into(),
         ));
     }
-    let mut activity = vec![0.0; p.bounds.len()];
-    for (c, &x) in x.iter().enumerate() {
-        for (r, &v) in p
-            .constraints
-            .row_idx_of_col(c)
-            .zip(p.constraints.val_of_col(c))
-        {
-            activity[r] += v * x;
-        }
-    }
+    let activity = coefficient_activity(p, x)?;
     let rows = p
         .contract
         .rows
@@ -1260,19 +1272,9 @@ pub fn coefficient_observation(
             "coefficient observation dimensions".into(),
         ));
     }
-    let column = faer::ColRef::from_slice(x);
-    let activity = p.constraints.as_ref() * column;
+    let activity = coefficient_activity(p, x)?;
     let values = activity.iter().zip(constants).map(|(v, c)| v + c).collect();
-    let objective = faer::ColRef::from_slice(&p.objective).transpose() * column;
-    let quadratic = p.hessian.as_ref().map_or(0.0, |q| {
-        let product = q * column;
-        0.5 * (column.transpose() * product.as_ref())
-    });
-    crate::quality::Observation::from_values(
-        Some(p.objective_constant + objective + quadratic),
-        values,
-        bounds,
-    )
+    crate::quality::Observation::from_values(Some(coefficient_objective(p, x)), values, bounds)
 }
 
 #[cfg(test)]

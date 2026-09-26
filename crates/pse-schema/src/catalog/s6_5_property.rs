@@ -16,26 +16,10 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_authored_phase_equilibrium_pairs(builder);
     declare_authored_method_selections(builder);
     declare_authored_default_scaling(builder);
-    declare_inferred_property_requirements(builder);
-    declare_inferred_method_resolutions(builder);
-    declare_inferred_state_flash_required(builder);
     declare_property_category_vocabulary(builder);
     declare_method_family_vocabulary(builder);
     declare_method_realization_vocabulary(builder);
     declare_scope_kind_vocabulary(builder);
-    declare_resolution_status_vocabulary(builder);
-}
-
-fn declare_inferred_state_flash_required(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Inferred,
-        "state_flash_required",
-        S::Derived,
-        &["state_instance"],
-        vec![column("state_instance", T::id())],
-        "blueprint §9.2: state instances whose phase-equilibrium and state-definition facts require a flash.",
-    );
 }
 
 fn declare_reference_property_kinds(builder: &mut RegistryBuilder) {
@@ -214,69 +198,6 @@ fn declare_authored_default_scaling(builder: &mut RegistryBuilder) {
     );
 }
 
-fn declare_inferred_property_requirements(builder: &mut RegistryBuilder) {
-    relation_version(
-        builder,
-        N::Inferred,
-        "property_requirements",
-        2,
-        S::Derived,
-        &["requirement_id"],
-        vec![
-            column("requirement_id", T::id()),
-            column("state_scope_id", T::id()),
-            column("property_kind_id", T::id()),
-            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)),
-            crate::model::FieldContract::provenance(
-                "derivation_id",
-                T::id(),
-                "Exact source derivation.",
-            ),
-        ],
-        "blueprint §6.5 property: property_requirements.",
-    );
-}
-
-fn declare_inferred_method_resolutions(builder: &mut RegistryBuilder) {
-    relation_version(
-        builder,
-        N::Inferred,
-        "method_resolutions",
-        3,
-        S::Derived,
-        &["requirement_id"],
-        vec![
-            column("requirement_id", T::id()),
-            column("outcome", resolution_outcome()),
-            crate::model::FieldContract::provenance(
-                "derivation_id",
-                T::id(),
-                "Exact source derivation.",
-            ),
-        ],
-        "blueprint §6.5 property: method_resolutions.",
-    );
-}
-
-/// A resolution names one authoritative method or a complete unresolved outcome.
-pub(super) fn resolution_outcome() -> T {
-    T::structure(vec![
-        T::enumeration("ResolutionStatus").with_name("kind"),
-        T::structure(vec![
-            T::id()
-                .with_name("method_id")
-                .with_fk("reference.method_specs", "method_id"),
-        ])
-        .with_name("resolved")
-        .optional(),
-    ])
-    .with_alternative(
-        &crate::model::TaggedAlternative::new("kind", [("resolved".into(), "resolved".into())])
-            .with_unit("unresolved")
-            .with_unit("ambiguous"),
-    )
-}
-
 fn declare_property_category_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
@@ -322,14 +243,6 @@ fn declare_scope_kind_vocabulary(builder: &mut RegistryBuilder) {
         builder,
         "ScopeKind",
         ["package", "phase", "species", "phase_species", "reaction"],
-    );
-}
-
-fn declare_resolution_status_vocabulary(builder: &mut RegistryBuilder) {
-    super::declarations::enumeration(
-        builder,
-        "ResolutionStatus",
-        ["resolved", "unresolved", "ambiguous"],
     );
 }
 

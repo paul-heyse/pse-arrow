@@ -71,19 +71,62 @@ struct Term {
 pub struct CasePlan {
     structure: Arc<CaseStructure>,
     bodies: BTreeMap<ContentHash, Arc<PreparedBody>>,
-    columns: Vec<SemanticId>,
-    rows: BTreeMap<SemanticId, usize>,
-    instances: Vec<Instance>,
-    jacobian: AssemblyMatrix,
-    hessian: AssemblyMatrix,
-    jacobian_terms: Vec<Term>,
-    hessian_terms: Vec<Term>,
+    columns: Arc<Vec<SemanticId>>,
+    rows: Arc<BTreeMap<SemanticId, usize>>,
+    instances: Arc<Vec<Instance>>,
+    jacobian: Arc<AssemblyMatrix>,
+    hessian: Arc<AssemblyMatrix>,
+    jacobian_terms: Arc<Vec<Term>>,
+    hessian_terms: Arc<Vec<Term>>,
     order: DerivativeOrder,
-    requests: Vec<LocalDemand>,
+    requests: Arc<Vec<LocalDemand>>,
     worker_bytes: usize,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
 }
 impl CasePlan {
+    /// Known immutable payload; shared bodies are counted once within this plan.
+    /// Opaque library and map allocation overhead is accounted by the runtime policy.
+    pub fn retained_bytes(&self) -> usize {
+        let structure = &self.structure;
+        size_of::<Self>()
+            + size_of_val(structure.variables())
+            + size_of_val(structure.parameters())
+            + size_of_val(structure.rows())
+            + structure
+                .instances()
+                .iter()
+                .map(|i| {
+                    size_of_val(i)
+                        + size_of_val(i.slots.as_slice())
+                        + size_of_val(i.contributions.as_slice())
+                })
+                .sum::<usize>()
+            + self
+                .bodies
+                .values()
+                .map(|b| b.retained_bytes())
+                .sum::<usize>()
+            + self.columns.capacity() * size_of::<SemanticId>()
+            + self.rows.len() * size_of::<(SemanticId, usize)>()
+            + self
+                .instances
+                .iter()
+                .map(|i| {
+                    size_of_val(i)
+                        + i.coordinates.capacity() * size_of::<usize>()
+                        + i.columns.capacity() * size_of::<usize>()
+                        + i.groups
+                            .iter()
+                            .flatten()
+                            .map(|g| size_of_val(g) + g.outputs.capacity() * size_of::<usize>())
+                            .sum::<usize>()
+                })
+                .sum::<usize>()
+            + self.jacobian.retained_bytes()
+            + self.hessian.retained_bytes()
+            + (self.jacobian_terms.capacity() + self.hessian_terms.capacity()) * size_of::<Term>()
+            + self.requests.capacity() * size_of::<LocalDemand>()
+    }
     /// Retain runtime accounting on every escaping structural plan clone.
     pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
         for body in self.bodies.values_mut() {
@@ -315,15 +358,15 @@ impl CasePlan {
         Ok(Self {
             structure,
             bodies,
-            columns,
-            rows,
-            instances,
-            jacobian,
-            hessian,
-            jacobian_terms: jt,
-            hessian_terms: ht,
+            columns: Arc::new(columns),
+            rows: Arc::new(rows),
+            instances: Arc::new(instances),
+            jacobian: Arc::new(jacobian),
+            hessian: Arc::new(hessian),
+            jacobian_terms: Arc::new(jt),
+            hessian_terms: Arc::new(ht),
             order,
-            requests,
+            requests: Arc::new(requests),
             worker_bytes: limits.worker_bytes,
             owner: None,
         })
@@ -487,7 +530,7 @@ impl CasePlan {
     /// All-branch objective support in global free-variable order.
     pub fn objective_support(&self) -> BTreeSet<usize> {
         let mut support = BTreeSet::new();
-        for (b, i) in self.structure.instances().iter().zip(&self.instances) {
+        for (b, i) in self.structure.instances().iter().zip(self.instances.iter()) {
             for c in &b.contributions {
                 if c.target == Target::Objective {
                     for (&slot, &col) in i.coordinates.iter().zip(&i.columns) {
@@ -607,8 +650,8 @@ impl CaseAssembly {
             groups,
             providers,
             cancel,
-            jacobian: self.jacobian.clone(),
-            hessian: self.hessian.clone(),
+            jacobian: self.jacobian.as_ref().clone(),
+            hessian: self.hessian.as_ref().clone(),
         }
     }
 }

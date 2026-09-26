@@ -14,32 +14,6 @@ pub fn declare(builder: &mut RegistryBuilder) {
         "BoundStatus",
         ["interior", "at_lower", "at_upper", "violated"],
     );
-    super::declarations::enumeration(
-        builder,
-        "KernelOutcome",
-        [
-            "success",
-            "missing_input",
-            "domain_failure",
-            "implementation_failure",
-        ],
-    );
-    super::declarations::enumeration(
-        builder,
-        "TerminationStatus",
-        [
-            "optimal",
-            "locally_infeasible",
-            "infeasible",
-            "unbounded",
-            "max_iterations",
-            "max_time",
-            "restoration_failed",
-            "solver_error",
-            "cancelled",
-            "user_interrupt",
-        ],
-    );
     super::declarations::enumeration(builder, "AssertionStatus", ["pass", "fail", "obsolete"]);
 }
 

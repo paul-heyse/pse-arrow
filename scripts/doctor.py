@@ -252,25 +252,20 @@ def check_cargo_tools() -> Check:
     )
 
 
-def check_git_hooks() -> Check:
-    """Check the effective Git hook paths, including core.hooksPath."""
-    missing = []
-    for name in ("pre-commit", "pre-push"):
-        code, out = run("git", "rev-parse", "--git-path", f"hooks/{name}")
-        path = ROOT / out
-        if (
-            code
-            or not path.is_file()
-            or "pre_commit" not in path.read_text(errors="replace")
-        ):
-            missing.append(name)
+def check_docs_tools() -> Check:
+    """The publisher's declaration owns documentation versions, including CI installs."""
+    pins = tomllib.loads((ROOT / "docs/site.toml").read_text())["tools"]
+    problems = []
+    for name, version in pins.items():
+        code, output = run(name, "--version")
+        if code or not re.search(rf"(?:^|\s)v?{re.escape(version)}(?:\s|$)", output):
+            problems.append(f"{name}: expected {version}")
     return Check(
-        "git-hooks",
-        not missing,
-        ", ".join(missing) + " missing"
-        if missing
-        else "pre-commit and pre-push installed",
-        "just bootstrap" if missing else "",
+        "docs-tools",
+        not problems,
+        "; ".join(problems) or "declared versions present",
+        "just bootstrap-docs" if problems else "",
+        blocking=True,
     )
 
 
@@ -396,9 +391,9 @@ CHECKS = (
     check_quality_tools,
     check_rust,
     check_cargo_tools,
+    check_docs_tools,
     check_repo_linters,
     check_extension,
-    check_git_hooks,
     check_solvers,
     check_external,
 )

@@ -167,7 +167,7 @@ pub(super) struct ResidentCache {
         Cached,
     >,
     loading: AtomicUsize,
-    epoch: AtomicUsize,
+    retention: pse_columnar::retention::RetentionFence,
     admission: Mutex<()>,
     live: Arc<AtomicUsize>,
     pinned: Arc<AtomicUsize>,
@@ -197,7 +197,7 @@ impl ResidentCache {
             loading: AtomicUsize::new(0),
             live: Arc::new(AtomicUsize::new(0)),
             pinned: Arc::new(AtomicUsize::new(0)),
-            epoch: AtomicUsize::new(0),
+            retention: Default::default(),
             admission: Mutex::new(()),
             hits: AtomicUsize::new(0),
             loads: AtomicUsize::new(0),
@@ -207,8 +207,7 @@ impl ResidentCache {
     }
     pub(super) fn invalidate(&self) {
         let _guard = self.admission.lock();
-        self.epoch.fetch_add(1, Ordering::AcqRel);
-        self.entries.clear();
+        self.retention.clear(|| self.entries.clear());
     }
     pub(super) fn details(
         &self,
@@ -565,7 +564,7 @@ impl DeltaCacheService {
             } else {
                 self.resident.misses.fetch_add(1, Ordering::Relaxed);
                 let owner = self.clone();
-                let epoch = owner.resident.epoch.load(Ordering::Acquire);
+                let epoch = owner.resident.retention.generation();
                 let population_key = key.clone();
                 self.resident
                     .flights
@@ -594,12 +593,10 @@ impl DeltaCacheService {
                         if accounted_key
                             && value.resident()
                             && let Ok(_guard) = owner.resident.admission.lock()
-                            && owner.resident.epoch.load(Ordering::Acquire) == epoch
                         {
-                            owner
-                                .resident
-                                .entries
-                                .put(&population_key, Value(value.clone()));
+                            if owner.resident.retention.admit(epoch, || owner.resident.entries.put(&population_key, Value(value.clone()))).is_none() {
+                                owner.resident.bypasses.fetch_add(1, Ordering::Relaxed);
+                            }
                         } else {
                             owner.resident.bypasses.fetch_add(1, Ordering::Relaxed);
                         }

@@ -106,6 +106,7 @@ struct Operator<'o> {
     mode: usize,
     state_pattern: Pattern,
     parameter_pattern: Pattern,
+    direction: RefCell<Vec<f64>>,
 }
 impl<'o> Operator<'o> {
     fn new(shared: Rc<Shared<'o>>, function: Function) -> Result<Self, ProblemError> {
@@ -147,6 +148,7 @@ impl<'o> Operator<'o> {
         Ok(Self {
             state_pattern: pattern(false)?,
             parameter_pattern: pattern(true)?,
+            direction: RefCell::new(vec![0.0; n + np]),
             shared,
             function,
             mode,
@@ -163,10 +165,9 @@ impl<'o> Operator<'o> {
         let offset = if parameter { self.nstates() } else { 0 };
         let target = matrix.inner_mut();
         for c in 0..target.ncols() {
-            let rows = target.symbolic().row_idx()[target.col_range(c)].to_vec();
-            let start = target.col_range(c).start;
-            for (k, r) in rows.into_iter().enumerate() {
-                target.val_mut()[start + k] = if parameter && !self.shared.parameter_active.get() {
+            for k in target.col_range(c) {
+                let r = target.symbolic().row_idx()[k];
+                target.val_mut()[k] = if parameter && !self.shared.parameter_active.get() {
                     0.0
                 } else {
                     j.get(r, c + offset).copied().unwrap_or(0.0)
@@ -175,19 +176,30 @@ impl<'o> Operator<'o> {
         }
     }
     fn product(&self, x: &V, t: f64, v: &V, y: &mut V, parameter: bool) {
-        let pattern = if parameter {
-            &self.parameter_pattern
-        } else {
-            &self.state_pattern
+        let result = self
+            .shared
+            .evaluate_mode(self.mode, self.function, t, x.as_slice(), true);
+        let Some(j) = result.jacobian else {
+            self.shared
+                .abort(Termination::Failed, contract("missing dynamic partials"));
         };
-        let mut matrix = M::new_from_sparsity(
-            self.nout(),
-            v.len(),
-            Some(pattern.clone()),
-            self.shared.context,
+        // Keep one direction buffer per operator attempt. faer multiplies the
+        // full admitted CSC matrix; a fresh Diffsol matrix is unnecessary.
+        let mut direction = self.direction.borrow_mut();
+        direction.fill(0.0);
+        let offset = if parameter { self.nstates() } else { 0 };
+        if !parameter || self.shared.parameter_active.get() {
+            direction[offset..offset + v.len()].copy_from_slice(v.as_slice());
+        }
+        let nout = self.nout();
+        faer::sparse::linalg::matmul::sparse_dense_matmul(
+            faer::MatMut::from_column_major_slice_mut(y.as_mut_slice(), nout, 1),
+            faer::Accum::Replace,
+            j.as_ref(),
+            faer::MatRef::from_column_major_slice(&direction, direction.len(), 1),
+            1.0,
+            faer::Par::Seq,
         );
-        self.partials(x, t, &mut matrix, parameter);
-        matrix.gemv(1.0, v, 0.0, y);
     }
 }
 impl Op for Operator<'_> {
@@ -271,10 +283,9 @@ impl ConstantOpSens for Operator<'_> {
         if let Some(seed) = self.shared.seed_sens.borrow().as_ref() {
             let target = y.inner_mut();
             for (c, col) in seed.iter().enumerate() {
-                let rows = target.symbolic().row_idx()[target.col_range(c)].to_vec();
-                let start = target.col_range(c).start;
-                for (k, r) in rows.into_iter().enumerate() {
-                    target.val_mut()[start + k] = col[r];
+                for k in target.col_range(c) {
+                    let r = target.symbolic().row_idx()[k];
+                    target.val_mut()[k] = col[r];
                 }
             }
             return;

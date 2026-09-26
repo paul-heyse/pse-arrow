@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Publication choices only; document bodies and lifecycle metadata retain their owners.
+[tools]
+mdbook = "0.5.4"
+pagefind = "1.5.2"
+
+[publication]
+exclude = ["SUMMARY.md", "generated/rustdoc/**"]
+current_work = [
+  "plans/15-*.md",
+  "plans/16-*.md",
+  "plans/17-*.md",
+  "plans/18-*.md",
+]
+entrypoints = [
+  "README.md",
+  "authoritative_design/README.md",
+  "plans/README.md",
+  "design_review/README.md",
+]
+
+[[collections]]
+title = "Start here"
+root = "."
+recursive = false
+scope = "Current"
+
+[[collections]]
+title = "Architecture"
+root = "authoritative_design"
+scope = "Current"
+
+[[collections]]
+title = "Current work and execution history"
+root = "plans"
+scope = "History"
+
+[[collections]]
+title = "Decisions"
+root = "adr"
+scope = "Reference"
+
+[[collections]]
+title = "Design standard and reviews"
+root = "design_review"
+scope = "History"
+
+[[collections]]
+title = "Development"
+root = "dev"
+scope = "Current"
+
+[[collections]]
+title = "Library reference"
+root = "capability-maps"
+scope = "Reference"
+
+[[collections]]
+title = "Generated reference"
+root = "generated"
+scope = "Reference"
+
+# Mixed legacy specifications and historical standards must not masquerade as current guidance.
+[[overrides]]
+patterns = ["authoritative_design/blueprint.md"]
+scope = "Reference"
+
+[[overrides]]
+patterns = ["authoritative_design/proposal.md"]
+scope = "History"
+
+[[overrides]]
+patterns = [
+  "design_review/design_principles/core/*.md",
+  "design_review/design_principles/profiles/**/*.md",
+  "design_review/design_principles/binding/*.md",
+]
+scope = "Current"

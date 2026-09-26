@@ -78,7 +78,7 @@ pub fn render_path(path: &Path) -> String {
         .map(|segment| {
             format!(
                 "{}{}",
-                segment.name,
+                crate::grammar::render_name(&segment.name),
                 if segment.indices.is_empty() {
                     String::new()
                 } else {

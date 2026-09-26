@@ -1,0 +1,397 @@
+{
+  "document": "THERMO-INTEGRATION-008",
+  "kind": "authored_algebra_and_sequential_reference_contract_checks",
+  "count": 43,
+  "passed": 43,
+  "failed": 0,
+  "checks": [
+    {
+      "id": "RC8-01",
+      "name": "Implicit state response",
+      "actual": "1/4",
+      "expected": "1/4",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Local exact algebra on the specified positive branch."
+    },
+    {
+      "id": "RC8-02",
+      "name": "Reduced derivative includes inner response",
+      "actual": "4",
+      "expected": "4",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Frozen-y partial derivative is only 1."
+    },
+    {
+      "id": "RC8-03",
+      "name": "Reduced second derivative",
+      "actual": "3/8",
+      "expected": "3/8",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "For F(u)=u**1.5+u on u>0."
+    },
+    {
+      "id": "RC8-04",
+      "name": "Frozen-y derivative rejected",
+      "actual": "False",
+      "expected": "False",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "A partial derivative is not the solved response."
+    },
+    {
+      "id": "RC8-05",
+      "name": "Reduced derivative matches full re-solve central perturbation",
+      "actual": "3.9999999999196234",
+      "expected": "4.0",
+      "tolerance": 1e-08,
+      "passed": true,
+      "scope": "Synthetic smooth expression; this does not test a library."
+    },
+    {
+      "id": "RC8-06",
+      "name": "Linearized outer sensitivity to inner residual",
+      "actual": "3",
+      "expected": "3",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Magnitude only, a local first-order estimate, not a universal nonlinear bound."
+    },
+    {
+      "id": "RC8-07",
+      "name": "Inner error magnification example",
+      "actual": "3/1000000",
+      "expected": "3/1000000",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Local linearized illustration with authored residual scale."
+    },
+    {
+      "id": "RC8-08",
+      "name": "Noise amplification for tiny perturbation",
+      "actual": "100",
+      "expected": "100",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Worst-case central difference contribution if each value error is bounded by epsilon."
+    },
+    {
+      "id": "RC8-09",
+      "name": "Hessian chart first term alone",
+      "actual": "32",
+      "expected": "32",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "J transpose H J is incomplete for nonlinear charts."
+    },
+    {
+      "id": "RC8-10",
+      "name": "Hessian chart curvature contribution",
+      "actual": "16",
+      "expected": "16",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Gradient times second derivative of coordinate transform."
+    },
+    {
+      "id": "RC8-11",
+      "name": "Full nonlinear chart Hessian",
+      "actual": "48",
+      "expected": "48",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Exact second chain rule, 48 not 32."
+    },
+    {
+      "id": "RC8-12",
+      "name": "Scaled Jacobian",
+      "actual": "30",
+      "expected": "30",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Physical and scaled residuals remain distinct."
+    },
+    {
+      "id": "RC8-13",
+      "name": "Zero at a point is not structural independence",
+      "actual": "True",
+      "expected": "True",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "For r=x*y gradient=(y,x), the gradient at zero does not establish zero structure."
+    },
+    {
+      "id": "RC8-14",
+      "name": "Partial caloric solve temperature",
+      "actual": "325",
+      "expected": "325",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Authored model, no real-fluid data."
+    },
+    {
+      "id": "RC8-15",
+      "name": "Completed enthalpy at wrong partial solution",
+      "actual": "125",
+      "expected": "125",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Post hoc completion does not meet total target 50."
+    },
+    {
+      "id": "RC8-16",
+      "name": "Total caloric inverse temperature",
+      "actual": "310",
+      "expected": "310",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Inverse evaluated with complete function."
+    },
+    {
+      "id": "RC8-17",
+      "name": "Original complete target satisfied",
+      "actual": "50",
+      "expected": "50",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Complete function used in original-target check."
+    },
+    {
+      "id": "RC8-18",
+      "name": "Discontinuous bracket has opposite residual signs",
+      "actual": "True",
+      "expected": "True",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "A bracket sign test alone is insufficient without continuity."
+    },
+    {
+      "id": "RC8-19",
+      "name": "Discontinuous endpoint has nonzero target residual",
+      "actual": "50",
+      "expected": "50",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "No enthalpy 50 exists in this artificial TP step function."
+    },
+    {
+      "id": "RC8-20",
+      "name": "Explicit phase fraction resolves synthetic endpoint mixture",
+      "actual": "50",
+      "expected": "50",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Linear phase mixing with declared endpoints, not a TP-only unique allocation."
+    },
+    {
+      "id": "RC8-21",
+      "name": "Parameter match at one temperature",
+      "actual": "1",
+      "expected": "1",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "tau_a=1 and tau_b=2-300/T agree at this point."
+    },
+    {
+      "id": "RC8-22",
+      "name": "Parameter slope differs",
+      "actual": "1/300",
+      "expected": "1/300",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "tau_a derivative is zero, so equality at a point does not establish equivalence."
+    },
+    {
+      "id": "RC8-23",
+      "name": "Equimolar reference shift",
+      "actual": "25",
+      "expected": "25",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Declared species molar reference offsets."
+    },
+    {
+      "id": "RC8-24",
+      "name": "Unequal-composition reference shift",
+      "actual": "35/2",
+      "expected": "35/2",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Reference shift is composition dependent."
+    },
+    {
+      "id": "RC8-25",
+      "name": "Reaction reference contribution",
+      "actual": "12",
+      "expected": "12",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Synthetic balanced A to B with extent 0.4."
+    },
+    {
+      "id": "RC8-26",
+      "name": "Compensating reaction correction preserves accounting",
+      "actual": "100",
+      "expected": "100",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "If energy reference adds +12, corresponding separate correction changes by -12."
+    },
+    {
+      "id": "RC8-27",
+      "name": "Conserved-basis chemical gauge leaves reaction affinity unchanged",
+      "actual": "0",
+      "expected": "0",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Equal shifts for A and B with one conserved moiety."
+    },
+    {
+      "id": "RC8-28",
+      "name": "Arbitrary species offset changes reaction affinity",
+      "actual": "30",
+      "expected": "30",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "An arbitrary c is not necessarily a gauge transformation."
+    },
+    {
+      "id": "RC8-29",
+      "name": "Model discrepancy after known offset",
+      "actual": "10",
+      "expected": "10",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Package B slope differs after removing its stated 100 offset."
+    },
+    {
+      "id": "RC8-30",
+      "name": "Temperature for corrected enthalpy match",
+      "actual": "1025/3",
+      "expected": "1025/3",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Choosing PH instead of TP preservation changes target temperature."
+    },
+    {
+      "id": "RC8-31",
+      "name": "Both Jacobian axes permuted",
+      "actual": "[[4, 3], [2, 1]]",
+      "expected": "[[4, 3], [2, 1]]",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "A permutation must map inputs and outputs according to their coordinate definitions."
+    },
+    {
+      "id": "RC8-32",
+      "name": "Disjoint phase material count",
+      "actual": "10",
+      "expected": "10",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Aggregate is a view, not a third additive phase."
+    },
+    {
+      "id": "RC8-33",
+      "name": "Lossy map lacks unique inverse",
+      "actual": "True",
+      "expected": "True",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Same lump can correspond to distinct detailed compositions."
+    },
+    {
+      "id": "RC8-34",
+      "name": "Required second liquid blocked",
+      "actual": "False",
+      "expected": "False",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Reference predicate, not a library capability test."
+    },
+    {
+      "id": "RC8-35",
+      "name": "Local derivative does not qualify total response",
+      "actual": "False",
+      "expected": "False",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Semantic derivative demand is exact, not any derivative flag."
+    },
+    {
+      "id": "RC8-36",
+      "name": "Value request can use same eligible profile",
+      "actual": "True",
+      "expected": "True",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Derivative-free use is distinct from differentiated use."
+    },
+    {
+      "id": "RC8-37",
+      "name": "Partial caloric PH is blocked",
+      "actual": "False",
+      "expected": "False",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Caloric prerequisite checked before dispatch."
+    },
+    {
+      "id": "RC8-38",
+      "name": "Running session not reused after logical cancellation",
+      "actual": "False",
+      "expected": "False",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Sequential lifetime guard only; not native interruption test."
+    },
+    {
+      "id": "RC8-39",
+      "name": "Quarantined session not reused",
+      "actual": "False",
+      "expected": "False",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Sequential lifecycle guard only."
+    },
+    {
+      "id": "RC8-40",
+      "name": "Same revision with revoked parent blocks publication",
+      "actual": "False",
+      "expected": "False",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Sequential Boolean guard, not concurrent implementation proof."
+    },
+    {
+      "id": "RC8-41",
+      "name": "Same revision with stale iterative input blocks publication",
+      "actual": "False",
+      "expected": "False",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Input-lineage coherence is distinct from base revision match."
+    },
+    {
+      "id": "RC8-42",
+      "name": "Fully matching synthetic publication eligibility",
+      "actual": "True",
+      "expected": "True",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Reference eligibility only; no persistence system executed."
+    },
+    {
+      "id": "RC8-43",
+      "name": "Initializer not restored cannot claim original model",
+      "actual": "False",
+      "expected": "False",
+      "tolerance": 0.0,
+      "passed": true,
+      "scope": "Successful temporary solve plus failed restoration does not imply original-model acceptance."
+    }
+  ],
+  "limits": "No native thermodynamics, real-fluid validation, deployed solver, adapter, concurrency or crash containment is exercised."
+}

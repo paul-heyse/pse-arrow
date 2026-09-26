@@ -17,6 +17,20 @@ pub enum Observation {
     /// A native text observation.
     Text(String),
 }
+/// Authored location attached by the owner that has the source map.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct SourceLocation {
+    /// Original semantic occurrence or instance identity.
+    pub source: SemanticId,
+    /// Definition or document path, never a backend-local node identifier.
+    pub path: String,
+    /// Optional authored display name.
+    pub name: Option<String>,
+    /// UTF-8 starting byte offset, when supplied by the parser/compiler.
+    pub start: Option<u32>,
+    /// UTF-8 exclusive ending byte offset.
+    pub end: Option<u32>,
+}
 /// Stable structured cause shared by Rust and the public error projection.
 #[derive(Clone, Debug, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[error("{stage}: {rule} ({class:?}; sources {sources:?})")]
@@ -31,6 +45,9 @@ pub struct BoundaryDiagnostic {
     pub rule: String,
     /// Values observed while checking the contract.
     pub observations: std::collections::BTreeMap<String, Observation>,
+    /// Available source locations. Empty means unattributed, not a guessed source.
+    #[serde(default)]
+    pub locations: Vec<SourceLocation>,
 }
 impl BoundaryDiagnostic {
     /// Construct an attributable boundary error; add observations when available.
@@ -49,6 +66,7 @@ impl BoundaryDiagnostic {
             sources,
             rule: rule.into(),
             observations: Default::default(),
+            locations: Vec::new(),
         }
     }
 }

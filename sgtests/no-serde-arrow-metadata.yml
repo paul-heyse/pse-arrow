@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-serde-arrow-metadata
+valid:
+  - '// insert("SERDE_ARROW:strategy", value);'
+  - 'let diagnostic = "`SERDE_ARROW:*` keys are invalid";'
+  - '#[cfg(test)] mod tests { fn bad() { insert("SERDE_ARROW:strategy"); } }'
+invalid:
+  - 'insert("SERDE_ARROW:strategy", value);'
+  - 'insert(r#"SERDE_ARROW:strategy"#, value);'
+  - '#[cfg(test)] mod tests {} fn production() { insert("SERDE_ARROW:strategy"); }'

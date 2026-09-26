@@ -22,19 +22,22 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 ROOT = Path(__file__).resolve().parents[1]
 ADR_DIR = ROOT / "docs" / "adr"
 TEMPLATE = ADR_DIR / "template.md"
 README = ADR_DIR / "README.md"
-SUMMARY = ROOT / "docs" / "SUMMARY.md"
 BLUEPRINT = ROOT / "docs" / "authoritative_design" / "blueprint.md"
 
 FILENAME_RE = re.compile(r"^\d{4}-[a-z0-9-]+\.md$")
 ID_RE = re.compile(r"^ADR-(\d{4})$")
-# DP (core) and PS (process-simulator profile) principles; DM is the superseded charter,
+# AP foundations, DP refinements and PS profile principles; DM is the superseded charter,
 # still cited by accepted records (design principles §I).
-PRINCIPLE_RE = re.compile(r"^(DP|PS|DM)-\d{2}$")
+PRINCIPLE_RE = re.compile(r"^(AP|DP|PS|DM)-\d{2}$")
 SECTION_RE = re.compile(r"^§([0-9]+(?:\.[0-9]+)*|[A-Z][0-9]+)$")
 HEADING_RE = re.compile(r"^#{2,4}\s+(?:([0-9]+(?:\.[0-9]+)*)|([A-Z][0-9]+))\.?\s")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -76,8 +79,8 @@ Each record states one decision, the blueprint sections it governs, the design
 principles §H fields (principles, level, evidence, revisit trigger, verification), and the
 design-review finding that motivated it. A record is immutable once accepted:
 it changes only by superseding it with a new record, or by a status edit and an
-appended `## Status history` line. `docs/authoritative_design/blueprint.md` is
-the authoritative design; these records say *why* it reads the way it does.
+appended `## Status history` line. `docs/authoritative_design/README.md` routes to
+the authoritative design collection; these records say *why* it reads the way it does.
 
 Run `just adr-new <slug>` to start one and `just adr-lint` before opening the PR.
 Open items that were deliberately deferred live in [`register.md`](register.md).
@@ -149,13 +152,42 @@ def adr_paths() -> list[Path]:
     )
 
 
+def markdown_headings(text: str) -> Iterator[tuple[int, str]]:
+    """Yield actual ATX heading lines and positions, excluding fenced examples."""
+    fence = ""
+    for position, line in enumerate(text.splitlines()):
+        marker = re.match(r"^\s{0,3}(`{3,}|~{3,})", line)
+        if marker:
+            token = marker.group(1)
+            if not fence:
+                fence = token
+            elif token[0] == fence[0] and len(token) >= len(fence):
+                fence = ""
+            continue
+        if not fence and re.match(r"^#{1,6}\s+", line):
+            yield position, line
+
+
+def section_owners(blueprint: Path | None = None) -> dict[str, tuple[Path, str]]:
+    """Numbered headings own identities; fences and legacy link stubs do not."""
+    blueprint = BLUEPRINT if blueprint is None else blueprint
+    owners: dict[str, tuple[Path, str]] = {}
+    paths = [blueprint, *sorted((blueprint.parent / "sections").rglob("*.md"))]
+    for path in paths:
+        for _, line in markdown_headings(path.read_text(encoding="utf-8")):
+            match = HEADING_RE.match(line)
+            if match:
+                ident = match.group(1) or match.group(2)
+                if ident in owners:
+                    raise ValueError(
+                        f"duplicate section §{ident}: {owners[ident][0]} and {path}"
+                    )
+                owners[ident] = (path, line)
+    return owners
+
+
 def blueprint_sections() -> set[str]:
-    found: set[str] = set()
-    for line in BLUEPRINT.read_text(encoding="utf-8").splitlines():
-        m = HEADING_RE.match(line)
-        if m:
-            found.add(m.group(1) or m.group(2))
-    return found
+    return set(section_owners())
 
 
 def git(*args: str) -> tuple[int, str]:
@@ -178,7 +210,11 @@ def lint() -> int:
     if not paths:
         print("adr: no records under docs/adr/", file=sys.stderr)
         return 1
-    sections = blueprint_sections()
+    try:
+        sections = blueprint_sections()
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     records: dict[str, dict[str, object]] = {}
 
     for path in paths:
@@ -224,7 +260,7 @@ def lint() -> int:
         for principle in as_list(front.get("principles")):
             if not PRINCIPLE_RE.match(principle):
                 errors.append(
-                    f"{rel}: principle {principle!r} must match DP-NN, PS-NN or legacy DM-NN"
+                    f"{rel}: principle {principle!r} must match AP-NN, DP-NN, PS-NN or legacy DM-NN"
                 )
         for citation in as_list(front.get("blueprint")):
             sm = SECTION_RE.match(citation)
@@ -275,16 +311,12 @@ def lint() -> int:
 
     errors.extend(lint_immutability(paths))
 
-    generated_readme, generated_summary = render_index()
+    generated_readme = render_index()
     if README.exists() and README.read_text(encoding="utf-8") != generated_readme:
         errors.append("docs/adr/README.md is stale; run `python3 scripts/adr.py index`")
     elif not README.exists():
         errors.append(
             "docs/adr/README.md is missing; run `python3 scripts/adr.py index`"
-        )
-    if SUMMARY.exists() and SUMMARY.read_text(encoding="utf-8") != generated_summary:
-        errors.append(
-            "docs/SUMMARY.md ADR block is stale; run `python3 scripts/adr.py index`"
         )
 
     for err in errors:
@@ -343,8 +375,8 @@ def lint_immutability(paths: list[Path]) -> list[str]:
 # --------------------------------------------------------------------------- #
 # index
 # --------------------------------------------------------------------------- #
-def render_index() -> tuple[str, str]:
-    rows, links = [], []
+def render_index() -> str:
+    rows = []
     for path in adr_paths():
         front, _ = split_front_matter(path.read_text(encoding="utf-8"), str(path))
         ident = str(front.get("id"))
@@ -354,9 +386,8 @@ def render_index() -> tuple[str, str]:
             f"| [{ident}]({path.name}) | {title} | {front.get('status')} "
             f"| {front.get('date')} | {blueprint} | {front.get('revisit')} |"
         )
-        links.append(f"  - [{ident}: {title}]({ADR_DIR.name}/{path.name})")
 
-    readme = (
+    return (
         README_PREAMBLE
         + "\n| ID | Title | Status | Date | Blueprint | Revisit |\n"
         + "|---|---|---|---|---|---|\n"
@@ -364,23 +395,13 @@ def render_index() -> tuple[str, str]:
         + "\n"
     )
 
-    summary_text = SUMMARY.read_text(encoding="utf-8") if SUMMARY.exists() else ""
-    begin, end = "<!-- adr:begin -->", "<!-- adr:end -->"
-    if begin in summary_text and end in summary_text:
-        head = summary_text.split(begin)[0]
-        tail = summary_text.split(end, 1)[1]
-        summary_text = head + begin + "\n" + "\n".join(links) + "\n" + end + tail
-    return readme, summary_text
-
 
 def index(check: bool) -> int:
-    readme, summary_text = render_index()
+    readme = render_index()
     if check:
         stale = []
         if not README.exists() or README.read_text(encoding="utf-8") != readme:
             stale.append("docs/adr/README.md")
-        if SUMMARY.exists() and SUMMARY.read_text(encoding="utf-8") != summary_text:
-            stale.append("docs/SUMMARY.md")
         if stale:
             print(
                 f"error: stale generated file(s): {', '.join(stale)}", file=sys.stderr
@@ -389,9 +410,7 @@ def index(check: bool) -> int:
         print("adr index: up to date")
         return 0
     README.write_text(readme, encoding="utf-8")
-    if SUMMARY.exists():
-        SUMMARY.write_text(summary_text, encoding="utf-8")
-    print(f"adr index: wrote {README.relative_to(ROOT)} and the SUMMARY block")
+    print(f"adr index: wrote {README.relative_to(ROOT)}")
     return 0
 
 
@@ -471,9 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     p_new.add_argument("slug")
     p_new.add_argument("--title", required=True)
     sub.add_parser("lint", help="validate every record")
-    p_index = sub.add_parser(
-        "index", help="regenerate docs/adr/README.md and the SUMMARY block"
-    )
+    p_index = sub.add_parser("index", help="regenerate docs/adr/README.md")
     p_index.add_argument("--check", action="store_true")
     p_sup = sub.add_parser("supersede", help="mark <old> superseded by <new>")
     p_sup.add_argument("old")

@@ -14,13 +14,19 @@ fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
 fn service() -> Arc<MathService> {
+    service_and_cache().0
+}
+fn service_and_cache() -> (
+    Arc<MathService>,
+    Arc<pse_engine::cache_service::NativeCacheService>,
+) {
     let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(512 << 20));
     let native = pse_engine::cache_service::NativeCacheService::new(
         pse_engine::cache_service::CacheBudget::disabled(1024),
         &pool,
     )
     .unwrap();
-    MathService::new(
+    let service = MathService::new(
         pool,
         Arc::new(tokio::sync::Semaphore::new(2)),
         2,
@@ -31,7 +37,8 @@ fn service() -> Arc<MathService> {
             ..MathPolicy::default()
         },
         &native,
-    )
+    );
+    (service, native)
 }
 fn inputs() -> Inputs {
     let quantities = Arc::new(pse_quantity::standard::standard_registry().unwrap());
@@ -124,6 +131,88 @@ async fn prepared(s: &Arc<MathService>) -> Preparation {
     .await
     .unwrap()
 }
+#[tokio::test]
+async fn prepared_products_share_capacity_and_survive_workspace_rotation() {
+    let s = service();
+    let w = s.workspace(inputs(), WorkspaceLimits::default()).unwrap();
+    let a = s
+        .prepare(
+            w.clone(),
+            id(5),
+            DerivativeOrder::First,
+            profile(),
+            false,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let first = s.pool.reserved();
+    let b = s
+        .prepare(
+            w.clone(),
+            id(5),
+            DerivativeOrder::First,
+            profile(),
+            false,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert!(Arc::ptr_eq(&a.owner, &b.owner));
+    assert_eq!(s.pool.reserved(), first);
+    assert!(first < 2 * s.policy.workspace_bytes);
+    // A structural edit has a distinct immutable allocation and retained owner.
+    let mut changed = inputs();
+    changed.definitions.get_mut(&id(2)).unwrap().sources[0] = "x*x+x".into();
+    s.publish(&w, changed).unwrap();
+    let c = s
+        .prepare(
+            w.clone(),
+            id(5),
+            DerivativeOrder::First,
+            profile(),
+            false,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert!(!Arc::ptr_eq(&a.owner, &c.owner));
+    let escaped = a.compiled().plan.clone();
+    drop((w, a, b, c));
+    assert!(s.pool.reserved() > 0);
+    assert!(s.pool.reserved() < s.policy.workspace_bytes);
+    drop(escaped);
+    assert_eq!(s.pool.reserved(), 0);
+}
+#[tokio::test]
+async fn storage_invalidation_preserves_programs_and_owner_attachment_shares_payload() {
+    let (s, storage) = service_and_cache();
+    let prepared = prepared(&s).await;
+    let original = prepared.compiled().plan.bodies().values().next().unwrap();
+    let attached_plan = prepared
+        .compiled()
+        .plan
+        .as_ref()
+        .clone()
+        .with_owner(Arc::new(()));
+    let attached = attached_plan.bodies().values().next().unwrap();
+    assert!(std::ptr::eq(original.support(), attached.support()));
+    assert_eq!(
+        original.output_quantities().as_ptr(),
+        attached.output_quantities().as_ptr()
+    );
+    let request = prepared.compiled().artifacts[0].clone();
+    let program = s.artifact(request.clone()).await.unwrap();
+    storage.invalidate();
+    assert_eq!(s.entries.len(), 1);
+    assert!(Arc::ptr_eq(&program, &s.artifact(request).await.unwrap()));
+    s.clear_program_cache();
+    assert_eq!(s.entries.len(), 0);
+    assert!(s.live.load(Ordering::Acquire) > 0);
+    drop(program);
+    assert_eq!(s.live.load(Ordering::Acquire), 0);
+}
+
 #[tokio::test]
 async fn actual_artifact_singleflight_profiles_epoch_and_retained_owners() {
     let s = service();
@@ -648,6 +737,43 @@ async fn flow_selection_uses_shared_lifecycle_and_owns_extracted_witness() {
     drop(result);
     assert!(service.pool.reserved() > 0);
     drop(witness);
+    assert_eq!(service.pool.reserved(), 0);
+    assert_eq!(service.cpu.available_permits(), 2);
+}
+
+#[tokio::test]
+async fn retained_result_capacity_transfers_without_a_second_reservation() {
+    let s = service();
+    let pool = s.pool.clone();
+    let bytes = 1 << 20;
+    let active = bytes + s.policy.stack_bytes + s.policy.foreign_bytes;
+    let (result, owner) = s
+        .job_retained(1, bytes, FlightCancellation::default(), move |_| {
+            assert_eq!(pool.reserved(), active);
+            Ok((vec![3_u64; 16], 16 * size_of::<u64>()))
+        })
+        .await
+        .unwrap();
+    assert_eq!(result.len(), 16);
+    assert_eq!(owner.size(), 128);
+    assert_eq!(s.pool.reserved(), 128);
+    drop(result);
+    drop(owner);
+    assert_eq!(s.pool.reserved(), 0);
+}
+
+#[tokio::test]
+async fn parallel_jobs_admit_library_team_stacks_and_release_them_after_join() {
+    let service = service();
+    let pool = service.pool.clone();
+    let expected = 1024 + 3 * service.policy.stack_bytes + service.policy.foreign_bytes;
+    service
+        .job(2, 1024, Default::default(), move |_| {
+            assert_eq!(pool.reserved(), expected);
+            Ok(())
+        })
+        .await
+        .unwrap();
     assert_eq!(service.pool.reserved(), 0);
     assert_eq!(service.cpu.available_permits(), 2);
 }

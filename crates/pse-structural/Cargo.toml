@@ -20,7 +20,6 @@ workspace = true
 pse-kernels.workspace = true
 pse-quantity.workspace = true
 pounce-presolve.workspace = true
-pse-model.workspace = true
 pse-ids.workspace = true
 pse-diagnostics.workspace = true
 petgraph.workspace = true

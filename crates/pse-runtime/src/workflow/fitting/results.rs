@@ -38,22 +38,13 @@ impl RunResult {
             .map_err(|e| WorkflowError::Math(e.into()))?;
         let mut header = computation_runs::Builder::with_registry(registry, 1).map_err(relation)?;
         header
-            .push(computation_runs::Row {
-                run_id: self.run_id,
-                kind: "fit".into(),
-                source_identity: p.revision.identity(),
-                profile_identity: p.profile_key,
-                termination: report.map_or_else(
-                    || "rejected".into(),
-                    |r| {
-                        r.solve.as_ref().map_or_else(
-                            || "constant_evaluation".into(),
-                            |s| format!("{:?}", s.termination.category),
-                        )
-                    },
-                ),
-                error: self.report.as_ref().err().map(ToString::to_string),
-            })
+            .push(
+                self.completion()
+                    .map_err(|e| contract(e.to_string()))?
+                    .computation
+                    .clone()
+                    .ok_or_else(|| contract("missing completed computation"))?,
+            )
             .map_err(relation)?;
         let mut parameters =
             fit_parameters::Builder::with_registry(registry, 0).map_err(relation)?;
@@ -203,8 +194,12 @@ impl RunResult {
         };
         metric(
             "profile",
-            "solver",
-            Metric::Text(format!("{:?}", p.profile.solver)),
+            "solver_identity",
+            Metric::Text(
+                crate::math::solves::profile_key(&p.profile.solver)
+                    .map_err(crate::math::MathRuntimeError::from)?
+                    .to_prefixed(),
+            ),
         )?;
         metric(
             "profile",

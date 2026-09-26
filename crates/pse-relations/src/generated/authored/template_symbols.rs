@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    29u8, 125u8, 184u8, 233u8, 0u8, 56u8, 205u8, 241u8, 187u8, 134u8, 87u8, 114u8, 76u8,
-    174u8, 206u8, 52u8, 121u8, 180u8, 142u8, 43u8, 14u8, 144u8, 65u8, 150u8, 116u8, 20u8,
-    120u8, 91u8, 136u8, 197u8, 236u8, 3u8,
+    221u8, 63u8, 8u8, 18u8, 255u8, 148u8, 127u8, 90u8, 116u8, 185u8, 137u8, 157u8, 83u8,
+    248u8, 91u8, 104u8, 249u8, 39u8, 162u8, 193u8, 80u8, 38u8, 147u8, 254u8, 109u8,
+    171u8, 69u8, 246u8, 230u8, 180u8, 20u8, 22u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredTemplateSymbolsRow {
     fn append(
@@ -236,7 +236,7 @@ fn check_declaration(
     reg: &pse_schema::Registry,
     spec: &pse_schema::model::RelationSpec,
 ) -> Result<(), crate::RelationError> {
-    reg.contract(spec)?.require_generated(crate::generated::contracts::expected()?)?;
+    reg.contract(spec)?.require_generated(crate::generated::contracts::expected())?;
     Ok(())
 }
 /// The schema built from the authoritative declaration.
@@ -665,7 +665,7 @@ impl<'a> AuthoredTemplateSymbolsView<'a> {
         owner: &'a crate::columnar::FieldCheckedBatch,
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
-            owner.for_generated(RELATION_ID, crate::generated::contracts::expected()?)?,
+            owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
         )
     }
     fn borrow_columns(

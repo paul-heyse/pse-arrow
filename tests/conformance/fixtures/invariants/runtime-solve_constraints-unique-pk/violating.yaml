@@ -4,7 +4,7 @@
     "runtime.solve_constraints": [
       {
         "dual": "[\"f64\",\"3ff0000000000000\"]",
-        "dual_qualification": "[\"text\",\"value-1\"]",
+        "dual_qualification": "[\"enum\",\"evaluated_kkt_not_sensitivity_certified\"]",
         "equality_residual": "[\"f64\",\"3ff0000000000000\"]",
         "lower": "[\"f64\",\"3ff0000000000000\"]",
         "lower_violation": "[\"f64\",\"3ff0000000000000\"]",
@@ -20,7 +20,7 @@
       },
       {
         "dual": "[\"f64\",\"3ff0000000000000\"]",
-        "dual_qualification": "[\"text\",\"value-1\"]",
+        "dual_qualification": "[\"enum\",\"evaluated_kkt_not_sensitivity_certified\"]",
         "equality_residual": "[\"f64\",\"3ff0000000000000\"]",
         "lower": "[\"f64\",\"3ff0000000000000\"]",
         "lower_violation": "[\"f64\",\"3ff0000000000000\"]",

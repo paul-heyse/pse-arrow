@@ -184,7 +184,6 @@ impl EngineFactory {
             })
         };
         let options = builder.config().get_or_insert_default().options_mut();
-        options.extensions.insert(super::config::PseOptions);
         // DataFusion 55.1's leaf-projection recovery compares only field names.
         // It can discard same-named conversions (including Delta decode) while
         // retaining raw storage fields. Keep native optimization enabled, but

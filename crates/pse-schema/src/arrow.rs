@@ -99,7 +99,10 @@ pub(crate) fn uncached_relation_schema(
             KEY_NAMESPACE.to_owned(),
             spec.key.namespace.as_str().to_owned(),
         ),
-        (KEY_CHECKS.to_owned(), checks_json(&spec.checks)?),
+        (
+            KEY_CHECKS.to_owned(),
+            checks_json(&reg.obligations(spec.key)?.checks)?,
+        ),
         (
             KEY_DELTA_PROPERTIES.to_owned(),
             serde_json::to_string(&spec.delta_properties)

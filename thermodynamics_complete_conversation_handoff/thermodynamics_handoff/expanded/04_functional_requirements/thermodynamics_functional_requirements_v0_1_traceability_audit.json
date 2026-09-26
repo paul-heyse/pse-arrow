@@ -1,0 +1,79 @@
+{
+  "document": "THERMO-FUNCTIONAL-004",
+  "version": "0.1",
+  "audit_kind": "structural_and_traceability_only",
+  "source_manifest": [
+    {
+      "key": "B1",
+      "document": "THERMO-SCOPE-001",
+      "version": "0.1",
+      "filename": "thermodynamics_simulation_behavior_scope_v0_1.md",
+      "sha256": "1d12284bbca6569f198caaae86327788bac8fbaf3946625d99d971ef3602d028"
+    },
+    {
+      "key": "B2",
+      "document": "THERMO-DWSIM-002",
+      "version": "0.1",
+      "filename": "dwsim_workflow_reverse_engineering_v0_1.md",
+      "sha256": "55e77b6fddab4547280e4e40ca5c742fac3fd322e45534767ddae7f5f6ba94ab"
+    },
+    {
+      "key": "B3",
+      "document": "THERMO-LIBRARIES-003",
+      "version": "0.1",
+      "filename": "thermodynamic_package_comparative_research_v0_1.md",
+      "sha256": "c0f9216c450405360b8532771e6c4beca6536154345ea5adf00130a9c4e73875"
+    }
+  ],
+  "requirements": 94,
+  "requirements_by_class": {
+    "H": 65,
+    "C": 25,
+    "R3": 4
+  },
+  "requirements_by_group": {
+    "GOV": 5,
+    "MAT": 8,
+    "DAT": 7,
+    "CFG": 7,
+    "STA": 8,
+    "EQL": 8,
+    "PRP": 7,
+    "CHM": 8,
+    "FLW": 8,
+    "RUN": 8,
+    "RES": 8,
+    "LIF": 8,
+    "EXT": 4
+  },
+  "scenario_contracts": 34,
+  "profiles": {
+    "P1": 14,
+    "P2": 16,
+    "P3": 4
+  },
+  "trace_index_counts": {
+    "concepts": 13,
+    "crosscutting": 24,
+    "comparative_requirements": 16,
+    "dwsim_workflows": 15,
+    "comparative_workflows": 8,
+    "dwsim_probes": 18,
+    "comparative_probes": 20,
+    "scenarios": 34,
+    "journeys": 8
+  },
+  "requirement_and_scenario_witnesses": 256,
+  "integrated_journeys": 8,
+  "synthetic_contract_fixture_specs": 8,
+  "missing_required_fields": 0,
+  "duplicate_requirement_ids": 0,
+  "duplicate_acceptance_ids": 0,
+  "broken_requirement_links": 0,
+  "unmapped_baseline_identifiers": 0,
+  "thermodynamic_tests_executed": 0,
+  "implementation_conformance_tests_executed": 0,
+  "provider_or_scenario_R_E_V_promotions": 0,
+  "errors": [],
+  "limits": "Structural links and complete record fields do not establish semantic adequacy, provider capability, correct numerics, or implementation conformance."
+}

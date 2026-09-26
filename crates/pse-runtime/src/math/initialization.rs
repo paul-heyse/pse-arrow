@@ -5,8 +5,8 @@ use super::{
     ExecutableCase, ExecutionWorker, MathRuntimeError, MathService, Workspace, solves::SolveHandle,
 };
 use pse_backend_native::{self as native, kinsol, quality::Tolerances, solve::*};
+use pse_columnar::flight::FlightCancellation;
 use pse_compiler::workspace::Profile;
-use pse_engine::cache_service::flight::FlightCancellation;
 use pse_ids::{FramedHasher, SemanticId};
 use pse_math::binding::CaseValues;
 use std::{
@@ -23,7 +23,7 @@ pub struct PreparedInitialization {
     quantities: Arc<pse_quantity::QuantityRegistry>,
     targets: Vec<pse_math::numerics::TargetSpec>,
     blocks: Vec<(pse_structural::initialization::Block, Arc<ExecutableCase>)>,
-    _owner: Arc<pse_columnar::AllocationLease>,
+    _owner: Arc<super::products::ProductOwner>,
 }
 impl PreparedInitialization {
     /// Resolve every conditional block before worker acquisition. No fallback follows a failed attempt.
@@ -289,7 +289,7 @@ impl MathService {
         profile: Profile,
         order: pse_kernels::DerivativeOrder,
     ) -> Result<PreparedInitialization, MathRuntimeError> {
-        let owner = self.reserve("math:initialization-products", self.policy.workspace_bytes)?;
+        let foreign = self.policy.foreign_bytes;
         let quantities = revision.quantities.clone();
         let targets = revision
             .cases
@@ -297,10 +297,10 @@ impl MathService {
             .ok_or_else(|| native::ProblemError::Contract("unknown initialization case".into()))?
             .structure
             .numerical_targets(&quantities)?;
-        let products = self
-            .job(
+        let (products, lease) = self
+            .job_retained(
                 1,
-                self.policy.stack_bytes,
+                self.policy.workspace_bytes,
                 FlightCancellation::default(),
                 move |_| {
                     let _lease = workspace.lease;
@@ -308,12 +308,20 @@ impl MathService {
                         MathRuntimeError::Infrastructure("compiler lock poisoned".into())
                     })?;
                     compiler.publish(revision)?;
-                    compiler
-                        .prepare_initialization_blocks(id, profile, order)
-                        .map_err(Into::into)
+                    let products = compiler.prepare_initialization_blocks(id, profile, order)?;
+                    let bytes = products
+                        .iter()
+                        .try_fold(foreign, |n, p| n.checked_add(p.plan.retained_bytes()))
+                        .ok_or(MathRuntimeError::Limit("initialization product extent"))?;
+                    Ok((products, bytes))
                 },
             )
             .await?;
+        let owner = self.shared_product(
+            vec![3, Arc::as_ptr(&products) as usize],
+            products.clone(),
+            lease,
+        )?;
         let mut blocks = Vec::with_capacity(products.len());
         for block in products.iter() {
             let mut artifacts = vec![];
@@ -466,7 +474,6 @@ impl MathService {
                     let ExecutionWorker {
                         worker,
                         _case,
-                        _lease,
                     } = self.worker(case.clone(), providers, flag.clone())?;
                     let facts = Arc::new(case.assembly.presolve_facts(
                         &values,
@@ -643,7 +650,6 @@ impl MathService {
                         transformations: vec!["stage overlay -> source primal -> shared normalization -> native initial point".into()],
                         submitted: true,
                     });
-                    drop(_lease);
                     drop(_case);
                     Ok(Box::new(report.with_owner(owner.clone())))
                 })()

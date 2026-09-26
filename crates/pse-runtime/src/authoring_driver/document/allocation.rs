@@ -64,10 +64,11 @@ pub(super) fn mul(a: usize, b: usize) -> Result<usize, DriverError> {
     ))
 }
 
-/// One full pinned Rust B-tree node per entry, including edges and node header.
-/// This intentionally bounds underfilled nodes, not only amortized payload size.
+/// Known key/value payload plus a conservative opaque-container allowance.
+/// The 256-byte allowance is an accounting policy, not a claim about Rust's private
+/// B-tree node layout or process RSS. String/Vec child capacities are added below.
 pub(super) const fn map_entry<K, V>() -> usize {
-    11 * (size_of::<K>() + size_of::<V>()) + 16 * size_of::<usize>()
+    size_of::<(K, V)>() + 256
 }
 
 use super::{Document, value::Value};
@@ -176,7 +177,7 @@ pub(super) fn value_retained(value: &Value) -> Result<usize, DriverError> {
 }
 
 /// Exact path byte lengths are computed without creating any paths. A separate
-/// node-sized claim covers B-tree growth, while four path copies cover escaping,
+/// opaque-container allowance covers map growth, while four path copies cover escaping,
 /// recursive temporary paths and the final /@key entry simultaneously.
 pub(super) fn span_extent(value: &Value, parent: usize) -> Result<usize, DriverError> {
     let mut bytes = add(map_entry::<String, SourceSpan>(), mul(parent, 4)?)?;
@@ -444,7 +445,7 @@ fn source_value<'a>(mut value: &'a Value, path: &str) -> Option<&'a Value> {
 }
 
 /// Retained-capacity accounting can only shrink the completed preflight; it is
-/// never used to grow after construction. B-tree nodes remain conservatively full.
+/// never used to grow after construction. Opaque map allowances remain reserved.
 pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, DriverError> {
     let mut bytes = mul(bundle.documents.capacity(), size_of::<Document>())?;
     for document in &bundle.documents {

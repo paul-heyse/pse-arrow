@@ -20,10 +20,17 @@ macro_rules! engine_settings_fields {
         concurrent_outputs: Option<usize>, "int | None", None => usize, $budget.cache.native.concurrent_outputs.get();
         model_result_bytes: Option<usize>, "int | None", None => usize, $budget.cache.native.model_result_bytes;
         hashing_may_use_pool: bool, "bool", false => bool, $budget.hashing_may_use_pool;
-        spill_compression: Option<String>, "str | None", None => String, $budget.execution.spill_compression.clone();
+        spill_compression: Option<String>, "str | None", None => String, $budget.execution.spill_compression.to_string();
         max_spill_file_size_bytes: Option<u64>, "int | None", None => u64, $budget.execution.max_spill_file_size_bytes;
         sort_spill_reservation_bytes: Option<usize>, "int | None", None => usize, $budget.execution.sort_spill_reservation_bytes;
         time_zone: Option<String>, "str | None", None => String, $budget.execution.time_zone.clone();
+        math_artifact_bytes: Option<usize>, "int | None", None => usize, $budget.math.artifact_bytes;
+        math_foreign_bytes: Option<usize>, "int | None", None => usize, $budget.math.foreign_bytes;
+        math_worker_bytes: Option<usize>, "int | None", None => usize, $budget.math.worker_bytes;
+        math_workspace_bytes: Option<usize>, "int | None", None => usize, $budget.math.workspace_bytes;
+        math_stack_bytes: Option<usize>, "int | None", None => usize, $budget.math.stack_bytes;
+        math_jobs: Option<usize>, "int | None", None => usize, $budget.math.jobs;
+        math_flights: Option<usize>, "int | None", None => usize, $budget.math.flights;
     } };
 }
 macro_rules! input {
@@ -77,6 +84,7 @@ impl EngineSettingsInput {
         if let Some(bytes) = self.model_result_bytes {
             cache.native.model_result_bytes = bytes;
         }
+        let math_defaults = crate::math::MathPolicy::default();
         let budget = ResourceBudget {
             memory_limit_bytes: positive(self.memory_limit_bytes, "memory_limit_bytes")?,
             spill_dir,
@@ -91,7 +99,20 @@ impl EngineSettingsInput {
             },
             execution: ExecutionSettings {
                 batch_size: self.batch_size,
-                spill_compression: self.spill_compression.unwrap_or(defaults.spill_compression),
+                spill_compression: self
+                    .spill_compression
+                    .map(|value| {
+                        value
+                            .parse()
+                            .map_err(|error: datafusion::common::DataFusionError| {
+                                RuntimeError::ConfigInvalid {
+                                    key: "spill_compression".into(),
+                                    reason: error.to_string(),
+                                }
+                            })
+                    })
+                    .transpose()?
+                    .unwrap_or(defaults.spill_compression),
                 max_spill_file_size_bytes: self
                     .max_spill_file_size_bytes
                     .unwrap_or(defaults.max_spill_file_size_bytes),
@@ -100,7 +121,21 @@ impl EngineSettingsInput {
                     .unwrap_or(defaults.sort_spill_reservation_bytes),
                 time_zone: self.time_zone.unwrap_or(defaults.time_zone),
             },
-            math: Default::default(),
+            math: crate::math::MathPolicy {
+                artifact_bytes: self
+                    .math_artifact_bytes
+                    .unwrap_or(math_defaults.artifact_bytes),
+                foreign_bytes: self
+                    .math_foreign_bytes
+                    .unwrap_or(math_defaults.foreign_bytes),
+                worker_bytes: self.math_worker_bytes.unwrap_or(math_defaults.worker_bytes),
+                workspace_bytes: self
+                    .math_workspace_bytes
+                    .unwrap_or(math_defaults.workspace_bytes),
+                stack_bytes: self.math_stack_bytes.unwrap_or(math_defaults.stack_bytes),
+                jobs: self.math_jobs.unwrap_or(math_defaults.jobs),
+                flights: self.math_flights.unwrap_or(math_defaults.flights),
+            },
             hashing_may_use_pool: self.hashing_may_use_pool,
             cache,
         };
@@ -129,7 +164,45 @@ mod delta_boundary_unit {
             concurrent_queries: None,
             concurrent_outputs: None,
             model_result_bytes: None,
+            math_artifact_bytes: None,
+            math_foreign_bytes: None,
+            math_worker_bytes: None,
+            math_workspace_bytes: None,
+            math_stack_bytes: None,
+            math_jobs: None,
+            math_flights: None,
         }
+    }
+    #[test]
+    fn explicit_math_policy_roundtrips_without_tightening_defaults() {
+        assert_eq!(
+            input().resolve(None).unwrap().math,
+            crate::math::MathPolicy::default()
+        );
+        let mut settings = input();
+        settings.math_worker_bytes = Some(8 << 30);
+        settings.math_workspace_bytes = Some(16 << 30);
+        settings.math_jobs = Some(7);
+        let math = settings.resolve(None).unwrap().math;
+        assert_eq!(
+            (math.worker_bytes, math.workspace_bytes, math.jobs),
+            (8 << 30, 16 << 30, 7)
+        );
+        let mut settings = input();
+        settings.math_flights = Some(0);
+        assert!(settings.resolve(None).is_err());
+    }
+    #[test]
+    fn spill_compression_is_parsed_once_at_the_input_boundary() {
+        let mut settings = input();
+        settings.spill_compression = Some("zstd".into());
+        assert_eq!(
+            settings.resolve(None).unwrap().execution.spill_compression,
+            datafusion::common::config::SpillCompression::Zstd
+        );
+        let mut settings = input();
+        settings.spill_compression = Some("not-a-codec".into());
+        assert!(settings.resolve(None).is_err());
     }
     #[test]
     fn explicit_engine_limits_override_supplied_policy_and_defaults_do_not() {

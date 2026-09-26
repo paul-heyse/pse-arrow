@@ -64,7 +64,7 @@ pub use preparation::{
     ReusableComputation, ReusableGroup, SampleRetention, TerminalDemand,
 };
 pub mod plan_codec;
-pub use observation::PlanObservation;
+pub use observation::{ExecutionSnapshot, MetricUnit, ObservedMetric, PlanObservation};
 mod aggregate;
 pub mod cache;
 mod engine_session;
@@ -87,7 +87,8 @@ use crate::error::EngineError;
 const DEFAULT_BATCH_SIZE: usize = 8_192;
 
 /// The default spill compression; callers may select another supported codec.
-const DEFAULT_SPILL_COMPRESSION: &str = "uncompressed";
+const DEFAULT_SPILL_COMPRESSION: datafusion::common::config::SpillCompression =
+    datafusion::common::config::SpillCompression::Uncompressed;
 
 /// The default cap on one spill file: 1 GiB.
 const DEFAULT_MAX_SPILL_FILE_SIZE_BYTES: u64 = 1 << 30;
@@ -113,12 +114,12 @@ pub struct ThreadBudget {
 /// Every one of these reaches the engine through typed `ConfigOptions`, and every one is
 /// recorded in the engine profile: §20.4's reproduction re-executes "under recorded
 /// policies", and a setting that is not recorded is a policy nobody can reproduce.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutionSettings {
     /// Rows per `RecordBatch`.
     pub batch_size: usize,
     /// Spill compression; `uncompressed` unless a measurement says otherwise.
-    pub spill_compression: String,
+    pub spill_compression: datafusion::common::config::SpillCompression,
     /// The cap on a single spill file.
     pub max_spill_file_size_bytes: u64,
     /// Bytes a sort reserves up front for its own spilling.
@@ -140,7 +141,7 @@ impl Default for ExecutionSettings {
     fn default() -> Self {
         Self {
             batch_size: DEFAULT_BATCH_SIZE,
-            spill_compression: DEFAULT_SPILL_COMPRESSION.to_owned(),
+            spill_compression: DEFAULT_SPILL_COMPRESSION,
             max_spill_file_size_bytes: DEFAULT_MAX_SPILL_FILE_SIZE_BYTES,
             sort_spill_reservation_bytes: DEFAULT_SORT_SPILL_RESERVATION_BYTES,
             time_zone: DEFAULT_TIME_ZONE.to_owned(),
@@ -189,7 +190,7 @@ mod tests {
     fn the_execution_defaults_are_the_declared_ones() {
         let settings = ExecutionSettings::default();
         assert_eq!(settings.batch_size, 8_192);
-        assert_eq!(settings.spill_compression, "uncompressed");
+        assert_eq!(settings.spill_compression, DEFAULT_SPILL_COMPRESSION);
         assert_eq!(settings.max_spill_file_size_bytes, 1_073_741_824);
         assert_eq!(settings.sort_spill_reservation_bytes, 10_485_760);
         assert_eq!(settings.time_zone, "UTC");

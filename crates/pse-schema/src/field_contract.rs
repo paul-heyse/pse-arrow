@@ -26,6 +26,40 @@ pub fn execution_schema(actual: &Schema, expected: &Schema) -> Result<(), Schema
     Ok(())
 }
 
+/// Admit the supported durable-to-execution adaptation: presentation prose and
+/// equivalent parser-normalized CHECK syntax may differ; all meaning and layout remain exact.
+/// # Errors
+/// Different semantic metadata, CHECK meaning, physical types or nullable fields.
+pub fn durable_execution_schema(actual: &Schema, expected: &Schema) -> Result<(), SchemaError> {
+    let normalize = |schema: &Schema| -> Result<Schema, SchemaError> {
+        let fields = schema
+            .fields()
+            .iter()
+            .map(|field| {
+                pse_columnar::native_field::project(
+                    field,
+                    pse_columnar::native_field::MetadataPurpose::ExecutionIdentity,
+                )
+                .map_err(|e| mismatch("durable execution", &e.to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut metadata = schema.metadata().clone();
+        let checks = crate::arrow::native_checks(schema)?
+            .into_iter()
+            .map(|(name, sql)| Ok((name, crate::fingerprint::canonical_sql(&sql, true)?)))
+            .collect::<Result<std::collections::BTreeMap<_, _>, SchemaError>>()?;
+        if metadata.contains_key(crate::arrow::KEY_CHECKS) {
+            metadata.insert(
+                crate::arrow::KEY_CHECKS.into(),
+                serde_json::to_string(&checks)
+                    .map_err(|e| mismatch("durable execution", &e.to_string()))?,
+            );
+        }
+        Ok(Schema::new_with_metadata(fields, metadata))
+    };
+    execution_schema(&normalize(actual)?, &normalize(expected)?)
+}
+
 /// Admit one field at a named boundary using the same recursive execution contract.
 /// # Errors
 /// Names, types, nullability or metadata differ, or nested paths are ambiguous.

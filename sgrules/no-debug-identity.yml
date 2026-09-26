@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-debug-identity
+language: Rust
+severity: error
+message: "Debug rendering is not stable identity; use canonical bytes."
+files: ["crates/pse-ids/src/**/*.rs"]
+rule:
+  all:
+    - kind: macro_invocation
+    - regex: '(^|::)format\s*!\s*\(\s*(r#*)?"[^"\n]*\{[^{}]*:#?\?'
+    - not:
+        matches: rust-test-code

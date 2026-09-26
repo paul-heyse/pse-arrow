@@ -10,7 +10,7 @@ use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{
         authored::computation_models as models,
-        enums::{NativeAssurance, NativeCandidateKind, NativeMetricKind, NativeRunState},
+        enums::{DualQualification, NativeMetricKind},
         runtime::{
             solve_constraints as constraints, solve_metrics as metrics, solve_runs as runs,
             solve_variables as variables,
@@ -109,54 +109,17 @@ impl RunResult {
                 Some(Outcome::Constant(r)) => Some(r),
                 _ => None,
             };
-            let quality = native
-                .and_then(|r| r.quality.as_ref())
-                .or_else(|| constant.map(|r| &r.quality));
             let observation = native
                 .and_then(|r| r.observation.as_ref())
                 .or_else(|| constant.map(|r| &r.observation));
             let candidate = native.and_then(|r| r.candidate.as_ref());
-            let error = match (&self.report, outcome) {
-                (Err(e), _) => Some(e.to_string()),
-                (_, Some(Outcome::Rejected(e))) => Some(e.to_string()),
-                _ => None,
-            };
-            let state = if native.is_some() {
-                NativeRunState::Native
-            } else if error.is_some() {
-                NativeRunState::Rejected
-            } else if constant.is_some() {
-                NativeRunState::ConstantEvaluation
-            } else {
-                NativeRunState::Unattempted
-            };
             run_rows
-                .push(runs::Row {
-                    run_id: self.run_id,
-                    step,
-                    model_id: Some(request.revision.0.row.model_id),
-                    revision: Some(request.revision.identity()),
-                    case_id: Some(request.case),
-                    backend: native.map(|r| r.backend),
-                    native_code: native.map(|r| r.termination.code),
-                    native_status: native.map(|r| r.termination.name.clone()),
-                    state,
-                    termination: native.map(|r| r.termination.category),
-                    assurance: native.map_or(NativeAssurance::None, |r| r.termination.assurance),
-                    candidate_kind: candidate
-                        .map(|c| c.kind)
-                        .or_else(|| constant.map(|_| NativeCandidateKind::ConstantEvaluation)),
-                    feasible: quality.map(|q| q.feasible()),
-                    objective: observation
-                        .and_then(|o| o.objective)
-                        .or_else(|| candidate.and_then(|c| c.objective)),
-                    objective_sense: declaration.objective.as_ref().map(|o| o.sense),
-                    objective_quantity_id: declaration.objective.as_ref().map(|o| o.quantity_id),
-                    validation_error: native.and_then(|r| r.validation_error.clone()),
-                    error,
-                    transformation: native
-                        .and_then(|r| r.preprocessing.as_ref().map(|p| p.transformation)),
-                })
+                .push(
+                    self.completion()
+                        .map_err(|e| contract(e.to_string()))?
+                        .solves[ordinal]
+                        .clone(),
+                )
                 .map_err(relation)?;
             let coordinates: BTreeMap<_, _> = native
                 .map(|r| {
@@ -191,9 +154,11 @@ impl RunResult {
                     i.and_then(|i| request.solve.tolerances().variables.get(i).copied())
                 };
                 let dual_status = match observation {
-                    Some(o) if o.dual_error.is_none() => "evaluated_kkt_not_sensitivity_certified",
-                    Some(o) if o.dual_error.is_some() => "unavailable_or_invalid",
-                    _ => "unavailable",
+                    Some(o) if o.dual_error.is_none() => {
+                        DualQualification::EvaluatedKktNotSensitivityCertified
+                    }
+                    Some(o) if o.dual_error.is_some() => DualQualification::UnavailableOrInvalid,
+                    _ => DualQualification::Unavailable,
                 };
                 variable_rows
                     .push(variables::Row {
@@ -230,7 +195,7 @@ impl RunResult {
                                 o.stationarity.as_ref().and_then(|v| v.get(i).copied())
                             })
                         }),
-                        dual_qualification: dual_status.into(),
+                        dual_qualification: dual_status,
                     })
                     .map_err(relation)?;
             }
@@ -258,7 +223,7 @@ impl RunResult {
                         upper_dual: None,
                         reduced_cost: None,
                         stationarity: None,
-                        dual_qualification: "not_applicable_parameter".into(),
+                        dual_qualification: DualQualification::NotApplicableParameter,
                     })
                     .map_err(relation)?;
             }
@@ -292,15 +257,16 @@ impl RunResult {
                         tolerance: request.solve.tolerances().rows.get(i).copied(),
                         dual: candidate
                             .and_then(|c| c.row_dual.as_ref().and_then(|v| v.get(i).copied())),
-                        dual_qualification: observation
-                            .map_or("unavailable", |o| {
+                        dual_qualification: observation.map_or(
+                            DualQualification::Unavailable,
+                            |o| {
                                 if o.dual_error.is_none() {
-                                    "evaluated_kkt_not_sensitivity_certified"
+                                    DualQualification::EvaluatedKktNotSensitivityCertified
                                 } else {
-                                    "unavailable_or_invalid"
+                                    DualQualification::UnavailableOrInvalid
                                 }
-                            })
-                            .into(),
+                            },
+                        ),
                     })
                     .map_err(relation)?;
             }
@@ -319,7 +285,12 @@ impl RunResult {
                     "build.identity",
                     pse_buildinfo::BUILD_IDENTITY.to_prefixed(),
                 ),
-                ("profile.requested", format!("{:?}", request.profile)),
+                (
+                    "profile.requested_identity",
+                    crate::math::solves::profile_key(&request.profile)
+                        .map_err(crate::math::MathRuntimeError::from)?
+                        .to_prefixed(),
+                ),
                 (
                     "compiler.structure",
                     request.compiled().plan.structure().key().to_prefixed(),
@@ -364,7 +335,7 @@ impl RunResult {
                         None,
                     ),
                     Some(ConvexityAssessment::Inconclusive(reason)) => {
-                        ("inconclusive", vec![], Some(format!("{reason:?}")))
+                        ("inconclusive", vec![], Some(reason.as_str().to_owned()))
                     }
                 };
                 push_metric(
@@ -493,8 +464,10 @@ pub(super) fn push_metric(
             row.kind = NativeMetricKind::Real;
             row.real = Some(*v);
         }
-        Metric::Real(v) => {
-            row.text = Some(v.to_string());
+        Metric::Real(_) => {
+            row.kind = NativeMetricKind::Unavailable;
+            row.unavailable =
+                Some(pse_model::generated::enums::EvidenceUnavailableReason::Nonfinite);
         }
         Metric::Integer(v) => {
             row.kind = NativeMetricKind::Integer;
@@ -818,7 +791,7 @@ pub(super) fn push_native_metrics(
             )?;
         }
         for (name, value) in &p.passes {
-            let prefix = format!("{name:?}");
+            let prefix = name.as_str();
             if let Some(reason) = &value.reason {
                 push_metric(
                     builder,

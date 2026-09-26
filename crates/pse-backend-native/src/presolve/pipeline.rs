@@ -657,14 +657,9 @@ fn failure(original: &Rc<RefCell<Adapter>>) -> ProblemError {
         }
         return ProblemError::Contract(format!("presolve callback: {message}"));
     }
-    let Some(variable) = a.oracle.contract().variables.first() else {
-        return ProblemError::Contract("zero-dimensional presolve evaluation failed".into());
-    };
-    pse_math::MathError::Domain {
-        source_id: variable.id,
-        requirement: "native transformation/evaluation accepted trial",
-    }
-    .into()
+    ProblemError::Contract(
+        "presolve evaluation failed without an attributable source witness".into(),
+    )
 }
 fn matrix(
     outer: &Rc<RefCell<dyn TNLP>>,

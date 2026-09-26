@@ -39,6 +39,70 @@ pub fn admit(analysis: &StructuralAnalysis, mode: Mode) -> Result<(), ProblemErr
     Ok(())
 }
 
+/// Reuse a checked matching witness only against the complete current equation
+/// inventory and support. This is linear witness validation, not another matching
+/// search. Opaque callback oracles retain the full low-level analysis below.
+pub fn check(
+    contract: &OracleContract,
+    pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
+    bounds: &[(f64, f64)],
+    mode: Mode,
+    analysis: Option<&StructuralAnalysis>,
+) -> Result<(), ProblemError> {
+    let Some(analysis) = analysis else {
+        return oracle(contract, pattern, bounds, mode);
+    };
+    admit(analysis, mode)?;
+    let invalid = || {
+        ProblemError::Contract("compiler matching does not establish current oracle support".into())
+    };
+    if bounds.len() != contract.rows.len()
+        || pattern.nrows() != contract.rows.len()
+        || pattern.ncols() != contract.variables.len()
+    {
+        return Err(invalid());
+    }
+    let rows = contract
+        .rows
+        .iter()
+        .enumerate()
+        .map(|(i, id)| (*id, i))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let columns = contract
+        .variables
+        .iter()
+        .enumerate()
+        .map(|(i, v)| (v.id, i))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let required = bounds
+        .iter()
+        .enumerate()
+        .filter_map(|(i, (l, u))| (l.is_finite() && l == u).then_some(i))
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut matched = std::collections::BTreeSet::new();
+    let mut used = std::collections::BTreeSet::new();
+    for (row, column) in &analysis.matching {
+        let r = *rows.get(row).ok_or_else(invalid)?;
+        let c = *columns.get(column).ok_or_else(invalid)?;
+        if !required.contains(&r)
+            || !matched.insert(r)
+            || !used.insert(c)
+            || pattern.row_idx()[pattern.col_range(c)]
+                .binary_search(&r)
+                .is_err()
+        {
+            return Err(invalid());
+        }
+    }
+    if matched != required
+        || (mode == Mode::Roots
+            && (required.len() != contract.rows.len() || used.len() != contract.variables.len()))
+    {
+        return Err(invalid());
+    }
+    Ok(())
+}
+
 /// Low-level callers undergo the same analysis using their original residual Jacobian.
 pub fn oracle(
     contract: &OracleContract,
@@ -152,5 +216,97 @@ mod tests {
         // Inequality rows do not erase valid optimization freedom or inherit square admission.
         oracle(&c, bad.as_ref(), &[(0., 0.), (-1., 1.)], Mode::Nlp).unwrap();
         assert!(oracle(&c, bad.as_ref(), &[(0., 0.), (-1., 1.)], Mode::Roots).is_err());
+    }
+    #[test]
+    fn matching_witness_reuse_checks_edges_membership_and_equality_class() {
+        let contract = OracleContract {
+            identity: pse_ids::ContentHash::from_bytes([1; 32]),
+            variables: vec![crate::Variable {
+                id: id(1),
+                lower: -1.0,
+                upper: 1.0,
+            }],
+            rows: vec![id(2)],
+            derivatives: pse_kernels::DerivativeOrder::First,
+            smoothness: pse_kernels::DerivativeOrder::First,
+        };
+        let graph = CaseIncidence::new(
+            Scope::Whole(id(3)),
+            vec![Constraint {
+                id: id(2),
+                lower: Some(0.0),
+                upper: Some(0.0),
+            }],
+            vec![id(1)],
+            vec![Incidence {
+                row: id(2),
+                column: id(1),
+                instance: id(4),
+                output: 0,
+            }],
+            Default::default(),
+            GraphLimits { nodes: 2, edges: 1 },
+        )
+        .unwrap();
+        let analysis = graph
+            .analyze(&std::sync::atomic::AtomicBool::new(false))
+            .unwrap();
+        let pattern = pse_math::sparse::AssemblyMatrix::new(1, 1, &[(0, 0)], 10).unwrap();
+        // Repeated validation consumes the same witness, without invoking analyze.
+        for _ in 0..1000 {
+            check(
+                &contract,
+                pattern.matrix().symbolic(),
+                &[(0.0, 0.0)],
+                Mode::Roots,
+                Some(&analysis),
+            )
+            .unwrap();
+        }
+        let empty = pse_math::sparse::AssemblyMatrix::new(1, 1, &[], 10).unwrap();
+        assert!(
+            check(
+                &contract,
+                empty.matrix().symbolic(),
+                &[(0.0, 0.0)],
+                Mode::Roots,
+                Some(&analysis)
+            )
+            .is_err()
+        );
+        assert!(
+            check(
+                &contract,
+                pattern.matrix().symbolic(),
+                &[(-1.0, 1.0)],
+                Mode::Nlp,
+                Some(&analysis)
+            )
+            .is_err()
+        );
+        let mut stale = contract.clone();
+        stale.variables[0].id = id(9);
+        assert!(
+            check(
+                &stale,
+                pattern.matrix().symbolic(),
+                &[(0.0, 0.0)],
+                Mode::Roots,
+                Some(&analysis)
+            )
+            .is_err()
+        );
+        let mut incomplete = analysis.clone();
+        incomplete.matching.clear();
+        assert!(
+            check(
+                &contract,
+                pattern.matrix().symbolic(),
+                &[(0.0, 0.0)],
+                Mode::Roots,
+                Some(&incomplete)
+            )
+            .is_err()
+        );
     }
 }

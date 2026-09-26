@@ -6,10 +6,9 @@ use datafusion::{
     common::TableReference,
     execution::cache::{Cache, CacheKey, CacheValue},
 };
+use pse_columnar::flight::FlightError;
 use pse_compiler::workspace::ArtifactRequest;
-use pse_engine::cache_service::{
-    CacheComponent, CacheEntryReport, CacheReport, flight::FlightError,
-};
+use pse_engine::cache_service::{CacheComponent, CacheEntryReport, CacheReport};
 use pse_ids::ContentHash;
 use pse_math::guarded::CompiledBody;
 use std::sync::{Arc, atomic::Ordering};
@@ -52,6 +51,10 @@ impl CacheValue for Value {
     }
 }
 impl MathService {
+    /// Clear retained programs without cancelling live owners or permitting late reinsertion.
+    pub fn clear_program_cache(&self) {
+        self.retention.clear(|| self.entries.clear());
+    }
     /// Obtain a compiler-issued artifact; callers cannot supply an independent cache key.
     pub async fn artifact(
         self: &Arc<Self>,
@@ -72,43 +75,28 @@ impl MathService {
         self.misses.fetch_add(1, Ordering::Relaxed);
         let service = self.clone();
         let flight_key = key.clone();
+        let epoch = self.retention.generation();
         self.flights
             .load_owned(flight_key, move |cancel| async move {
                 if let Some(v) = service.entries.get(&key) {
                     return Ok(v.0);
                 }
-                let epoch = service.epoch.load(Ordering::Acquire);
-                // Foreign compiled-program capacity is an explicit conservative allowance,
-                // never misreported as measured heap or process RSS.
-                let bytes = service
-                    .policy
-                    .foreign_bytes
-                    .checked_add(request.scratch_limit())
-                    .and_then(|n| n.checked_add(1024))
-                    .ok_or(MathRuntimeError::Limit("artifact extent"))?;
-                let reservation =
-                    datafusion::execution::memory_pool::MemoryConsumer::new("math:artifact")
-                        .register(&service.pool);
-                reservation.try_grow(bytes)?;
                 let cores = request.cores();
                 let check = cancel.flag();
-                let program = service
-                    .job(cores, request.scratch_limit(), cancel, move |flag| {
-                        request.build(&flag).map_err(MathRuntimeError::Math)
+                let foreign = service.policy.foreign_bytes;
+                let (program, lease) = service
+                    .job_retained(cores, request.scratch_limit(), cancel, move |flag| {
+                        let program = request.build(&flag).map_err(MathRuntimeError::Math)?;
+                        let retained = program
+                            .retained_numeric_bytes()
+                            .checked_add(foreign)
+                            .ok_or(MathRuntimeError::Limit("retained artifact extent"))?;
+                        Ok((program, retained))
                     })
                     .await?;
                 if check.load(Ordering::Acquire) {
                     return Err(MathRuntimeError::Cancelled);
                 }
-                // Keep actual known scratch plus the explicit foreign allowance, rather
-                // than charging every small retained program its maximum build budget.
-                let retained = program
-                    .scratch_bytes()
-                    .checked_add(service.policy.foreign_bytes)
-                    .and_then(|n| n.checked_add(1024))
-                    .ok_or(MathRuntimeError::Limit("retained artifact extent"))?;
-                reservation.try_resize(retained)?;
-                let lease = pse_columnar::AllocationLease::new(reservation);
                 service.live.fetch_add(lease.size(), Ordering::AcqRel);
                 let lease = Arc::new(ProgramOwner {
                     lease,
@@ -118,20 +106,16 @@ impl MathService {
                     program: Arc::new(program.with_owner(lease.clone())),
                     lease,
                 });
-                let _guard = service
-                    .publication
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner);
-                if epoch == service.epoch.load(Ordering::Acquire) {
-                    service.entries.put(&key, Value(artifact.clone()));
-                }
+                service
+                    .retention
+                    .admit(epoch, || service.entries.put(&key, Value(artifact.clone())));
                 Ok(artifact)
             })
             .await
             .map_err(|e| match e {
                 FlightError::Load(e) => MathRuntimeError::Shared(e),
                 FlightError::Capacity => MathRuntimeError::Limit("artifact flights"),
-                FlightError::Cancelled => MathRuntimeError::Cancelled,
+                FlightError::Retiring => MathRuntimeError::Retiring,
                 FlightError::Panicked => {
                     MathRuntimeError::Infrastructure("artifact task panic".into())
                 }
@@ -139,13 +123,11 @@ impl MathService {
     }
 }
 impl CacheComponent for MathService {
+    fn storage_bound(&self) -> bool {
+        false
+    }
     fn invalidate(&self) {
-        let _guard = self
-            .publication
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        self.epoch.fetch_add(1, Ordering::AcqRel);
-        self.entries.clear();
+        self.clear_program_cache();
     }
     fn report(&self) -> Vec<CacheReport> {
         vec![CacheReport {

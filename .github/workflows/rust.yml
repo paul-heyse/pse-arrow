@@ -1,12 +1,10 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The Rust pull-request gate. Five of these jobs are required checks on `main`
-# (fmt, clippy, test, codegen-diff, family-check); the rest run on every pull request
-# but do not block: deny, docs, doc-lint, coverage, semver, msrv-floors.
+# Rust checks run only when the maintainer dispatches this workflow.
 #
 # `deny` is advisory by decision, not by omission -- see ADR-0066 and
-# docs/dev/dependency-policy.md. `family-check` is the required check that carries the
+# docs/dev/dependency-policy.md. `family-check` is the manual check that carries the
 # one-type-universe invariant `deny`'s `multiple-versions` used to stand in for.
 #
 # Conventions that apply to every workflow in this directory:
@@ -18,16 +16,14 @@
 name: rust
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -44,7 +40,7 @@ env:
   SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
 
 jobs:
-  # --- required ----------------------------------------------------------------------
+  # --- core checks -------------------------------------------------------------------
   fmt:
     name: rust / fmt
     runs-on: ubuntu-24.04
@@ -174,7 +170,7 @@ jobs:
     name: rust / deny
     runs-on: ubuntu-24.04
     # Advisory since ADR-0066. No library and no licence is refused during phases 0-1;
-    # this job reports what is in the graph on every pull request so the pre-release
+    # this job reports what is in the graph when manually dispatched so the pre-release
     # review has something to read. `deny.toml` is the report's configuration, not a gate.
     continue-on-error: true
     steps:
@@ -236,15 +232,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: what changed
-        id: changed
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: |
-            docs:
-              - 'docs/**'
-              - 'crates/**/*.rs'
-              - 'xtask/**'
       - name: report the phase-zero prerequisite
         id: availability
         run: |
@@ -255,14 +242,14 @@ jobs:
             echo "::notice::API doc lint is deferred under register R-20; no path indexes exist."
           fi
       - uses: ./.github/actions/setup-rust
-        if: steps.changed.outputs.docs == 'true' && steps.availability.outputs.ready == 'true'
+        if: steps.availability.outputs.ready == 'true'
         with:
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: backticked paths in docs resolve
-        if: steps.changed.outputs.docs == 'true' && steps.availability.outputs.ready == 'true'
+        if: steps.availability.outputs.ready == 'true'
         # Checks every `a::b::c` and [rustdoc:…] identifier in docs/** against the
-        # committed path indexes. The full sweep runs weekly in rust-scheduled.yml.
+        # committed path indexes. The deeper sweep is manually available in rust-scheduled.yml.
         run: cargo xtask doc-lint
 
   coverage:
@@ -320,9 +307,8 @@ jobs:
   semver:
     name: rust / semver
     runs-on: ubuntu-24.04
-    # Gating only on release pull requests; advisory everywhere else. There is nothing
-    # to compare against before the first tag, so the action is allowed to no-op.
-    continue-on-error: ${{ !contains(github.event.pull_request.labels.*.name, 'release') }}
+    # Advisory on manual runs. There is nothing to compare before the first tag.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -344,23 +330,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: what changed
-        id: changed
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: |
-            lock:
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-              - 'rust-toolchain.toml'
       - uses: ./.github/actions/setup-rust
-        if: steps.changed.outputs.lock == 'true'
         with:
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
           tools: cargo-hack
       - name: every dependency's rust-version floor is at or below ours
-        if: steps.changed.outputs.lock == 'true'
-        # Pre-1.0 crates raise their own MSRV in patch releases; the blueprint requires
-        # this to be re-checked at every upgrade, so it runs whenever the lock moves.
+        # Pre-1.0 crates can raise their own MSRV in patch releases.
         run: cargo hack check --rust-version --workspace --all-targets --locked

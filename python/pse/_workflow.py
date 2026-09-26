@@ -3,7 +3,7 @@
 """Typed declarations and owned handles over the single native computation pipeline."""
 
 from collections.abc import Mapping, Sequence
-from typing import Self
+from typing import Self, TypeAlias
 
 import attrs
 import msgspec
@@ -15,7 +15,6 @@ from pse._build import (
     NativeAttempt,
     ProgressEvent,
     SimulationSettings,
-    SolverCapability,
     SolveSettings,
     _NativeModelRevision,
     _NativePhysicalContext,
@@ -32,7 +31,10 @@ from pse._build import (
 )
 from pse._inspection import TableStream
 from pse.contracts import authored as a
+from pse.contracts import runtime as result_contracts
 from pse.contracts.values import ContentHash, SemanticId
+
+SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
 
 # Aliases expose generated contracts without creating a second declaration language.
 ModelDeclaration = a.AuthoredComputationModelsRow
@@ -446,10 +448,80 @@ class PreparedCase:
 
 
 @attrs.frozen
+class PublicationTicket:
+    """Serialized pre-effect recovery request; settlement validates native witnesses."""
+
+    json: bytes
+
+
+class PublicationRoot(msgspec.Struct, frozen=True):
+    """Exact immutable control selection."""
+
+    location: str
+    version: int
+
+
+class PublicationCommitted(
+    msgspec.Struct, tag="committed", tag_field="status", frozen=True
+):
+    """Matching transaction and complete request witnesses establish this exact root."""
+
+    root: PublicationRoot
+
+
+class PublicationNoncommit(
+    msgspec.Struct, tag="proved_noncommit", tag_field="status", frozen=True
+):
+    """Positive durable evidence excludes the conditional publication."""
+
+    reason: str
+
+
+class PublicationConflict(
+    msgspec.Struct, tag="conflict", tag_field="status", frozen=True
+):
+    """An observed identity or exact-parent conflict."""
+
+    reason: str
+
+
+class PublicationUnresolved(
+    msgspec.Struct, tag="unresolved", tag_field="status", frozen=True
+):
+    """Evidence is incomplete; preserve the ticket and unresolved members."""
+
+    reason: str
+
+
+PublicationSettlement: TypeAlias = (
+    PublicationCommitted
+    | PublicationNoncommit
+    | PublicationConflict
+    | PublicationUnresolved
+)
+
+
+@attrs.frozen
+class PublicationRequest:
+    """Caller-stable identities and exact parent for one intended publication."""
+
+    base: str
+    workspace_id: SemanticId
+    publication_id: SemanticId
+    attempt_id: SemanticId
+    parent: SemanticId | None = None
+
+
+@attrs.frozen
 class PublicationAttempt:
     """Explicit single-use write command over immutable results."""
 
     _handle: _NativePublicationAttempt
+
+    @property
+    def ticket(self) -> PublicationTicket:
+        """Save before commit; it remains available after the command is consumed."""
+        return PublicationTicket(self._handle.ticket())
 
     @property
     def attempt_id(self) -> SemanticId:
@@ -464,6 +536,16 @@ class PublicationAttempt:
     def commit(self) -> tuple[str, int]:
         """Return exact control URI/version for pse.open; never retry implicitly."""
         return self._handle.commit()
+
+
+@attrs.frozen
+class RunCompletion:
+    """Registry-owned completion records shared with the durable Arrow projection."""
+
+    solves: tuple[result_contracts.RuntimeSolveRunsRow, ...]
+    computation: result_contracts.RuntimeComputationRunsRow | None
+    lineage: tuple[result_contracts.RuntimeRunLineageRow, ...]
+    assessments: tuple[result_contracts.RuntimeCandidateAssessmentsRow, ...]
 
 
 @attrs.frozen
@@ -486,6 +568,13 @@ class RunResult:
         """Whether every requested candidate satisfies its final usability policy."""
         return self._handle.usable
 
+    @property
+    def completion(self) -> RunCompletion:
+        """Read the immutable joined assessment without evaluating the model again."""
+        wire = msgspec.json.decode(self._handle.completion(), type=dict[str, object])
+        wire.pop("diagnostics")
+        return codec.converter().structure(wire, RunCompletion)
+
     def diagnostics(self) -> tuple[DiagnosticReport, ...]:
         """Structured native admission and execution failures, preserving causes."""
         return tuple(self._handle.diagnostics())
@@ -507,6 +596,20 @@ class RunResult:
                 base,
                 workspace_id.to_hex(),
                 parent=None if parent is None else parent.to_hex(),
+            )
+        )
+
+    def prepare_publication_request(
+        self, request: PublicationRequest
+    ) -> PublicationAttempt:
+        """Prepare a retained request identity without performing any writes."""
+        return PublicationAttempt(
+            self._handle.prepare_publication(
+                request.base,
+                request.workspace_id.to_hex(),
+                parent=None if request.parent is None else request.parent.to_hex(),
+                publication_id=request.publication_id.to_hex(),
+                attempt_id=request.attempt_id.to_hex(),
             )
         )
 
@@ -562,7 +665,21 @@ class Runtime:
 
     def capabilities(self) -> tuple[SolverCapability, ...]:
         """Discover linked native libraries without PATH or optional Python probes."""
-        return tuple(self._handle.capabilities())
+        return tuple(
+            codec.converter().structure(
+                msgspec.json.decode(self._handle.capabilities()), list[SolverCapability]
+            )
+        )
+
+    def clear_program_cache(self) -> None:
+        """Release retained programs while keeping active prepared workers valid."""
+        self._handle.clear_program_cache()
+
+    def settle_publication(self, ticket: PublicationTicket) -> PublicationSettlement:
+        """Observe saved native witnesses without repeating a solve or publication."""
+        return msgspec.json.decode(
+            self._handle.settle_publication(ticket.json), type=PublicationSettlement
+        )
 
     def prepare_conic(
         self,

@@ -54,7 +54,6 @@ impl std::fmt::Debug for PreparedComputation {
 pub struct CompletedComputation {
     prepared: PreparedComputation,
     batches: Vec<OwnedRecordBatch>,
-    physical: Arc<dyn datafusion::physical_plan::ExecutionPlan>,
     observation: PlanObservation,
     checked: Mutex<Option<pse_relations::columnar::FieldCheckedBatch>>,
     state: datafusion::execution::session_state::SessionState,
@@ -682,10 +681,16 @@ impl PreparedComputation {
             Ok(stream) => stream,
             Err(error) => {
                 operation.finish(TerminalStatus::Failed);
+                observation.complete(physical.as_ref(), TerminalStatus::Failed, &session.pool);
                 return Err(session.execution_error(error, self.0.origin));
             }
         };
         Ok(OwnedComputationStream {
+            capture: super::observation::CompletionGuard::new(
+                &physical,
+                &observation,
+                &session.pool,
+            ),
             query_permit,
             operation,
             prepared: self,
@@ -926,6 +931,10 @@ impl ReusableComputation {
         register_query_admission(&self.state, query_permit.as_ref());
         let mut operation =
             OperationObservation::start(ObservationPolicy::from_state(&self.state), "round_stream");
+        let observation = self
+            .observation
+            .with_physical(self.physical.as_ref(), &self.prepared.0.session.pool)?;
+        self.prepared.0.session.trace.record(observation.clone())?;
         let stream = operation
             .span()
             .in_scope(|| {
@@ -936,14 +945,24 @@ impl ReusableComputation {
             })
             .map_err(|error| {
                 operation.finish(TerminalStatus::Failed);
+                observation.complete(
+                    self.physical.as_ref(),
+                    TerminalStatus::Failed,
+                    &self.prepared.0.session.pool,
+                );
                 engine(error)
             })?;
         let result = OwnedComputationStream {
+            capture: super::observation::CompletionGuard::new(
+                &self.physical,
+                &observation,
+                &self.prepared.0.session.pool,
+            ),
             query_permit,
             operation,
             prepared: self.prepared.clone(),
             physical: Arc::clone(&self.physical),
-            observation: self.observation.clone(),
+            observation,
             stream: Some(stream),
             finished: false,
             yielded: false,
@@ -1105,6 +1124,9 @@ pub struct OwnedComputationStream {
     physical: Arc<dyn datafusion::physical_plan::ExecutionPlan>,
     observation: PlanObservation,
     stream: Option<datafusion::physical_plan::SendableRecordBatchStream>,
+    // Fields drop in declaration order: flush native stream metrics before the
+    // abandoned snapshot releases its final physical-plan owner.
+    capture: super::observation::CompletionGuard,
     finished: bool,
     yielded: bool,
     state: datafusion::execution::session_state::SessionState,
@@ -1158,15 +1180,18 @@ impl OwnedComputationStream {
         let span = self.operation.span();
         let result = self.next_owned(cancel).instrument(span).await;
         if result.is_err() {
-            self.operation.finish(if cancel.is_cancelled() {
+            let terminal = if cancel.is_cancelled() {
                 TerminalStatus::Cancelled
             } else {
                 TerminalStatus::Failed
-            });
+            };
+            self.operation.finish(terminal);
             self.stream = None;
             self.query_permit.take();
+            self.capture.finish(terminal);
         } else if matches!(result, Ok(None)) {
             self.operation.finish(TerminalStatus::Completed);
+            self.capture.finish(TerminalStatus::Completed);
         }
         result
     }
@@ -1262,7 +1287,6 @@ impl OwnedComputationStream {
         Ok(CompletedComputation {
             prepared: self.prepared,
             batches,
-            physical: self.physical,
             observation: self.observation,
             checked: Mutex::new(None),
             state: self.state,
@@ -1321,10 +1345,6 @@ impl CompletedComputation {
             .session
             .capture_namespace(&state, created_memory_table.as_ref(), cancel)
             .await
-    }
-    /// Actual optimized physical execution retained with this completed result.
-    pub fn physical_plan(&self) -> &Arc<dyn datafusion::physical_plan::ExecutionPlan> {
-        &self.physical
     }
     /// Logical and physical observations from this particular execution.
     pub fn observation(&self) -> &PlanObservation {

@@ -28,6 +28,11 @@ mod kernel_checksum;
 async fn exact_versions_load_classes_and_seeded_refresh_match_fresh_native_files() {
     let directory = tempfile::tempdir().unwrap();
     let root = url::Url::from_directory_path(directory.path()).unwrap();
+    drop(
+        crate::delta::lease::write(&root, &pse_columnar::CancellationToken::new())
+            .await
+            .unwrap(),
+    );
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128 << 20));
     let runtime = RuntimeEnvBuilder::new()
         .with_memory_pool(pool.clone())
@@ -166,6 +171,11 @@ async fn exact_versions_load_classes_and_seeded_refresh_match_fresh_native_files
 async fn native_kernel_crc_seed_advances_through_delta_writes_and_corruption_falls_back() {
     let directory = tempfile::tempdir().unwrap();
     let root = url::Url::from_directory_path(directory.path()).unwrap();
+    drop(
+        crate::delta::lease::write(&root, &pse_columnar::CancellationToken::new())
+            .await
+            .unwrap(),
+    );
     let context = datafusion::prelude::SessionContext::new_with_state(
         SessionStateBuilder::new()
             .with_default_features()

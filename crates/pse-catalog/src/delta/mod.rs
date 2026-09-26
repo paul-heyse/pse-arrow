@@ -21,5 +21,6 @@ pub mod publication_plan;
 pub mod publish;
 pub mod retention;
 pub mod settlement;
+pub mod ticket;
 pub mod write;
 mod write_evidence;

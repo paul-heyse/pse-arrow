@@ -162,7 +162,7 @@ async fn one_row(input: Arc<dyn ExecutionPlan>, state: &SessionState) -> Result<
     }
     row.ok_or_else(|| invalid("publication command requires exactly one row"))
 }
-async fn load(
+pub(super) async fn load(
     location: &url::Url,
     state: &SessionState,
 ) -> Result<Option<super::provider::Opened>> {

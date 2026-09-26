@@ -19,12 +19,53 @@ fn existing_enum_meaning_cannot_be_relabelled_by_value_admission() {
 }
 
 fn invoke(array: ArrayRef) -> Result<ArrayRef> {
-    let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    use pse_schema::model::{
+        Authority, EnumDecl, EnumMember, FieldContract as T, Namespace, RelationDecl,
+        SnapshotClass, TaggedAlternative,
+    };
+    let mut registry = pse_schema::RegistryBuilder::new();
+    registry.declare_enum(EnumDecl::platform(
+        "Resolution",
+        ["resolved", "unresolved", "ambiguous"]
+            .into_iter()
+            .map(|m| EnumMember::new(m, m))
+            .collect(),
+    ));
+    registry.declare_relation(
+        RelationDecl::new(
+            Namespace::Authored,
+            "choices",
+            1,
+            Authority::Authored,
+            SnapshotClass::Model,
+            "Native tagged value admission fixture",
+        )
+        .pk(&["id"])
+        .columns(vec![
+            T::key("id", T::id(), "row"),
+            T::payload(
+                "outcome",
+                T::structure(vec![
+                    T::enumeration("Resolution").with_name("kind"),
+                    T::structure(vec![T::id().with_name("method_id")])
+                        .with_name("resolved")
+                        .optional(),
+                ])
+                .with_alternative(
+                    &TaggedAlternative::new("kind", [("resolved".into(), "resolved".into())])
+                        .with_unit("unresolved")
+                        .with_unit("ambiguous"),
+                ),
+                "choice",
+            ),
+        ]),
+    );
+    let registry = Arc::new(registry.build().unwrap());
     let function = function(
         registry,
         datafusion::execution::context::SessionContext::new().state(),
     );
-    let relation = ScalarValue::Utf8(Some("inferred.method_resolutions".into()));
+    let relation = ScalarValue::Utf8(Some("authored.choices".into()));
     let column = ScalarValue::Utf8(Some("outcome".into()));
     let fields = vec![
         Arc::new(Field::new("value", array.data_type().clone(), true)),

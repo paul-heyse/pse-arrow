@@ -61,7 +61,7 @@ pub fn plan(
     members: Vec<Member>,
     registry: Arc<Registry>,
 ) -> Result<LogicalPlan> {
-    compose(location, header, members, registry, None)
+    compose(location, header, members, registry, None).map(|(plan, _)| plan)
 }
 
 pub(crate) fn plan_bound(
@@ -71,7 +71,7 @@ pub(crate) fn plan_bound(
     registry: Arc<Registry>,
     operation_id: SemanticId,
     dependencies: Vec<pse_relations::generated::runtime::native_dependencies::Row>,
-) -> Result<LogicalPlan> {
+) -> Result<(LogicalPlan, super::ticket::PublicationTicket)> {
     compose(
         location,
         header,
@@ -79,6 +79,12 @@ pub(crate) fn plan_bound(
         registry,
         Some(&(operation_id, dependencies)),
     )
+    .and_then(|(plan, ticket)| {
+        Ok((
+            plan,
+            ticket.ok_or_else(|| invalid("bound publication ticket absent"))?,
+        ))
+    })
 }
 
 fn compose(
@@ -90,7 +96,7 @@ fn compose(
         SemanticId,
         Vec<pse_relations::generated::runtime::native_dependencies::Row>,
     )>,
-) -> Result<LogicalPlan> {
+) -> Result<(LogicalPlan, Option<super::ticket::PublicationTicket>)> {
     if !header.members.is_empty() || members.is_empty() {
         return Err(invalid(
             "publication composition needs an empty member header and explicit members",
@@ -99,14 +105,15 @@ fn compose(
     let mut names = std::collections::BTreeSet::new();
     let mut candidate = header.clone();
     let mut inputs = Vec::new();
+    let mut attempts = Vec::new();
     for member in members {
-        let (outcome, descriptor) = match member {
+        let (outcome, descriptor, attempt) = match member {
             Member::Write(member) => write_member(member, &header, &registry, &location, identity)?,
             Member::Retained(descriptor) => {
                 let version = LogicalPlanBuilder::empty(true)
                     .project([lit(descriptor.delta_version).alias("version")])?
                     .build()?;
-                (version, descriptor)
+                (version, descriptor, None)
             }
         };
         let reference = (
@@ -116,6 +123,9 @@ fn compose(
         );
         if !names.insert(reference) {
             return Err(invalid("duplicate publication member binding"));
+        }
+        if let Some(attempt) = attempt {
+            attempts.push(attempt);
         }
         candidate.members.push(descriptor.clone());
         inputs.push(Arc::new(describe(outcome, &header, descriptor)?));
@@ -172,7 +182,9 @@ fn compose(
         expressions,
         Arc::new(members),
     )?))?;
-    DeltaPublish::plan(location, control, registry)
+    let ticket = identity
+        .map(|_| super::ticket::PublicationTicket::new(location.clone(), candidate, attempts));
+    Ok((DeltaPublish::plan(location, control, registry)?, ticket))
 }
 fn write_member(
     member: MemberWrite,
@@ -186,6 +198,7 @@ fn write_member(
 ) -> Result<(
     LogicalPlan,
     publications::RuntimePublicationsFieldMembersItem,
+    Option<super::attempt::MemberAttempt>,
 )> {
     let spec = registry
         .relation_by_id(member.relation_id)
@@ -201,11 +214,12 @@ fn write_member(
         delta_version: 0,
         selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
     };
-    let mode = if member.table.version().is_none() {
-        SaveMode::ErrorIfExists
-    } else {
-        SaveMode::Overwrite
-    };
+    if member.table.version().is_some() {
+        return Err(invalid(
+            "publication members require new immutable destinations; retain an exact prior version explicitly",
+        ));
+    }
+    let mode = SaveMode::ErrorIfExists;
     let commit = CommitProperties::default().with_metadata(std::collections::HashMap::from([(
         "pse.attempt".to_owned(),
         serde_json::Value::String(header.attempt_id.to_string()),
@@ -230,9 +244,9 @@ fn write_member(
         mode,
         commit,
         DeclaredCheck::new(registry, spec.id)?,
-        attempt,
+        attempt.clone(),
     )?;
-    Ok((write, descriptor))
+    Ok((write, descriptor, attempt))
 }
 
 fn describe(

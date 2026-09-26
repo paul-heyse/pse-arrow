@@ -26,6 +26,11 @@ fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
         .chain([
             "runtime.publications".into(),
             "runtime.native_dependencies".into(),
+            "runtime.solver_capabilities".into(),
+            "runtime.solve_runs".into(),
+            "runtime.computation_runs".into(),
+            "runtime.run_lineage".into(),
+            "runtime.candidate_assessments".into(),
         ])
         .collect()
 }
@@ -54,7 +59,9 @@ fn semantic_item(item: &syn::Item, names: &BTreeSet<String>, relative: &std::pat
         syn::Item::Struct(item) => names.contains(&item.ident.to_string()),
         syn::Item::Enum(_) => true,
         syn::Item::Type(item) => {
-            item.ident == "Row" || relative == std::path::Path::new("extension_values.rs")
+            names.contains(&item.ident.to_string())
+                || item.ident == "Row"
+                || relative == std::path::Path::new("extension_values.rs")
         }
         syn::Item::Impl(item) => {
             let target = match item.self_ty.as_ref() {
@@ -66,7 +73,7 @@ fn semantic_item(item: &syn::Item, names: &BTreeSet<String>, relative: &std::pat
                     path.segments.last().is_some_and(|part| {
                         matches!(
                             part.ident.to_string().as_str(),
-                            "FromStr" | "PartialEq" | "SemanticEq"
+                            "FromStr" | "PartialEq" | "SemanticEq" | "HeapUsage" | "SemanticFrame"
                         )
                     })
                 })

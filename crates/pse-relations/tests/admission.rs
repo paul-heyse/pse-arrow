@@ -62,13 +62,7 @@ fn dictionary_ordering_cannot_be_forged_with_an_unchanged_fingerprint() {
 }
 fn fixture() -> Registry {
     let mut builder = RegistryBuilder::new();
-    builder.declare_enum(EnumDecl::platform(
-        "BoundKind",
-        vec![
-            EnumMember::new("finite", "finite"),
-            EnumMember::new("unbounded", "unbounded"),
-        ],
-    ));
+    pse_schema::catalog::declare(&mut builder);
     builder.declare_enum(EnumDecl::platform(
         "Choice",
         vec![EnumMember::new("one", "one"), EnumMember::new("two", "two")],
@@ -408,6 +402,7 @@ fn nested_metadata_is_checked_even_when_every_parent_value_is_null() {
 #[test]
 fn a_quantity_carries_its_measure_quantity_and_unit_in_one_nullable_value() {
     let mut builder = RegistryBuilder::new();
+    pse_schema::catalog::declare(&mut builder);
     builder.declare_relation(decl(
         "quantities",
         vec![

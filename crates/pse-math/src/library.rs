@@ -117,23 +117,8 @@ fn exact_evaluator(
     Ok(ev)
 }
 
-/// Numerica generates the derivative arithmetic; no project AD rules are involved.
-pub(crate) fn jet_evaluator(
-    expressions: &[Atom],
-    parameters: &[Atom],
-    shape: Vec<Vec<usize>>,
-    options: Optimization,
-    cancelled: &std::sync::Arc<std::sync::atomic::AtomicBool>,
-) -> Result<ExpressionEvaluator<f64>, MathError> {
-    use symbolica::prelude::{Dualizer, HyperDual};
-    let evaluator = exact_evaluator(expressions, parameters, options, cancelled)?;
-    let dual = HyperDual::<Complex<Rational>>::new(shape);
-    let evaluator = evaluator
-        .vectorize(&Dualizer::new(dual, vec![]))
-        .map_err(MathError::Library)?;
-    // Do not optimize_stack after vectorize: the pinned profile's unchecked slice aborts.
-    Ok(evaluator.map_coeff(&|c| c.re.to_f64()))
-}
+mod admission;
+pub(crate) use admission::bounded_evaluator;
 
 /// Bounded reusable function symbols for Symbolica-generated provider lifts.
 pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathError> {
@@ -145,4 +130,15 @@ pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathErro
     Ok(FunctionBuilder::new(symbol)
         .add_args(arguments.iter())
         .finish())
+}
+
+/// Owned scalar stack slots exposed by the portable library representation.
+/// Instruction storage and allocator overhead remain a separate foreign allowance.
+pub(crate) fn numeric_entries(evaluator: &ExpressionEvaluator<f64>) -> Result<usize, MathError> {
+    let export = evaluator.export_instructions();
+    export
+        .input_count
+        .checked_add(export.constants.len())
+        .and_then(|n| n.checked_add(export.temporary_count))
+        .ok_or(MathError::Limit("evaluator stack extent"))
 }

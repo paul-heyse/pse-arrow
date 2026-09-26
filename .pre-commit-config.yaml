@@ -1,16 +1,11 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# Two tiers. `pre-commit` holds the checks that are fast enough to run on every
-# commit and that catch a mistake while it is still cheap to fix; `pre-push`
-# holds spelling, licence headers, static type/import checks and Rust formatting. Neither stage compiles
-# native code or runs tests; compilation and full suites run in GitHub or through
-# explicitly requested just recipes.
+# Optional, manually invoked static checks. No hooks are installed by bootstrap;
+# commits and pushes do not run this configuration automatically.
 #
 # Every local hook runs the project's own tool from `.venv/bin`, never whatever
-# is on PATH: a stale global ruff produces a different diff than CI, which is
-# the single most common way a green working copy turns red in review.
-# `just bootstrap` installs both hook types.
+# is on PATH: a stale global ruff produces a different diff than the manual checks.
 
 default_install_hook_types: [pre-commit, pre-push]
 default_stages: [pre-commit]

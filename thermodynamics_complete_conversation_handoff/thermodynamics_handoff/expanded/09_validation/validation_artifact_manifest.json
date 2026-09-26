@@ -1,0 +1,271 @@
+{
+  "document": "THERMO-VALIDATION-009",
+  "kind": "artifact_payload_fingerprints",
+  "excluded": [
+    "thermodynamics_blueprint_validation_v0_1_audit.json",
+    "validation_artifact_manifest.json",
+    "transient __pycache__ / .pyc"
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 2188,
+      "sha256": "322fc1fc19b295846781b50d9793268c07c1a282b6f08bfdc6ce7b9d5cc9e9c6"
+    },
+    {
+      "path": "baselines/THERMO_ACTIONS_007_README.md",
+      "bytes": 2905,
+      "sha256": "a98b95b4c6eee74fbb86d228dfb5ccdbc26537e4af9065ea2c3ea5294f685d52"
+    },
+    {
+      "path": "baselines/THERMO_INTEGRATION_008_README.md",
+      "bytes": 2466,
+      "sha256": "2938fcbb812caf852e26defae3eea87b238b2915d00375805401a593f82a8cb6"
+    },
+    {
+      "path": "baselines/artifact_manifest.json",
+      "bytes": 3131,
+      "sha256": "2a80b17885cb528f7a95ceaa453b01308c9753585f08ded3aad9361a1a8994fa"
+    },
+    {
+      "path": "baselines/dwsim_workflow_reverse_engineering_v0_1.md",
+      "bytes": 87494,
+      "sha256": "55e77b6fddab4547280e4e40ca5c742fac3fd322e45534767ddae7f5f6ba94ab"
+    },
+    {
+      "path": "baselines/integration_artifact_manifest.json",
+      "bytes": 5730,
+      "sha256": "823a7898147b39d8fbe3f153bfb08bcab775e02c78c34a16e3a447d7f18004e8"
+    },
+    {
+      "path": "baselines/reference_action_tests.py",
+      "bytes": 13323,
+      "sha256": "13b9b4dc525a20dfbac3bd5d8fb11a6859cfa96827055c3835312e6bc483351b"
+    },
+    {
+      "path": "baselines/reference_integration_tests.py",
+      "bytes": 9332,
+      "sha256": "8d769d4d79b10aea89f99cb5e50b7939ee1048fc89f156fde727101e4c08bc64"
+    },
+    {
+      "path": "baselines/thermodynamic_package_comparative_research_v0_1.md",
+      "bytes": 105848,
+      "sha256": "c0f9216c450405360b8532771e6c4beca6536154345ea5adf00130a9c4e73875"
+    },
+    {
+      "path": "baselines/thermodynamics_action_workflow_lifecycle_blueprint_v0_1.md",
+      "bytes": 336345,
+      "sha256": "d7624eb730cf3ccc6d65ec2bf21658319ad0d44e0366a4182cecdc29f0448121"
+    },
+    {
+      "path": "baselines/thermodynamics_action_workflow_lifecycle_blueprint_v0_1_audit.json",
+      "bytes": 4602,
+      "sha256": "4b407a314b728d24a145b8898f2759cba8efeee3d942483816ea961d53bbb050"
+    },
+    {
+      "path": "baselines/thermodynamics_action_workflow_lifecycle_blueprint_v0_1_reference_checks.json",
+      "bytes": 4726,
+      "sha256": "8e1a121b04ab11be1a356f5ece4717c277ef543ba26b47904d963a28e38b6037"
+    },
+    {
+      "path": "baselines/thermodynamics_action_workflow_lifecycle_blueprint_v0_1_register.json",
+      "bytes": 690912,
+      "sha256": "ddcd4239f165ee7425d8c668aa2b5b824ffee12edfaf73ded0f2748df74627f6"
+    },
+    {
+      "path": "baselines/thermodynamics_conceptual_packaging_v0_1.md",
+      "bytes": 132988,
+      "sha256": "85602e0a750add6a1168cb4f4294998feb5e90e35b37cef5f0b4e63c5f1076f1"
+    },
+    {
+      "path": "baselines/thermodynamics_conceptual_packaging_v0_1_register.json",
+      "bytes": 205998,
+      "sha256": "d46ce687dee20cb7e677082039f349a38d8fd71101a659079d47bb8d57d80612"
+    },
+    {
+      "path": "baselines/thermodynamics_cross_library_solver_integration_v0_1.md",
+      "bytes": 235677,
+      "sha256": "3ba074822d4d0d6c5ed18a5a0bdf19445f5e7a08d699681dbfb869b5f14e1252"
+    },
+    {
+      "path": "baselines/thermodynamics_cross_library_solver_integration_v0_1_audit.json",
+      "bytes": 9364,
+      "sha256": "0686ae710f8a1ec7ae0785a162beeeab10cb8064a9c56e5df883e25647ca59a3"
+    },
+    {
+      "path": "baselines/thermodynamics_cross_library_solver_integration_v0_1_reference_checks.json",
+      "bytes": 11580,
+      "sha256": "832d3fe0eca9937687d1a9bd99d5c8d158ef35c42439cf16ff23ca4ea414b829"
+    },
+    {
+      "path": "baselines/thermodynamics_cross_library_solver_integration_v0_1_register.json",
+      "bytes": 497253,
+      "sha256": "a47c6576debe602a946e5db610dd01d6c350b45e0e83e1a1ba29e8c6879c8f5c"
+    },
+    {
+      "path": "baselines/thermodynamics_functional_requirements_v0_1.md",
+      "bytes": 260840,
+      "sha256": "7b9c3c4e2110531cb5767fb00f9ba11dec160294b8cafd909c5b04984a87b5c2"
+    },
+    {
+      "path": "baselines/thermodynamics_functional_requirements_v0_1_register.json",
+      "bytes": 363946,
+      "sha256": "1777f2c60962526252aa863dc2cb673f218b4ed58fe9c108f9721264f9fde825"
+    },
+    {
+      "path": "baselines/thermodynamics_semantic_information_dictionary_v0_1.md",
+      "bytes": 330481,
+      "sha256": "58c33ae37009c2c07485a46ae95fdd51f0475504aaa75cb85ef7a23a8484dee9"
+    },
+    {
+      "path": "baselines/thermodynamics_semantic_information_dictionary_v0_1_register.json",
+      "bytes": 553056,
+      "sha256": "ab459185e0536ce5ef721c572010ed8d1279f89f8d6ad632b32f927b03f21f8d"
+    },
+    {
+      "path": "baselines/thermodynamics_simulation_behavior_scope_v0_1.md",
+      "bytes": 84604,
+      "sha256": "1d12284bbca6569f198caaae86327788bac8fbaf3946625d99d971ef3602d028"
+    },
+    {
+      "path": "baselines/validate_action_blueprint.py",
+      "bytes": 9265,
+      "sha256": "83695a8e73fc7257878e3030a918078fcb7c75b5c653aaaf67686a53d29c183f"
+    },
+    {
+      "path": "baselines/validate_integration_blueprint.py",
+      "bytes": 11863,
+      "sha256": "fa6c76c563f09aa70d85c78de70991e57f38cb15c1edc8e5ea2c1918a0d1627d"
+    },
+    {
+      "path": "fixtures.json",
+      "bytes": 3532,
+      "sha256": "b97eac3a7256666576d50a2a397b828b6fe2bf2f4101383de68e4223f9718978"
+    },
+    {
+      "path": "results/environment_preflight.json",
+      "bytes": 2305,
+      "sha256": "ed5bbf84d6e99b1111d4b0602cafde2710366c0637be919b56ae5ac59af2d352"
+    },
+    {
+      "path": "results/inherited_action_catalog.json",
+      "bytes": 4602,
+      "sha256": "4b407a314b728d24a145b8898f2759cba8efeee3d942483816ea961d53bbb050"
+    },
+    {
+      "path": "results/inherited_action_catalog.log",
+      "bytes": 424,
+      "sha256": "d8c23f12de73a1049c23f4a7fdad5492925dc8f8892b9dff5009c57bb1b1e58b"
+    },
+    {
+      "path": "results/inherited_action_reference.json",
+      "bytes": 4726,
+      "sha256": "8e1a121b04ab11be1a356f5ece4717c277ef543ba26b47904d963a28e38b6037"
+    },
+    {
+      "path": "results/inherited_action_reference.log",
+      "bytes": 3074,
+      "sha256": "1414472cb8013399360884c76b2d4bdd4d2d40f0b283d57f4a73b5bd2a31c07c"
+    },
+    {
+      "path": "results/inherited_integration_catalog.json",
+      "bytes": 9364,
+      "sha256": "0686ae710f8a1ec7ae0785a162beeeab10cb8064a9c56e5df883e25647ca59a3"
+    },
+    {
+      "path": "results/inherited_integration_catalog.log",
+      "bytes": 697,
+      "sha256": "7cc036639cdaac0842bae9bd25fd875a99b626d08e51aa8b7a720f753aadb363"
+    },
+    {
+      "path": "results/inherited_integration_reference.json",
+      "bytes": 11580,
+      "sha256": "832d3fe0eca9937687d1a9bd99d5c8d158ef35c42439cf16ff23ca4ea414b829"
+    },
+    {
+      "path": "results/inherited_integration_reference.log",
+      "bytes": 297,
+      "sha256": "2c22aa42ad59e25b239da1818bd7b1a01840e244e1844dbc88272846387f7233"
+    },
+    {
+      "path": "results/native_probe_dispatch.json",
+      "bytes": 2074,
+      "sha256": "f062baf587377c331780f03c90fb7a22d643fc2e715ee78f451dffbb20f18dec"
+    },
+    {
+      "path": "results/native_probe_dispatch.log",
+      "bytes": 2074,
+      "sha256": "f062baf587377c331780f03c90fb7a22d643fc2e715ee78f451dffbb20f18dec"
+    },
+    {
+      "path": "results/numerical_probes.json",
+      "bytes": 17408,
+      "sha256": "71b8699346cd3e412a26a1eafaee5635f2b35b36453ecbbd0630f70fcfdcf729"
+    },
+    {
+      "path": "results/numerical_probes.log",
+      "bytes": 1838,
+      "sha256": "27f187862711bd39d96b312479a0cb4aa52efb3012469ec16d7a437535d659e2"
+    },
+    {
+      "path": "results/pip_preflight.txt",
+      "bytes": 313,
+      "sha256": "885849f8d241794ce29c14c467b50718b63c165b1b09c864a137fe5276e90a15"
+    },
+    {
+      "path": "results/pip_public_preflight.txt",
+      "bytes": 313,
+      "sha256": "885849f8d241794ce29c14c467b50718b63c165b1b09c864a137fe5276e90a15"
+    },
+    {
+      "path": "results/publication_model.log",
+      "bytes": 820,
+      "sha256": "1af8faf8c89e0a95c9f83f4d5a65b0f624efd13228c7a5a7458b20b6b4397dc7"
+    },
+    {
+      "path": "results/publication_model_checks.json",
+      "bytes": 5618,
+      "sha256": "15f6d83731339c1a74f2b61913fc8b29b7140c69b06fd053b18ad630fbe6dbaf"
+    },
+    {
+      "path": "scripts/check_publication_model.py",
+      "bytes": 7232,
+      "sha256": "fd8550deca9864b8a8767f094a7c741296f0a23558aefa6a0883fd6071af9833"
+    },
+    {
+      "path": "scripts/extracted_chedl_kernels.py",
+      "bytes": 3348,
+      "sha256": "8a9368b3fbba94aa859501648d2390339f53077120fc93ad90203d66eebf51df"
+    },
+    {
+      "path": "scripts/run_native_probes.py",
+      "bytes": 7290,
+      "sha256": "c626d61a874f609d9c7d6746fe2439293b6bfcd717d9309a471ce379617c5ae0"
+    },
+    {
+      "path": "scripts/run_numerical_probes.py",
+      "bytes": 19831,
+      "sha256": "d84715afa73b6f98132e5508a1473b6577db4dccc10934084195a3596a36d71b"
+    },
+    {
+      "path": "scripts/validate_validation_package.py",
+      "bytes": 13737,
+      "sha256": "cae224346577cea070a5c1f5e1c2f4abb3841a88506865b4bea8fcf87e08adf9"
+    },
+    {
+      "path": "source_manifest.json",
+      "bytes": 4321,
+      "sha256": "760c1c1f6c153ab4e6f69eb8b36215a3939595f15e29584916185b24d4e51997"
+    },
+    {
+      "path": "thermodynamics_blueprint_validation_v0_1.md",
+      "bytes": 89098,
+      "sha256": "20ad1e2cfb96f05e2ddabbab544f434b2894937a40c1f297612aa741e1a9c15b"
+    },
+    {
+      "path": "thermodynamics_blueprint_validation_v0_1_register.json",
+      "bytes": 158097,
+      "sha256": "6c705b9450b0ada57a2e853d87fff0bb337abc4ddca424f0b79c694676fe4792"
+    }
+  ]
+}

@@ -6,8 +6,8 @@ Each record states one decision, the blueprint sections it governs, the design
 principles §H fields (principles, level, evidence, revisit trigger, verification), and the
 design-review finding that motivated it. A record is immutable once accepted:
 it changes only by superseding it with a new record, or by a status edit and an
-appended `## Status history` line. `docs/authoritative_design/blueprint.md` is
-the authoritative design; these records say *why* it reads the way it does.
+appended `## Status history` line. `docs/authoritative_design/README.md` routes to
+the authoritative design collection; these records say *why* it reads the way it does.
 
 Run `just adr-new <slug>` to start one and `just adr-lint` before opening the PR.
 Open items that were deliberately deferred live in [`register.md`](register.md).
@@ -107,3 +107,5 @@ Open items that were deliberately deferred live in [`register.md`](register.md).
 | [ADR-0091](0091-immutable-publication-contract.md) | Immutable publication and retention contract | proposed | 2026-09-25 | §20.2, §20.4 | A new execution or storage path cannot preserve these distinctions. |
 | [ADR-0092](0092-ordinary-execution-evidence.md) | Ordinary execution evidence and qualification | proposed | 2026-09-25 | §24.1, §24.3 | A new execution or storage path cannot preserve these distinctions. |
 | [ADR-0093](0093-qualified-native-strategies.md) | Qualify native strategies and residual dynamics | proposed | 2026-09-25 | §D9, §9, §13.6, §18.6 | A selected request needs hybrid sensitivities with recoverable residual trials or a variable-layout DAE. |
+| [ADR-0094](0094-architecture-first-design-review.md) | Center design review on architecture and change scenarios | proposed | 2026-09-25 | §24.4 | A representative extension or subsystem review cannot distinguish architectural change cost from behavioral correctness. |
+| [ADR-0095](0095-modular-documentation-and-search.md) | Publish focused architectural documents with generated navigation and static search | proposed | 2026-09-25 | §0.1, §0.3, §24.4 | A documented search or publishing limitation cannot be resolved through collection configuration or the existing tools without substantial bespoke machinery |

@@ -109,7 +109,11 @@ async fn nonzero_origin_smooth_scheduled_and_state_reset_fits_share_response_con
             &prepared.profile.solver.controls,
         );
         let mut oracle = FitOracle::new(prepared, execution).unwrap();
-        let (response, _, rank) = oracle.response_rank(&[2.0]).unwrap();
+        let RankDiagnostic {
+            responses: response,
+            rank,
+            ..
+        } = oracle.response_rank(&[2.0]).unwrap();
         let derivative = if mode == 1 { 0.5 } else { 1.0 };
         assert!((response[(0, 0)] - derivative).abs() < 1e-5, "mode {mode}");
         assert_eq!(rank, 1);

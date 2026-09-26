@@ -28,12 +28,13 @@ for a phase-0 platform still establishing what it is.
 
 ## What is still enforced, and why
 
-Relaxing admission did not relax reproducibility. These remain hard gates:
+Relaxing admission did not relax reproducibility. These remain project invariants,
+checked when the corresponding command is run manually:
 
 | Gate | What it protects |
 |---|---|
-| `just family-check` (required check `rust / family-check`) | **One type universe.** Exactly one resolved `arrow`, `parquet`, `object_store`, `datafusion` and `pyo3`. Two majors make `downcast_ref` return `None` with no compile error — a silent failure that reads like a logic bug. This is the invariant `deny.toml`'s `multiple-versions` used to stand in for, and it states it far more precisely. |
-| `tests/governance/tests/pins_match_blueprint.rs` | **Pin drift.** A crate that *is* in blueprint §3.1 must declare the version §3.1 says. A crate §3.1 does not mention is reported and allowed. |
+| `just family-check` (`rust / family-check` when manually dispatched) | **One type universe.** Exactly one resolved `arrow`, `parquet`, `object_store`, `datafusion` and `pyo3`. Two majors make `downcast_ref` return `None` with no compile error — a silent failure that reads like a logic bug. This is the invariant `deny.toml`'s `multiple-versions` used to stand in for, and it states it far more precisely. |
+| `tests/governance/tests/dependency_pins.rs` | **Exact declarations.** External workspace dependencies have an exact version or commit in Cargo; blueprint tables are not a second pin authority. |
 | `=` and `==` pins, committed `Cargo.lock` and `uv.lock`, every gate `--locked` | Reproducibility. Moving a pin is still `cargo update -p <name> --precise <ver>` or `uv lock --upgrade-package <name>`, never a bare `cargo update` / `uv lock`. |
 | ADR for **majoring** one of the four pinned families | A family major changes the API surface the capability maps were extracted against. |
 | ADR for adding or removing a **workspace** (`pse-*`) crate | A crate boundary is architecture, not a dependency. |
@@ -53,8 +54,8 @@ just policy        # strict: the same checks, exiting non-zero on a finding.
 `deny.toml` is that report's configuration. Its `[licenses] allow` list is no longer an
 allowlist — it records the licences a future review has already looked at, so the report
 can say *"here is one nobody has considered yet"* instead of drowning in the ordinary.
-`rust / deny` still runs on every pull request, with `continue-on-error: true`, so the
-report is one click away without standing in anyone's path.
+`rust / deny` is available through manually dispatched `rust.yml`, with
+`continue-on-error: true`.
 
 ## Known hazards that survived as prose
 

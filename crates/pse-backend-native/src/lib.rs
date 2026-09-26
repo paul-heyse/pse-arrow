@@ -159,6 +159,10 @@ impl OracleContract {
 }
 /// Square nonlinear equations, with a residual Jacobian or Jacobian-vector product.
 pub trait NleOracle: std::fmt::Debug {
+    /// Existing compiler matching witness; generic callbacks perform fresh analysis.
+    fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
+        None
+    }
     /// Admitted original sign guards; absent entries do not imply a sign restriction.
     fn guard_signs(&self) -> std::collections::BTreeMap<SemanticId, pse_math::presolve::GuardSign> {
         Default::default()
@@ -199,6 +203,10 @@ pub struct DerivativeFacts {
 }
 /// Nonlinear optimization shared only by compatible NLP adapters.
 pub trait NlpOracle: std::fmt::Debug {
+    /// Existing compiler matching witness for the original equation support.
+    fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
+        None
+    }
     /// Resolved model coordinates, distinct from optional native algorithmic scaling.
     fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
         None
@@ -261,11 +269,12 @@ pub fn validate_nlp(oracle: &dyn NlpOracle, order: DerivativeOrder) -> Result<()
             "NLP Jacobian/bound dimensions or values".into(),
         ));
     }
-    structural::oracle(
+    structural::check(
         oracle.contract(),
         j,
         oracle.constraint_bounds(),
         structural::Mode::Nlp,
+        oracle.structural_analysis(),
     )?;
     if order >= DerivativeOrder::Second
         && oracle

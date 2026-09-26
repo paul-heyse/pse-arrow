@@ -29,8 +29,7 @@ pub struct ResolvedExtensionContract {
 /// Native local declaration plus edges into shared resolved definitions.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedRelationContract {
-    /// Complete native declaration, including prose and its legacy fingerprint.
-    /// The separate semantic projection lives in fingerprint::semantic_relation.
+    /// Native structural declaration with prose and fingerprints projected out.
     pub declaration: RelationSpec,
     /// Resolved native execution fields, with semantic metadata.
     pub fields: Vec<FieldContract>,
@@ -42,32 +41,19 @@ pub struct ResolvedRelationContract {
     pub extensions: Vec<String>,
 }
 
-/// Frozen generated expectations. This description cannot mint an admitted handle.
+/// Runtime resolved declarations; these cannot mint an admitted handle.
 #[derive(Debug)]
-pub struct GeneratedContracts {
+pub(crate) struct ResolvedContracts {
     pub(crate) relations: BTreeMap<SemanticId, ResolvedRelationContract>,
     pub(crate) enums: BTreeMap<SemanticId, EnumSpec>,
     pub(crate) extensions: BTreeMap<String, ResolvedExtensionContract>,
 }
 
-impl GeneratedContracts {
-    /// Complete relation contracts in semantic identity order.
-    pub fn relations(&self) -> impl Iterator<Item = &ResolvedRelationContract> {
-        self.relations.values()
-    }
-    /// Complete enum contracts in semantic identity order.
-    pub fn enums(&self) -> impl Iterator<Item = &EnumSpec> {
-        self.enums.values()
-    }
-    /// Complete extension contracts in name order.
-    pub fn extensions(&self) -> impl Iterator<Item = &ResolvedExtensionContract> {
-        self.extensions.values()
-    }
-
-    /// Assemble frozen descriptions generated independently of the runtime registry.
+impl ResolvedContracts {
+    /// Assemble the runtime structural graph.
     /// # Errors
     /// Duplicate identities, missing definitions or ambiguous native fields.
-    pub fn new(
+    fn new(
         relations: Vec<ResolvedRelationContract>,
         enums: Vec<EnumSpec>,
         extensions: Vec<ResolvedExtensionContract>,
@@ -128,17 +114,48 @@ impl GeneratedContracts {
     }
 }
 
+/// Compact independently compiled expectation for one complete semantic closure.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExpectedContract {
+    /// Relation identity selecting the root.
+    pub relation: SemanticId,
+    /// Declared root version.
+    pub version: u32,
+    /// Semantic projection format version.
+    pub semantic_version: u32,
+    /// Complete semantic closure, including supporting contracts.
+    pub semantics: ContentHash,
+    /// Exact root execution representation expected by generated accessors.
+    pub encoding: ContentHash,
+}
+
+impl ExpectedContract {
+    /// Capture a generator's independently assembled registry expectation.
+    /// # Errors
+    /// A contract cannot be resolved or encoded.
+    pub fn capture(registry: &Registry, spec: &RelationSpec) -> Result<Self, SchemaError> {
+        Ok(Self {
+            relation: spec.id,
+            version: spec.key.version,
+            semantic_version: crate::fingerprint::SEMANTIC_VERSION,
+            semantics: crate::fingerprint::semantic_product(registry, &BTreeSet::from([spec.id]))?,
+            encoding: crate::fingerprint::encoding_relation(registry, spec)?,
+        })
+    }
+}
+
 #[derive(Debug)]
 struct GeneratedProof {
-    expected: &'static GeneratedContracts,
+    expected: &'static [ExpectedContract],
     relations: BTreeSet<SemanticId>,
 }
 
 /// One immutable registry's semantic graph and successful generated bindings.
 #[derive(Debug)]
 pub(crate) struct ContractArena {
-    pub(crate) graph: GeneratedContracts,
+    pub(crate) graph: ResolvedContracts,
     schemas: BTreeMap<SemanticId, arrow_schema::SchemaRef>,
+    expectations: BTreeMap<SemanticId, ExpectedContract>,
     proofs: Mutex<Vec<GeneratedProof>>,
     #[cfg(test)]
     comparisons: std::sync::atomic::AtomicUsize,
@@ -188,7 +205,7 @@ impl ContractArena {
             })
             .collect::<Result<_, SchemaError>>()?;
         Ok(Arc::new(Self {
-            graph: GeneratedContracts::new(relations, enums, extensions)?,
+            graph: ResolvedContracts::new(relations, enums, extensions)?,
             schemas: registry
                 .relations()
                 .iter()
@@ -198,6 +215,11 @@ impl ContractArena {
                         Arc::new(crate::arrow::uncached_relation_schema(registry, spec)?),
                     ))
                 })
+                .collect::<Result<_, SchemaError>>()?,
+            expectations: registry
+                .relations()
+                .iter()
+                .map(|spec| Ok((spec.id, ExpectedContract::capture(registry, spec)?)))
                 .collect::<Result<_, SchemaError>>()?,
             proofs: Mutex::new(Vec::new()),
             #[cfg(test)]
@@ -264,12 +286,12 @@ impl RelationContractHandle {
     }
 
     /// Admit frozen generated expectations once for this actual owner.
-    /// Successful subgraph proofs are reused across generated relation roots.
+    /// The complete closure digest is checked once per owner and generated root.
     /// # Errors
     /// A complete generated expectation differs, or proof synchronization failed.
     pub fn require_generated(
         &self,
-        expected: &'static GeneratedContracts,
+        expected: &'static [ExpectedContract],
     ) -> Result<(), SchemaError> {
         let mut proofs = self
             .arena
@@ -286,15 +308,21 @@ impl RelationContractHandle {
         self.arena
             .comparisons
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let empty = BTreeSet::new();
-        let known = existing.map_or(&empty, |index| &proofs[index].relations);
-        let admitted = compare(&self.arena.graph, expected, self.id, known)?;
+        let compiled = expected
+            .iter()
+            .find(|entry| entry.relation == self.id)
+            .ok_or_else(|| invalid("missing independently compiled expectation"))?;
+        if self.arena.expectations.get(&self.id) != Some(compiled) {
+            return Err(invalid(
+                "independently compiled semantic closure or encoding differs",
+            ));
+        }
         if let Some(index) = existing {
-            proofs[index].relations.extend(admitted);
+            proofs[index].relations.insert(self.id);
         } else {
             proofs.push(GeneratedProof {
                 expected,
-                relations: admitted,
+                relations: BTreeSet::from([self.id]),
             });
         }
         Ok(())
@@ -302,8 +330,8 @@ impl RelationContractHandle {
 }
 
 fn compare(
-    actual: &GeneratedContracts,
-    expected: &GeneratedContracts,
+    actual: &ResolvedContracts,
+    expected: &ResolvedContracts,
     root: SemanticId,
     known: &BTreeSet<SemanticId>,
 ) -> Result<BTreeSet<SemanticId>, SchemaError> {

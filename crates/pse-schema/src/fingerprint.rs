@@ -38,69 +38,6 @@ pub fn registry(
     Ok(h.finish_hash())
 }
 
-/// Digest the native declaration and the referenced logical types and enum domains.
-/// # Errors
-/// A declaration cannot be represented canonically.
-pub fn relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentHash, SchemaError> {
-    let mut h = FramedHasher::new(context::REGISTRY);
-    h.str(FRAME_VERSION);
-    h.str("relation");
-    h.str(&spec.key.to_string());
-    h.str(&pse_columnar::native_field::canonical_json(&serde_json::json!({
-        "authority": spec.authority.as_str(), "snapshot_class": spec.snapshot_class.as_str(),
-        "primary_key": spec.primary_key, "granularity": spec.derivation_granularity.map(crate::model::DerivationGranularity::as_str),
-        "stability": spec.stability.as_str(), "doc": spec.doc, "checks": spec.checks,
-        "delta_properties": spec.delta_properties,
-    })).map_err(invalid)?);
-    h.u64(count(spec.columns.len())?);
-    let mut types = std::collections::BTreeSet::new();
-    let mut enums = std::collections::BTreeSet::new();
-    for field in &spec.columns {
-        h.str(&field.canonical_json()?);
-        enums.extend(field.enum_domains());
-        let mut reachable = Vec::new();
-        field.value_type().walk(&mut reachable);
-        for ty in reachable {
-            types.insert(ty.type_name()?);
-        }
-    }
-    h.u64(count(types.len())?);
-    for name in types {
-        let row = reg
-            .logical_type(&name)
-            .ok_or_else(|| invalid(format!("missing logical type {name}")))?;
-        h.str(
-            &pse_columnar::native_field::canonical_json(&(
-                &row.name,
-                &row.arrow_storage,
-                &row.extension_name,
-                &row.metadata_schema,
-            ))
-            .map_err(invalid)?,
-        );
-    }
-    h.u64(count(enums.len())?);
-    for name in enums {
-        let domain = reg
-            .enum_spec(&name)
-            .ok_or_else(|| invalid(format!("missing enum {name}")))?;
-        h.str(domain.name);
-        h.str(&pse_columnar::native_field::canonical_json(&domain.idaes_source).map_err(invalid)?);
-        h.u64(count(domain.members.len())?);
-        for member in &domain.members {
-            h.str(
-                &pse_columnar::native_field::canonical_json(&(
-                    member.name,
-                    member.idaes_name,
-                    member.deprecated,
-                    member.doc,
-                ))
-                .map_err(invalid)?,
-            );
-        }
-    }
-    Ok(h.finish_hash())
-}
 fn count(value: usize) -> Result<u64, SchemaError> {
     u64::try_from(value).map_err(invalid)
 }
@@ -108,139 +45,237 @@ fn invalid(error: impl std::fmt::Display) -> SchemaError {
     crate::checks::invalid("native fingerprint", error.to_string())
 }
 
-/// Logical contract identity, independent of prose and qualified native encodings.
-/// This is additive: durable opening continues to enforce `relation` until the
-/// explicit P12 compatibility migration. Unknown metadata remains significant.
+/// Version of the complete semantic contract. Prose and physical layouts are separate.
+pub const SEMANTIC_VERSION: u32 = 2;
+
+/// Canonical supported SQL syntax, with no claim of algebraic equivalence.
 /// # Errors
-/// Invalid declarations or missing enum domains.
-pub fn semantic_relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentHash, SchemaError> {
-    use arrow_schema::DataType;
-    use pse_columnar::native_field::{MetadataPurpose, canonical_json, map, project};
-    let mut h = FramedHasher::new("pse.schema.semantic-relation.v1");
-    h.str(&spec.key.to_string())
-        .str(spec.authority.as_str())
-        .str(spec.snapshot_class.as_str())
-        .str(spec.stability.as_str());
-    h.str(
-        &canonical_json(&(
-            &spec.primary_key,
-            spec.derivation_granularity
-                .map(crate::model::DerivationGranularity::as_str),
-            &spec.checks,
-        ))
-        .map_err(invalid)?,
-    );
-    h.u64(count(spec.columns.len())?);
-    let mut enums = std::collections::BTreeSet::new();
-    let mut logical_types = std::collections::BTreeSet::new();
-    for field in &spec.columns {
-        enums.extend(field.enum_domains());
-        let mut reachable = Vec::new();
-        field.value_type().walk(&mut reachable);
-        for ty in reachable {
-            if ty.extension().is_some() {
-                logical_types.insert(ty.type_name()?);
-            }
+/// Invalid syntax, trailing expressions, or multiple statements.
+pub fn canonical_sql(sql: &str, expression: bool) -> Result<String, SchemaError> {
+    use sqlparser::{dialect::GenericDialect, parser::Parser, tokenizer::Token};
+    if expression {
+        let mut parser = Parser::new(&GenericDialect)
+            .try_with_sql(sql)
+            .map_err(invalid)?;
+        let expr = parser.parse_expr().map_err(invalid)?;
+        parser.expect_token(&Token::EOF).map_err(invalid)?;
+        Ok(expr.to_string())
+    } else {
+        let statements = Parser::parse_sql(&GenericDialect, sql).map_err(invalid)?;
+        if statements.len() != 1 {
+            return Err(invalid("contract SQL requires one statement"));
         }
-        let logical =
-            project(field.field(), MetadataPurpose::ExecutionIdentity).map_err(invalid)?;
-        let logical = map(&logical, &mut |field| {
-            let declared = crate::model::FieldContract::from_field(field.clone());
-            let kind = if declared.extension().is_some() {
-                // The named logical extension and all its parameters are metadata.
-                // Its physical child layout belongs to the encoding fingerprint.
-                DataType::Null
-            } else {
-                let mut kind = field.data_type();
-                while let DataType::Dictionary(_, value) = kind {
-                    kind = value;
-                }
-                match kind {
-                    DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View => DataType::Utf8,
-                    DataType::Binary | DataType::LargeBinary | DataType::BinaryView => {
-                        DataType::Binary
-                    }
-                    DataType::List(child)
-                    | DataType::LargeList(child)
-                    | DataType::ListView(child)
-                    | DataType::LargeListView(child) => DataType::List(child.clone()),
-                    kind => kind.clone(),
-                }
-            };
-            // Constructing a new field removes dictionary key/order encoding details.
-            arrow_schema::Field::new(field.name(), kind, field.is_nullable())
-                .with_metadata(field.metadata().clone())
-        })
-        .map_err(invalid)?;
-        h.str(&canonical_json(&logical).map_err(invalid)?);
+        Ok(statements[0].to_string())
     }
-    h.u64(count(logical_types.len())?);
-    for name in logical_types {
-        let logical = reg
-            .logical_type(&name)
-            .ok_or_else(|| invalid(format!("missing logical type {name}")))?;
-        h.str(
-            &canonical_json(&(
-                &logical.name,
-                &logical.extension_name,
-                &logical.metadata_schema,
-            ))
-            .map_err(invalid)?,
-        );
-    }
-    h.u64(count(enums.len())?);
-    for name in enums {
-        let domain = reg
-            .enum_spec(&name)
-            .ok_or_else(|| invalid(format!("missing enum {name}")))?;
-        h.str(domain.name).u64(count(domain.members.len())?);
-        // Enum order is presentation, not meaning. Names and deprecation are semantic.
-        let mut members: Vec<_> = domain.members.iter().collect();
-        members.sort_by_key(|member| member.name);
-        for member in members {
-            h.str(member.name).bool(member.deprecated);
-        }
-    }
-    let mut invariants: Vec<_> = reg
-        .invariants()
-        .iter()
-        .filter(|i| i.relation == spec.key.qualified_name())
-        .collect();
-    invariants.sort_by_key(|i| &i.name);
-    h.u64(count(invariants.len())?);
-    for invariant in invariants {
-        let mut inputs = invariant.inputs.clone();
-        inputs.sort();
-        h.str(&invariant.name)
-            .str(invariant.kind.as_str())
-            .str(&invariant.query)
-            .str(invariant.severity.as_str());
-        h.str(&canonical_json(&(&inputs, &invariant.key_columns)).map_err(invalid)?);
-    }
-    Ok(h.finish_hash())
 }
 
-/// Semantic identity of the entire referenced contract, including empty support
-/// relations and invariant inputs. Physical encodings retain their separate digest.
+/// Logical field declaration, preserving unknown metadata and ordered nested paths.
 /// # Errors
-/// An unknown root, reference or logical declaration.
+/// Invalid native metadata.
+pub fn semantic_field(field: &arrow_schema::Field) -> Result<arrow_schema::Field, SchemaError> {
+    use arrow_schema::DataType;
+    use pse_columnar::native_field::{MetadataPurpose, map, project};
+    let logical = project(field, MetadataPurpose::ExecutionIdentity).map_err(invalid)?;
+    map(&logical, &mut |field| {
+        let declared = crate::model::FieldContract::from_field(field.clone());
+        let kind = if declared.extension().is_some() {
+            DataType::Null
+        } else {
+            let mut kind = field.data_type();
+            while let DataType::Dictionary(_, value) = kind {
+                kind = value;
+            }
+            match kind {
+                DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View => DataType::Utf8,
+                DataType::Binary | DataType::LargeBinary | DataType::BinaryView => DataType::Binary,
+                DataType::List(child)
+                | DataType::LargeList(child)
+                | DataType::ListView(child)
+                | DataType::LargeListView(child) => DataType::List(child.clone()),
+                kind => kind.clone(),
+            }
+        };
+        let mut metadata = field.metadata().clone();
+        if declared.extension().is_none() {
+            // This reserved annotation is the registry's physical type alias.
+            // Native field shape and its semantic normalization above own meaning.
+            metadata.remove(crate::arrow::KEY_LOGICAL_TYPE);
+        }
+        arrow_schema::Field::new(field.name(), kind, field.is_nullable()).with_metadata(metadata)
+    })
+    .map_err(invalid)
+}
+
+/// Complete local semantic declaration, usable as a recorded independent witness.
+/// # Errors
+/// Invalid SQL, field declaration, or missing enum/extension definition.
+pub fn semantic_description(
+    reg: &Registry,
+    spec: &RelationSpec,
+) -> Result<serde_json::Value, SchemaError> {
+    use std::collections::{BTreeMap, BTreeSet};
+    let mut enums = BTreeSet::new();
+    let mut extensions = BTreeSet::new();
+    let fields = spec
+        .columns
+        .iter()
+        .map(|field| {
+            enums.extend(field.enum_domains());
+            let mut reachable = vec![];
+            field.value_type().walk(&mut reachable);
+            for ty in reachable {
+                if let Some(extension) = ty.extension() {
+                    extensions.insert(extension.extension_name().to_owned());
+                }
+            }
+            // Resolved metadata includes the actual enum and quantity identities.
+            semantic_field(&crate::arrow::field_for(reg, field)?)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let enums = enums
+        .into_iter()
+        .map(|name| {
+            let domain = reg
+                .enum_spec(&name)
+                .ok_or_else(|| invalid(format!("missing enum {name}")))?;
+            let members: BTreeMap<_, _> = domain
+                .members
+                .iter()
+                .map(|m| (m.name, m.deprecated))
+                .collect();
+            Ok((name, serde_json::json!({"id":domain.id,"members":members})))
+        })
+        .collect::<Result<BTreeMap<_, _>, SchemaError>>()?;
+    let extensions = extensions.into_iter().map(|name| {
+        let spec = crate::model::EXTENSION_TYPES.iter().find(|e| e.name == name).ok_or_else(|| invalid(format!("missing extension {name}")))?;
+        Ok((name, serde_json::json!({"metadata_kind":spec.metadata.to_string(), "version":spec.metadata_version})))
+    }).collect::<Result<BTreeMap<_, _>, SchemaError>>()?;
+    let checks = spec
+        .checks
+        .iter()
+        .map(|(name, sql)| Ok((name, canonical_sql(sql, true)?)))
+        .collect::<Result<BTreeMap<_, _>, SchemaError>>()?;
+    let invariants = reg.invariants().iter().filter(|i| i.relation == spec.key.qualified_name()).map(|i| {
+        let inputs: BTreeSet<_> = i.inputs.iter().collect();
+        Ok((i.name.clone(), serde_json::json!({"kind":i.kind.as_str(),"query":canonical_sql(&i.query, false)?,"severity":i.severity.as_str(),"inputs":inputs,"keys":i.key_columns})))
+    }).collect::<Result<BTreeMap<_, _>, SchemaError>>()?;
+    Ok(
+        serde_json::json!({"relation":spec.key.to_string(),"id":spec.id,"authority":spec.authority.as_str(),"snapshot":spec.snapshot_class.as_str(),"stability":spec.stability.as_str(),"granularity":spec.derivation_granularity.map(crate::model::DerivationGranularity::as_str),"primary_key":spec.primary_key,"fields":fields,"enums":enums,"extensions":extensions,"checks":checks,"policies":spec.delta_properties,"invariants":invariants}),
+    )
+}
+
+/// Complete local semantic identity; dependencies are closed by `semantic_product`.
+/// # Errors
+/// Invalid semantic description.
+pub fn semantic_relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentHash, SchemaError> {
+    digest(
+        "pse.schema.semantic-relation.v2",
+        &semantic_description(reg, spec)?,
+    )
+}
+
+/// Persistable support graph. Ordered roots and relation identities retain empty members.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SemanticContract {
+    /// Explicit interpretation version, independent of Arrow/Delta encoding.
+    pub version: u32,
+    /// Requested root identities; the relation map is their complete support closure.
+    pub roots: std::collections::BTreeSet<pse_ids::SemanticId>,
+    /// Complete semantic descriptions, keyed by relation identity.
+    pub relations: std::collections::BTreeMap<pse_ids::SemanticId, serde_json::Value>,
+}
+impl SemanticContract {
+    /// Build from authoritative declarations, never a receiving consumer's expectations.
+    /// # Errors
+    /// An unknown root or malformed semantic declaration.
+    pub fn new(
+        reg: &Registry,
+        roots: &std::collections::BTreeSet<pse_ids::SemanticId>,
+    ) -> Result<Self, SchemaError> {
+        let relations = crate::product::support_closure(reg, roots)?
+            .into_iter()
+            .map(|id| {
+                let spec = reg
+                    .relation_by_id(id)
+                    .ok_or_else(|| invalid("missing support relation"))?;
+                Ok((id, semantic_description(reg, spec)?))
+            })
+            .collect::<Result<_, SchemaError>>()?;
+        Ok(Self {
+            version: SEMANTIC_VERSION,
+            roots: roots.clone(),
+            relations,
+        })
+    }
+    /// Canonical framed digest; descriptions are the witness, not a validity certificate.
+    /// # Errors
+    /// Canonical encoding fails.
+    pub fn identity(&self) -> Result<ContentHash, SchemaError> {
+        digest("pse.schema.semantic-product.v2", self)
+    }
+}
+
+/// Semantic identity of the complete selected contract and invariant inputs.
+/// # Errors
+/// Invalid closure or declaration.
 pub fn semantic_product(
     reg: &Registry,
     roots: &std::collections::BTreeSet<pse_ids::SemanticId>,
 ) -> Result<ContentHash, SchemaError> {
-    let closure = crate::product::support_closure(reg, roots)?;
-    let mut h = FramedHasher::new("pse.schema.semantic-product.v1");
-    h.u64(count(roots.len())?);
-    for root in roots {
-        h.id(root);
+    SemanticContract::new(reg, roots)?.identity()
+}
+
+/// Profile requirements and requested support closure, independent of implementation provenance.
+/// # Errors
+/// Unknown profile, relation, or invalid declaration.
+pub fn semantic_profile(
+    reg: &Registry,
+    profile: &str,
+    roots: &std::collections::BTreeSet<pse_ids::SemanticId>,
+) -> Result<ContentHash, SchemaError> {
+    let required = reg
+        .artifact_profile(profile)
+        .ok_or_else(|| invalid("unknown artifact profile"))?;
+    let mut selected = roots.clone();
+    selected.extend(required);
+    let mut h = FramedHasher::new("pse.schema.semantic-profile.v2");
+    h.str(profile)
+        .hash(&semantic_product(reg, &selected)?)
+        .u64(count(required.len())?);
+    for id in required {
+        h.id(id);
     }
-    h.u64(count(closure.len())?);
-    for id in closure {
-        let relation = reg
-            .relation_by_id(id)
-            .ok_or_else(|| invalid("missing support relation"))?;
-        h.id(&id).hash(&semantic_relation(reg, relation)?);
-    }
+    Ok(h.finish_hash())
+}
+
+/// Exact native field layout requirements, with prose removed and no SQL/proto bytes.
+/// # Errors
+/// Invalid fields or metadata.
+pub fn encoding_relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentHash, SchemaError> {
+    let fields = spec
+        .columns
+        .iter()
+        .map(|f| crate::arrow::field_for(reg, f))
+        .collect::<Result<Vec<_>, _>>()?;
+    encoding_fields(fields.iter())
+}
+/// Exact observed native layout. This does not select semantic meaning.
+/// # Errors
+/// Invalid field metadata.
+pub fn encoding_fields<'a>(
+    fields: impl IntoIterator<Item = &'a arrow_schema::Field>,
+) -> Result<ContentHash, SchemaError> {
+    use pse_columnar::native_field::{MetadataPurpose, project};
+    let fields = fields
+        .into_iter()
+        .map(|f| project(f, MetadataPurpose::ExecutionIdentity).map_err(invalid))
+        .collect::<Result<Vec<_>, SchemaError>>()?;
+    digest("pse.schema.execution-encoding.v1", &fields)
+}
+fn digest(domain: &'static str, value: &impl serde::Serialize) -> Result<ContentHash, SchemaError> {
+    let mut h = FramedHasher::new(domain);
+    h.str(&pse_columnar::native_field::canonical_json(value).map_err(invalid)?);
     Ok(h.finish_hash())
 }
 
@@ -249,6 +284,46 @@ mod semantic_tests {
     use super::*;
     use crate::model::FieldContract;
     use arrow_schema::DataType;
+
+    #[test]
+    fn sql_canonicalization_preserves_meaning_and_refuses_trailing_input() {
+        assert_eq!(
+            canonical_sql("x > 1 AND y IS NOT NULL", true).unwrap(),
+            canonical_sql("x>1  and y is not null", true).unwrap()
+        );
+        assert_eq!(
+            canonical_sql("SELECT x FROM t WHERE x > 1", false).unwrap(),
+            canonical_sql("select x from t where x>1", false).unwrap()
+        );
+        assert_ne!(
+            canonical_sql("x + y", true).unwrap(),
+            canonical_sql("y + x", true).unwrap()
+        );
+        assert!(canonical_sql("x > 1; DELETE FROM t", true).is_err());
+        assert!(canonical_sql("SELECT x FROM t; SELECT y FROM t", false).is_err());
+    }
+    #[test]
+    fn closure_carries_empty_support_and_invariant_inputs() {
+        let registry = crate::registry().unwrap();
+        let root = registry.relation("authored.entities").unwrap().id;
+        let contract = SemanticContract::new(registry, &[root].into()).unwrap();
+        let required = crate::product::support_closure(registry, &[root].into()).unwrap();
+        assert_eq!(
+            contract
+                .relations
+                .keys()
+                .copied()
+                .collect::<std::collections::BTreeSet<_>>(),
+            required
+        );
+        let description = &contract.relations[&root];
+        assert!(!description["invariants"].as_object().unwrap().is_empty());
+        assert!(!description["primary_key"].as_array().unwrap().is_empty());
+        assert_ne!(
+            semantic_profile(registry, "inspection", &[root].into()).unwrap(),
+            semantic_product(registry, &[root].into()).unwrap()
+        );
+    }
 
     #[test]
     fn semantic_contract_separates_documentation_and_native_encoding() {

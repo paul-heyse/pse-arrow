@@ -57,13 +57,17 @@ impl SharedRuntime {
                 message: "runtime memory/spill limits failed read-back".to_owned(),
             });
         }
-        let compiler_cpu = Arc::new(tokio::sync::Semaphore::new(
-            budget.threads.pool_threads.get(),
-        ));
+        // The standard library accounts for process affinity and Linux CPU quota.
+        // Keep the configured pool size as a ceiling; native admission uses the
+        // effective capacity observed when this runtime is created.
+        let native_cores = std::thread::available_parallelism()
+            .map_or(1, std::num::NonZeroUsize::get)
+            .min(budget.threads.pool_threads.get());
+        let compiler_cpu = Arc::new(tokio::sync::Semaphore::new(native_cores));
         let math = crate::math::MathService::new(
             env.memory_pool.clone(),
             compiler_cpu.clone(),
-            budget.threads.pool_threads.get(),
+            native_cores,
             budget.math.clone(),
             caches.native(),
         );

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-debug-identity
+valid:
+  - 'format!("{}", value)'
+  - 'let text = r#"format!("{:?}", value)"#;'
+  - '/* format!("{:?}", value) */'
+  - '#[cfg(test)] mod tests { fn example() { format!("{:?}", value); } }'
+invalid:
+  - 'format!("{:?}", value)'
+  - 'std::format!(r#"{value:#?}"#)'
+  - "format! (\n    \"{value:?}\"\n)"

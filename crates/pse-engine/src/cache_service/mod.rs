@@ -121,6 +121,10 @@ pub struct NativeCacheService {
 }
 /// An independently owned cache family sharing the deployment's native resources.
 pub trait CacheComponent: std::fmt::Debug + Send + Sync {
+    /// Whether storage maintenance invalidates this family's semantic dependencies.
+    fn storage_bound(&self) -> bool {
+        true
+    }
     /// Evict cache references while retaining active readers.
     fn invalidate(&self);
     /// Constant-space aggregate counters.
@@ -164,7 +168,9 @@ impl NativeCacheService {
     pub fn invalidate(&self) {
         use datafusion::execution::cache::Cache;
         for component in self.components() {
-            component.invalidate();
+            if component.storage_bound() {
+                component.invalidate();
+            }
         }
         self.metadata.clear();
         self.statistics.clear();

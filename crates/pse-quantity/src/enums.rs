@@ -529,6 +529,33 @@ crate::closed_enum! {
     }
 }
 
+/// Physical dictionaries exported to registry and code generators from their owner.
+/// Names are Rust type names; member order is the presentation dictionary order.
+pub fn dictionaries() -> Vec<(&'static str, Vec<&'static str>)> {
+    macro_rules! dictionaries {
+        ($($name:ident),* $(,)?) => { vec![$((stringify!($name), $name::ALL.iter().map(|value| value.as_str()).collect())),*] };
+    }
+    dictionaries!(
+        Opcode,
+        DomainKind,
+        SubjectKind,
+        ScaleKind,
+        QuantityAdditionKind,
+        BasisKind,
+        CompositionBasis,
+        RateBasis,
+        ReferenceStateKind,
+        ConversionKind,
+        BasisRule,
+        ReferenceRule,
+        QuantityScaleRule,
+        QuantityShapeRule,
+        SubjectRule,
+        WeightNormalization,
+        ReductionKind
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use serde::Deserialize as _;

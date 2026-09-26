@@ -48,6 +48,19 @@ Adapters own backend-native behavior and translate statuses into shared tags. St
 
 ### Consequences
 
+P10 completes the projection at the joined result owner. Typed termination,
+candidate availability, numerical qualification, physical closure and usability
+remain independent, including partial trajectories and candidate fit derivatives.
+Completion records the actual request, preparation, effective backend settings,
+submitted start, provider data and environment lineage. Arrow and Python consume
+that immutable product; reading it cannot evaluate or reclassify the model.
+Diagnostic capture is bounded and optional, reads metrics from the actual executed
+plan, and cannot change a scientific or publication outcome.
+
+P13 derives physical vocabulary from `pse-quantity` and shared validation from the
+resolved registry obligations. Independent generated consumer expectations remain
+mandatory when the redundant structural contract copies are removed.
+
 P05–P06 extends the existing vocabulary with resolved numerical requirements,
 source-attributed presolve evidence, exact/numerical/inconclusive convexity evidence
 and immutable candidate assessment. Native termination, numerical acceptance,

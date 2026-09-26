@@ -13,6 +13,9 @@
 #[path = "fixture/generate.rs"]
 mod generate;
 use datafusion::arrow::array::RecordBatch;
+pub(crate) fn validate_literals() {
+    generate::validate_literals();
+}
 pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, Fixture) {
     generate::pair(registry, invariant)
 }

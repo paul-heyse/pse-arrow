@@ -117,6 +117,7 @@ fn definitions(context: &SessionContext) -> super::super::RelationInputs {
 }
 fn input(context: &SessionContext, value: Option<Vec<Option<QuantityValue>>>) -> LogicalPlan {
     let mut builder = RegistryBuilder::new();
+    pse_schema::catalog::declare(&mut builder);
     builder.declare_relation(
         RelationDecl::new(
             Namespace::Authored,

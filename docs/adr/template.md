@@ -12,7 +12,10 @@ evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: An observable trigger, not a date.
-verification: The test, lint or CI job that shows this holds.
+verification: The scenario/property and named analysis, test, lint or measurement that settles it.
+# Optional snapshot and links; remove if not relevant.
+standard: null
+scenarios: []
 
 ---
 
@@ -36,12 +39,15 @@ level is `decision`.
 
 ## Drivers
 
-The forces, one line each: correctness, reproducibility, supply chain, parity,
-cost. The principle IDs (`DP-nn`, `PS-nn`) go in the `principles:` field, not here.
+Name the functional and architectural drivers and link representative change scenarios.
+Explain the required responsibility boundaries, composition and local test setup. Principle
+IDs (`AP-nn`, `DP-nn`, `PS-nn`) go in `principles:`; scenario definitions retain one owner.
 
 ## Options
 
-Each option in one line, with the reason it was not taken. "Do nothing" counts.
+Compare the current baseline, proposed design and simplest viable/library-owned alternatives
+as relevant. State change locality, contract and testing effects, integration cost and the
+reason for selecting or rejecting each option. Rows may coincide.
 
 ## Outcome
 
@@ -57,8 +63,9 @@ What keeps the downside bounded: a lint, a pin, a register row, a fallback.
 
 ### Confirmation
 
-How anyone can tell the decision still holds — the same thing named in
-`verification:`, plus where its output lands.
+How the scenario/property in `verification:` is established and where evidence lives.
+Separate architectural reasoning, document checks and executed behavior. The owning plan
+tracks current implementation; ADR acceptance does not certify that work.
 
 ## Pros and cons
 
@@ -67,7 +74,7 @@ A short list, or a two-row table, only when the options were genuinely close.
 ## More information
 
 Links: blueprint sections, the design-review finding, the capability-map
-evidence, the register row, the plan that implements it.
+evidence, the register row, and the plan/disposition owner that implements it.
 
 ## Status history
 

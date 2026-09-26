@@ -134,11 +134,12 @@ impl DurableLayout {
     pub fn decode(&self, input: LogicalPlan) -> Result<LogicalPlan> {
         let stored_declaration = pse_schema::delta::execution_schema(input.schema().as_arrow())
             .map_err(|e| DataFusionError::External(Box::new(e)))?;
-        pse_schema::field_contract::execution_schema(&stored_declaration, &self.execution)
+        pse_schema::field_contract::durable_execution_schema(&stored_declaration, &self.execution)
             .map_err(|e| DataFusionError::External(Box::new(e)))?;
+        let stored_layout = Self::new(Arc::new(stored_declaration))?;
         project(
             input,
-            &self.storage,
+            &stored_layout.storage,
             &self.execution,
             "pse_delta_decode",
             &self.decode_roundtrip,
@@ -159,7 +160,7 @@ impl DurableLayout {
             Schema::new_with_metadata(source.fields()[..width].to_vec(), source.metadata().clone());
         let declared = pse_schema::delta::execution_schema(&prefix)
             .map_err(|error| DataFusionError::External(Box::new(error)))?;
-        pse_schema::field_contract::execution_schema(&declared, &self.execution)
+        pse_schema::field_contract::durable_execution_schema(&declared, &self.execution)
             .map_err(|error| DataFusionError::External(Box::new(error)))?;
         let tail = &source.fields()[width..];
         let combined = |schema: &SchemaRef| {
@@ -173,7 +174,7 @@ impl DurableLayout {
                 schema.metadata().clone(),
             ))
         };
-        let stored = combined(&self.storage);
+        let stored = combined(&Self::new(Arc::new(declared))?.storage);
         let execution = combined(&self.execution);
         project(
             input,

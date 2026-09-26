@@ -1,0 +1,24 @@
+{
+  "invariant": "authored.template_domain_bindings:foreign_key:source.domain.domain_id",
+  "rows": {
+    "authored.domains": [
+      {
+        "continuous": "[\"bool\",true]",
+        "doc": "[\"text\",\"value-1\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"time\"]",
+        "owner_entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.template_domain_bindings": [
+      {
+        "name": "[\"text\",\"value-1\"]",
+        "source": "[\"struct\",[[\"enum\",\"domain\"],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"]]],[\"null\",null]]]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

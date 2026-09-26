@@ -25,7 +25,6 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_authored_template_requirements(builder);
     declare_authored_template_display(builder);
     declare_authored_template_property_requirements(builder);
-    declare_normalized_property_demand_seeds(builder);
     declare_template_kind_vocabulary(builder);
     declare_feature_kind_vocabulary(builder);
     declare_feature_rule_kind_vocabulary(builder);
@@ -36,7 +35,6 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_orientation_vocabulary(builder);
     declare_capability_requirement_vocabulary(builder);
     declare_display_kind_vocabulary(builder);
-    declare_demand_source_vocabulary(builder);
 }
 
 fn declare_authored_templates(builder: &mut RegistryBuilder) {
@@ -408,37 +406,6 @@ fn declare_authored_template_property_requirements(builder: &mut RegistryBuilder
     );
 }
 
-fn declare_normalized_property_demand_seeds(builder: &mut RegistryBuilder) {
-    relation_version(
-        builder,
-        N::Normalized,
-        "property_demand_seeds",
-        2,
-        S::Derived,
-        &["seed_id"],
-        vec![
-            column("seed_id", T::id()),
-            column("source_id", T::id()),
-            column("source_kind", T::enumeration("DemandSource")),
-            column("scope_id", T::id()).with_fk("authored.scopes", "scope_id"),
-            column("property_kind_id", T::id()),
-            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)).optional(),
-            column("guard_node_id", T::nonnegative(i64::MAX)).optional(),
-            crate::model::FieldContract::provenance(
-                "derivation_id",
-                T::id(),
-                "Exact demand seed row derivation.",
-            ),
-            column("guard_source_id", T::id()).optional(),
-            column("source_symbol_decl_id", T::id())
-                .optional()
-                .with_fk("authored.template_symbols", "symbol_decl_id"),
-            column("read_node_id", T::nonnegative(i64::MAX)).optional(),
-        ],
-        "Each source-bound demand retains its exact normalized read node and guard; opaque explicit demands have no read node.",
-    );
-}
-
 fn declare_template_kind_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
@@ -539,8 +506,4 @@ fn declare_display_kind_vocabulary(builder: &mut RegistryBuilder) {
             "performance",
         ],
     );
-}
-
-fn declare_demand_source_vocabulary(builder: &mut RegistryBuilder) {
-    super::declarations::enumeration(builder, "DemandSource", ["expression", "opaque_operation"]);
 }

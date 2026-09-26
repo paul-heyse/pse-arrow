@@ -4,7 +4,7 @@
 use super::*;
 use faer::{
     Mat,
-    sparse::{Pair, SymbolicSparseColMat, SymbolicSparseColMatRef},
+    sparse::{SparseColMat, SymbolicSparseColMatRef},
 };
 #[cfg(any(test, feature = "solver-ipopt", feature = "solver-pounce"))]
 use native::solve::Backend;
@@ -12,73 +12,42 @@ use native::{
     NlpOracle, ProblemError,
     solve::{Compatibility, Execution},
 };
-use pse_math::assembly::CaseWorker;
+use pse_math::{assembly::CaseWorker, sparse::AssemblyMatrix};
 use std::{sync::atomic::AtomicBool, time::Instant};
 #[derive(Debug)]
 struct Point {
     physical: Vec<super::super::BalanceCheck>,
     x: Vec<f64>,
     predictions: Vec<f64>,
-    responses: Mat<f64>,
+    responses: AssemblyMatrix,
     constraints: Vec<f64>,
-    jacobian: Mat<f64>,
-    blocks: Vec<Option<Mat<f64>>>,
+    jacobian: AssemblyMatrix,
+    blocks: Vec<Option<SparseColMat<usize, f64>>>,
 }
 #[derive(Debug)]
 struct FitOracle {
-    prepared: FitProblem,
+    prepared: Arc<FitProblem>,
     workers: Vec<Option<CaseWorker>>,
     execution: Execution,
-    jacobian: SymbolicSparseColMat<usize>,
-    hessian: Option<SymbolicSparseColMat<usize>>,
+    hessian: Option<AssemblyMatrix>,
+    gram: Option<sparse::GramWorker>,
     point: Option<Point>,
+}
+struct RankDiagnostic {
+    responses: pse_columnar::Leased<Mat<f64>>,
+    singular_values: Vec<f64>,
+    rank: usize,
 }
 fn error(message: impl Into<String>) -> ProblemError {
     ProblemError::Contract(message.into())
 }
-fn pattern(
-    m: usize,
-    n: usize,
-    pairs: &[(usize, usize)],
-) -> Result<SymbolicSparseColMat<usize>, ProblemError> {
-    SymbolicSparseColMat::try_new_from_indices(
-        m,
-        n,
-        &pairs
-            .iter()
-            .map(|&(i, j)| Pair::new(i, j))
-            .collect::<Vec<_>>(),
-    )
-    .map(|v| v.0)
-    .map_err(|e| error(e.to_string()))
-}
-fn copy_pattern(
-    pattern: SymbolicSparseColMatRef<'_, usize>,
-    mat: &Mat<f64>,
-    out: &mut [f64],
-) -> Result<(), ProblemError> {
-    if pattern.row_idx().len() != out.len() {
-        return Err(error("fit sparse value extent"));
-    }
-    for j in 0..pattern.ncols() {
-        for k in pattern.col_range(j) {
-            let value = mat[(pattern.row_idx()[k], j)];
-            if !value.is_finite() {
-                return Err(error("nonfinite composed derivative"));
-            }
-            out[k] = value;
-        }
-    }
-    Ok(())
-}
 impl FitOracle {
-    fn new(p: FitProblem, execution: Execution) -> Result<Self, ProblemError> {
-        let n = p.contract.variables.len();
-        let mut workers = Vec::new();
-        let mut js = Vec::new();
-        let mut hs = BTreeSet::new();
-        for (ei, e) in p.experiments.iter().enumerate() {
-            match e {
+    fn new(p: impl Into<Arc<FitProblem>>, execution: Execution) -> Result<Self, ProblemError> {
+        let p = p.into();
+        let workers = p
+            .experiments
+            .iter()
+            .map(|e| match e {
                 Experiment::Steady(s) => {
                     let providers = p
                         .revision
@@ -92,64 +61,26 @@ impl FitOracle {
                                 .map_err(|e| error(e.to_string()))
                         })
                         .collect::<Result<_, _>>()?;
-                    workers.push(Some(
+                    Ok(Some(
                         s.case.assembly.worker(providers, execution.cancel.clone()),
-                    ));
-                    let j = s.case.assembly.jacobian_pattern();
-                    for (local, (_, global)) in s.coordinates.iter().enumerate() {
-                        for k in j.col_range(local) {
-                            if let Some((_, row)) =
-                                s.constraints.iter().find(|(i, _)| *i == j.row_idx()[k])
-                            {
-                                js.push((*row, *global));
-                            }
-                        }
-                    }
-                    if p.contract.derivatives >= DerivativeOrder::Second {
-                        let h = s.case.assembly.hessian_pattern();
-                        for (col, (_, gc)) in s.coordinates.iter().enumerate() {
-                            for k in h.col_range(col) {
-                                let gr = s.coordinates[h.row_idx()[k]].1;
-                                hs.insert((gr.max(*gc), gr.min(*gc)));
-                            }
-                        }
-                        for obs in p
-                            .measurements
-                            .iter()
-                            .filter(|o| o.experiment == ei && o.included)
-                        {
-                            let support = s
-                                .coordinates
-                                .iter()
-                                .enumerate()
-                                .filter(|(col, _)| {
-                                    j.col_range(*col).any(|k| j.row_idx()[k] == obs.row)
-                                })
-                                .map(|(_, v)| v.1)
-                                .collect::<Vec<_>>();
-                            for &a in &support {
-                                for &b in &support {
-                                    hs.insert((a.max(b), a.min(b)));
-                                }
-                            }
-                        }
-                    }
+                    ))
                 }
-                Experiment::Transient(_) => workers.push(None),
-            }
-        }
-        let jacobian = pattern(p.contract.rows.len(), n, &js)?;
-        let hessian = if p.contract.derivatives >= DerivativeOrder::Second {
-            Some(pattern(n, n, &hs.into_iter().collect::<Vec<_>>())?)
-        } else {
-            None
-        };
+                Experiment::Transient(_) => Ok(None),
+            })
+            .collect::<Result<Vec<_>, ProblemError>>()?;
+        let hessian = p.layout.hessian.clone();
+        let gram = p
+            .layout
+            .gram
+            .as_ref()
+            .map(|g| sparse::GramWorker::new(g.clone(), &p.layout.responses, p.bytes))
+            .transpose()?;
         Ok(Self {
             prepared: p,
             workers,
             execution,
-            jacobian,
             hessian,
+            gram,
             point: None,
         })
     }
@@ -174,9 +105,9 @@ impl FitOracle {
             physical: vec![],
             x: x.to_vec(),
             predictions: vec![0.0; p.measurements.len()],
-            responses: Mat::zeros(p.measurements.len(), n),
+            responses: p.layout.responses.clone(),
             constraints: vec![0.0; p.contract.rows.len()],
-            jacobian: Mat::zeros(p.contract.rows.len(), n),
+            jacobian: p.layout.constraints.clone(),
             blocks: Vec::new(),
         };
         for (ei, e) in p.experiments.iter().enumerate() {
@@ -210,14 +141,18 @@ impl FitOracle {
                         });
                     }
                     let j = worker.jacobian(&values)?;
-                    let local = Mat::from_fn(j.nrows(), j.ncols(), |i, jj| {
-                        j.get(i, jj).copied().unwrap_or(0.0)
-                    });
                     for &(row, global) in &s.constraints {
                         point.constraints[global] = outputs[row];
-                        for (col, (_, gcol)) in s.coordinates.iter().enumerate() {
-                            point.jacobian[(global, *gcol)] = local[(row, col)];
-                        }
+                    }
+                    let mapping = &p.layout.mappings[ei];
+                    for &(local, global) in &mapping.constraints {
+                        point.jacobian.add(global, j.val()[local])?;
+                    }
+                    for term in &mapping.responses {
+                        debug_assert!(p.measurements[term.observation].included);
+                        point
+                            .responses
+                            .add(term.contribution, j.val()[term.local])?;
                     }
                     for (i, o) in p
                         .measurements
@@ -226,11 +161,8 @@ impl FitOracle {
                         .filter(|(_, o)| o.experiment == ei && o.included)
                     {
                         point.predictions[i] = outputs[o.row];
-                        for (col, (_, global)) in s.coordinates.iter().enumerate() {
-                            point.responses[(i, *global)] = local[(o.row, col)];
-                        }
                     }
-                    point.blocks.push(Some(local));
+                    point.blocks.push(Some(j.to_owned()));
                 }
                 Experiment::Transient(s) => {
                     if !p
@@ -244,7 +176,6 @@ impl FitOracle {
                     #[cfg(feature = "solver-diffsol")]
                     {
                         let mut params = s.parameters.clone();
-                        let mut mapping = Vec::new();
                         for (j, id) in s.declaration.parameters.iter().enumerate() {
                             if let Some(k) = p
                                 .declaration
@@ -256,7 +187,6 @@ impl FitOracle {
                                     .map_or(p.declaration.parameters[k].value, |c| x[c]);
                                 let conversion = s.conversions[s.state_ports.len() + j];
                                 params[j] = v * conversion.scale + conversion.offset;
-                                mapping.push((j, k, conversion.scale));
                             }
                         }
                         // Integrations borrow the admitted outer worker; never enqueue nested native jobs.
@@ -306,12 +236,17 @@ impl FitOracle {
                                 .and_then(|i| report.samples.get(i))
                                 .ok_or_else(|| error("missing prepared transient sample"))?;
                             point.predictions[i] = sample.outputs[o.row];
-                            for &(j, k, scale) in &mapping {
-                                if let Some(col) = p.parameter_columns[k] {
-                                    point.responses[(i, col)] = sample.output_sensitivities
-                                        [o.row * params.len() + j]
-                                        * scale;
-                                }
+                            for term in p.layout.mappings[ei]
+                                .responses
+                                .iter()
+                                .filter(|t| t.observation == i)
+                            {
+                                let scale = s.conversions[s.state_ports.len() + term.local].scale;
+                                point.responses.add(
+                                    term.contribution,
+                                    sample.output_sensitivities[o.row * params.len() + term.local]
+                                        * scale,
+                                )?;
                             }
                         }
                         point.blocks.push(None);
@@ -331,9 +266,10 @@ impl FitOracle {
             .any(|v| !v.is_finite())
             || point
                 .responses
-                .as_ref()
-                .col_iter()
-                .any(|col| col.iter().any(|v| !v.is_finite()))
+                .matrix()
+                .val()
+                .iter()
+                .any(|v| !v.is_finite())
         {
             return Err(error("nonfinite fit output or response"));
         }
@@ -365,10 +301,10 @@ impl NlpOracle for FitOracle {
         &self.prepared.contract
     }
     fn jacobian_pattern(&self) -> SymbolicSparseColMatRef<'_, usize> {
-        self.jacobian.as_ref()
+        self.prepared.layout.constraints.matrix().symbolic()
     }
     fn hessian_pattern(&self) -> Option<SymbolicSparseColMatRef<'_, usize>> {
-        self.hessian.as_ref().map(|p| p.as_ref())
+        self.hessian.as_ref().map(|p| p.matrix().symbolic())
     }
     fn constraint_bounds(&self) -> &[(f64, f64)] {
         &self.prepared.bounds
@@ -420,10 +356,10 @@ impl NlpOracle for FitOracle {
             .collect::<Result<Vec<_>, _>>()?;
         let rhs = Mat::from_fn(weights.len(), 1, |i, _| weights[i]);
         let mut result = Mat::zeros(x.len(), 1);
-        faer::linalg::matmul::matmul(
+        faer::sparse::linalg::matmul::sparse_dense_matmul(
             result.as_mut(),
             faer::Accum::Replace,
-            point.responses.transpose(),
+            point.responses.matrix().as_ref().transpose(),
             rhs.as_ref(),
             1.0,
             faer::Par::Seq,
@@ -439,16 +375,20 @@ impl NlpOracle for FitOracle {
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.evaluate(x)?;
-        copy_pattern(
-            self.jacobian.as_ref(),
-            &self
-                .point
-                .as_ref()
-                .ok_or_else(|| error("fit point"))?
-                .jacobian,
-            out,
-        )
+        let values = self
+            .point
+            .as_ref()
+            .ok_or_else(|| error("fit point"))?
+            .jacobian
+            .matrix()
+            .val();
+        if out.len() != values.len() {
+            return Err(error("fit sparse Jacobian extent"));
+        }
+        out.copy_from_slice(values);
+        Ok(())
     }
+
     fn hessian(
         &mut self,
         x: &[f64],
@@ -465,7 +405,11 @@ impl NlpOracle for FitOracle {
         }
         let p = &self.prepared;
         let point = self.point.as_ref().ok_or_else(|| error("fit point"))?;
-        let mut h = Mat::zeros(x.len(), x.len());
+        let h = self
+            .hessian
+            .as_mut()
+            .ok_or_else(|| error("Hessian not prepared"))?;
+        h.clear();
         let weights = p
             .measurements
             .iter()
@@ -478,17 +422,10 @@ impl NlpOracle for FitOracle {
                 }
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let weighted = Mat::from_fn(weights.len(), x.len(), |i, j| {
-            point.responses[(i, j)] * weights[i]
-        });
-        faer::linalg::matmul::matmul(
-            h.as_mut(),
-            faer::Accum::Replace,
-            weighted.transpose(),
-            weighted.as_ref(),
-            objective_weight,
-            faer::Par::Seq,
-        );
+        self.gram
+            .as_mut()
+            .ok_or_else(|| error("Gram not prepared"))?
+            .refill(&point.responses, &weights, objective_weight, h)?;
         for (ei, e) in p.experiments.iter().enumerate() {
             let Experiment::Steady(s) = e else {
                 return Err(error("transient exact Hessian unavailable"));
@@ -514,21 +451,15 @@ impl NlpOracle for FitOracle {
                 .as_mut()
                 .ok_or_else(|| error("steady Hessian worker"))?
                 .hessian(&values, 0.0, &lambda)?;
-            for (col, (_, gc)) in s.coordinates.iter().enumerate() {
-                for k in local.symbolic().col_range(col) {
-                    let gr = s.coordinates[local.row_idx()[k]].1;
-                    h[(gr.max(*gc), gr.min(*gc))] += local.val()[k];
-                }
+            for &(source, target) in &p.layout.mappings[ei].hessian {
+                h.add(target, local.val()[source])?;
             }
         }
-        copy_pattern(
-            self.hessian
-                .as_ref()
-                .ok_or_else(|| error("Hessian not prepared"))?
-                .as_ref(),
-            &h,
-            out,
-        )
+        if out.len() != h.matrix().val().len() {
+            return Err(error("fit sparse Hessian extent"));
+        }
+        out.copy_from_slice(h.matrix().val());
+        Ok(())
     }
 }
 impl PreparedFit {
@@ -701,10 +632,10 @@ impl PreparedFit {
                         .map(|(v, o)| o.included.then_some(*v))
                         .collect();
                     match final_oracle.response_rank(x) {
-                        Ok((responses, singular, rank)) => {
-                            report.responses = Some(responses);
-                            report.singular_values = singular;
-                            report.rank = Some(rank);
+                        Ok(diagnostic) => {
+                            report.responses = Some(diagnostic.responses);
+                            report.singular_values = diagnostic.singular_values;
+                            report.rank = Some(diagnostic.rank);
                         }
                         Err(e) => report.diagnostic = Some(e.to_string()),
                     }
@@ -725,16 +656,9 @@ fn singular_values(a: &Mat<f64>, limit: usize) -> Result<Vec<f64>, ProblemError>
         Par,
         diag::Diag,
         dyn_stack::{MemBuffer, MemStack},
-        linalg::svd::{self, ComputeSvdVectors},
+        linalg::svd,
     };
-    let req = svd::svd_scratch::<f64>(
-        a.nrows(),
-        a.ncols(),
-        ComputeSvdVectors::No,
-        ComputeSvdVectors::No,
-        Par::Seq,
-        Default::default(),
-    );
+    let req = rank_scratch(a.nrows(), a.ncols());
     if req.size_bytes() > limit {
         return Err(error("rank scratch allowance"));
     }
@@ -752,6 +676,25 @@ fn singular_values(a: &Mat<f64>, limit: usize) -> Result<Vec<f64>, ProblemError>
     .map_err(|e| error(format!("{e:?}")))?;
     Ok(s.column_vector().iter().copied().collect())
 }
+fn rank_scratch(rows: usize, cols: usize) -> faer::dyn_stack::StackReq {
+    use faer::linalg::svd::{self, ComputeSvdVectors};
+    svd::svd_scratch::<f64>(
+        rows,
+        cols,
+        ComputeSvdVectors::No,
+        ComputeSvdVectors::No,
+        faer::Par::Seq,
+        Default::default(),
+    )
+}
+fn response_scratch(n: usize, np: usize) -> faer::dyn_stack::StackReq {
+    use faer::{
+        Par,
+        linalg::lu::partial_pivoting::{factor, solve},
+    };
+    factor::lu_in_place_scratch::<usize, f64>(n, n, Par::Seq, Default::default())
+        .or(solve::solve_in_place_scratch::<usize, f64>(n, np, Par::Seq))
+}
 fn solve_regular(a: &Mat<f64>, mut rhs: Mat<f64>, limit: usize) -> Result<Mat<f64>, ProblemError> {
     use faer::{
         Par,
@@ -762,9 +705,7 @@ fn solve_regular(a: &Mat<f64>, mut rhs: Mat<f64>, limit: usize) -> Result<Mat<f6
     let mut lu = a.clone();
     let mut perm = vec![0usize; n];
     let mut inverse = vec![0usize; n];
-    let req = factor::lu_in_place_scratch::<usize, f64>(n, n, Par::Seq, Default::default()).or(
-        solve::solve_in_place_scratch::<usize, f64>(n, rhs.ncols(), Par::Seq),
-    );
+    let req = response_scratch(n, rhs.ncols());
     if req.size_bytes() > limit {
         return Err(error("response solve scratch allowance"));
     }
@@ -821,11 +762,72 @@ fn check_response(a: &Mat<f64>, x: &Mat<f64>, b: &Mat<f64>) -> Result<(), Proble
     Ok(())
 }
 impl FitOracle {
-    fn response_rank(&mut self, x: &[f64]) -> Result<(Mat<f64>, Vec<f64>, usize), ProblemError> {
+    fn response_rank(&mut self, x: &[f64]) -> Result<RankDiagnostic, ProblemError> {
         self.evaluate(x)?;
         let p = &self.prepared;
         let point = self.point.as_ref().ok_or_else(|| error("fit point"))?;
         let np = p.parameter_columns.iter().filter(|v| v.is_some()).count();
+        let local_dense = p
+            .experiments
+            .iter()
+            .try_fold(0usize, |cells, experiment| {
+                let Experiment::Steady(s) = experiment else {
+                    return Some(cells);
+                };
+                cells.checked_add(s.local_states.checked_mul(s.local_states + np)?)
+            })
+            .and_then(|cells| cells.checked_add(p.measurements.len().checked_mul(np)?))
+            .ok_or_else(|| error("local response diagnostic extent"))?;
+        if local_dense > p.profile.max_cells {
+            return Err(error(
+                "local dense response diagnostic allowance; fit candidate remains available",
+            ));
+        }
+        // Dense diagnostics are optional: reserve independently from the sparse
+        // solve, before allocating any matrix. Failure does not lose the candidate.
+        let limit = p.revision.0.runtime.shared.budget().math.worker_bytes;
+        if local_dense.checked_mul(8).is_none_or(|bytes| bytes > limit) {
+            return Err(error("local dense response diagnostic memory allowance"));
+        }
+        use faer::linalg::temp_mat_scratch;
+        let rows = p.measurements.len();
+        let mut bytes = temp_mat_scratch::<f64>(rows, np)
+            .size_bytes()
+            .checked_mul(2);
+        let mut scratch = rank_scratch(rows, np).size_bytes();
+        for experiment in &p.experiments {
+            if let Experiment::Steady(s) = experiment {
+                let n = s.local_states;
+                // fx, scaled closure, LU; rhs, solve, residual, physical response.
+                // temp_mat_scratch uses the same public faer alignment policy as
+                // fresh Mat allocations. Each matrix here is created at final size.
+                bytes = bytes
+                    .and_then(|b| {
+                        b.checked_add(temp_mat_scratch::<f64>(n, n).size_bytes().checked_mul(3)?)
+                    })
+                    .and_then(|b| {
+                        b.checked_add(temp_mat_scratch::<f64>(n, np).size_bytes().checked_mul(4)?)
+                    })
+                    .and_then(|b| b.checked_add(n.checked_mul(4 * size_of::<usize>())?));
+                scratch = scratch
+                    .max(rank_scratch(n, n).size_bytes())
+                    .max(response_scratch(n, np).size_bytes());
+            }
+        }
+        // Vector bookkeeping and opaque library metadata, separate from numeric
+        // matrices and library-declared scratch; this is not an RSS measurement.
+        let bytes = bytes
+            .and_then(|b| b.checked_add(scratch))
+            .and_then(|b| b.checked_add((rows + np).checked_mul(64)?))
+            .and_then(|b| b.checked_add(4 << 20))
+            .filter(|b| *b <= limit)
+            .ok_or_else(|| error("local dense response diagnostic memory allowance"))?;
+        let reservation =
+            datafusion::execution::memory_pool::MemoryConsumer::new("fit:response-diagnostic")
+                .register(&p.revision.0.runtime.shared.pool());
+        reservation
+            .try_grow(bytes)
+            .map_err(|e| error(e.to_string()))?;
         let mut response = Mat::zeros(p.measurements.len(), np);
         let free = p
             .parameter_columns
@@ -835,7 +837,12 @@ impl FitOracle {
             .collect::<Vec<_>>();
         for (i, _) in p.measurements.iter().enumerate() {
             for (j, (_, col)) in free.iter().enumerate() {
-                response[(i, j)] = point.responses[(i, *col)];
+                response[(i, j)] = point
+                    .responses
+                    .matrix()
+                    .get(i, *col)
+                    .copied()
+                    .unwrap_or(0.0);
             }
         }
         for (ei, e) in p.experiments.iter().enumerate() {
@@ -863,12 +870,14 @@ impl FitOracle {
                 let jac = point.blocks[ei]
                     .as_ref()
                     .ok_or_else(|| error("steady response partials"))?;
-                let fx = Mat::from_fn(nx, nx, |i, j| jac[(s.constraints[i].0, j)]);
+                let fx = Mat::from_fn(nx, nx, |i, j| {
+                    jac.get(s.constraints[i].0, j).copied().unwrap_or(0.0)
+                });
                 let scaled = Mat::from_fn(nx, nx, |i, j| {
                     fx[(i, j)] * p.tolerances.variables[s.coordinates[j].1]
                         / p.tolerances.rows[s.constraints[i].1]
                 });
-                let spectrum = singular_values(&scaled, p.bytes)?;
+                let spectrum = singular_values(&scaled, bytes)?;
                 if spectrum
                     .last()
                     .is_none_or(|last| *last <= spectrum[0] * p.profile.rank_tolerance)
@@ -878,10 +887,15 @@ impl FitOracle {
                     ));
                 }
                 let rhs = Mat::from_fn(nx, np, |i, j| {
-                    -point.jacobian[(s.constraints[i].1, free[j].1)]
+                    -point
+                        .jacobian
+                        .matrix()
+                        .get(s.constraints[i].1, free[j].1)
+                        .copied()
+                        .unwrap_or(0.0)
                         / p.tolerances.rows[s.constraints[i].1]
                 });
-                let scaled_dx = solve_regular(&scaled, rhs.clone(), p.bytes)?;
+                let scaled_dx = solve_regular(&scaled, rhs.clone(), bytes)?;
                 check_response(&scaled, &scaled_dx, &rhs)?;
                 let dx = Mat::from_fn(nx, np, |i, j| {
                     scaled_dx[(i, j)] * p.tolerances.variables[s.coordinates[i].1]
@@ -894,7 +908,8 @@ impl FitOracle {
                 {
                     for j in 0..np {
                         for k in 0..nx {
-                            response[(i, j)] += jac[(o.row, k)] * dx[(k, j)];
+                            response[(i, j)] +=
+                                jac.get(o.row, k).copied().unwrap_or(0.0) * dx[(k, j)];
                         }
                     }
                 }
@@ -911,10 +926,17 @@ impl FitOracle {
             let scale = p.declaration.parameters[free[j].0].scale;
             response[(row, j)] * scale * o.importance.sqrt() / o.sigma.unwrap_or(1.0)
         });
-        let spectrum = singular_values(&weighted, p.bytes)?;
+        let spectrum = singular_values(&weighted, bytes)?;
         let cutoff = spectrum.first().copied().unwrap_or(0.0) * p.profile.rank_tolerance;
         let rank = spectrum.iter().filter(|s| **s > cutoff).count();
-        Ok((response, spectrum, rank))
+        let retained = temp_mat_scratch::<f64>(rows, np).size_bytes();
+        let owner = pse_columnar::AllocationLease::new(reservation.split(retained));
+        let response = pse_columnar::Leased::new(Arc::new(response), owner);
+        Ok(RankDiagnostic {
+            responses: response,
+            singular_values: spectrum,
+            rank,
+        })
     }
 }
 #[cfg(test)]
@@ -961,6 +983,50 @@ mod tests {
         }
     }
     #[tokio::test]
+    async fn prepared_fit_clones_share_the_original_reservation() {
+        // Ownership is independent of native backend availability.
+        let revision = source(true).freeze().unwrap();
+        let prepared = revision
+            .prepare_fit(
+                id(32),
+                profile(false),
+                compiler_profile(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let pool = revision.0.runtime.shared.pool();
+        let before = pool.reserved();
+        let bytes = prepared.problem._owner.size();
+        let owner = Arc::downgrade(&prepared.problem._owner);
+        let copy = prepared.clone();
+        assert!(Arc::ptr_eq(&prepared.problem, &copy.problem));
+        assert_eq!(pool.reserved(), before);
+        drop(prepared);
+        assert!(owner.upgrade().is_some());
+        assert_eq!(pool.reserved(), before);
+        drop(copy);
+        assert!(owner.upgrade().is_none());
+        assert!(pool.reserved() <= before - bytes);
+
+        let pressure = datafusion::execution::memory_pool::MemoryConsumer::new("test:fit-pressure")
+            .register(&pool);
+        let limit = revision.0.runtime.shared.budget().memory_limit_bytes.get();
+        pressure.try_grow(limit - pool.reserved()).unwrap();
+        assert!(
+            revision
+                .prepare_fit(
+                    id(32),
+                    profile(false),
+                    compiler_profile(),
+                    &crate::CancelSource::new()
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(pool.reserved(), limit);
+    }
+    #[tokio::test]
     async fn compiled_weighted_loss_gradient_and_exact_hessian() {
         let p = source(false)
             .freeze()
@@ -983,10 +1049,144 @@ mod tests {
         o.hessian(&[2.0], 1.0, &[], &mut h).unwrap();
         assert_eq!(h.len(), 1);
         assert!((h[0] - 18.0).abs() < 1e-12);
-        let (j, s, r) = o.response_rank(&[2.0]).unwrap();
+        let pool = o.prepared.revision.0.runtime.shared.pool();
+        let before = pool.reserved();
+        let RankDiagnostic {
+            responses: j,
+            singular_values: s,
+            rank: r,
+        } = o.response_rank(&[2.0]).unwrap();
         assert_eq!(r, 1);
         assert!((j[(0, 0)] - 4.0).abs() < 1e-12);
         assert!((s[0] - 8.0).abs() < 1e-12);
+        assert!(pool.reserved() > before);
+        drop(j);
+        assert_eq!(pool.reserved(), before);
+
+        // A full pool refuses only the optional dense diagnostic. Sparse values
+        // and derivatives remain available at the candidate after that refusal.
+        let pressure = datafusion::execution::memory_pool::MemoryConsumer::new("test:pressure")
+            .register(&pool);
+        let limit = o
+            .prepared
+            .revision
+            .0
+            .runtime
+            .shared
+            .budget()
+            .memory_limit_bytes
+            .get();
+        pressure.try_grow(limit - pool.reserved()).unwrap();
+        assert!(o.response_rank(&[2.0]).is_err());
+        assert!((o.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
+        drop(pressure);
+        assert!(o.response_rank(&[2.0]).is_ok());
+    }
+    #[tokio::test]
+    async fn sparse_fit_admission_tracks_support_and_refills_duplicates() {
+        let p = source(false)
+            .freeze()
+            .unwrap()
+            .prepare_fit_problem(
+                id(32),
+                profile(false),
+                compiler_profile(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        // One thousand independent coordinates need linear derivative storage.
+        let Experiment::Steady(base) = &p.experiments[0] else {
+            panic!()
+        };
+        let experiments = (0..1000)
+            .map(|column| {
+                let mut s = base.clone();
+                s.coordinates[0].1 = column;
+                Experiment::Steady(s)
+            })
+            .collect::<Vec<_>>();
+        let observations = (0..1000)
+            .map(|experiment| {
+                let mut o = p.measurements[0].clone();
+                o.experiment = experiment;
+                o
+            })
+            .collect::<Vec<_>>();
+        let layout = sparse::Layout::new(
+            &experiments,
+            &observations,
+            &[id(1)],
+            &[Some(0)],
+            0,
+            1000,
+            DerivativeOrder::Second,
+            6000,
+        )
+        .unwrap();
+        assert!(layout.cells < 6000);
+        assert_eq!(layout.hessian.as_ref().unwrap().matrix().val().len(), 1000);
+        assert!(
+            sparse::Layout::new(
+                &experiments,
+                &observations,
+                &[id(1)],
+                &[Some(0)],
+                0,
+                1000,
+                DerivativeOrder::Second,
+                2000
+            )
+            .is_err()
+        );
+
+        // Repeated contributions to the same response sum before J' W J.
+        let duplicate = sparse::Layout::new(
+            &[p.experiments[0].clone()],
+            &p.measurements,
+            &[id(1)],
+            &[Some(0)],
+            0,
+            1,
+            DerivativeOrder::Second,
+            100,
+        )
+        .unwrap();
+        let mut worker =
+            sparse::GramWorker::new(duplicate.gram.unwrap(), &duplicate.responses, 1 << 20)
+                .unwrap();
+        let mut response = duplicate.responses;
+        let mut hessian = duplicate.hessian.unwrap();
+        for value in [3.0, 0.0, -2.0, 4.0] {
+            response.clear();
+            hessian.clear();
+            response.add(0, value).unwrap();
+            response.add(0, 1.0).unwrap();
+            worker.refill(&response, &[2.0], 0.5, &mut hessian).unwrap();
+            assert!((hessian.matrix().val()[0] - 2.0 * (value + 1.0).powi(2)).abs() < 1e-12);
+        }
+    }
+    #[tokio::test]
+    async fn bounded_rank_diagnostic_does_not_disable_sparse_candidate_evaluation() {
+        let mut p = source(false)
+            .freeze()
+            .unwrap()
+            .prepare_fit_problem(
+                id(32),
+                profile(false),
+                compiler_profile(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        p.profile.max_cells = 0;
+        let ex = Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
+        let mut oracle = FitOracle::new(p, ex).unwrap();
+        assert!(oracle.response_rank(&[2.0]).is_err());
+        assert!((oracle.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
+        let mut gradient = [0.0];
+        oracle.gradient(&[2.0], &mut gradient).unwrap();
+        assert!((gradient[0] - 4.0).abs() < 1e-12);
     }
     #[tokio::test]
     async fn all_fixed_fit_uses_joined_direct_evaluation_and_retained_sources() {
@@ -1172,7 +1372,11 @@ mod tests {
             .unwrap();
         let ex = Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
         let mut o = FitOracle::new(p, ex).unwrap();
-        let (response, _, rank) = o.response_rank(&[2.0, 2.0]).unwrap();
+        let RankDiagnostic {
+            responses: response,
+            rank,
+            ..
+        } = o.response_rank(&[2.0, 2.0]).unwrap();
         assert_eq!(rank, 1);
         assert!((response[(0, 0)] - 4.0).abs() < 1e-12);
         assert!(o.response_rank(&[2.0, 3.0]).is_err());
@@ -1274,7 +1478,11 @@ mod composition_tests {
         let mut g = [0.0];
         o.gradient(&[2.0], &mut g).unwrap();
         assert!((g[0] - 2.0).abs() < 1e-5);
-        let (j, s, rank) = o.response_rank(&[2.0]).unwrap();
+        let RankDiagnostic {
+            responses: j,
+            singular_values: s,
+            rank,
+        } = o.response_rank(&[2.0]).unwrap();
         assert_eq!(rank, 1);
         assert!((j[(0, 0)] - 1.0).abs() < 1e-6);
         assert!((j[(1, 0)] - 1.0).abs() < 1e-6);

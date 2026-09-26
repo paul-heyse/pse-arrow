@@ -412,6 +412,7 @@ impl ArtifactPlan {
     /// Compose exactly these outputs and explicit unchanged members into one native
     /// publication command. Every requested output has exactly one Delta destination.
     /// The caller's exact input vector is checked before writes can start.
+    /// Returns the serializable recovery ticket before any effects start.
     /// # Errors
     /// Different destination inventory, different input selections, invalid members,
     /// output contract, native planning, scoped policy or cancellation failure.
@@ -422,7 +423,7 @@ impl ArtifactPlan {
         mut destinations: BTreeMap<ResolvedTableReference, url::Url>,
         retained: Vec<publications::RuntimePublicationsFieldMembersItem>,
         cancel: &CancellationToken,
-    ) -> Result<PreparedComputation, EngineError> {
+    ) -> Result<(PreparedComputation, crate::delta::ticket::PublicationTicket), EngineError> {
         cancel.checkpoint()?;
         if matches!(self.publication, PublicationSelection::Inspection) {
             return Err(invalid(
@@ -461,7 +462,7 @@ impl ArtifactPlan {
             }));
         }
         members.extend(retained.into_iter().map(Member::Retained));
-        let plan = publication_plan::plan_bound(
+        let (plan, ticket) = publication_plan::plan_bound(
             target.location,
             header,
             members,
@@ -474,7 +475,7 @@ impl ArtifactPlan {
             self.dependencies(cancel)?,
         )
         .map_err(pse_engine::session::engine)?;
-        session.prepare(plan, cancel)
+        Ok((session.prepare(plan, cancel)?, ticket))
     }
     fn check_publication_inputs(
         &self,

@@ -16,8 +16,8 @@
 //! contract cannot be read back under a newer one while looking valid.
 //!
 //! The second is the one that is easy to lose. A digest that covered only the columns'
-//! names and types would keep its value when a doc string, an enumeration member or a
-//! nullability changed — and every one of those changes what a generated view will accept.
+//! names and types would miss enumeration or nullability changes. Prose affects registry
+//! provenance, while complete semantic relation fingerprints deliberately exclude it.
 
 use pse_ids::ContentHash;
 use pse_schema::builder::RegistryBuilder;
@@ -78,23 +78,6 @@ fn a_changed_column_doc_changes_the_fingerprint() {
     assert_ne!(
         before, after,
         "a doc string is part of the declaration a consumer reads"
-    );
-}
-
-#[test]
-fn a_changed_column_doc_changes_that_relation_and_not_the_other() {
-    let before = scratch("the original prose");
-    let after = scratch("prose that says something else");
-
-    let changed_before = before.relation("authored.example").expect("declared");
-    let changed_after = after.relation("authored.example").expect("declared");
-    assert_ne!(changed_before.fingerprint, changed_after.fingerprint);
-
-    let untouched_before = before.relation("authored.other").expect("declared");
-    let untouched_after = after.relation("authored.other").expect("declared");
-    assert_eq!(
-        untouched_before.fingerprint, untouched_after.fingerprint,
-        "an unrelated relation keeps its contract when another one changes"
     );
 }
 

@@ -2,21 +2,45 @@
 
 Companion to [SKILL.md](SKILL.md). Lenses and calibration examples that have repeatedly
 turned up real defects. None is a required step. Principle IDs refer to the core design
-principles; profile lenses live in the profile's own skill.
+principles; profile lenses live in the profile's own skill. Examples below are illustrative
+calibration cases, not findings about the repository being reviewed.
 
 ## §1 Lenses
 
+### Architecture before mechanisms
+
+Reconstruct the responsibilities and consequential dependency paths. Then trace a small set
+of changes capable of distinguishing the alternatives. A public interface alone does not
+establish a boundary: follow its inputs, outputs, required initialization and consumers.
+
+| Shape | Evidence that makes it reportable | Foundation |
+|---|---|---|
+| Several independent reasons to change in one owner | Two concrete changes to unrelated policies/representations require editing the same orchestration internals; identify the responsibilities mixed | AP-01 |
+| Implementation mechanics exposed as the contract | A consumer must inspect backend objects or know initialization order to perform a semantic operation; trace the replacement change into that consumer | AP-02 |
+| Workflow duplication | An ordinary new workflow repeats preparation, capability policy or failure translation instead of composing owners; show the repeated decision | AP-03/AP-04 |
+| Implicit lifecycle | A valid call depends on unrelated prior registration or ambient state not expressed by construction or contract | AP-05/AP-06 |
+| Unnecessary test infrastructure | A pure policy/resolution test must initialize storage or a solver because its constructor reaches a broad runtime object; trace the dependency, not merely the import | AP-06 |
+| Excessive integration machinery | A proposed adapter brings configuration, lifecycle or a registry unrelated to its declared variation axis; compare the simpler library path | AP-01/AP-03 |
+
+A high-level composition root is allowed to know the components it assembles. A module may
+own several operations around one invariant. Real infrastructure-dependent behavior needs
+integration tests. These are not defects unless the claimed separation or scenario is lost.
+
+Useful questions: which decision is hidden here; what changes with the next implementation;
+what must be read or instantiated to test this responsibility; which knowledge is duplicated;
+and what would be deleted if the proposed abstraction disappeared?
+
 ### When the subject is a document
 
-**Reconstruct rather than read.** Build the template's tables yourself from the document
-instead of checking whether the document's own versions look complete. Every cell you have to
-invent is a decision the design has not made, and the list of invented cells is the evidence:
+**Reconstruct the design.** Build the responsibility and scenario tables before the
+mechanism details instead of checking whether the document's own versions look complete.
+Material cells you must invent identify unresolved decisions. Where relevant, deepen:
 
-- the **authority map** (slot 2): one row per semantic fact, with owner, revision boundary and
+- the **authority map** (slot 3): one row per semantic fact, with owner, revision boundary and
   update path;
 - the **invariant table** (slot 3): enforcement point and failure behaviour per invariant. An
   invariant with neither is unresolved under DP-03, whatever the prose claims;
-- the **stage table** (slot 4): inputs, observed dependencies, output contract, effects and reuse
+- the **stage table** (slot 5): inputs, observed dependencies, output contract, effects and reuse
   boundary per stage. Undeclared effects fall under DP-18;
 - the **absence lattice** (DP-02): for each value that can be missing, which of not supplied /
   not applicable / not computed / unknown / invalid / partial / failed the design distinguishes,
@@ -89,6 +113,33 @@ dependencies; a comparison is worth running only where that reasoning leaves rea
 
 ## §2 Finding calibration
 
+### Architecture — change amplification without a wrong current output
+
+**Inadequate.** "The runtime module is large; split it into smaller modules."
+
+**Adequate.** "For scenario S02, replacing an existing solver capability requires changing
+consumer-side matches on the backend's status enum as well as its adapter. The consumer
+therefore owns interpretation of backend mechanics. **Consequence:** every added backend
+coordinates result-policy changes in unrelated consumers despite an unchanged domain outcome
+contract. **Correction:** make the integration owner translate into the existing semantic
+outcome once. **Verification:** trace the replacement through that boundary and exercise the
+shared outcome contract where doubt remains. AP-01/AP-02, G9."
+
+### Architecture — test isolation
+
+**Adequate.** "S03 asks to exercise request selection independently. Its constructor takes the
+entire application runtime and opens the store, although selection consumes only a capability
+set and explicit policy. **Consequence:** the local test requires storage setup and failure
+modes unrelated to selection. **Correction:** accept the two required inputs; the composition
+root supplies them. A new dependency-injection container is unnecessary. AP-02/AP-06, G9."
+
+### Architecture — a justified abstraction
+
+Two confirmed provider implementations have different state lifecycles but satisfy the same
+consumer operation. A narrow capability contract with each provider owning its state serves
+that variation. This supports AP-02/AP-06. It does not justify a universal provider registry,
+nor does it require wrapping stable shared data types already chosen as a semantic contract.
+
 Adequate and inadequate versions of the same observation. The difference is always the same
 three things: a concrete consequence, evidence at the right grain, and citations that do work.
 
@@ -159,17 +210,17 @@ DP-07, DP-12, G6."
 
 ## §3 How the slots compress
 
-| Slot | Document subject | Code subject | Change review |
-|---|---|---|---|
-| 1 Scope and coverage | With method note | With method note | Compressed; keep the coverage note |
-| 2 Authority map | Reconstructed; invented cells marked | Where each authority lives | Only if a finding needs it |
-| 3 Contracts | Often the core | Enforcement sites cited | Merged into findings |
-| 4 Stage table | Reconstructed per stage | From the executing path | Only stages carrying a finding |
-| 5 Journeys | Extension and failure at minimum | Same, through real code | One, chosen for relevance |
-| 6 Gates | Tabular | Tabular | Tabular |
-| 7 Findings | Tabular | Tabular | Tabular |
-| 8 Library ledger | Expected | Expected | Rows for new bespoke code |
-| 9 Alternatives | Worth the work | Worth the work | Optional; say why omitted |
-| 10 Verification | Proposed checks | Existing coverage and gaps | Top gaps only |
-| 11 Authority changes / exceptions | Target reviews; deviations | Same | Only if present |
-| 12 Decision | Required | Required | Required |
+| Slot | Design review | Change review |
+|---|---|---|
+| 1 Scope/drivers | Boundary, qualities, standard version, evidence limits | Same, briefly |
+| 2 Decomposition | Responsibilities, contracts and consequential dependencies | Only affected boundary when material |
+| 3 Contracts/authority | Owners and obligations; profile details where applicable | Only touched contracts |
+| 4 Scenarios | Representative change paths, including test isolation where relevant | The affected scenario; reuse its definition |
+| 5 Mechanisms | Details that settle a material question | Only needed details |
+| 6 Assessment/gates | Six foundations and applicable gates, independently | Affected foundations and gates; scope omissions |
+| 7 Findings | Concrete architectural or behavioral consequences | Same standard, shorter |
+| 8 Library fit | Material adoption/retention choices and ownership costs | Changed integration only |
+| 9 Alternatives | Real alternatives, including simplest viable | When a material choice exists |
+| 10 Verification | Claim-specific evidence and gaps | Settling evidence, no ritual test expansion |
+| 11 Disposition | Link the single status owner and authority routes | Link existing owner |
+| 12 Decision | Architecture, behavior, then overall scope/decision | Same distinctions |

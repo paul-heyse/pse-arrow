@@ -29,22 +29,43 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
     if invariant.name == "unique:pk" {
         invalid.get_mut(&invariant.relation).unwrap().push(subject);
     } else if let Some(column) = invariant.name.strip_prefix("foreign_key:") {
-        let fk = spec.column(column).unwrap().fk().unwrap();
-        let target = registry.relation(fk.relation).unwrap();
-        let mut target_row = row(registry, target, 1);
-        let value = default_value(registry, &spec.column(column).unwrap().value_type(), 1);
-        target_row.insert(fk.column.to_owned(), value.clone());
-        valid.get_mut(&invariant.relation).unwrap()[0].insert(column.to_owned(), value);
-        if fk.relation == invariant.relation {
-            let value = valid[&invariant.relation][0][fk.column].clone();
-            valid.get_mut(&invariant.relation).unwrap()[0].insert(column.to_owned(), value);
-        } else {
-            valid.insert(fk.relation.to_owned(), vec![target_row]);
+        let product = registry.obligations(spec.key).unwrap();
+        let occurrence = product
+            .references
+            .iter()
+            .find(|reference| reference.path.join(".").replace(".[]", "[]") == column)
+            .unwrap();
+        let target = registry.relation(&occurrence.reference.relation).unwrap();
+        let target_row = row(registry, target, 1);
+        for mapping in &occurrence.reference.columns {
+            let mut path = occurrence.path.clone();
+            path.extend(mapping.source.clone());
+            set_path(
+                registry,
+                spec,
+                &mut valid.get_mut(&invariant.relation).unwrap()[0],
+                &path,
+                target_row[&mapping.target].clone(),
+            );
+        }
+        if occurrence.reference.relation != invariant.relation {
+            valid.insert(occurrence.reference.relation.clone(), vec![target_row]);
         }
         invalid = valid.clone();
-        invalid.get_mut(&invariant.relation).unwrap()[0].insert(
-            column.to_owned(),
-            default_value(registry, &spec.column(column).unwrap().value_type(), 2),
+        let mapping = &occurrence.reference.columns[0];
+        let mut path = occurrence.path.clone();
+        path.extend(mapping.source.clone());
+        let bad = default_value(
+            registry,
+            &target.column(&mapping.target).unwrap().value_type(),
+            2,
+        );
+        set_path(
+            registry,
+            spec,
+            &mut invalid.get_mut(&invariant.relation).unwrap()[0],
+            &path,
+            bad,
         );
     } else {
         semantic::populate(registry, invariant, &mut valid, &mut invalid);
@@ -84,6 +105,86 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
         expected_keys,
     };
     (convert(valid, vec![]), convert(invalid, keys))
+}
+// Construct one concrete occurrence from the declared path, independently of its SQL.
+fn set_path(
+    registry: &Registry,
+    spec: &RelationSpec,
+    row: &mut Row,
+    path: &[String],
+    replacement: serde_json::Value,
+) {
+    let field = spec.column(&path[0]).unwrap().value_type();
+    set_nested(
+        registry,
+        &field,
+        row.get_mut(&path[0]).unwrap(),
+        &path[1..],
+        replacement,
+    );
+}
+fn set_nested(
+    registry: &Registry,
+    field: &FieldContract,
+    value: &mut serde_json::Value,
+    path: &[String],
+    replacement: serde_json::Value,
+) {
+    use datafusion::arrow::datatypes::DataType;
+    if path.is_empty() {
+        *value = replacement;
+        return;
+    }
+    if value[0] == "null" {
+        *value = default_value(registry, field, 1);
+    }
+    match field.data_type() {
+        DataType::Struct(fields) => {
+            let index = fields
+                .iter()
+                .position(|field| field.name() == &path[0])
+                .unwrap();
+            if let Some(alternative) =
+                pse_schema::model::TaggedAlternative::from_field(field.field()).unwrap()
+                && alternative.payloads().contains(path[0].as_str())
+            {
+                let (tag, _) = alternative
+                    .arms
+                    .iter()
+                    .find(|(_, arm)| arm.as_deref() == Some(path[0].as_str()))
+                    .unwrap();
+                let discriminator = fields
+                    .iter()
+                    .position(|field| field.name() == &alternative.discriminator)
+                    .unwrap();
+                value[1][discriminator][1] = serde_json::json!(tag);
+                for (other, child) in fields.iter().enumerate() {
+                    if other != index && alternative.payloads().contains(child.name().as_str()) {
+                        value[1][other] = serde_json::json!(["null", null]);
+                    }
+                }
+            }
+            set_nested(
+                registry,
+                &FieldContract::from_field(fields[index].as_ref().clone()),
+                &mut value[1][index],
+                &path[1..],
+                replacement,
+            );
+        }
+        DataType::List(child) | DataType::LargeList(child) | DataType::FixedSizeList(child, _) => {
+            assert_eq!(path[0], "[]");
+            let child = FieldContract::from_field(child.as_ref().clone());
+            if value[1].as_array().unwrap().is_empty() {
+                value[1]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(default_value(registry, &child, 1));
+            }
+            set_nested(registry, &child, &mut value[1][0], &path[1..], replacement);
+        }
+        other => panic!("fixture path {path:?} crosses {other}"),
+    }
 }
 pub(super) fn row(registry: &Registry, spec: &RelationSpec, identity: u8) -> Row {
     spec.columns
@@ -260,18 +361,14 @@ fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> serde_js
     }
 }
 
-#[cfg(test)]
-mod unit {
-    #[test]
-    fn declared_fixture_literals_decode_with_semantic_fields() {
-        let registry = pse_schema::catalog::assemble().unwrap();
-        for invariant in registry.invariants() {
-            let (valid, violating) = super::pair(&registry, invariant);
-            // Arrow construction only: no planning, storage, solver or query execution.
-            for fixture in [valid, violating] {
-                let batches = fixture.batches(&registry);
-                assert_eq!(batches.len(), invariant.inputs.len());
-            }
+pub(crate) fn validate_literals() {
+    let registry = pse_schema::catalog::assemble().unwrap();
+    for invariant in registry.invariants() {
+        let (valid, violating) = pair(&registry, invariant);
+        // Arrow construction only: no planning, storage, solver or query execution.
+        for fixture in [valid, violating] {
+            let batches = fixture.batches(&registry);
+            assert_eq!(batches.len(), invariant.inputs.len());
         }
     }
 }

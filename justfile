@@ -9,12 +9,11 @@
 #   env         create or inspect the working environment
 #   discovery   seconds, every task
 #   local       seconds to a minute, every edit
-#   pr          minutes, before review
-#   scheduled   minutes to hours, weekly or risk-triggered
+#   manual      optional checks, from minutes to hours; run when chosen
 #   decisions   ADRs, plans, the deferred-trigger register
-#   mutating    CHANGES SOURCE, ENVIRONMENT OR GITHUB -- never a dependency of a gate
+#   mutating    CHANGES SOURCE, ENVIRONMENT OR GITHUB
 #
-# Every gate passes `--locked`: there is no cargo config key for it, and an unlocked
+# Every check passes `--locked`: there is no cargo config key for it, and an unlocked
 # resolve would silently move a pin.
 
 set shell := ["bash", "scripts/build-shell.sh", "-euo", "pipefail", "-c"]
@@ -45,7 +44,7 @@ default:
 # ---------------------------------------------------------------------- env --
 
 [group('env')]
-[doc('Full environment from nothing: venv, quality tools, cargo tools, linters, hooks')]
+[doc('Full environment from nothing: venv, quality tools, cargo tools, linters')]
 bootstrap:
     ./scripts/bootstrap.sh
 
@@ -65,7 +64,7 @@ bootstrap-rust-tools:
     ./scripts/bootstrap.sh --rust-only
 
 [group('env')]
-[doc('Repository linters that are plain binaries: actionlint, ast-grep, shellcheck, mdbook')]
+[doc('Repository linters that are plain binaries: actionlint, ast-grep, shellcheck')]
 bootstrap-linters:
     ./scripts/bootstrap.sh --linters-only
 
@@ -169,6 +168,7 @@ lint-shell:
 
 [group('local')]
 lint-ast:
+    ast-grep test --config sgconfig.yml --skip-snapshot-tests
     ast-grep scan --config sgconfig.yml
 
 [group('local')]
@@ -185,7 +185,6 @@ register-lint:
 
 [group('local')]
 codegen-relations-check:
-    "{{ py }}" -m scripts.implementation_phase guard codegen-relations-check
     cargo xtask codegen --only relations --check
 
 [group('mutating')]
@@ -199,7 +198,7 @@ codegen-rust-contracts-check:
 
 [group('local')]
 codegen-python-check:
-    cargo run -p xtask --no-default-features --locked -- codegen --only python --check
+    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- codegen --only python --check
 
 [group('local')]
 codegen-docs-check:
@@ -211,7 +210,6 @@ codegen-bindgen-check:
 
 [group('local')]
 governance-tests *args:
-    "{{ py }}" -m scripts.implementation_phase guard governance-tests
     cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --locked {{ validate }} {{ args }}
 
 [group('local')]
@@ -235,7 +233,6 @@ features-combinations:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/build-env.sh
-    "{{ py }}" -m scripts.implementation_phase guard features-combinations
     source scripts/native-solver-env.sh
     cargo hack --keep-going check --workspace --feature-powerset --depth 2 --locked
 
@@ -244,40 +241,33 @@ features-no-default:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/build-env.sh
-    "{{ py }}" -m scripts.implementation_phase guard features-no-default
     source scripts/native-solver-env.sh
     cargo hack --keep-going check --workspace --no-default-features --locked
 
 [group('local')]
 doctest-release:
-    "{{ py }}" -m scripts.implementation_phase guard doctest-release
     cargo test --no-fail-fast --doc --workspace --exclude pse-py --locked --release {{ validate }}
 
 [group('local')]
 [doc('Independent Python collection/execution; fixture failures surface as component errors while unit tests continue')]
 assessment-python output:
-    "{{ py }}" -m scripts.implementation_phase guard assessment-python
     PSE_INSPECTION_PUBLICATION={{ quote(output / "inspection") }} uv run --no-sync pytest python/pse/tests -m "unit or component" -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python.xml") }}
 
 [group('local')]
 assessment-python-unit output:
-    "{{ py }}" -m scripts.implementation_phase guard assessment-python
     uv run --no-sync pytest python/pse/tests -m unit -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-unit.xml") }}
 
 [group('local')]
 assessment-python-component output:
-    "{{ py }}" -m scripts.implementation_phase guard assessment-python
     PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-{{ output }}/inspection}" uv run --no-sync pytest python/pse/tests -m component -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-component.xml") }}
 
 [group('local')]
 assessment-python-integration output:
-    "{{ py }}" -m scripts.implementation_phase guard assessment-python
     PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-{{ output }}/inspection}" uv run --no-sync pytest python/pse/tests -m integration -n auto --maxfail=0 --continue-on-collection-errors --junitxml={{ quote(output / "python-integration.xml") }}
 
 [group('local')]
 [doc('Measure current native consolidation, including diagnostic campaigns with an open acceptance barrier')]
 bench-consolidation-native:
-    "{{ py }}" -m scripts.implementation_phase guard bench-consolidation-native
     mkdir -p "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}"
     cargo tree -p pse-benches --locked {{ validate }} -e features --format '{p} features=[{f}]' > "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/force-validation-features.txt"
     cargo bench --no-fail-fast -p pse-benches --bench native_consolidation --locked {{ validate }}
@@ -316,14 +306,13 @@ fmt-check:
 [doc('Rust tests via nextest with Arrow force_validate on')]
 [positional-arguments]
 test *args:
-    "{{ py }}" -m scripts.implementation_phase guard test
     cargo nextest {{ nextest_action }} --workspace --locked {{ validate }} "$@"
 
 [group('local')]
 [doc('Rust tests for one package')]
+[positional-arguments]
 test-package pkg *args:
-    "{{ py }}" -m scripts.implementation_phase guard test-package
-    cargo nextest {{ nextest_action }} -p {{ pkg }} --locked {{ validate }} {{ args }}
+    cargo nextest {{ nextest_action }} -p "$1" --locked {{ validate }} "${@:2}"
 
 [group('local')]
 [doc('Explicitly selected Rust unit tests only; review the filter to exclude storage/compiler/solver journeys even under --lib')]
@@ -368,7 +357,6 @@ lock-python:
 [group('local')]
 [doc('Plan 13 isolated source/governance checks, including pure regeneration')]
 unit-rust-foundations-governance *args:
-    "{{ py }}" -m unittest scripts.tests.test_implementation_phase
     cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --test no_shadow_structs --test every_crate_registered --test codegen_regeneration --test error_taxonomy --locked {{ validate }} {{ args }}
 
 [group('local')]
@@ -379,7 +367,7 @@ dev-native-engine *args:
 [group('local')]
 [doc('Plan 10 N06 static manifest/error units; no product execution')]
 dev-native-boundaries *args:
-    cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --test every_crate_registered --test pins_match_blueprint --test dependency_floors --test error_taxonomy --locked {{ validate }} {{ args }}
+    cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --test every_crate_registered --test dependency_pins --test dependency_floors --test error_taxonomy --locked {{ validate }} {{ args }}
 
 [group('local')]
 [doc('Check resolved N06 ownership and deletions without executing product code')]
@@ -478,7 +466,6 @@ bench-recovery mode *args:
 [group('local')]
 [doc('Doctests (nextest does not run them)')]
 doctest:
-    "{{ py }}" -m scripts.implementation_phase guard doctest
     # Cargo cannot run doctests for the pse-py cdylib target.
     cargo test --no-fail-fast --doc --workspace --exclude pse-py --locked {{ validate }}
 
@@ -503,7 +490,7 @@ governance:
     python3 -m scripts.validation --group governance
 
 [group('local')]
-[doc('Gate: fmt-check check clippy test doctest')]
+[doc('Optional aggregate: fmt-check check clippy test doctest')]
 ci-fast:
     python3 -m scripts.validation --group ci-fast
 
@@ -519,11 +506,7 @@ py-sync:
 py-sync-native:
     #!/usr/bin/env bash
     set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
+    source scripts/native-execution-env.sh
     uv sync --locked --no-install-project
     VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile dev --locked --features force-validate,native-solvers
     cargo run -p xtask --no-default-features --locked -- python-stubs
@@ -551,7 +534,7 @@ py-native-contracts:
 [group('codegen')]
 [doc('Generate or --check the actual compiled native Python API stub; run py-sync after Rust edits')]
 python-stubs *args:
-    cargo run -p xtask --no-default-features --locked -- python-stubs {{ args }}
+    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- python-stubs {{ args }}
 
 [group('local')]
 [doc('ruff format in check mode')]
@@ -576,28 +559,11 @@ lint-imports:
 [group('local')]
 [doc('Publish and reopen a fresh native store for inspection; destination must be new')]
 inspection-fixture output:
-    "{{ py }}" -m scripts.implementation_phase guard inspection-fixture
     cargo run --quiet --package xtask --locked {{ validate }} -- inspection-fixture {{ quote(output) }}
-
-[group('local')]
-[doc('Plan-qualified current-function architecture campaign; run after all implementation and deletions')]
-[positional-arguments]
-architecture-acceptance output *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    if [[ -f .envrc.local ]]; then source .envrc.local; fi
-    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
-    export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-    cargo run --quiet --package xtask --locked {{ validate }} -- architecture-acceptance "$@"
 
 [group('local')]
 [doc('Python tests against a fresh native store (unit + component; pass -m to override)')]
 py-test *args:
-    "{{ py }}" -m scripts.implementation_phase guard py-test
     cargo run --quiet --package xtask --locked {{ validate }} -- python-tests {{ args }}
 
 [group('local')]
@@ -620,94 +586,99 @@ lint-agents:
 quality:
     python3 -m scripts.validation --group quality
 
-# ----------------------------------------------------------------------- pr --
+# ------------------------------------------------------------------- manual --
 
 [group('local')]
 [doc('Dependency and licence REPORT: advisory, always exits 0, nothing here blocks a merge')]
 deps-report:
     python3 -m scripts.validation --group deps-report --advisory
 
-[group('pr')]
+[group('manual')]
 [doc('Opt-in strict audit: cargo deny (advisories, bans, licenses, sources) + cargo audit. Not in ci-pr')]
 policy:
     python3 -m scripts.validation --group policy
 
-[group('pr')]
+[group('manual')]
 [doc('Coverage via cargo-llvm-cov + nextest -> lcov.info')]
 coverage output="build/coverage" *args:
-    "{{ py }}" -m scripts.implementation_phase guard coverage
     mkdir -p {{ quote(output) }}
     CARGO_LLVM_COV_TARGET_DIR={{ quote(output) }} cargo llvm-cov nextest --workspace --locked {{ validate }} --profile ci --no-fail-fast --lcov --output-path {{ quote(output / "lcov.info") }} \
       --ignore-filename-regex '(generated/|xtask/|benches/|tests/)' {{ args }}
 
-[group('pr')]
+[group('manual')]
 [doc('Every benchmark runs once (no timing gate)')]
 bench-smoke:
-    "{{ py }}" -m scripts.implementation_phase guard bench-smoke
     cargo test --no-fail-fast --benches -p pse-benches -p pse-relations --locked {{ validate }}
 
 [group('local')]
 [doc('Plan 09 final-phase cache/round/reuse measurements; never run before the implementation/deletion barrier')]
 bench-cache:
-    "{{ py }}" -m scripts.implementation_phase guard bench-cache
     cargo bench --no-fail-fast -p pse-benches -p pse-relations --bench native_cache --locked {{ validate }}
 
-[group('pr')]
+[group('manual')]
 [doc('Identifiers named in docs resolve in the extracted API facts')]
 doc-lint:
     cargo xtask doc-lint
 
-[group('pr')]
+[group('manual')]
 [doc('ADR lint, index check, and register lint')]
 adr-lint:
     python3 -m scripts.validation --group adr-lint
 
-[group('pr')]
-[doc('Build the documentation book (mdBook)')]
+[group('manual')]
+[doc('Build documentation HTML and scoped search (no product environment)')]
 docs:
-    mdbook build docs
+    python3 -m scripts.docs build
 
-[group('pr')]
+[group('local')]
+[doc('Publisher and citation fixtures (stdlib plus declared documentation binaries)')]
+docs-test:
+    python3 -m unittest scripts.tests.test_docs scripts.tests.docs_integration -v
+
+[group('local')]
+[doc('Install the documentation tool versions from docs/site.toml')]
+bootstrap-docs:
+    python3 -m scripts.docs install
+
+[group('manual')]
 [doc('Serve the documentation book locally')]
 docs-serve:
-    mdbook serve docs --open
+    python3 -m scripts.docs serve
 
-[group('pr')]
+[group('manual')]
 [doc('Parity suite against IDAES 2.12.0 in the parity environment (fails, never skips, without a solver)')]
 parity *args:
-    "{{ py }}" -m scripts.implementation_phase guard parity
     UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --python 3.13
     UV_PROJECT_ENVIRONMENT=.venv-parity uv run --no-sync pytest --maxfail=0 --continue-on-collection-errors --parity -m "unit or component or integration" {{ args }}
 
-[group('pr')]
-[doc('Local Rust, Python, quality and documentation gates; container parity is separate')]
+[group('manual')]
+[doc('Optional aggregate of Rust, Python, quality and documentation checks; container parity is separate')]
 ci-pr:
     python3 -m scripts.validation --group ci-pr
 
-# ---------------------------------------------------------------- scheduled --
+# ------------------------------------------------------------ deeper manual --
 
-[group('scheduled')]
+[group('manual')]
 [doc('cargo hack feature powerset (depth 2) and --no-default-features')]
 features-powerset:
     python3 -m scripts.validation --group features-powerset
 
-[group('scheduled')]
+[group('manual')]
 [doc('Tests under the release profile (catches optimisation-dependent paths)')]
 test-release *args:
-    "{{ py }}" -m scripts.implementation_phase guard test-release
     cargo nextest {{ nextest_action }} --workspace --locked --cargo-profile release {{ validate }} {{ args }}
 
-[group('scheduled')]
+[group('manual')]
 [doc('cargo udeps on the pinned nightly')]
 udeps nightly="nightly-2026-09-08":
     cargo +{{ nightly }} udeps --workspace --all-targets
 
-[group('scheduled')]
+[group('manual')]
 [doc('Mutation testing for one file')]
 mutants-file path:
     cargo mutants -f {{ path }} --no-shuffle -j 2
 
-[group('scheduled')]
+[group('manual')]
 [doc('Unsafe surface report (cargo geiger)')]
 unsafe-surface:
     #!/usr/bin/env bash
@@ -716,7 +687,7 @@ unsafe-surface:
     source scripts/native-solver-env.sh
     exec "{{ py }}" -m scripts.audit_tools unsafe-surface
 
-[group('scheduled')]
+[group('manual')]
 [doc('Would a `cargo update` raise a pre-1.0 crate floor? (dry run)')]
 floors-latest:
     cargo update --dry-run --workspace 2>&1 | tail -n 40
@@ -730,7 +701,7 @@ adr-new slug *args:
     python3 scripts/adr.py new "$@"
 
 [group('decisions')]
-[doc('Regenerate docs/adr/README.md and the SUMMARY.md ADR block')]
+[doc('Regenerate the source-readable docs/adr/README.md index')]
 adr-index:
     python3 scripts/adr.py index
 
@@ -749,7 +720,7 @@ plan slug:
     next=$(printf '%02d' $((10#${n:-0} + 1)))
     f="docs/plans/${next}-{{ slug }}.md"
     [ -e "$f" ] && { echo "exists: $f" >&2; exit 1; }
-    printf -- '---\ntitle: {{ slug }}\nstatus: draft\ndate: %s\nadrs: []\nphase: 0\n---\n\n# {{ slug }}\n\n## Context\n\n## Decisions\n\n## Plan\n\n## Verification\n\n## Open items\n\n## Outcome (recorded after implementation)\n\n### What was built\n\n### A mistake made and corrected\n\n### Deviations from the plan, deliberate\n' "$(date +%F)" > "$f"
+    printf -- '---\ntitle: {{ slug }}\nstatus: draft\ndate: %s\nadrs: []\nphase: 0\nreview_sources: []\nscenario_sources: []\n---\n\n# {{ slug }}\n\n## Context\n\n## Decisions\n\n## Architectural drivers and scenarios\n\nLink relevant scenario definitions; state responsibilities, consumed contracts and expected change boundaries.\n\n## Plan\n\n| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |\n|---|---|---|---|---|\n\n## Finding dispositions\n\nThis table owns adopted finding status; link packet evidence instead of copying execution reports.\n\n| Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |\n|---|---|---|---|---|\n\n## Verification\n\nTargeted checks accompany implementation; one final stage qualifies the applicable scope.\n\n## Open items\n\n## Outcome (recorded after implementation)\n\n### What was built\n\n### A mistake made and corrected\n\n### Deviations from the plan, deliberate\n' "$(date +%F)" > "$f"
     echo "$f"
 
 [group('decisions')]
@@ -769,13 +740,11 @@ fmt:
 [group('mutating')]
 [doc('Regenerate relations, Python contracts, docs/generated and the Ipopt bindings')]
 codegen *args:
-    "{{ py }}" -m scripts.implementation_phase guard codegen
-    cargo xtask codegen {{ args }}
+    bash scripts/native_exec.sh cargo xtask codegen {{ args }}
 
 [group('mutating')]
 [doc('Generate Rust contracts, rebuild their package loader, then regenerate complete outputs')]
 codegen-bootstrap *args:
-    "{{ py }}" -m scripts.implementation_phase guard codegen-bootstrap
     cargo run -p xtask --no-default-features -- codegen --only rust-contracts
     cargo xtask codegen {{ args }}
 
@@ -807,12 +776,6 @@ conformance-fixtures-check:
 [doc('Accept pending insta snapshots')]
 snapshots-accept:
     cargo insta accept
-
-[group('mutating')]
-[doc('Bump the workspace version, regenerate CHANGELOG.md, commit and tag')]
-[confirm('Cut a release?')]
-release version:
-    cargo xtask release {{ version }}
 
 [group('mutating')]
 [doc('Build the solver container locally (Ipopt 3.14 + MUMPS + ASL; 10-30 minutes)')]
@@ -868,15 +831,14 @@ solver-pin-update *args:
 solver-pin-check:
     python3 scripts/solver-images.py check
 
-[group('scheduled')]
+[group('manual')]
 [doc('Rebuild the solver libraries without Docker layer cache and compare published checksums')]
 solver-rebuild-check:
     bash scripts/solver-rebuild-check.sh
 
-[group('pr')]
+[group('manual')]
 [doc('Parity preflight in the pinned dev image with isolated Linux caches')]
 parity-container *args:
-    "{{ py }}" -m scripts.implementation_phase guard parity-container
     ./scripts/parity-container.sh {{ args }}
 
 [group('discovery')]
@@ -894,22 +856,16 @@ lint-typos:
 lint-license:
     "{{ reuse }}" lint
 
-[group('scheduled')]
+[group('manual')]
 [doc('Manually qualify all wheel platforms and the sdist on GitHub, without publishing')]
 wheels-check ref="main":
     gh workflow run wheels.yml --ref "{{ ref }}" -f targets=all
 
 
-[group('local')]
-[doc('Validate current acceptance source mappings without running product gates')]
-architecture-manifest *args:
-    "{{ py }}" -m scripts.implementation_phase check-manifest {{ args }}
-
 
 [group('local')]
 [doc('Measure native consolidation after current functional qualification')]
 bench-consolidation:
-    "{{ py }}" -m scripts.implementation_phase guard bench-consolidation
     just bench-consolidation-native
 
 [group('local')]
@@ -918,10 +874,9 @@ codegen-contracts-check:
     python3 -m scripts.validation --group codegen-contracts-check
 
 [group('local')]
-[doc('Isolated source-receipt/tooling units, plan successors and functional/performance barriers')]
-unit-consolidation-tools *args:
-    "{{ py }}" -m unittest scripts.tests.test_validation scripts.tests.test_implementation_phase
-    cargo nextest {{ nextest_action }} -p xtask --no-default-features --locked {{ validate }} -E 'test(architecture_acceptance::consolidation_unit::)' {{ args }}
+[doc('Targeted runner selection, report, reuse, policy and measurement-CSV units')]
+unit-consolidation-tools:
+    "{{ py }}" -m unittest scripts.tests.test_validation
 
 [group('local')]
 [doc('Static source taxonomy checks only; no runtime integration journey')]
@@ -931,7 +886,6 @@ unit-consolidation-governance *args:
 [group('local')]
 [doc('Plan 10 N07-N08 isolated native operation and function units; no compiler/storage/solver journeys')]
 dev-native-contracts *args:
-    "{{ py }}" -m scripts.implementation_phase guard dev-native-contracts
     cargo nextest {{ nextest_action }} -p pse-engine -p pse-schema -p pse-relations --lib --locked {{ validate }} -E 'package(pse-engine) and (test(native_operation_unit::) or test(native_function_unit::) or test(session::contract::tests::) or test(session::round::tests::) or test(session::cache::tests::) or test(session::commands::deferred::tests::) or test(session::scalar::list_concat::tests::)) or package(pse-schema) and test(literal::consolidation_unit::)' {{ args }}
 
 [group('local')]
@@ -957,7 +911,6 @@ lint-native-data:
 [group('local')]
 [doc('Plan 10 N14/N15 isolated Delta contracts, bounded IO, retention and Arrow stream units; no Delta commits or publication journeys')]
 dev-delta-boundaries *args:
-    "{{ py }}" -m scripts.implementation_phase guard dev-delta-boundaries
     cargo nextest {{ nextest_action }} -p pse-catalog -p pse-runtime -p pse-relations --lib --locked {{ validate }} -E 'test(delta_boundary_unit::) or package(pse-catalog) and (test(delta::contract::tests::) or test(delta::layout::tests::))' {{ args }}
 
 [group('local')]
@@ -968,7 +921,7 @@ dev-native-boundary-tools *args:
 # Exhaustive generated annotation checks are explicit, not package import work.
 [group('local')]
 python-contracts-check:
-    {{ py }} scripts/check_python_contracts.py
+    bash scripts/native_exec.sh {{ py }} scripts/check_python_contracts.py
 
 [group('local')]
 [doc('Build the release Python extension with explicit Arrow force validation for measurements')]
@@ -987,7 +940,6 @@ py-measure-production:
 [group('local')]
 [doc('Production-equivalent native measurements without force validation, in an isolated target directory')]
 bench-production:
-    "{{ py }}" -m scripts.implementation_phase guard bench-consolidation-native
     mkdir -p "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/production"
     CARGO_TARGET_DIR=target/measure-production cargo tree -p pse-benches --locked -e features --format '{p} features=[{f}]' > "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/production/features.txt"
     CARGO_TARGET_DIR=target/measure-production PSE_ACCEPTANCE_OUTPUT="${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/production" cargo bench --no-fail-fast -p pse-benches --bench native_cache --bench native_consolidation --locked
@@ -1020,73 +972,6 @@ plan14-fixtures:
     "{{ py }}" scripts/plan14_fixtures.py
 
 [group('local')]
-[doc('Discover exact native acceptance identities without running their bodies')]
-plan14-discover:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    if [[ -f .envrc.local ]]; then source .envrc.local; fi
-    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
-    export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-    "{{ py }}" -m scripts.plan14_acceptance discover rust-native --output build/plan14/discovery-native.json
-    "{{ py }}" -m scripts.plan14_acceptance discover python-native --output build/plan14/discovery-python.json
-
-[group('local')]
-[doc('M22 native acceptance in the exact manifest feature graph; list action does not execute cases')]
-plan14-native *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    if [[ -f .envrc.local ]]; then source .envrc.local; fi
-    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
-    export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-    "{{ py }}" -m scripts.plan14_acceptance run rust-native {{ args }}
-
-[group('local')]
-[doc('M22 public Python process acceptance using the linked native extension')]
-plan14-python output:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    if [[ -f .envrc.local ]]; then source .envrc.local; fi
-    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
-    export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-    "{{ py }}" -m scripts.plan14_acceptance run python-native --junitxml="{{ output }}/plan14-python.xml"
-
-[group('local')]
-[doc('Isolated exact-witness, deletion and phase-guard controls')]
-plan14-tools output:
-    "{{ py }}" -m scripts.plan14_acceptance tools {{ output }}
-
-[group('local')]
-[doc('M22 complete cold/warm Criterion cost with independent process RSS; requires current functional qualification')]
-plan14-measure output:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    if [[ -f .envrc.local ]]; then source .envrc.local; fi
-    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
-    export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-    "{{ py }}" -m scripts.plan14_measure {{ output }}
-
-[group('local')]
-[doc('M22 current-source independent G1-G8 and PS-G1-PS-G3 review collection; missing decisions fail')]
-plan14-reviews output:
-    "{{ py }}" -m scripts.plan14_review {{ output }}
-
-[group('local')]
 [doc('Pure shared acceptance source-contract decoding; no runtime or native solve')]
 unit-plan14-sources:
     #!/usr/bin/env bash
@@ -1095,29 +980,6 @@ unit-plan14-sources:
     source scripts/native-solver-env.sh
     export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
     "{{ py }}" -m pytest python/pse/tests/test_plan14_acceptance.py::test_shared_source_contracts
-
-[group('local')]
-[doc('M21 exact manifest units through the existing source-bound runner and actual reports')]
-plan14-development output:
-    "{{ py }}" -m scripts.plan14_acceptance development {{ quote(output) }}
-
-[group('local')]
-[doc('One unit-only development profile; invoked by the development evidence collector')]
-plan14-development-run profile output *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    if [[ -f .envrc.local ]]; then source .envrc.local; fi
-    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
-    export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-    if [[ "{{ profile }}" == python-tools ]]; then
-      "{{ py }}" -m scripts.plan14_acceptance tools {{ quote(output) }} --unit-only
-    else
-      "{{ py }}" -m scripts.plan14_acceptance run {{ quote(profile) }} --unit-only {{ args }}
-    fi
 
 [group('local')]
 [doc('M21 isolated new physical, structural and library-boundary unit controls')]
@@ -1169,3 +1031,41 @@ build-storage:
 [positional-arguments]
 llvm-system *args:
     python3 scripts/llvm_system.py "$@"
+
+[group('local')]
+[doc('Targeted invariant runtime harness controls and explicitly selected fixture cases')]
+unit-invariant-harness filter *args:
+    cargo nextest {{ nextest_action }} --workspace --test invariant_fixtures --locked {{ validate }} -E {{ quote(filter) }} {{ args }}
+
+[group('local')]
+[doc('Explicit targeted library checks against the shared linked native feature graph')]
+unit-native-selected filter *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/build-env.sh
+    source scripts/native-solver-env.sh
+    source scripts/native-math-env.sh
+    cargo nextest {{ nextest_action }} --workspace --lib --locked --features pse-py/native-solvers,pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
+
+[group('local')]
+[doc('Full workspace native feature graph with Arrow force validation; nextest owns selection')]
+[positional-arguments]
+native-test *args:
+    bash scripts/native_exec.sh "{{ py }}" -m scripts.native_tests rust "$@"
+
+[group('local')]
+[doc('Full linked Python unit/component/integration scope; refresh with py-sync-native after Rust edits')]
+[positional-arguments]
+native-python output *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-$1/inspection}"
+    native_output="$1"
+    shift
+    exec bash scripts/native_exec.sh "{{ py }}" -m scripts.native_tests python --junitxml="$native_output/native-python.xml" "$@"
+
+[group('local')]
+[doc('Fresh-process Criterion cases; requires --functional-from with completed local qualification')]
+[positional-arguments]
+case-measure output *args:
+    bash scripts/native_exec.sh "{{ py }}" -m scripts.case_measure "$@"

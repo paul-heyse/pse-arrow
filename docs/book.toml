@@ -6,8 +6,7 @@ title = "pse-arrow"
 description = "Arrow-native process systems engineering core in Rust: the authoritative design, the decisions behind it, and the evidence under both."
 authors = ["Paul Heyse"]
 language = "en"
-# The book is built from docs/ in place: every document is readable on GitHub
-# and in the rendered book without a second copy. Decision: ADR-0036.
+# Authored source is staged by scripts/docs.py; navigation is derived. ADR-0095.
 src = "."
 
 [build]
@@ -25,18 +24,13 @@ git-repository-icon = "fab-github"
 edit-url-template = "https://github.com/paul-heyse/pse-arrow/edit/main/docs/{path}"
 default-theme = "light"
 preferred-dark-theme = "navy"
-no-section-label = false
+no-section-label = true
 
 [output.html.fold]
 enable = true
-level = 1
+level = 0
 
 [output.html.search]
-enable = true
-limit-results = 30
-use-boolean-and = true
-# Index section-sized passages so generated inventories do not duplicate long heading
-# ancestry in every relation/rule search entry. All chapter content remains searchable.
-heading-split-level = 2
+enable = false
 
 [preprocessor.links]

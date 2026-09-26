@@ -13,6 +13,9 @@ use pse_ids::ContentHash;
 /// A batch, field or metadata value that does not meet its declared contract.
 #[derive(Debug, thiserror::Error)]
 pub enum RelationError {
+    /// Durable interpretation failure retains its typed migration outcome.
+    #[error(transparent)]
+    Model(pse_model::ModelError),
     /// Failed local obligations, with typed findings and explicit truncation state.
     #[error("{} local validation violations", report.violations)]
     LocalFindings {
@@ -183,6 +186,7 @@ pse_diagnostics::impl_diagnostic! {
             Self::Engine(error) => Some(error),
             Self::Canon(value) => Some(value),
             Self::Schema(value) => Some(value),
+            Self::Model(value) => Some(value),
             _ => None,
         } },
     help(this) { match this {
@@ -209,6 +213,7 @@ pse_columnar::impl_native_error!(RelationError);
 impl From<pse_model::ModelError> for RelationError {
     fn from(error: pse_model::ModelError) -> Self {
         match error {
+            error @ pse_model::ModelError::MigrationRequired { .. } => Self::Model(error),
             pse_model::ModelError::Malformed(message) => crate::columnar::mismatch(&message),
             pse_model::ModelError::EnumMember {
                 field,

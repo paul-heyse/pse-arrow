@@ -8,19 +8,19 @@ pub use pse_model::generated::r#enums::{
     BasisRule, BlowerMaterial, BlowerType, BoundKind, BoundStatus, CandidateUse,
     CapabilityRequirement, CaseKind, ChangeKind, ClosureAssessment, ClosurePolicy,
     ColumnRole, ComponentType, CompositionBasis, CompressorDriveType, CompressorMaterial,
-    CompressorType, ConcentrationForm, ConfigCategory, ConfigValueKind,
+    CompressorType, ComputationKind, ConcentrationForm, ConfigCategory, ConfigValueKind,
     ConnectionExpansion, ConstraintScalingScheme, ContributionSign,
     ContributionSubjectKind, ControllerAntiwindupType, ControllerMVBoundType,
     ControllerType, ConversionKind, CubicType, DaeVarTypes, DefaultScalingRecommendation,
-    DemandSource, DerivationGranularity, Determinism, DiagnosticCode, Direction,
-    DiscretizationScheme, DisplayKind, DistributedVars, DomainBindingSource, DomainKind,
+    DerivationGranularity, Determinism, DiagnosticCode, Direction, DiscretizationScheme,
+    DisplayKind, DistributedVars, DomainBindingSource, DomainKind, DualQualification,
     ElementProjectionFormula, EnergyBalanceType, EnergySplittingType, EntityKind,
     EquationSyntax, EvidenceUnavailableReason, ExpressionFamily, ExpressionOwnerKind,
     ExpressionSyntax, FailureClass, FanMaterial, FanType, FeatureKind, FeatureRuleKind,
     FindingSeverity, FlashType, FlowDirection, GeneratorKind, HXMaterial, HXTubeLength,
     HXType, HeatExchangerFlowPattern, HeaterMaterial, HeaterSource, HenryType, IdPolicy,
     IndexMapKind, InitializationStatus, InputConsumptionKind, InvariantKind,
-    KernelOutcome, LawExpansion, LawFamily, LawSubjectProjection, MaterialBalanceType,
+    LawExpansion, LawFamily, LawSubjectProjection, MaterialBalanceType,
     MaterialFlowBasis, MemberSelectionKind, MethodCandidateReason,
     MethodDependencyTarget, MethodFamily, MethodOutputKind, MethodRealization,
     MethodScopeMap, MigrationOp, MissingInteractionPolicy, MixingType,
@@ -36,11 +36,11 @@ pub use pse_model::generated::r#enums::{
     PublicationKind, PumpMaterial, PumpMotorType, PumpType, QuantityAdditionKind,
     QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
     ReactionKind, ReductionKind, ReferenceRule, ReferenceStateKind, RequirementSource,
-    ResolutionStatus, RetentionReason, ScaleKind, ScopeKind, SelectorOp, Sense, Severity,
-    SnapshotClass, SolverVariableType, SourceBindingKind, SplittingType, Stability,
-    StabilityPolicy, StabilityStatus, StateIndex, SubjectKind, SubjectRule, SymbolRole,
-    TargetKind, TearPolicy, TemplateKind, TerminationStatus, ThermodynamicAssumption,
-    ThermodynamicFormulation, TimeCoordinateKind, TrayMaterial, TrayType, Treatment,
+    RetentionReason, ScaleKind, ScopeKind, SelectorOp, Sense, Severity, SnapshotClass,
+    SolverVariableType, SourceBindingKind, SplittingType, Stability, StabilityPolicy,
+    StabilityStatus, StateIndex, SubjectKind, SubjectRule, SymbolRole, TargetKind,
+    TearPolicy, TemplateKind, ThermodynamicAssumption, ThermodynamicFormulation,
+    TimeCoordinateKind, TrajectoryTermination, TrayMaterial, TrayType, Treatment,
     TriState, TruthValue, ValveFunctionType, VariableSemanticRole, VesselMaterial,
     WeightNormalization,
 };
@@ -136,7 +136,13 @@ impl crate::columnar::ArrowValue for BasisKind {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(BasisKind).to_owned(),
+                enumeration: stringify!(BasisKind).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for BasisRule {
@@ -155,7 +161,13 @@ impl crate::columnar::ArrowValue for BasisRule {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(BasisRule).to_owned(),
+                enumeration: stringify!(BasisRule).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for BlowerMaterial {
@@ -402,7 +414,13 @@ impl crate::columnar::ArrowValue for CompositionBasis {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(CompositionBasis).to_owned(),
+                enumeration: stringify!(CompositionBasis).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for CompressorDriveType {
@@ -444,6 +462,25 @@ impl crate::columnar::ArrowValue for CompressorMaterial {
     }
 }
 impl crate::columnar::ArrowValue for CompressorType {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ComputationKind {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -668,7 +705,13 @@ impl crate::columnar::ArrowValue for ConversionKind {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(ConversionKind).to_owned(),
+                enumeration: stringify!(ConversionKind).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for CubicType {
@@ -710,25 +753,6 @@ impl crate::columnar::ArrowValue for DaeVarTypes {
     }
 }
 impl crate::columnar::ArrowValue for DefaultScalingRecommendation {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
-    }
-}
-impl crate::columnar::ArrowValue for DemandSource {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -900,6 +924,31 @@ impl crate::columnar::ArrowValue for DomainBindingSource {
     }
 }
 impl crate::columnar::ArrowValue for DomainKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(DomainKind).to_owned(),
+                enumeration: stringify!(DomainKind).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
+impl crate::columnar::ArrowValue for DualQualification {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -1470,25 +1519,6 @@ impl crate::columnar::ArrowValue for InputConsumptionKind {
     }
 }
 impl crate::columnar::ArrowValue for InvariantKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
-    }
-}
-impl crate::columnar::ArrowValue for KernelOutcome {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -2245,7 +2275,13 @@ impl crate::columnar::ArrowValue for Opcode {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(Opcode).to_owned(),
+                enumeration: stringify!(Opcode).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for OperationEffect {
@@ -2568,7 +2604,13 @@ impl crate::columnar::ArrowValue for QuantityAdditionKind {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(QuantityAdditionKind).to_owned(),
+                enumeration: stringify!(QuantityAdditionKind).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for QuantityPreconditionKind {
@@ -2606,7 +2648,13 @@ impl crate::columnar::ArrowValue for QuantityScaleRule {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(QuantityScaleRule).to_owned(),
+                enumeration: stringify!(QuantityScaleRule).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for QuantityShapeRule {
@@ -2625,7 +2673,13 @@ impl crate::columnar::ArrowValue for QuantityShapeRule {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(QuantityShapeRule).to_owned(),
+                enumeration: stringify!(QuantityShapeRule).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for RateBasis {
@@ -2644,7 +2698,13 @@ impl crate::columnar::ArrowValue for RateBasis {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(RateBasis).to_owned(),
+                enumeration: stringify!(RateBasis).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for ReactionKind {
@@ -2682,7 +2742,13 @@ impl crate::columnar::ArrowValue for ReductionKind {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(ReductionKind).to_owned(),
+                enumeration: stringify!(ReductionKind).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for ReferenceRule {
@@ -2701,7 +2767,13 @@ impl crate::columnar::ArrowValue for ReferenceRule {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(ReferenceRule).to_owned(),
+                enumeration: stringify!(ReferenceRule).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for ReferenceStateKind {
@@ -2720,29 +2792,16 @@ impl crate::columnar::ArrowValue for ReferenceStateKind {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(ReferenceStateKind).to_owned(),
+                enumeration: stringify!(ReferenceStateKind).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for RequirementSource {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
-    }
-}
-impl crate::columnar::ArrowValue for ResolutionStatus {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -2796,7 +2855,13 @@ impl crate::columnar::ArrowValue for ScaleKind {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(ScaleKind).to_owned(),
+                enumeration: stringify!(ScaleKind).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for ScopeKind {
@@ -3043,7 +3108,13 @@ impl crate::columnar::ArrowValue for SubjectKind {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(SubjectKind).to_owned(),
+                enumeration: stringify!(SubjectKind).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for SubjectRule {
@@ -3062,7 +3133,13 @@ impl crate::columnar::ArrowValue for SubjectRule {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(SubjectRule).to_owned(),
+                enumeration: stringify!(SubjectRule).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for SymbolRole {
@@ -3141,25 +3218,6 @@ impl crate::columnar::ArrowValue for TemplateKind {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
-impl crate::columnar::ArrowValue for TerminationStatus {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
-    }
-}
 impl crate::columnar::ArrowValue for ThermodynamicAssumption {
     fn append(
         &self,
@@ -3199,6 +3257,25 @@ impl crate::columnar::ArrowValue for ThermodynamicFormulation {
     }
 }
 impl crate::columnar::ArrowValue for TimeCoordinateKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for TrajectoryTermination {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -3385,6 +3462,12 @@ impl crate::columnar::ArrowValue for WeightNormalization {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(WeightNormalization).to_owned(),
+                enumeration: stringify!(WeightNormalization).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }

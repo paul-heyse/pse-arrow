@@ -114,9 +114,6 @@ fn unbounded_pools_and_invalid_execution_settings_are_refused() {
     let mut settings = budget(&directory, 64);
     settings.execution.batch_size = 0;
     assert!(SharedRuntime::build(settings).is_err());
-    let mut settings = budget(&directory, 64);
-    settings.execution.spill_compression = "not-a-compression-codec".to_owned();
-    assert!(SharedRuntime::build(settings).is_err());
 }
 
 #[test]
@@ -124,7 +121,7 @@ fn selected_timezone_compression_and_partition_policy_are_supported() {
     let directory = Scratch::new();
     let mut settings = budget(&directory, 64);
     settings.execution.time_zone = "+05:30".to_owned();
-    settings.execution.spill_compression = "zstd".to_owned();
+    settings.execution.spill_compression = datafusion::common::config::SpillCompression::Zstd;
     settings.threads.target_partitions = NonZeroUsize::new(8).expect("nonzero");
     settings.hashing_may_use_pool = true;
     assert!(SharedRuntime::build(settings).is_ok());

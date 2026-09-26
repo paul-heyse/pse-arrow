@@ -132,11 +132,16 @@ impl Settings {
             Function::Picard { oracle, .. } => oracle.jacobian_pattern(),
             Function::FixedPoint(o) => o.original_pattern(),
         };
-        crate::structural::oracle(
+        let analysis = match function {
+            Function::Equations(o) | Function::Picard { oracle: o, .. } => o.structural_analysis(),
+            Function::FixedPoint(_) => None,
+        };
+        crate::structural::check(
             c,
             original,
             &vec![(0.0, 0.0); c.variables.len()],
             crate::structural::Mode::Roots,
+            analysis,
         )?;
         Ok(signs)
     }
@@ -441,6 +446,17 @@ unsafe extern "C" fn jvp(
     result(value, &c.state)
 }
 impl Session {
+    /// Controls fixed during native allocation must match; legal numeric controls refresh.
+    pub fn matches_settings(&self, settings: &Settings) -> bool {
+        self.settings.linear == settings.linear
+            && self.settings.anderson == settings.anderson
+            && (self.settings.strategy == settings.strategy
+                || matches!(
+                    (self.settings.strategy, settings.strategy),
+                    (Strategy::Newton, Strategy::LineSearch)
+                        | (Strategy::LineSearch, Strategy::Newton)
+                ))
+    }
     /// Check the immutable compiler/backend layout stamp before constructing an update.
     pub fn matches_layout(&self, stamp: &Compatibility) -> bool {
         self.compatibility.layout == stamp.layout && stamp.backend == Backend::Kinsol
@@ -450,10 +466,12 @@ impl Session {
     pub fn replace(
         &mut self,
         function: Function,
+        settings: Settings,
         compatibility: Compatibility,
     ) -> Result<(), ProblemError> {
-        let signs = self.settings.validate(&function)?;
-        if compatibility.layout != self.compatibility.layout
+        let signs = settings.validate(&function)?;
+        if !self.matches_settings(&settings)
+            || compatibility.layout != self.compatibility.layout
             || compatibility.backend != Backend::Kinsol
             || function.contract().rows != self.callback.function.contract().rows
             || function.contract().variables.iter().map(|v| v.id).ne(self
@@ -506,6 +524,7 @@ impl Session {
             }
         }
         self.callback.function = function;
+        self.settings = settings;
         self.compatibility = compatibility;
         Ok(())
     }
@@ -684,6 +703,8 @@ impl Session {
         self.callback.state = CallbackState::new(execution.clone());
         unsafe {
             publish(self.x, start)?;
+            publish(self.us, &self.settings.variable_scales)?;
+            publish(self.fs, &self.settings.residual_scales)?;
             check(
                 ffi::KINSetNumMaxIters(self.mem, controls.iterations.into()),
                 "iteration limit",
@@ -949,15 +970,37 @@ mod tests {
         let address = s.mem;
         s.replace(
             Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
+            settings(),
             crate::solver_tests::stamp(Backend::Kinsol),
         )
         .unwrap();
         assert_eq!(address, s.mem);
+        let mut updated = settings();
+        updated.strategy = Strategy::Newton;
+        updated.variable_scales = vec![2.0];
+        updated.residual_scales = vec![3.0];
+        updated.damping = 0.7;
+        updated.setup_interval = 4;
+        updated.step_tolerance = 2e-7;
+        assert!(s.matches_settings(&updated));
+        s.replace(
+            Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
+            updated.clone(),
+            crate::solver_tests::stamp(Backend::Kinsol),
+        )
+        .unwrap();
+        assert_eq!(address, s.mem);
+        assert_eq!(s.settings.variable_scales, updated.variable_scales);
+        assert_eq!(s.settings.residual_scales, updated.residual_scales);
+        assert_eq!(s.settings.setup_interval, 4);
+        updated.anderson += 1;
+        assert!(!s.matches_settings(&updated));
         let mut o = crate::solver_tests::Polynomial::new();
         o.c.variables[0].upper = 3.0;
         assert!(
             s.replace(
                 Function::Equations(Box::new(o)),
+                settings(),
                 crate::solver_tests::stamp(Backend::Kinsol)
             )
             .is_err()

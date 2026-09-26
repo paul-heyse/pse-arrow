@@ -60,8 +60,8 @@ library references; do not use Context7 for those families.
 - [Plan 07 completion review](../design_review/reviews/design_review_unified-datafusion-delta-completion_2026-09-16.md):
   current implementation, surviving caller closures and incomplete gates.
 - [Provider capability map](../capability-maps/datafusion_provider_contracts.md),
-  [DataFusion skill](../../.codex/skills/datafusion/SKILL.md) and
-  [Delta Lake skill](../../.codex/skills/deltalake/SKILL.md), with exact source as tie-breaker.
+  [DataFusion skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/SKILL.md) and
+  [Delta Lake skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/SKILL.md), with exact source as tie-breaker.
 - Blueprint §§3.3.3, 4–6, 14, 18, 20–22 and the existing decision records are inputs;
   SP00 records affected decisions before implementation changes. This plan does not
   silently amend accepted ADRs or the blueprint.

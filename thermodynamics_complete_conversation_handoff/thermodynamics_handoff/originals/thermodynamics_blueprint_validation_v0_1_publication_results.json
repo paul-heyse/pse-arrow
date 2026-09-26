@@ -1,0 +1,226 @@
+{
+  "document": "THERMO-VALIDATION-009",
+  "kind": "authored_bounded_sequential_model_exploration",
+  "legal_schedules": 1120,
+  "events_per_schedule": 8,
+  "examined_event_steps": 8960,
+  "violations_correct_model": [],
+  "guard_truth_cases": 128,
+  "mutation_controls": [
+    {
+      "mutation": "omit_revision",
+      "detected": true,
+      "counterexample": {
+        "schedule": [
+          "A_capture",
+          "A_qualify",
+          "A_publish",
+          "B_capture",
+          "B_qualify",
+          "edit",
+          "B_publish",
+          "cancel"
+        ],
+        "violation": {
+          "event": "B_publish",
+          "expected_admission": false,
+          "observed": "COMMITTED",
+          "before_rev": 1,
+          "before_generation": 1,
+          "parent_active": true,
+          "candidate": {
+            "rev": 0,
+            "generation": 1,
+            "view": "B",
+            "qualified": true,
+            "parts": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    },
+    {
+      "mutation": "omit_parent",
+      "detected": true,
+      "counterexample": {
+        "schedule": [
+          "A_capture",
+          "A_qualify",
+          "A_publish",
+          "B_capture",
+          "B_qualify",
+          "cancel",
+          "B_publish",
+          "edit"
+        ],
+        "violation": {
+          "event": "B_publish",
+          "expected_admission": false,
+          "observed": "COMMITTED",
+          "before_rev": 0,
+          "before_generation": 1,
+          "parent_active": false,
+          "candidate": {
+            "rev": 0,
+            "generation": 1,
+            "view": "B",
+            "qualified": true,
+            "parts": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    },
+    {
+      "mutation": "omit_generation",
+      "detected": true,
+      "counterexample": {
+        "schedule": [
+          "A_capture",
+          "A_qualify",
+          "B_capture",
+          "A_publish",
+          "B_qualify",
+          "B_publish",
+          "edit",
+          "cancel"
+        ],
+        "violation": {
+          "event": "B_publish",
+          "expected_admission": false,
+          "observed": "COMMITTED",
+          "before_rev": 0,
+          "before_generation": 1,
+          "parent_active": true,
+          "candidate": {
+            "rev": 0,
+            "generation": 0,
+            "view": "B",
+            "qualified": true,
+            "parts": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    },
+    {
+      "mutation": "replay_reinstalls",
+      "detected": true,
+      "counterexample": [
+        "A publishes",
+        "B captures current generation and publishes",
+        "old A decision is replayed",
+        "mutant incorrectly replaces B with A"
+      ]
+    },
+    {
+      "mutation": "omit_required_qualification",
+      "detected": true,
+      "counterexample": {
+        "revision": true,
+        "run": true,
+        "parent": true,
+        "qualified": false,
+        "view_coherent": true,
+        "all_group_members_valid": true,
+        "slot": true
+      }
+    },
+    {
+      "mutation": "omit_iterate_lineage",
+      "detected": true,
+      "counterexample": {
+        "revision": true,
+        "run": true,
+        "parent": true,
+        "qualified": true,
+        "view_coherent": false,
+        "all_group_members_valid": true,
+        "slot": true
+      }
+    },
+    {
+      "mutation": "partial_group_write",
+      "detected": true,
+      "counterexample": {
+        "revision": true,
+        "run": true,
+        "parent": true,
+        "qualified": true,
+        "view_coherent": true,
+        "all_group_members_valid": false,
+        "slot": true
+      }
+    },
+    {
+      "mutation": "accepted_aliases_native_work",
+      "detected": true,
+      "counterexample": "native work is overwritten after a result was retained; detached result unchanged, alias corrupted"
+    }
+  ],
+  "detected_mutations": 8,
+  "cleanup_cases": [
+    {
+      "native_active": false,
+      "publication_cancelled": false,
+      "health": "ready",
+      "reusable": true
+    },
+    {
+      "native_active": false,
+      "publication_cancelled": false,
+      "health": "quarantined",
+      "reusable": false
+    },
+    {
+      "native_active": false,
+      "publication_cancelled": true,
+      "health": "ready",
+      "reusable": true
+    },
+    {
+      "native_active": false,
+      "publication_cancelled": true,
+      "health": "quarantined",
+      "reusable": false
+    },
+    {
+      "native_active": true,
+      "publication_cancelled": false,
+      "health": "ready",
+      "reusable": false
+    },
+    {
+      "native_active": true,
+      "publication_cancelled": false,
+      "health": "quarantined",
+      "reusable": false
+    },
+    {
+      "native_active": true,
+      "publication_cancelled": true,
+      "health": "ready",
+      "reusable": false
+    },
+    {
+      "native_active": true,
+      "publication_cancelled": true,
+      "health": "quarantined",
+      "reusable": false
+    }
+  ],
+  "status": "PASS",
+  "bounds": "Two local candidates, one edit and one parent cancellation, 8 events; A/B each capture before qualify before publish. Replays, torn groups, and buffer aliases are separate explicit controls.",
+  "limitations": [
+    "Sequential legal-order exploration only; no deployed lock or transaction code",
+    "No proof of native crash, memory lifecycle, or concurrent scheduling implementation",
+    "No exactly-once delivery claim",
+    "Mutation detection validates these witnesses, not the eventual simulator"
+  ]
+}

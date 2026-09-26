@@ -5,51 +5,9 @@
 
 use super::{ExecutionSettings, ThreadBudget};
 use crate::EngineError;
-use datafusion::common::{
-    DataFusionError,
-    config::{ConfigEntry, ConfigExtension, ExtensionOptions},
-};
 use datafusion::execution::config::SessionConfig;
 use pse_ids::{ContentHash, FramedHasher, derive::context};
-use std::any::Any;
 use std::collections::BTreeMap;
-
-/// Contract-owned settings are readable but cannot independently override a kernel policy.
-#[derive(Clone, Debug, Default)]
-pub struct PseOptions;
-impl ConfigExtension for PseOptions {
-    const PREFIX: &'static str = "datafusion.pse";
-}
-impl ExtensionOptions for PseOptions {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-    fn cloned(&self) -> Box<dyn ExtensionOptions> {
-        Box::new(self.clone())
-    }
-    fn set(&mut self, key: &str, _value: &str) -> datafusion::common::Result<()> {
-        Err(DataFusionError::Configuration(format!(
-            "{key} is a view of the bound contract and cannot be overridden"
-        )))
-    }
-    fn entries(&self) -> Vec<ConfigEntry> {
-        vec![
-            ConfigEntry {
-                key: "datafusion.pse.null_policy".to_owned(),
-                value: Some("four_valued".to_owned()),
-                description: "Rule heads contain only decided-true rows.",
-            },
-            ConfigEntry {
-                key: "datafusion.pse.kernel_outcome_policies".to_owned(),
-                value: Some("[]".to_owned()),
-                description: "Policies supplied by the frozen kernel context.",
-            },
-        ]
-    }
-}
 
 pub(crate) fn build(
     settings: ExecutionSettings,
@@ -57,7 +15,7 @@ pub(crate) fn build(
 ) -> Result<SessionConfig, EngineError> {
     validate(&settings)?;
     let mut config = SessionConfig::new();
-    config.options_mut().extensions.insert(PseOptions);
+    config.options_mut().execution.spill_compression = settings.spill_compression;
     config.options_mut().execution.parquet.pushdown_filters = true;
     config
         .options_mut()
@@ -74,10 +32,6 @@ pub(crate) fn build(
             budget.target_partitions.to_string(),
         ),
         ("datafusion.execution.time_zone", settings.time_zone),
-        (
-            "datafusion.execution.spill_compression",
-            settings.spill_compression,
-        ),
         (
             "datafusion.execution.max_spill_file_size_bytes",
             settings.max_spill_file_size_bytes.to_string(),
@@ -257,21 +211,6 @@ pub(super) fn validate(settings: &ExecutionSettings) -> Result<(), EngineError> 
         .time_zone
         .parse::<datafusion::arrow::array::timezone::Tz>()
         .map_err(|error| invalid("datafusion.execution.time_zone", &error.to_string()))?;
-    let mut options = datafusion::common::config::ConfigOptions::new();
-    for (key, value) in [
-        (
-            "datafusion.execution.spill_compression",
-            settings.spill_compression.as_str(),
-        ),
-        (
-            "datafusion.execution.time_zone",
-            settings.time_zone.as_str(),
-        ),
-    ] {
-        options
-            .set(key, value)
-            .map_err(|error| invalid(key, &error.to_string()))?;
-    }
     Ok(())
 }
 /// Identity of semantic settings only, with absence distinct from text (ADR-0070).

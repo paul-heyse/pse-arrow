@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-canonical-compression
+valid: ['let text = "writer.try_with_compression(codec)";']
+invalid: ['writer.try_with_compression(codec)']

@@ -16,7 +16,7 @@
 //! behaviour. The justfile is the one-line surface; this is the logic (plan §3).
 //!
 //! Schema generation writes deterministic output and checks regeneration equivalence.
-//! `doc-lint` waits for extracted API facts; `release` lands with its tooling ADR.
+//! `doc-lint` waits for extracted API facts.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -27,7 +27,6 @@ use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
 use serde::Deserialize;
 
-mod architecture_acceptance;
 mod codegen;
 mod dependency_ceilings;
 #[cfg(feature = "package-fixtures")]
@@ -55,13 +54,6 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
-    /// Qualify existing native functions, Delta lifecycle, cold readers and target architecture.
-    ArchitectureAcceptance {
-        /// New directory for final architecture command logs and measurements.
-        output: PathBuf,
-        #[command(flatten)]
-        options: architecture_acceptance::RunOptions,
-    },
     /// Publish and reopen a fresh current store for inspection tests.
     #[cfg(feature = "package-fixtures")]
     InspectionFixture {
@@ -113,11 +105,6 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
-    /// Bump the workspace version, write the changelog, commit and tag.
-    Release {
-        /// The new version, e.g. `0.1.0`.
-        version: String,
-    },
 }
 
 /// Committed generators and the contract bootstrap phase.
@@ -139,9 +126,6 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let root = workspace_root()?;
     match cli.command {
-        Cmd::ArchitectureAcceptance { output, options } => {
-            architecture_acceptance::run(&root, &output, &options)
-        }
         #[cfg(feature = "package-fixtures")]
         Cmd::InspectionFixture { output } => inspection_fixture::run(&output),
         #[cfg(feature = "package-fixtures")]
@@ -169,14 +153,6 @@ fn main() -> Result<()> {
         Cmd::ProbeHost { json } => {
             probe_host(json);
             Ok(())
-        }
-        Cmd::Release { version } => {
-            eprintln!(
-                "release {version}: not implemented in phase 0. The publishing tool \
-                 (release-plz vs cargo-workspaces) is decided by ADR at phase-0 exit; \
-                 until then bump [workspace.package].version by hand and tag."
-            );
-            std::process::exit(2);
         }
     }
 }

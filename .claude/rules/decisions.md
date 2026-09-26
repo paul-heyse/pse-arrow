@@ -15,10 +15,12 @@ done. When the code and a plan disagree, the code is what runs.
 
 `id`, `title`, `status` (`proposed` | `accepted` | `rejected` | `deprecated` |
 `superseded`), `date`, `deciders`, `level` (`decision` | `should-deviation` |
-`must-gap`), `principles` (`DP-xx` core, `PS-xx` process-simulator profile; accepted records keep legacy `DM-xx`), `blueprint` (the sections governed), `review`
+`must-gap`), `principles` (`AP-xx` foundations, `DP-xx` refinements, `PS-xx` process-simulator profile; accepted records keep legacy `DM-xx`), `blueprint` (the sections governed), `review`
 (`path#finding`, or `not-required: <reason>`), `evidence` (a §D label),
 `supersedes`/`superseded-by`, `revisit` (an *observable* trigger, not a date alone),
-`verification` (the test, lint or benchmark that shows the decision still holds).
+`verification` (the named scenario/property and analysis, test, lint or measurement that
+settles it). Optional `standard` and `scenarios` fields snapshot reviewed versions and link
+scenario definitions; they do not copy current status or make old ADRs invalid.
 
 `level: must-gap` narrows scope. It never claims compliance.
 
@@ -38,8 +40,9 @@ place is a red build, and a `PreToolUse` hook blocks it before that.
 
 An ADR enters or changes status only in a PR labeled `adr` and titled
 `adr: ADR-NNNN <title>`. The same PR — or a named follow-up `design:` PR — amends
-`docs/authoritative_design/blueprint.md` with a revision row and an inline
-`> Decision: ADR-NNNN` at the governed section. A PR may merge with `status: proposed`
+the authoritative collection with a revision row in `docs/authoritative_design/blueprint.md`
+and an inline `> Decision: ADR-NNNN` at the governed section's owner. Section identities
+remain stable across `blueprint.md` and `sections/`. A PR may merge with `status: proposed`
 only if it also carries `needs-review`.
 
 ## When an ADR is required
@@ -57,6 +60,28 @@ plan implements. When the work lands, append `## Outcome` with what was built, *
 mistake made and corrected**, and **deviations that were deliberate**. Both of those
 sections are the point of the outcome; omitting them makes the plan a memo.
 
+### Architecture and follow-up ownership
+
+Use the selected review standard's six foundations and scenario method for architectural
+changes. Preserve architectural fitness and behavioral adequacy as separate judgments.
+Packets name the responsibility that absorbs each change, the consumed contract, the relevant
+scenario acceptance, and any replacement/deletion. A focused change need not invent scenarios
+or mechanisms outside its scope.
+
+The owning plan's disposition table is the current state of adopted findings:
+`finding reference | scenario reference | disposition | decision/work owner | evidence or
+revisit trigger`. Use open, scheduled, resolved, deferred, superseded or disproved with the
+meaning in the review template. Resolved requires the correction's evidence; scheduling a
+packet or accepting an ADR is insufficient. Deferred work has an owner and observable trigger.
+Link packet-owned execution evidence. Keep historical review observations and accepted ADR
+support at decision time intact. Indexes link current status instead of copying it.
+
+New plans may use `review_sources` and `scenario_sources` inline lists in front matter for
+navigation. References identify existing definitions; no second scenario registry is required.
+The plan has one overall lifecycle status; its packet table owns packet progress. An execution
+packet may instead own that packet's progress, in which case the plan links it rather than
+maintaining a second status value.
+
 ### Execution rhythm in plans
 
 Structure every plan the way AGENTS.md *Execution rhythm* runs it:
@@ -65,10 +90,11 @@ Structure every plan the way AGENTS.md *Execution rhythm* runs it:
   they replace. A packet is not done while the replaced mechanism, its callers or its
   tests remain — delete them as soon as the replacement is proven by its tests. No
   compatibility paths, no tests ported onto a deleted mechanism.
-- **One final qualification stage** at the end of the plan holds integration, component,
-  solver, Python and performance journeys, formatting/lint/governance/codegen/doc/ADR
-  checks, any source seal, and the evidence-labelled Verification and Outcome. Full
-  qualification is mandatory; it is just not repeated per packet.
+- **Comprehensive qualification is separately requested by the maintainer.** A plan may
+  describe relevant integration, component, solver, Python, performance and static
+  checks, but their execution is not a plan-close, commit, push or merge gate. Report
+  evidence for checks actually run. Documentation/tooling changes do not acquire native
+  compilation or source-proof requirements.
 - **Checkpoints** record current state, decisions made and the next dependency-ordered
   steps. They do not record per-command receipts, numbered rerun logs or static checks
   rerun after documentation edits. Failed-run detail is kept only while it drives a repair.

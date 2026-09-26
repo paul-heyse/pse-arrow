@@ -11,8 +11,6 @@
 ///Registry namespace values.
 pub mod r#authored;
 ///Registry namespace values.
-pub mod r#inferred;
-///Registry namespace values.
 pub mod r#normalized;
 ///Registry namespace values.
 pub mod r#provenance;

@@ -336,10 +336,9 @@ async fn publication_composes_one_write_with_an_exact_unchanged_member() {
     let packages = original.members[0].clone();
     let entities = &original.members[1];
     let (_, relation_id, batch) = source_member_batches(false).pop().unwrap();
-    let table = DeltaTableBuilder::from_url(entities.table_uri.parse().unwrap())
+    let table = DeltaTableBuilder::from_url(location(&temp.path().join("child-entities")))
         .unwrap()
-        .load()
-        .await
+        .build()
         .unwrap();
     let members = vec![
         Member::Retained(packages.clone()),
@@ -393,7 +392,7 @@ async fn publication_composes_one_write_with_an_exact_unchanged_member() {
             .find(|m| m.table_name == "entities")
             .unwrap()
             .delta_version,
-        2
+        1
     );
     assert_eq!(
         DeltaTableBuilder::from_url(packages.table_uri.parse().unwrap())
@@ -415,7 +414,7 @@ async fn publication_composes_one_write_with_an_exact_unchanged_member() {
         )
         .unwrap()
         .delta_version,
-        2
+        1
     );
 
     qualify_retained_only_composition(&state, control, selected).await;

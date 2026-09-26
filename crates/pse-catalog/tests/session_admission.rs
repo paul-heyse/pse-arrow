@@ -162,10 +162,8 @@ async fn actual_settings_and_owned_result_lifetimes_are_checked() {
         all["datafusion.execution.skip_physical_aggregate_schema_check"].as_deref(),
         Some("false")
     );
-    assert_eq!(
-        all["datafusion.pse.null_policy"].as_deref(),
-        Some("four_valued")
-    );
+    assert!(!all.contains_key("datafusion.pse.null_policy"));
+    assert!(!all.contains_key("datafusion.pse.kernel_outcome_policies"));
     let result = session
         .sql(
             "SELECT id FROM authored.samples WHERE id = 1",

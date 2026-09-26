@@ -34,7 +34,7 @@ pub(crate) fn runtime(owner: &WorkflowRuntime) -> Runtime {
         owner.sessions.clone(),
     )
 }
-pub(crate) async fn builder(owner: &WorkflowRuntime) -> ModelBuilder {
+pub(crate) async fn physical(owner: &WorkflowRuntime) -> pse_runtime::workflow::PhysicalContext {
     let runtime = runtime(owner);
     let texts = BTreeMap::from([
         (
@@ -61,10 +61,14 @@ pub(crate) async fn builder(owner: &WorkflowRuntime) -> ModelBuilder {
         &owner.cancel,
     )
     .unwrap();
-    let physical = runtime
+    runtime
         .physical_from_documents(&documents, &owner.cancel)
         .await
-        .unwrap();
+        .unwrap()
+}
+pub(crate) async fn builder(owner: &WorkflowRuntime) -> ModelBuilder {
+    let runtime = runtime(owner);
+    let physical = physical(owner).await;
     let mut builder = ModelBuilder::from_declaration(
         runtime,
         serde_json::from_value(json("model.json")).unwrap(),

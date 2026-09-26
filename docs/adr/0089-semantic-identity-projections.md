@@ -48,6 +48,14 @@ All floating framing and reuse equality use pse-ids canonical_f64_bits: preserve
 
 ### Consequences
 
+P11 audits preparation, executable program, native allocation compatibility and
+attempt configuration separately. Storage invalidation cannot evict mathematical
+programs. Explicit program clearing fences late insertion; retiring shared work
+remains owned until completion and is distinct from a new caller's cancellation.
+Immutable prepared products share allocation ownership while native worker state
+remains private. Salsa rotation follows retained entries and bytes, with explicit
+input durability, rather than the number of requests or publications.
+
 P05–P06 numerical-policy identities include effective coordinates, budgets and source
 provenance. Bound mathematical and convexity evidence includes the exact consumed
 values, formulation, normalization and proof policy; free trial values do not establish

@@ -4,9 +4,8 @@
 # The solver container: Ipopt 3.14.20 + MUMPS 5.9.1 + ASL, built from pinned source
 # tarballs verified against docker/solvers/checksums.sha256.
 #
-# On a pull request that touches the recipe: build all three stages and run the smoke
-# test, but push nothing. On a push to `main`: build, push to GHCR, and open a pull
-# request that moves `SOLVER_IMAGE` across the workflows to the new digest.
+# Manual dispatch builds all three stages and runs the smoke test. Publishing to GHCR
+# and opening a pin update pull request requires an explicit input on `main`.
 #
 # The image is content-addressed by the recipe: `ci-<tree-hash>` where the tree hash is
 # the first 12 characters of `git rev-parse HEAD:docker/solvers`. Two checkouts with the
@@ -19,22 +18,19 @@
 name: solvers-image
 
 on:
-  pull_request:
-    paths:
-      - "docker/solvers/**"
-      - ".github/workflows/solvers-image.yml"
-  push:
-    branches: [main]
-    paths:
-      - "docker/solvers/**"
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish images and open a pin update pull request (main only)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 defaults:
   run:
@@ -54,8 +50,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      # Only on a push to main does anything actually get pushed; the token is scoped
-      # per job rather than at the workflow level so a pull-request build cannot publish.
+      # Publishing is explicitly selected at dispatch; read-only builds run the smoke test.
       packages: write
     outputs:
       tree-hash: ${{ steps.recipe.outputs.tree-hash }}
@@ -74,7 +69,7 @@ jobs:
           echo "recipe tree hash: ${tree_hash}"
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - name: log in to GHCR
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ inputs.publish && github.ref == 'refs/heads/main' }}
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -97,8 +92,8 @@ jobs:
         with:
           context: docker/solvers
           target: solvers
-          load: ${{ github.event_name == 'pull_request' }}
-          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ !inputs.publish || github.ref != 'refs/heads/main' }}
+          push: ${{ inputs.publish && github.ref == 'refs/heads/main' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RECIPE_TAG }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -110,8 +105,8 @@ jobs:
         with:
           context: docker/solvers
           target: ci
-          load: ${{ github.event_name == 'pull_request' }}
-          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ !inputs.publish || github.ref != 'refs/heads/main' }}
+          push: ${{ inputs.publish && github.ref == 'refs/heads/main' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ steps.recipe.outputs.tree-hash }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -123,18 +118,16 @@ jobs:
         with:
           context: docker/solvers
           target: dev
-          load: ${{ github.event_name == 'pull_request' }}
-          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ !inputs.publish || github.ref != 'refs/heads/main' }}
+          push: ${{ inputs.publish && github.ref == 'refs/heads/main' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${{ steps.recipe.outputs.tree-hash }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: smoke test the built image
-        # Only meaningful when the image is local, i.e. on pull requests. The recipe's
-        # own post-build test compiles hs071_c.c and solves a tiny .nl; this repeats the
-        # essential part from outside the build so a broken `ci` stage cannot merge.
-        if: ${{ github.event_name == 'pull_request' }}
+        # Verify a read-only build from outside the image.
+        if: ${{ !inputs.publish || github.ref != 'refs/heads/main' }}
         env:
           CI_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ steps.recipe.outputs.tree-hash }}
         run: |
@@ -148,7 +141,7 @@ jobs:
           '
 
       - name: record what was published
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ inputs.publish && github.ref == 'refs/heads/main' }}
         env:
           TREE_HASH: ${{ steps.recipe.outputs.tree-hash }}
           CI_DIGEST: ${{ steps.build-ci.outputs.digest }}
@@ -168,7 +161,7 @@ jobs:
   update-pin:
     name: update-pin
     needs: [build]
-    if: ${{ github.event_name != 'pull_request' && needs.build.outputs.ci-digest != '' }}
+    if: ${{ inputs.publish && github.ref == 'refs/heads/main' && needs.build.outputs.ci-digest != '' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write

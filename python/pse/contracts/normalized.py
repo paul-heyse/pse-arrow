@@ -12,14 +12,6 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
-class NormalizedDomainProductsRow:
-    """Declared relation row or nested value."""
-
-    product_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    domain_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
 class NormalizedInstanceBindingsRow:
     """Declared relation row or nested value."""
 
@@ -47,23 +39,6 @@ class NormalizedPackageGraphRow:
     depth: b.int = attrs.field(validator=v.integer_range(0, 65535))
     dependency_package_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class NormalizedPropertyDemandSeedsRow:
-    """Declared relation row or nested value."""
-
-    seed_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_kind: e.DemandSource = attrs.field(validator=attrs.validators.instance_of(e.DemandSource))
-    scope_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    property_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    guard_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
-    derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    guard_source_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    source_symbol_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    read_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
 
 @attrs.frozen(kw_only=True)

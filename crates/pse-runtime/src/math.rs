@@ -7,6 +7,7 @@ mod functions;
 #[cfg(feature = "solver-kinsol")]
 pub mod initialization;
 mod jobs;
+mod products;
 pub mod solves;
 pub use artifacts::Artifact;
 use artifacts::{Key, Value};
@@ -14,13 +15,11 @@ use datafusion::execution::{
     cache::default_cache::DefaultCache,
     memory_pool::{MemoryConsumer, MemoryPool},
 };
+use pse_columnar::flight::{FlightCancellation, Flights};
 use pse_compiler::workspace::{
     CompileError, CompilerWorkspace, Inputs, PreparedCase, Profile, WorkspaceLimits,
 };
-use pse_engine::cache_service::{
-    CacheComponent,
-    flight::{FlightCancellation, Flights},
-};
+use pse_engine::cache_service::CacheComponent;
 use pse_ids::SemanticId;
 use pse_kernels::{DerivativeOrder, Provider, ProviderKey};
 use pse_math::assembly::{CaseAssembly, CaseWorker};
@@ -107,13 +106,16 @@ pub enum MathRuntimeError {
     /// Cancellation does not imply native exit.
     #[error("math work cancelled")]
     Cancelled,
+    /// A previous shared load is still joining after its last waiter departed.
+    #[error("math program load is retiring; retry after completion")]
+    Retiring,
     /// Supervisor/thread failure.
     #[error("math infrastructure: {0}")]
     Infrastructure(String),
 }
 pse_diagnostics::impl_diagnostic! {
     MathRuntimeError,
-    code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Limit(_)|Self::Pool(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),_=>None} },
+    code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),_=>None} },
     forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None} },
     help(_this) { None },related(_this) { None },source(_this) { None }
 }
@@ -126,11 +128,11 @@ pub struct MathService {
     jobs: Arc<tokio::sync::Semaphore>,
     entries: DefaultCache<Key, Value>,
     flights: Flights<Key, Artifact, MathRuntimeError>,
-    publication: Mutex<()>,
-    epoch: AtomicUsize,
+    retention: pse_columnar::retention::RetentionFence,
     live: Arc<AtomicUsize>,
     hits: AtomicUsize,
     misses: AtomicUsize,
+    products: Mutex<BTreeMap<Vec<usize>, std::sync::Weak<products::ProductOwner>>>,
 }
 impl MathService {
     /// Admitted worker stack, also used by nested native pools.
@@ -152,11 +154,11 @@ pub struct Workspace {
     compiler: Arc<Mutex<CompilerWorkspace>>,
     lease: Arc<pse_columnar::AllocationLease>,
 }
-/// Prepared semantic outputs retain the workspace allowance even after a generation rotates.
+/// Prepared semantic outputs retain their own payload after a generation rotates.
 #[derive(Clone, Debug)]
 pub struct Preparation {
     prepared: Arc<PreparedCase>,
-    owner: Arc<pse_columnar::AllocationLease>,
+    owner: Arc<products::ProductOwner>,
 }
 impl Preparation {
     /// Immutable compiler products, including source maps and proof assumptions.
@@ -173,14 +175,13 @@ impl Preparation {
 pub struct ExecutableCase {
     pub(crate) assembly: Arc<CaseAssembly>,
     _artifacts: Vec<Arc<Artifact>>,
-    _owner: Arc<pse_columnar::AllocationLease>,
+    _owner: Arc<dyn pse_math::AllocationOwner>,
 }
 /// Attempt-local mutable state and its reservation; never retained in Salsa or a cache.
 #[derive(Debug)]
 pub struct ExecutionWorker {
     worker: CaseWorker,
     _case: Arc<ExecutableCase>,
-    _lease: Arc<pse_columnar::AllocationLease>,
 }
 impl ExecutionWorker {
     /// Access attempt-local numeric operations.
@@ -204,11 +205,11 @@ impl MathService {
             entries: DefaultCache::new(policy.artifact_bytes).with_name("pse.cache.math_artifacts"),
             flights: Flights::new(policy.flights),
             policy,
-            publication: Mutex::new(()),
-            epoch: AtomicUsize::new(0),
+            retention: Default::default(),
             live: Arc::default(),
             hits: AtomicUsize::new(0),
             misses: AtomicUsize::new(0),
+            products: Mutex::default(),
         });
         let component: Arc<dyn CacheComponent> = service.clone();
         native.register_component(&component);
@@ -230,6 +231,7 @@ impl MathService {
         mut limits: WorkspaceLimits,
     ) -> Result<Workspace, MathRuntimeError> {
         limits.input_bytes = limits.input_bytes.min(self.policy.workspace_bytes / 2);
+        limits.retained_bytes = limits.retained_bytes.min(self.policy.workspace_bytes / 2);
         let lease = self.reserve("math:compiler-workspace", self.policy.workspace_bytes)?;
         let compiler = CompilerWorkspace::new(inputs, limits)?;
         Ok(Workspace {
@@ -257,23 +259,27 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Preparation, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let owner = self.reserve("math:prepared-products", self.policy.workspace_bytes)?;
-        let operation = self.job(
+        let foreign = self.policy.foreign_bytes;
+        let operation = self.job_retained(
             1,
-            pse_structural::incidence::MATCHING_STACK,
+            self.policy.workspace_bytes,
             control.clone(),
             move |flag| {
                 let _workspace_lease = workspace.lease;
                 let mut compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
                 })?;
-                compiler
-                    .prepare_cancellable(id, order, profile, coefficients, flag)
-                    .map_err(MathRuntimeError::Compile)
+                let prepared =
+                    compiler.prepare_cancellable(id, order, profile, coefficients, flag)?;
+                let bytes = prepared
+                    .retained_bytes()
+                    .checked_add(foreign)
+                    .ok_or(MathRuntimeError::Limit("prepared product extent"))?;
+                Ok((prepared, bytes))
             },
         );
         tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>Ok(Preparation{prepared:Arc::new(result?),owner}),()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
+        tokio::select! {result=&mut operation=>self.own_preparation(result?),()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
     }
     /// Atomically select an immutable revision and prepare it on the same compiler
     /// lock. Concurrent revisions cannot interleave publication and query execution.
@@ -287,10 +293,10 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Preparation, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let owner = self.reserve("math:prepared-products", self.policy.workspace_bytes)?;
-        let operation = self.job(
+        let foreign = self.policy.foreign_bytes;
+        let operation = self.job_retained(
             1,
-            pse_structural::incidence::MATCHING_STACK,
+            self.policy.workspace_bytes,
             control.clone(),
             move |flag| {
                 let _lease = workspace.lease;
@@ -300,7 +306,7 @@ impl MathService {
                 compiler.publish(inputs)?;
                 let prepared =
                     compiler.prepare_cancellable(id, order, profile, false, flag.clone())?;
-                if prepared.facts.affine_rows.iter().all(|v| *v)
+                let prepared = if prepared.facts.affine_rows.iter().all(|v| *v)
                     && prepared.facts.objective_degree.is_some_and(|d| d <= 2)
                     && prepared
                         .presolve
@@ -308,14 +314,19 @@ impl MathService {
                         .values()
                         .all(|s| *s == pse_math::presolve::ObligationStatus::Discharged)
                 {
-                    Ok(compiler.prepare_cancellable(id, order, profile, true, flag)?)
+                    compiler.prepare_cancellable(id, order, profile, true, flag)?
                 } else {
-                    Ok(prepared)
-                }
+                    prepared
+                };
+                let bytes = prepared
+                    .retained_bytes()
+                    .checked_add(foreign)
+                    .ok_or(MathRuntimeError::Limit("prepared product extent"))?;
+                Ok((prepared, bytes))
             },
         );
         tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>Ok(Preparation{prepared:Arc::new(result?),owner}),()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
+        tokio::select! {result=&mut operation=>self.own_preparation(result?),()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
     }
     /// Resolve the exact compiler requests and bind immutable programs.
     pub async fn assemble(
@@ -326,14 +337,7 @@ impl MathService {
         for request in prepared.prepared.artifacts.iter() {
             artifacts.push(self.artifact(request.clone()).await?);
         }
-        let plan = Arc::new(
-            prepared
-                .prepared
-                .plan
-                .as_ref()
-                .clone()
-                .with_owner(prepared.owner.clone()),
-        );
+        let plan = prepared.prepared.plan.clone();
         let _span = tracing::info_span!("pse.case.program_assembly").entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
@@ -354,7 +358,8 @@ impl MathService {
     ) -> Result<T, MathRuntimeError> {
         let control = FlightCancellation::default();
         let service = self.clone();
-        let operation = self.job(1, self.policy.worker_bytes, control.clone(), move |flag| {
+        let bytes = case.assembly.numeric_worker_bytes();
+        let operation = self.job(1, bytes, control.clone(), move |flag| {
             let providers = providers
                 .into_iter()
                 .map(|(key, factory)| {
@@ -380,18 +385,10 @@ impl MathService {
         if bytes > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit("worker storage"));
         }
-        let lease = self.reserve(
-            "math:case-worker",
-            self.policy
-                .worker_bytes
-                .checked_add(self.policy.foreign_bytes)
-                .ok_or(MathRuntimeError::Limit("worker allowance"))?,
-        )?;
         let worker = case.assembly.worker(providers, cancel);
         Ok(ExecutionWorker {
             worker,
             _case: case,
-            _lease: lease,
         })
     }
 }

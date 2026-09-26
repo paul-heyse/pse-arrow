@@ -77,7 +77,7 @@ pub fn integrate_with_progress(
 }
 
 /// One compiled function role, not a second expression representation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Function {
     /// Differential rates followed by the selected algebraic residuals.
     Rhs,
@@ -399,7 +399,7 @@ impl Profile {
     }
 }
 /// Function value and raw partials with respect to state followed by parameters.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Evaluation {
     /// Ordered function values.
     pub values: Vec<f64>,
@@ -451,26 +451,8 @@ pub struct EventRecord {
     /// State after consistency/reset, absent for terminal events or failed resets.
     pub after: Option<Vec<f64>>,
 }
-/// Integration outcome, distinct from optimization or physical acceptance.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Termination {
-    /// Requested horizon reached.
-    Completed,
-    /// Terminal guard stopped integration.
-    Event,
-    /// Cooperative cancellation observed.
-    Cancelled,
-    /// Elapsed allowance exhausted.
-    TimeLimit,
-    /// Native step-call allowance exhausted.
-    StepLimit,
-    /// Transition allowance exhausted.
-    EventLimit,
-    /// Native or mathematical failure.
-    Failed,
-    /// Unexpected contained Rust panic.
-    Panic,
-}
+/// Registry-owned integration outcome, independent of physical acceptance.
+pub use pse_model::generated::enums::TrajectoryTermination as Termination;
 /// Joined report retaining valid completed data even when a later callback fails.
 #[derive(Debug)]
 pub struct Report {
@@ -496,6 +478,35 @@ pub struct Report {
     pub dropped_progress: u64,
 }
 impl Report {
+    /// Known retained trajectory buffers. Opaque statistics/error/progress storage
+    /// is covered separately by the runtime's report allowance.
+    pub fn numeric_bytes(&self) -> usize {
+        size_of::<Self>()
+            + (self.requested_initial.capacity() + self.consistent_initial.capacity())
+                * size_of::<f64>()
+            + self.samples.capacity() * size_of::<Sample>()
+            + self
+                .samples
+                .iter()
+                .map(|s| {
+                    (s.balance_integrals.capacity()
+                        + s.state.capacity()
+                        + s.outputs.capacity()
+                        + s.state_sensitivities.capacity()
+                        + s.output_sensitivities.capacity())
+                        * size_of::<f64>()
+                })
+                .sum::<usize>()
+            + self.events.capacity() * size_of::<EventRecord>()
+            + self
+                .events
+                .iter()
+                .map(|e| {
+                    (e.before.capacity() + e.after.as_ref().map_or(0, Vec::capacity))
+                        * size_of::<f64>()
+                })
+                .sum::<usize>()
+    }
     #[cfg(any(feature = "diffsol", feature = "idas"))]
     pub(crate) fn new(start: f64) -> Self {
         Self {

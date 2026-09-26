@@ -220,6 +220,13 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `Reciprocating` | `Reciprocating` | false |
 | `Screw` | `Screw` | false |
 
+## `ComputationKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `simulation` | `` | false |
+| `fit` | `` | false |
+
 ## `ConcentrationForm`
 
 IDAES compatibility source: `idaes.models.properties.modular_properties.base.utility`.
@@ -360,13 +367,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `userInputRecommended` | `userInputRecommended` | false |
 | `userInputRequired` | `userInputRequired` | false |
 | `userSetManually` | `userSetManually` | false |
-
-## `DemandSource`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `expression` | `` | false |
-| `opaque_operation` | `` | false |
 
 ## `DerivationGranularity`
 
@@ -523,6 +523,15 @@ IDAES compatibility source: `idaes.core.base.control_volume1d`.
 | `face` | `` | false |
 | `node` | `` | false |
 | `custom` | `` | false |
+
+## `DualQualification`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `evaluated_kkt_not_sensitivity_certified` | `` | false |
+| `unavailable_or_invalid` | `` | false |
+| `unavailable` | `` | false |
+| `not_applicable_parameter` | `` | false |
 
 ## `ElementProjectionFormula`
 
@@ -868,15 +877,6 @@ IDAES compatibility source: `idaes.core.initialization.initializer_base`.
 | `domain` | `` | false |
 | `closure` | `` | false |
 | `acyclic` | `` | false |
-
-## `KernelOutcome`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `success` | `` | false |
-| `missing_input` | `` | false |
-| `domain_failure` | `` | false |
-| `implementation_failure` | `` | false |
 
 ## `LawExpansion`
 
@@ -1571,14 +1571,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `seed` | `` | false |
 | `requirement` | `` | false |
 
-## `ResolutionStatus`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `resolved` | `` | false |
-| `unresolved` | `` | false |
-| `ambiguous` | `` | false |
-
 ## `RetentionReason`
 
 | Member | IDAES name | Deprecated |
@@ -1774,21 +1766,6 @@ IDAES compatibility source: `idaes.models.properties.modular_properties.base.uti
 | `flowsheet` | `` | false |
 | `helper` | `` | false |
 
-## `TerminationStatus`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `optimal` | `` | false |
-| `locally_infeasible` | `` | false |
-| `infeasible` | `` | false |
-| `unbounded` | `` | false |
-| `max_iterations` | `` | false |
-| `max_time` | `` | false |
-| `restoration_failed` | `` | false |
-| `solver_error` | `` | false |
-| `cancelled` | `` | false |
-| `user_interrupt` | `` | false |
-
 ## `ThermodynamicAssumption`
 
 IDAES compatibility source: `idaes.models.unit_models.pressure_changer`.
@@ -1813,6 +1790,19 @@ IDAES compatibility source: `idaes.models.unit_models.pressure_changer`.
 |---|---|---|
 | `absolute_origin` | `` | false |
 | `elapsed_duration` | `` | false |
+
+## `TrajectoryTermination`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `completed` | `` | false |
+| `event` | `` | false |
+| `cancelled` | `` | false |
+| `time_limit` | `` | false |
+| `step_limit` | `` | false |
+| `event_limit` | `` | false |
+| `failed` | `` | false |
+| `panic` | `` | false |
 
 ## `TrayMaterial`
 

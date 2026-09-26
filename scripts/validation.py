@@ -25,12 +25,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts import (
-    build_environment,
-    implementation_phase,
-    validation_cases,
-    validation_receipts,
-)
+from scripts import build_environment, validation_receipts
 from scripts.validation_scope import EXCLUSIONS, GROUPS, Gate, comprehensive, expand
 
 
@@ -64,6 +59,10 @@ SOURCE_PATHS = (
     "CLAUDE.md",
     "README.md",
     "clippy.toml",
+    "sgconfig.yml",
+    "sgrules",
+    "sgutils",
+    "sgtests",
     "deny.toml",
     "conftest.py",
     ".gitignore",
@@ -88,8 +87,9 @@ SOURCE_PATHS = (
     "docs/design_review",
     "docs/dev",
     "docs/generated",
-    "docs/SUMMARY.md",
-    "book.toml",
+    "docs/book.toml",
+    "docs/site.toml",
+    "docs/theme",
     "REUSE.toml",
     "LICENSES",
     ".pre-commit-config.yaml",
@@ -361,7 +361,7 @@ def checkpoint(output: Path, receipt: dict) -> None:
     lines = [
         "# Validation assessment",
         "",
-        f"Baseline: zero failures. Mode: {receipt['mode']}; acceptance requires the declared cases and review.",
+        f"Baseline: zero failures. Mode: {receipt['mode']}; command results do not constitute architecture review.",
         "",
         f"Attempted {len(receipt['checks'])}/{len(receipt['scope'])} checks; {len(unsuccessful)} unsuccessful checks.",
         f"All checks attempted: {receipt['complete']}. Source unchanged: {receipt['source_unchanged']}.",
@@ -370,8 +370,13 @@ def checkpoint(output: Path, receipt: dict) -> None:
         "| --- | --- | --- | --- | --- |",
     ]
     for check in receipt["checks"]:
+        log = (
+            str(Path(check["origin"]) / check["log"])
+            if check.get("origin")
+            else check["log"]
+        )
         lines.append(
-            f"| {check['gate']} | {check['status']} | {check['exit_code']} | {check['elapsed_seconds']:.1f} | [{check['log']}]({check['log']}) |"
+            f"| {check['gate']} | {check['status']} | {check['exit_code']} | {check['elapsed_seconds']:.1f} | [{check['log']}]({log}) |"
         )
     lines.extend(
         (
@@ -390,26 +395,13 @@ def run_gates(
     gates: list[Gate],
     *,
     capture: bool = True,
-    phase: str = "functional",
-    resume_from: Path | None = None,
-    rerun: tuple[str, ...] = (),
+    reuse_from: Path | None = None,
+    reuse: tuple[str, ...] = (),
+    transfer: tuple[str, ...] = (),
     change_reason: str | None = None,
-    plan: int | None = None,
-    functional_from: Path | None = None,
-    stop_after: str | None = None,
 ) -> int:
-    if stop_after is not None and (
-        phase != "performance"
-        or stop_after != "plan14-measure"
-        or stop_after not in {gate.name for gate in gates}
-    ):
-        raise ValueError(
-            "measurement checkpoint requires the performance measurement gate"
-        )
-    plan = implementation_phase.execution_plan(root, plan)
-    functional = None
-    if phase == "performance" and plan == 14:
-        functional = implementation_phase.require_functional(root, functional_from)
+    if (reuse or transfer) and reuse_from is None:
+        raise ValueError("reuse and transfer require an origin report")
     snapshot, target, errors = (
         provenance(root, output) if capture else ({}, root / "target", [])
     )
@@ -419,10 +411,8 @@ def run_gates(
         "relative": str(output.relative_to(root)),
     }
     receipt: dict = {
-        "version": 3,
-        "plan": plan,
-        "functional": functional,
-        "mode": phase,
+        "version": 4,
+        "mode": "local",
         "baseline_failures": 0,
         "scope": [asdict(gate) for gate in gates],
         "checks": [],
@@ -432,7 +422,6 @@ def run_gates(
         "evidence": "Proposed",
         "source_files": snapshot,
         "parent": None,
-        "stopped_after": None,
         "environment": {
             key: os.environ[key]
             for key in (
@@ -445,6 +434,12 @@ def run_gates(
                 "SUITESPARSE_LIBRARY_DIR",
                 "CARGO_BUILD_JOBS",
                 "IPOPT_DIR",
+                "OMP_NUM_THREADS",
+                "OPENBLAS_NUM_THREADS",
+                "MKL_NUM_THREADS",
+                "LD_LIBRARY_PATH",
+                "PSE_LLVM_PREFIX",
+                "LIBCLANG_PATH",
                 "UV_PROJECT_ENVIRONMENT",
                 "PSE_TEST_WORKERS",
             )
@@ -452,48 +447,34 @@ def run_gates(
         },
     }
     selected = {gate.name for gate in gates}
-    if set(rerun) - selected:
-        raise ValueError("unknown rerun gates")
-    invalidated = set(rerun)
-    while True:
-        expanded = invalidated | {
-            gate.name for gate in gates if invalidated.intersection(gate.dependencies)
+    if reuse_from:
+        parent = reuse_from.resolve()
+        receipt["parent"] = {
+            "path": str(parent),
+            "digest": validation_receipts.digest(parent / "checks.json"),
         }
-        if expanded == invalidated:
-            break
-        invalidated = expanded
-    if resume_from:
-        receipt["parent"], retained = validation_receipts.continuation(
-            resume_from.resolve(),
+        receipt["checks"] = validation_receipts.reuse_checks(
+            parent,
             snapshot,
-            invalidated,
+            receipt["environment"],
+            receipt["scope"],
+            set(reuse),
+            set(transfer),
             change_reason,
-            plan=plan,
-            mode=phase,
-            environment=receipt["environment"],
-            scope=receipt["scope"],
         )
-        receipt["checks"] = [check for check in retained if check["gate"] in selected]
-    receipt["invalidated"] = sorted(invalidated)
     write_json(
         output / "scope.json", {"checks": receipt["scope"], "exclusions": EXCLUSIONS}
     )
     checkpoint(output, receipt)
     env = command_env()
     env["PSE_ACCEPTANCE_OUTPUT"] = str(output)
-    if functional is not None:
-        env["PSE_FUNCTIONAL_RECEIPT"] = functional["path"]
     # Nested just aggregates use their own evidence folder; never overwrite ours.
     env.pop("PSE_VALIDATION_OUTPUT", None)
     # Selection belongs to this exact gate, never an enclosing pytest/assessment.
     env.pop("PSE_TEST_ENUMERATION", None)
     interrupted = False
-    stopped = False
     for gate in gates:
         if any(check["gate"] == gate.name for check in receipt["checks"]):
-            if gate.name == stop_after:
-                stopped = True
-                receipt["stopped_after"] = gate.name
             continue
         previous = {check["gate"]: check for check in receipt["checks"]}
         dependencies = [
@@ -511,7 +492,7 @@ def run_gates(
         # Fixture consumers use the retained fixture's actual directory on continuation.
         fixture = previous.get("inspection-fixture", {})
         gate_env = dict(env)
-        if gate.name in {"plan14-native", "plan14-python"}:
+        if gate.name in {"native-test", "native-python"}:
             gate_env["PSE_NATIVE_PROVENANCE"] = str(output / f"{gate.name}-native.json")
         if fixture.get("origin"):
             gate_env["PSE_INSPECTION_PUBLICATION"] = str(
@@ -522,11 +503,12 @@ def run_gates(
             command.extend(("--config-file", str(config)))
             report = output / f"{gate.name}.xml"
         record: dict = {
+            "evidence_kind": "not-run",
             "gate": gate.name,
             "command": command,
             "exit_code": None,
             "status": "not_run"
-            if interrupted or stopped
+            if interrupted
             else "blocked"
             if dependencies
             else "running",
@@ -544,10 +526,10 @@ def run_gates(
         }
         receipt["checks"].append(record)
         checkpoint(output, receipt)
-        if interrupted or stopped or dependencies:
+        if interrupted or dependencies:
             continue
         if report and (
-            gate.name.startswith("assessment-python-") or gate.name == "plan14-python"
+            gate.name.startswith("assessment-python-") or gate.name == "native-python"
         ):
             gate_env["PSE_TEST_ENUMERATION"] = str(output / f"{gate.name}-selected.txt")
         if gate.enumerate_native:
@@ -582,6 +564,7 @@ def run_gates(
                 continue
             checkpoint(output, receipt)
         record.update(execute(root, output, gate.name, command, gate_env))
+        record["evidence_kind"] = "executed"
         interrupted = record["status"] == "interrupted"
         receipt["evidence"] = "Tested"
         checkpoint(output, receipt)  # Command survives collector or source errors.
@@ -657,9 +640,6 @@ def run_gates(
             f"validation: {gate.name}: {record['status']} ({record['elapsed_seconds']:.1f}s); {output / record['log']}",
             flush=True,
         )
-        if gate.name == stop_after:
-            stopped = True
-            receipt["stopped_after"] = gate.name
     receipt["complete"] = not interrupted and all(
         c["status"] not in {"running", "not_run", "blocked", "interrupted"}
         for c in receipt["checks"]
@@ -670,34 +650,8 @@ def run_gates(
         and not receipt["provenance_errors"]
         and all(validation_receipts.qualified(c) for c in receipt["checks"])
     )
-    if (
-        capture
-        and phase in {"functional", "performance"}
-        and gates == comprehensive(phase)
-    ):
-        receipt["case_coverage"] = validation_cases.coverage(
-            implementation_phase.manifest(root, plan), receipt["checks"], phase
-        )
-        receipt["required_checks_covered"] &= receipt["case_coverage"]["complete"]
     checkpoint(output, receipt)
-    if stopped:
-        # A requested checkpoint can succeed operationally but never qualifies Q18.
-        # The full scope and pending review gate remain in the incomplete receipt.
-        return int(
-            bool(receipt["provenance_errors"])
-            or not receipt["source_unchanged"]
-            or interrupted
-            or any(
-                not validation_receipts.qualified(check)
-                for check in receipt["checks"]
-                if check["status"] != "not_run"
-            )
-        )
-    return int(
-        bool(receipt["provenance_errors"])
-        or not receipt["source_unchanged"]
-        or not receipt["required_checks_covered"]
-    )
+    return int(not receipt["required_checks_covered"])
 
 
 def main() -> int:
@@ -706,27 +660,17 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--advisory", action="store_true")
-    parser.add_argument(
-        "--phase", choices=("functional", "performance"), default="functional"
-    )
-    parser.add_argument("--resume-from", type=Path)
-    parser.add_argument("--rerun", action="append", default=[])
+    parser.add_argument("--reuse-from", type=Path)
+    parser.add_argument("--reuse", action="append", default=[])
+    parser.add_argument("--transfer", action="append", default=[])
     parser.add_argument("--change-reason")
-    parser.add_argument("--plan", type=int, choices=(14,))
-    parser.add_argument("--functional-from", type=Path)
-    parser.add_argument("--stop-after", choices=("plan14-measure",))
     args = parser.parse_args()
-    gates = expand((args.group,)) if args.group else comprehensive(args.phase)
+    gates = expand((args.group,)) if args.group else comprehensive()
     if args.list:
         print(
             json.dumps(
                 {
-                    "plan": 14,
-                    "phase": args.phase,
                     "checks": [asdict(g) for g in gates],
-                    "inventory": implementation_phase.manifest(
-                        Path(__file__).resolve().parents[1]
-                    ),
                     "exclusions": EXCLUSIONS,
                 },
                 indent=2,
@@ -734,10 +678,6 @@ def main() -> int:
         )
         return 0
     root = Path(__file__).resolve().parents[1]
-    plan = implementation_phase.execution_plan(root, args.plan)
-    implementation_phase.guard(
-        root, [gate.name for gate in gates], args.functional_from
-    )
     output = fresh_output(root, args.output)
     print(f"validation evidence: {output}", flush=True)
     code = run_gates(
@@ -745,16 +685,13 @@ def main() -> int:
         output,
         gates,
         capture=not args.group,
-        phase=args.phase,
-        resume_from=args.resume_from,
-        rerun=tuple(args.rerun),
+        reuse_from=args.reuse_from,
+        reuse=tuple(args.reuse),
+        transfer=tuple(args.transfer),
         change_reason=args.change_reason,
-        plan=plan,
-        functional_from=args.functional_from,
-        stop_after=args.stop_after,
     )
     print(
-        f"validation {'checkpoint' if args.stop_after else 'complete'}: exit {code}; baseline zero; {output / 'summary.md'}",
+        f"validation complete: exit {code}; baseline zero; {output / 'summary.md'}",
         flush=True,
     )
     # Advisory findings are already classified; tool failures must remain failures.

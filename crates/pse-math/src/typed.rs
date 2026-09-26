@@ -311,6 +311,17 @@ impl<'a> BodyBuilder<'a> {
         value.atom = library::formal(slot)?;
         Ok(())
     }
+    /// Retain an authored shared binding as one evaluated block output.
+    /// Physical meaning, source attribution and ordered domain effects are preserved.
+    /// # Errors
+    /// The bounded body has no remaining value slot.
+    pub fn bind(&mut self, mut value: TypedValue) -> Result<TypedValue, MathError> {
+        if !self.physical_only {
+            let slot = self.materialize(value.atom, value.source)?;
+            value.atom = library::formal(slot)?;
+        }
+        Ok(value)
+    }
     fn materialize(&mut self, atom: Atom, source: SemanticId) -> Result<usize, MathError> {
         if self.physical_only {
             return Ok(0);

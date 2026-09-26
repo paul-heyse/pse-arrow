@@ -641,3 +641,79 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
         matches!(error,MathError::Instance{instance,cause} if instance==id(5) && matches!(*cause,MathError::Provider{source_id,..} if source_id==id(2)))
     );
 }
+
+#[test]
+fn full_twenty_and_forty_four_coordinate_jets_fit_real_convolution_budget() {
+    crate::initialize().unwrap();
+    for n in [20, 44] {
+        let atoms = (0..n)
+            .map(|i| library::formal(i).unwrap())
+            .collect::<Vec<_>>();
+        let sum = atoms.iter().fold(Atom::num(0), |s, x| s + x);
+        let squares = atoms.iter().fold(Atom::num(0), |s, x| s + x * x);
+        let body = compile(
+            n,
+            n + 2,
+            vec![block(vec![squares, sum.sin()], vec![n, n + 1])],
+            vec![n, n + 1],
+            DerivativeOrder::Second,
+        );
+        let x = vec![0.5 / n as f64; n];
+        let result = body
+            .worker()
+            .evaluate(
+                &x,
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert!((result.values[0] - 0.25 / n as f64).abs() < 1e-12);
+        assert!((result.values[1] - 0.5_f64.sin()).abs() < 1e-12);
+        for i in 0..n {
+            assert!((result.jacobian[i] - 1.0 / n as f64).abs() < 1e-12);
+            assert!((result.jacobian[n + i] - 0.5_f64.cos()).abs() < 1e-12);
+            for j in 0..n {
+                assert!(
+                    (result.hessians[i * n + j] - if i == j { 2.0 } else { 0.0 }).abs() < 1e-12
+                );
+                assert!((result.hessians[n * n + i * n + j] + 0.5_f64.sin()).abs() < 1e-12);
+            }
+        }
+    }
+}
+
+#[test]
+fn supported_taylor_primitives_reconcile_with_admitted_expansion() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let expressions = vec![
+        x.exp(),
+        x.log(),
+        x.sin(),
+        x.cos(),
+        x.sqrt(),
+        Atom::num(1) / &x,
+        x.clone().pow(y.clone()),
+    ];
+    let outputs = (2..2 + expressions.len()).collect::<Vec<_>>();
+    let body = compile(
+        2,
+        outputs.len() + 2,
+        vec![block(expressions, outputs.clone())],
+        outputs,
+        DerivativeOrder::Second,
+    );
+    let result = body
+        .worker()
+        .evaluate(
+            &[2.0, 1.5],
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    assert!(result.hessians.iter().all(|x| x.is_finite()));
+    assert!((result.values[6] - 2.0_f64.powf(1.5)).abs() < 1e-12);
+}

@@ -215,6 +215,7 @@ async fn new_collection_constraint_has_one_decision_across_local_native_delta_an
                 vec![],
                 &cancel,
             )
+            .map(|(command, _ticket)| command)
             .unwrap();
         let completed = prepared.execute(&cancel).await.unwrap();
         let version = completed.batches()[0]

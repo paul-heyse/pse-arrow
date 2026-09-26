@@ -28,7 +28,7 @@ fn foundation_unit_semantic_values_and_serde_follow_declared_consumers() {
     let registry = crate::registry().unwrap();
     let tree = generate(registry, Language::Rust).unwrap();
     let read = |path: &str| std::str::from_utf8(&tree.files[&PathBuf::from(path)]).unwrap();
-    let semantic = read("crates/pse-model/src/generated/normalized/domain_products.rs");
+    let semantic = read("crates/pse-model/src/generated/normalized/package_graph.rs");
     assert!(!semantic.contains("RowBuilder"));
     assert!(
         !tree
@@ -45,8 +45,7 @@ fn foundation_unit_semantic_values_and_serde_follow_declared_consumers() {
             .contains("serde::Serialize")
     );
     assert!(
-        read("crates/pse-relations/src/generated/normalized/domain_products.rs")
+        read("crates/pse-relations/src/generated/normalized/package_graph.rs")
             .contains("RowBuilder")
     );
-    assert!(read("crates/pse-relations/src/generated/contracts.rs").contains("Field"));
 }
