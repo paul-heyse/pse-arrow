@@ -2741,7 +2741,7 @@ dependencies = [
  "indexmap",
  "itertools 0.15.0",
  "nalgebra",
- "num-dual",
+ "num-dual 0.14.2",
  "num-traits",
  "quantity",
  "serde",
@@ -2759,7 +2759,7 @@ dependencies = [
  "indexmap",
  "itertools 0.15.0",
  "nalgebra",
- "num-dual",
+ "num-dual 0.14.2",
  "num-traits",
  "quantity",
  "serde",
@@ -4406,6 +4406,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-dual"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66fe0dba4263f0d5a17ea63c52fa0cb9488275b827e40389c0a9ce7074efedbd"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5338,7 +5347,7 @@ dependencies = [
  "feos-core",
  "miette",
  "nalgebra",
- "num-dual",
+ "num-dual 0.15.0",
  "pse-diagnostics",
  "pse-ids",
  "pse-model",
@@ -5588,7 +5597,7 @@ dependencies = [
  "highs-sys",
  "libtest-mimic",
  "nalgebra",
- "num-dual",
+ "num-dual 0.15.0",
  "object_store",
  "parquet",
  "proptest",
@@ -5860,7 +5869,7 @@ checksum = "89033a89e427162dc9065d22d09e910ee10f3ce024b307f9ed6e7700db1dc2ac"
 dependencies = [
  "document-features",
  "nalgebra",
- "num-dual",
+ "num-dual 0.14.2",
  "num-traits",
 ]
 

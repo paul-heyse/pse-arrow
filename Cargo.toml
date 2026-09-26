@@ -202,7 +202,7 @@ faer = { version = "=0.24.4", default-features = false, features = [
 ] }
 feos = { version = "=0.10.1", default-features = false, features = ["pcsaft"] }
 feos-core = { version = "=0.10.1", default-features = false }
-num-dual = { version = "=0.14.2", default-features = false }
+num-dual = { version = "=0.15.0", default-features = false }
 nalgebra = { version = "=0.35.0", default-features = false, features = ["std"] }
 highs = "=2.4.0"
 highs-sys = "=1.14.3"
